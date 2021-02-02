@@ -1,3 +1,5 @@
+github.com/aviral26/artifacts v0.0.0-20210128064216-9526869307d7 h1:GaDZS6pvOtxZRl1toVDD3fk4Ix8/UiBQOUycmVCzrkc=
+github.com/aviral26/artifacts v0.0.0-20210128064216-9526869307d7/go.mod h1:Xr7BjEvr8VVrtyC9LX3q5975UVkEvyaXmb34JsCvSJ0=
 github.com/docker/go v1.5.1-1 h1:hr4w35acWBPhGBXlzPoHpmZ/ygPjnmFVxGxxGnMyP7k=
 github.com/docker/go v1.5.1-1/go.mod h1:CADgU4DSXK5QUlFslkQu2yW2TKzFZcXq/leZfM0UH5Q=
 github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 h1:UhxFibDNY/bfvqU5CAUmr9zpesgbU6SWc8/B4mflAE4=

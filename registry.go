@@ -14,8 +14,15 @@ type SignatureRegistry interface {
 
 // SignatureRepository provides a storage for signatures
 type SignatureRepository interface {
+	// Lookup finds all signature artifact for the specified manifest
 	Lookup(ctx context.Context, manifestDigest digest.Digest) ([]digest.Digest, error)
-	Get(ctx context.Context, signatureDigest digest.Digest) ([]byte, error)
+
+	// Get downloads the signature by the specified artifact
+	Get(ctx context.Context, artifactDigest digest.Digest) ([]byte, digest.Digest, error)
+
+	// Put uploads the signature to the registry
 	Put(ctx context.Context, signature []byte) (oci.Descriptor, error)
-	Link(ctx context.Context, manifest, signature oci.Descriptor) error
+
+	// Link creates an signature artifact linking the manifest and the signature
+	Link(ctx context.Context, manifest, signature oci.Descriptor) (oci.Descriptor, error)
 }
