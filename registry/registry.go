@@ -22,13 +22,14 @@ func NewClient(tr http.RoundTripper, name string, insecure bool) notary.Signatur
 	}
 	return &registry{
 		tr:   tr,
-		base: fmt.Sprintf("%s://%s/v2/", scheme, name),
+		base: fmt.Sprintf("%s://%s/v2", scheme, name),
 	}
 }
 
 func (r *registry) Repository(ctx context.Context, name string) notary.SignatureRepository {
 	return &repository{
 		tr:   r.tr,
-		base: r.base + name,
+		base: r.base,
+		name: name,
 	}
 }

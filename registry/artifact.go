@@ -12,5 +12,5 @@ type Artifact struct {
 	ArtifactType string           `json:"artifactType"`
 	Config       oci.Descriptor   `json:"config"`
 	Blobs        []oci.Descriptor `json:"blobs"`
-	DependsOn    []oci.Descriptor `json:"dependsOn"`
+	Manifests    []oci.Descriptor `json:"manifests"`
 }

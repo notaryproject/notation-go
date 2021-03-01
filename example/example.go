@@ -71,18 +71,18 @@ func main() {
 	}
 	fmt.Println(artifactDescriptor.Digest)
 
-	fmt.Println(">>> Lookup signature artifacts")
-	artifactDigests, err := client.Lookup(ctx, manifestDescriptor.Digest)
+	fmt.Println(">>> Lookup signatures")
+	signatureDigests, err := client.Lookup(ctx, manifestDescriptor.Digest)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, artifactDigest := range artifactDigests {
-		fmt.Println("-", artifactDigest)
+	for _, signatureDigest := range signatureDigests {
+		fmt.Println("-", signatureDigest)
 	}
 
-	for _, artifactDigest := range artifactDigests {
-		fmt.Println(">>> Get signature artifact:", artifactDigest)
-		sig, signatureDigest, err := client.Get(ctx, artifactDigest)
+	for _, signatureDigest := range signatureDigests {
+		fmt.Println(">>> Get signature:", signatureDigest)
+		sig, err := client.Get(ctx, signatureDigest)
 		if err != nil {
 			log.Println(err)
 			continue
