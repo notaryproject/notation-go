@@ -15,9 +15,9 @@ type registry struct {
 
 // NewClient creates a client to the remote registry
 // for accessing the signatures.
-func NewClient(tr http.RoundTripper, name string, insecure bool) notary.SignatureRegistry {
+func NewClient(tr http.RoundTripper, name string, plainHTTP bool) notary.SignatureRegistry {
 	scheme := "https"
-	if insecure {
+	if plainHTTP {
 		scheme = "http"
 	}
 	return &registry{

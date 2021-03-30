@@ -115,10 +115,10 @@ func getSigningService(keyPath, certPath string) (notary.SigningService, error) 
 }
 
 func getSignatureRegistry(name, username, password string) notary.SignatureRegistry {
-	insecure := username == "" // for http access
+	plainHTTP := username == "" // for http access
 	tr := http.DefaultTransport
-	if !insecure {
+	if !plainHTTP {
 		tr = util.TransportWithBasicAuth(tr, name, username, password)
 	}
-	return registry.NewClient(tr, name, insecure)
+	return registry.NewClient(tr, name, plainHTTP)
 }
