@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/url"
 
-	artifactspecs "github.com/notaryproject/artifacts/specs-go"
-	artifactspec "github.com/notaryproject/artifacts/specs-go/v2"
+	artifactspecs "github.com/opencontainers/artifacts/specs-go"
+	artifactspec "github.com/opencontainers/artifacts/specs-go/v2"
 	"github.com/opencontainers/go-digest"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -22,7 +22,7 @@ type repository struct {
 }
 
 func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) ([]digest.Digest, error) {
-	url, err := url.Parse(fmt.Sprintf("%s/_ext/oci-artifacts/v1/%s/manifests/%s/links", r.base, r.name, manifestDigest.String()))
+	url, err := url.Parse(fmt.Sprintf("%s/_ext/oci-artifacts/v1/%s/manifests/%s/references", r.base, r.name, manifestDigest.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -44,14 +44,16 @@ func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) (
 	}
 
 	result := struct {
-		Links []artifactspec.Artifact `json:"links"`
+		Links []struct {
+			Manifest artifactspec.Artifact `json:"manifest"`
+		} `json:"links"`
 	}{}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxReadLimit)).Decode(&result); err != nil {
 		return nil, err
 	}
 	digests := make([]digest.Digest, 0, len(result.Links))
 	for _, artifact := range result.Links {
-		for _, blob := range artifact.Blobs {
+		for _, blob := range artifact.Manifest.Blobs {
 			digests = append(digests, blob.Digest)
 		}
 	}

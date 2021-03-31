@@ -1,9 +1,9 @@
+github.com/aviral26/artifacts v0.0.0-20210331072334-fac4f3a4da4e h1:PpLNjTpAp5mTxkuUdM2vCPckrXBPszurJQFvdFUaV1A=
+github.com/aviral26/artifacts v0.0.0-20210331072334-fac4f3a4da4e/go.mod h1:IBQOjhxIKxb9G4h9NiWAJLGBgKPlIy27tcpPDTAfUQw=
 github.com/docker/go v1.5.1-1 h1:hr4w35acWBPhGBXlzPoHpmZ/ygPjnmFVxGxxGnMyP7k=
 github.com/docker/go v1.5.1-1/go.mod h1:CADgU4DSXK5QUlFslkQu2yW2TKzFZcXq/leZfM0UH5Q=
 github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 h1:UhxFibDNY/bfvqU5CAUmr9zpesgbU6SWc8/B4mflAE4=
 github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7/go.mod h1:cyGadeNEkKy96OOhEzfZl+yxihPEzKnqJwvfuSUqbZE=
-github.com/notaryproject/artifacts v0.0.0-20210325201627-49d06c9f1a07 h1:geJlhRFBwSJXhIv7KMgAXBz1Ie6wsuFeE5vuau3B4AQ=
-github.com/notaryproject/artifacts v0.0.0-20210325201627-49d06c9f1a07/go.mod h1:za0DINIIQLPCBn9AhLfPjywgT51o0zll644gbIXiQiQ=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.0.1 h1:JMemWkRwHx4Zj+fVxWoMCFm/8sYGGrUVojFA6h/TRcI=
