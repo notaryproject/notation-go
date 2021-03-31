@@ -10,10 +10,9 @@ import (
 	"net/http"
 	"net/url"
 
-	artifactspecs "github.com/aviral26/artifacts/specs-go/v2"
-	"github.com/notaryproject/notary/v2/util"
+	artifactspecs "github.com/notaryproject/artifacts/specs-go"
+	artifactspec "github.com/notaryproject/artifacts/specs-go/v2"
 	"github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/specs-go"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -31,7 +30,7 @@ func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) (
 		return nil, err
 	}
 	q := url.Query()
-	q.Add("artifact-type", artifactspecs.ArtifactTypeNotaryV2)
+	q.Add("artifact-type", artifactspec.ArtifactTypeNotaryV2)
 	url.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
@@ -48,14 +47,16 @@ func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) (
 	}
 
 	result := struct {
-		Links []Artifact `json:"links"`
+		Links []artifactspec.Artifact `json:"links"`
 	}{}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxReadLimit)).Decode(&result); err != nil {
 		return nil, err
 	}
 	digests := make([]digest.Digest, 0, len(result.Links))
 	for _, artifact := range result.Links {
-		digests = append(digests, artifact.Config.Digest)
+		for _, blob := range artifact.Blobs {
+			digests = append(digests, blob.Digest)
+		}
 	}
 	return digests, nil
 }
@@ -65,28 +66,30 @@ func (r *repository) Get(ctx context.Context, signatureDigest digest.Digest) ([]
 }
 
 func (r *repository) Put(ctx context.Context, signature []byte) (oci.Descriptor, error) {
-	desc := util.DescriptorFromBytes(signature)
-	desc.MediaType = MediaTypeNotaryConfig
+	desc := DescriptorFromBytes(signature)
+	desc.MediaType = MediaTypeNotarySignature
 	return desc, r.putBlob(ctx, signature, desc.Digest)
 }
 
 func (r *repository) Link(ctx context.Context, manifest, signature oci.Descriptor) (oci.Descriptor, error) {
-	artifact := Artifact{
-		Versioned: specs.Versioned{
+	artifact := artifactspec.Artifact{
+		Versioned: artifactspecs.Versioned{
 			SchemaVersion: 2,
 		},
-		MediaType:    artifactspecs.MediaTypeArtifact,
-		ArtifactType: artifactspecs.ArtifactTypeNotaryV2,
-		Config:       signature,
-		Manifests: []oci.Descriptor{
-			manifest,
+		MediaType:    artifactspec.MediaTypeArtifactManifest,
+		ArtifactType: artifactspec.ArtifactTypeNotaryV2,
+		Blobs: []artifactspec.Descriptor{
+			artifactDescriptorFromOCI(signature),
+		},
+		Manifests: []artifactspec.Descriptor{
+			artifactDescriptorFromOCI(manifest),
 		},
 	}
 	artifactJSON, err := json.Marshal(artifact)
 	if err != nil {
 		return oci.Descriptor{}, err
 	}
-	desc := util.DescriptorFromBytes(artifactJSON)
+	desc := DescriptorFromBytes(artifactJSON)
 	return desc, r.putManifest(ctx, artifactJSON, desc.Digest)
 }
 
@@ -173,7 +176,7 @@ func (r *repository) putManifest(ctx context.Context, blob []byte, digest digest
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", artifactspecs.MediaTypeArtifact)
+	req.Header.Set("Content-Type", artifactspec.MediaTypeArtifactManifest)
 	resp, err := r.tr.RoundTrip(req)
 	if err != nil {
 		return err
@@ -183,4 +186,12 @@ func (r *repository) putManifest(ctx context.Context, blob []byte, digest digest
 		return fmt.Errorf("failed to put manifest: %s", resp.Status)
 	}
 	return nil
+}
+
+func artifactDescriptorFromOCI(desc oci.Descriptor) artifactspec.Descriptor {
+	return artifactspec.Descriptor{
+		MediaType: desc.MediaType,
+		Digest:    desc.Digest,
+		Size:      desc.Size,
+	}
 }

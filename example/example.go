@@ -12,7 +12,6 @@ import (
 	"github.com/notaryproject/notary/v2/registry"
 	x509nv2 "github.com/notaryproject/notary/v2/signature/x509"
 	"github.com/notaryproject/notary/v2/simple"
-	"github.com/notaryproject/notary/v2/util"
 )
 
 func main() {
@@ -37,7 +36,7 @@ func main() {
 	fmt.Println(">>> Initialize manifest")
 	references := os.Args[4:]
 	manifestPath := os.Args[3]
-	manifestDescriptor, err := util.DescriptorFromFile(manifestPath)
+	manifestDescriptor, err := registry.DescriptorFromFile(manifestPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -118,7 +117,7 @@ func getSignatureRegistry(name, username, password string) notary.SignatureRegis
 	plainHTTP := username == "" // for http access
 	tr := http.DefaultTransport
 	if !plainHTTP {
-		tr = util.TransportWithBasicAuth(tr, name, username, password)
+		tr = TransportWithBasicAuth(tr, name, username, password)
 	}
 	return registry.NewClient(tr, name, plainHTTP)
 }
