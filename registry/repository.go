@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -15,8 +14,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
 )
-
-const maxReadLimit = 4 * 1024 * 1024
 
 type repository struct {
 	tr   http.RoundTripper
@@ -105,7 +102,7 @@ func (r *repository) getBlob(ctx context.Context, digest digest.Digest) ([]byte,
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		return ioutil.ReadAll(io.LimitReader(resp.Body, maxReadLimit))
+		return readAllVerified(resp.Body, digest)
 	}
 	if resp.StatusCode != http.StatusTemporaryRedirect {
 		return nil, fmt.Errorf("failed to get blob: %s", resp.Status)
@@ -128,7 +125,7 @@ func (r *repository) getBlob(ctx context.Context, digest digest.Digest) ([]byte,
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get blob: %s", resp.Status)
 	}
-	return ioutil.ReadAll(io.LimitReader(resp.Body, maxReadLimit))
+	return readAllVerified(resp.Body, digest)
 }
 
 func (r *repository) putBlob(ctx context.Context, blob []byte, digest digest.Digest) error {
