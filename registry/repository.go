@@ -44,15 +44,15 @@ func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) (
 	}
 
 	result := struct {
-		Links []struct {
+		References []struct {
 			Manifest artifactspec.Artifact `json:"manifest"`
-		} `json:"links"`
+		} `json:"references"`
 	}{}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxReadLimit)).Decode(&result); err != nil {
 		return nil, err
 	}
-	digests := make([]digest.Digest, 0, len(result.Links))
-	for _, artifact := range result.Links {
+	digests := make([]digest.Digest, 0, len(result.References))
+	for _, artifact := range result.References {
 		for _, blob := range artifact.Manifest.Blobs {
 			digests = append(digests, blob.Digest)
 		}
