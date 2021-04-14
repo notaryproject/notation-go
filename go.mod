@@ -10,4 +10,4 @@ require (
 	github.com/opencontainers/image-spec v1.0.1
 )
 
-replace github.com/opencontainers/artifacts => github.com/aviral26/artifacts v0.0.0-20210331072334-fac4f3a4da4e
+replace github.com/opencontainers/artifacts => github.com/notaryproject/artifacts v0.0.0-20210414030140-c7c701eff45d

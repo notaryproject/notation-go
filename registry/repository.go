@@ -27,7 +27,7 @@ func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) (
 		return nil, err
 	}
 	q := url.Query()
-	q.Add("artifact-type", artifactspec.ArtifactTypeNotaryV2)
+	q.Add("artifact-type", ArtifactTypeNotaryV2)
 	url.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
@@ -76,7 +76,7 @@ func (r *repository) Link(ctx context.Context, manifest, signature oci.Descripto
 			SchemaVersion: 2,
 		},
 		MediaType:    artifactspec.MediaTypeArtifactManifest,
-		ArtifactType: artifactspec.ArtifactTypeNotaryV2,
+		ArtifactType: ArtifactTypeNotaryV2,
 		Blobs: []artifactspec.Descriptor{
 			artifactDescriptorFromOCI(signature),
 		},
