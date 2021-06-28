@@ -22,12 +22,12 @@ type repository struct {
 }
 
 func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) ([]digest.Digest, error) {
-	url, err := url.Parse(fmt.Sprintf("%s/_ext/oci-artifacts/v1/%s/manifests/%s/references", r.base, r.name, manifestDigest.String()))
+	url, err := url.Parse(fmt.Sprintf("%s/_ext/oci-artifacts/v1-rc1/%s/manifests/%s/referrers", r.base, r.name, manifestDigest.String()))
 	if err != nil {
 		return nil, err
 	}
 	q := url.Query()
-	q.Add("artifact-type", ArtifactTypeNotaryV2)
+	q.Add("referenceType", ArtifactTypeNotaryV2)
 	url.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
@@ -73,16 +73,14 @@ func (r *repository) Put(ctx context.Context, signature []byte) (oci.Descriptor,
 func (r *repository) Link(ctx context.Context, manifest, signature oci.Descriptor) (oci.Descriptor, error) {
 	artifact := artifactspec.Artifact{
 		Versioned: artifactspecs.Versioned{
-			SchemaVersion: 2,
+			SchemaVersion: 3,
 		},
 		MediaType:    artifactspec.MediaTypeArtifactManifest,
 		ArtifactType: ArtifactTypeNotaryV2,
 		Blobs: []artifactspec.Descriptor{
 			artifactDescriptorFromOCI(signature),
 		},
-		Manifests: []artifactspec.Descriptor{
-			artifactDescriptorFromOCI(manifest),
-		},
+		SubjectManifest: artifactDescriptorFromOCI(manifest),
 	}
 	artifactJSON, err := json.Marshal(artifact)
 	if err != nil {
