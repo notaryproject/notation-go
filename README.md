@@ -2,9 +2,14 @@
 A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts
 
 ## Table of Contents
+- [Core Documents](#core-documents)
 - [Code of Conduct](#code-of-conduct)
 - [License](#license)
 
+## Core Documents
+
+* [Governance for Notation](https://github.com/notaryproject/notary/blob/master/GOVERNANCE.md)
+* [Maintainers and reviewers list](https://github.com/notaryproject/notary/blob/master/MAINTAINERS)
 
 ## Code of Conduct
 
