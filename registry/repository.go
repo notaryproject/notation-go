@@ -9,10 +9,9 @@ import (
 	"net/http"
 	"net/url"
 
-	artifactspecs "github.com/opencontainers/artifacts/specs-go"
-	artifactspec "github.com/opencontainers/artifacts/specs-go/v2"
 	"github.com/opencontainers/go-digest"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
+	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 )
 
 type repository struct {
@@ -22,12 +21,12 @@ type repository struct {
 }
 
 func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) ([]digest.Digest, error) {
-	url, err := url.Parse(fmt.Sprintf("%s/_ext/oci-artifacts/v1-rc1/%s/manifests/%s/referrers", r.base, r.name, manifestDigest.String()))
+	url, err := url.Parse(fmt.Sprintf("%s/oras/artifacts/v1/%s/manifests/%s/referrers", r.base, r.name, manifestDigest.String()))
 	if err != nil {
 		return nil, err
 	}
 	q := url.Query()
-	q.Add("referenceType", ArtifactTypeNotaryV2)
+	q.Add("artifactType", ArtifactTypeNotation)
 	url.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
@@ -44,16 +43,21 @@ func (r *repository) Lookup(ctx context.Context, manifestDigest digest.Digest) (
 	}
 
 	result := struct {
-		References []struct {
-			Manifest artifactspec.Artifact `json:"manifest"`
-		} `json:"references"`
+		References []artifactspec.Descriptor `json:"references"`
 	}{}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxReadLimit)).Decode(&result); err != nil {
 		return nil, err
 	}
 	digests := make([]digest.Digest, 0, len(result.References))
-	for _, artifact := range result.References {
-		for _, blob := range artifact.Manifest.Blobs {
+	for _, desc := range result.References {
+		if desc.ArtifactType != ArtifactTypeNotation || desc.MediaType != artifactspec.MediaTypeArtifactManifest {
+			continue
+		}
+		artifact, err := r.getArtifactManifest(ctx, desc.Digest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch manifest: %v: %v", desc.Digest, err)
+		}
+		for _, blob := range artifact.Blobs {
 			digests = append(digests, blob.Digest)
 		}
 	}
@@ -71,12 +75,9 @@ func (r *repository) Put(ctx context.Context, signature []byte) (oci.Descriptor,
 }
 
 func (r *repository) Link(ctx context.Context, manifest, signature oci.Descriptor) (oci.Descriptor, error) {
-	artifact := artifactspec.Artifact{
-		Versioned: artifactspecs.Versioned{
-			SchemaVersion: 3,
-		},
+	artifact := artifactspec.Manifest{
 		MediaType:    artifactspec.MediaTypeArtifactManifest,
-		ArtifactType: ArtifactTypeNotaryV2,
+		ArtifactType: ArtifactTypeNotation,
 		Blobs: []artifactspec.Descriptor{
 			artifactDescriptorFromOCI(signature),
 		},
@@ -91,7 +92,7 @@ func (r *repository) Link(ctx context.Context, manifest, signature oci.Descripto
 }
 
 func (r *repository) getBlob(ctx context.Context, digest digest.Digest) ([]byte, error) {
-	url := fmt.Sprintf("%s/%s/blobs/%s", r.base, r.name, digest.String())
+	url := fmt.Sprintf("%s/v2/%s/blobs/%s", r.base, r.name, digest.String())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -129,7 +130,7 @@ func (r *repository) getBlob(ctx context.Context, digest digest.Digest) ([]byte,
 }
 
 func (r *repository) putBlob(ctx context.Context, blob []byte, digest digest.Digest) error {
-	url := fmt.Sprintf("%s/%s/blobs/uploads/", r.base, r.name)
+	url := fmt.Sprintf("%s/v2/%s/blobs/uploads/", r.base, r.name)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	if err != nil {
 		return err
@@ -168,7 +169,7 @@ func (r *repository) putBlob(ctx context.Context, blob []byte, digest digest.Dig
 }
 
 func (r *repository) putManifest(ctx context.Context, blob []byte, digest digest.Digest) error {
-	url := fmt.Sprintf("%s/%s/manifests/%s", r.base, r.name, digest.String())
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s", r.base, r.name, digest.String())
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(blob))
 	if err != nil {
 		return err
@@ -183,6 +184,37 @@ func (r *repository) putManifest(ctx context.Context, blob []byte, digest digest
 		return fmt.Errorf("failed to put manifest: %s", resp.Status)
 	}
 	return nil
+}
+
+func (r *repository) getManifest(ctx context.Context, mediaType string, digest digest.Digest) ([]byte, error) {
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s", r.base, r.name, digest.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", mediaType)
+	resp, err := r.tr.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get manifest: %s", resp.Status)
+	}
+	return readAllVerified(resp.Body, digest)
+}
+
+func (r *repository) getArtifactManifest(ctx context.Context, digest digest.Digest) (artifactspec.Manifest, error) {
+	manifestJSON, err := r.getManifest(ctx, artifactspec.MediaTypeArtifactManifest, digest)
+	if err != nil {
+		return artifactspec.Manifest{}, err
+	}
+	var manifest artifactspec.Manifest
+	err = json.Unmarshal(manifestJSON, &manifest)
+	if err != nil {
+		return artifactspec.Manifest{}, err
+	}
+	return manifest, nil
 }
 
 func artifactDescriptorFromOCI(desc oci.Descriptor) artifactspec.Descriptor {

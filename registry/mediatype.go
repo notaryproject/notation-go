@@ -1,8 +1,8 @@
 package registry
 
 const (
-	// ArtifactTypeNotaryV2 specifies the artifact type for a notary V2 object.
-	ArtifactTypeNotaryV2 = "application/vnd.cncf.notary.v2"
+	// ArtifactTypeNotation specifies the artifact type for a notation object.
+	ArtifactTypeNotation = "application/vnd.cncf.notary.v2"
 )
 
 const (

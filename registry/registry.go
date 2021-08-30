@@ -22,7 +22,7 @@ func NewClient(tr http.RoundTripper, name string, plainHTTP bool) notation.Signa
 	}
 	return &registry{
 		tr:   tr,
-		base: fmt.Sprintf("%s://%s/v2", scheme, name),
+		base: fmt.Sprintf("%s://%s", scheme, name),
 	}
 }
 
