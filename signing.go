@@ -1,4 +1,4 @@
-package notary
+package notation
 
 import (
 	"context"

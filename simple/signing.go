@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/docker/libtrust"
-	"github.com/notaryproject/notary/v2"
-	"github.com/notaryproject/notary/v2/signature"
-	x509nv2 "github.com/notaryproject/notary/v2/signature/x509"
+	"github.com/notaryproject/notation-go-lib"
+	"github.com/notaryproject/notation-go-lib/signature"
+	x509n "github.com/notaryproject/notation-go-lib/signature/x509"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -18,18 +18,18 @@ type signingService struct {
 }
 
 // NewSigningService create a simple signing service.
-func NewSigningService(signingKey libtrust.PrivateKey, signingCerts, verificationCerts []*x509.Certificate, roots *x509.CertPool) (notary.SigningService, error) {
+func NewSigningService(signingKey libtrust.PrivateKey, signingCerts, verificationCerts []*x509.Certificate, roots *x509.CertPool) (notation.SigningService, error) {
 	scheme := signature.NewScheme()
 
 	if signingKey != nil {
-		signer, err := x509nv2.NewSigner(signingKey, signingCerts)
+		signer, err := x509n.NewSigner(signingKey, signingCerts)
 		if err != nil {
 			return nil, err
 		}
 		scheme.RegisterSigner("", signer)
 	}
 
-	verifier, err := x509nv2.NewVerifier(verificationCerts, roots)
+	verifier, err := x509n.NewVerifier(verificationCerts, roots)
 	if err != nil {
 		return nil, err
 	}

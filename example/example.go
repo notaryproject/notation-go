@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/notaryproject/notary/v2"
-	"github.com/notaryproject/notary/v2/registry"
-	x509nv2 "github.com/notaryproject/notary/v2/signature/x509"
-	"github.com/notaryproject/notary/v2/simple"
+	"github.com/notaryproject/notation-go-lib"
+	"github.com/notaryproject/notation-go-lib/registry"
+	x509n "github.com/notaryproject/notation-go-lib/signature/x509"
+	"github.com/notaryproject/notation-go-lib/simple"
 )
 
 func main() {
@@ -28,10 +28,10 @@ func main() {
 	fmt.Println(">>> Initialize registry service")
 	ctx := context.Background()
 	client := getSignatureRegistry(
-		os.Getenv("nv2_registry"),
-		os.Getenv("nv2_username"),
-		os.Getenv("nv2_password"),
-	).Repository(ctx, os.Getenv("nv2_repository"))
+		os.Getenv("notation_registry"),
+		os.Getenv("notation_username"),
+		os.Getenv("notation_password"),
+	).Repository(ctx, os.Getenv("notation_repository"))
 
 	fmt.Println(">>> Initialize manifest")
 	references := os.Args[4:]
@@ -97,12 +97,12 @@ func main() {
 	}
 }
 
-func getSigningService(keyPath, certPath string) (notary.SigningService, error) {
-	key, err := x509nv2.ReadPrivateKeyFile(keyPath)
+func getSigningService(keyPath, certPath string) (notation.SigningService, error) {
+	key, err := x509n.ReadPrivateKeyFile(keyPath)
 	if err != nil {
 		return nil, err
 	}
-	certs, err := x509nv2.ReadCertificateFile(certPath)
+	certs, err := x509n.ReadCertificateFile(certPath)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func getSigningService(keyPath, certPath string) (notary.SigningService, error) 
 	return simple.NewSigningService(key, certs, certs, rootCerts)
 }
 
-func getSignatureRegistry(name, username, password string) notary.SignatureRegistry {
+func getSignatureRegistry(name, username, password string) notation.SignatureRegistry {
 	plainHTTP := username == "" // for http access
 	tr := http.DefaultTransport
 	if !plainHTTP {

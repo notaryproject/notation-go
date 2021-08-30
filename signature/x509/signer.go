@@ -9,7 +9,7 @@ import (
 
 	"github.com/docker/go/canonical/json"
 	"github.com/docker/libtrust"
-	"github.com/notaryproject/notary/v2/signature"
+	"github.com/notaryproject/notation-go-lib/signature"
 )
 
 type signer struct {

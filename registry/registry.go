@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/notaryproject/notary/v2"
+	"github.com/notaryproject/notation-go-lib"
 )
 
 type registry struct {
@@ -15,7 +15,7 @@ type registry struct {
 
 // NewClient creates a client to the remote registry
 // for accessing the signatures.
-func NewClient(tr http.RoundTripper, name string, plainHTTP bool) notary.SignatureRegistry {
+func NewClient(tr http.RoundTripper, name string, plainHTTP bool) notation.SignatureRegistry {
 	scheme := "https"
 	if plainHTTP {
 		scheme = "http"
@@ -26,7 +26,7 @@ func NewClient(tr http.RoundTripper, name string, plainHTTP bool) notary.Signatu
 	}
 }
 
-func (r *registry) Repository(ctx context.Context, name string) notary.SignatureRepository {
+func (r *registry) Repository(ctx context.Context, name string) notation.SignatureRepository {
 	return &repository{
 		tr:   r.tr,
 		base: r.base,

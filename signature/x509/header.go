@@ -1,6 +1,6 @@
 package x509
 
-import "github.com/notaryproject/notary/v2/signature"
+import "github.com/notaryproject/notation-go-lib/signature"
 
 // Header defines the signature header
 type Header struct {
