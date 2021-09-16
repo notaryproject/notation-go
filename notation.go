@@ -10,7 +10,7 @@ import (
 // Descriptor describes the content signed or to be signed.
 type Descriptor struct {
 	// MediaType is the media type of the targeted content.
-	MediaType string `json:"mediaType,omitempty"`
+	MediaType string `json:"mediaType"`
 
 	// Digest is the digest of the targeted content.
 	Digest digest.Digest `json:"digest"`
