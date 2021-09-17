@@ -54,10 +54,10 @@ type SignerInfo struct {
 	Version            int
 	SignerIdentifier   IssuerAndSerialNumber
 	DigestAlgorithm    pkix.AlgorithmIdentifier
-	SignedAttributes   []Attribute `asn1:"optional,tag:0"`
+	SignedAttributes   Attributes `asn1:"optional,tag:0"`
 	SignatureAlgorithm pkix.AlgorithmIdentifier
 	Signature          []byte
-	UnsignedAttributes []Attribute `asn1:"optional,tag:1"`
+	UnsignedAttributes Attributes `asn1:"optional,tag:1"`
 }
 
 // IssuerAndSerialNumber ::= SEQUENCE {
@@ -74,4 +74,19 @@ type IssuerAndSerialNumber struct {
 type Attribute struct {
 	Type   asn1.ObjectIdentifier
 	Values asn1.RawValue `asn1:"set"`
+}
+
+// Attribute ::= SET SIZE (1..MAX) OF Attribute
+type Attributes []Attribute
+
+// TryGet tries to find the attribute by the given identifier, parse and store
+// the result in the value pointed to by out.
+func (a Attributes) TryGet(identifier asn1.ObjectIdentifier, out interface{}) error {
+	for _, attribute := range a {
+		if identifier.Equal(attribute.Type) {
+			_, err := asn1.Unmarshal(attribute.Values.Bytes, out)
+			return err
+		}
+	}
+	return ErrAttributeNotFound
 }
