@@ -65,8 +65,9 @@ func (opts VerifyOptions) Validate() error {
 
 // Verifier is an generic interface for verifying an artifact.
 type Verifier interface {
-	// Verify verifies the artifact described by its descriptor against the signature.
-	Verify(ctx context.Context, desc Descriptor, signature []byte, opts VerifyOptions) (Metadata, error)
+	// Verify verifies the signature and returns the verified descriptor and
+	// metadata of the signed artifact.
+	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, Metadata, error)
 }
 
 // Service combines the signing and verification services.
