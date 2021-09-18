@@ -2,13 +2,12 @@ package cms
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"hash"
 	"time"
 
+	"github.com/notaryproject/notation-go-lib/internal/crypto/hashutil"
 	"github.com/notaryproject/notation-go-lib/internal/crypto/oid"
 )
 
@@ -142,14 +141,14 @@ func (d *ParsedSignedData) verify(signer SignerInfo, opts x509.VerifyOptions) er
 	if err := signer.SignedAttributes.TryGet(oid.MessageDigest, &expectedDigest); err != nil {
 		return VerificationError{Message: "invalid message digest", Detail: err}
 	}
-	hash, ok := getHashFromOID(signer.DigestAlgorithm.Algorithm)
+	hash, ok := oid.ConvertToHash(signer.DigestAlgorithm.Algorithm)
 	if !ok {
 		return VerificationError{Message: "unsupported digest algorithm"}
 	}
-	if _, err := hash.Write(d.Content); err != nil {
+	actualDigest, err := hashutil.ComputeHash(hash, d.Content)
+	if err != nil {
 		return VerificationError{Message: "hash failure", Detail: err}
 	}
-	actualDigest := hash.Sum(nil)
 	if !bytes.Equal(expectedDigest, actualDigest) {
 		return VerificationError{Message: "mismatch message digest"}
 	}
@@ -214,23 +213,4 @@ func getSignatureAlgorithmFromOID(digestAlg, sigAlg asn1.ObjectIdentifier) x509.
 		return x509.ECDSAWithSHA512
 	}
 	return x509.UnknownSignatureAlgorithm
-}
-
-// getHashFromOID converts ASN.1 digest algorithm identifier to golang crypto hash
-// if it is available.
-func getHashFromOID(digestAlg asn1.ObjectIdentifier) (hash.Hash, bool) {
-	var hash crypto.Hash
-	switch {
-	case oid.SHA1.Equal(digestAlg):
-		hash = crypto.SHA1
-	case oid.SHA256.Equal(digestAlg):
-		hash = crypto.SHA256
-	case oid.SHA384.Equal(digestAlg):
-		hash = crypto.SHA384
-	case oid.SHA512.Equal(digestAlg):
-		hash = crypto.SHA512
-	default:
-		return nil, false
-	}
-	return hash.New(), hash.Available()
 }
