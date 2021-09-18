@@ -2,6 +2,7 @@ package timestamp
 
 import (
 	"bytes"
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
@@ -34,6 +35,16 @@ func ParseSignedToken(data []byte) (*SignedToken, error) {
 		return nil, fmt.Errorf("unexpected content type: %v", signed.ContentType)
 	}
 	return (*SignedToken)(signed), nil
+}
+
+// Verify verifies the signed token as CMS SignedData.
+// An empty list of KeyUsages in VerifyOptions implies ExtKeyUsageTimeStamping.
+func (t *SignedToken) Verify(opts x509.VerifyOptions) ([]cms.SignerInfo, error) {
+	if len(opts.KeyUsages) == 0 {
+		opts.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
+	}
+	signed := (*cms.ParsedSignedData)(t)
+	return signed.Verify(opts)
 }
 
 // Info returns the timestamping information.

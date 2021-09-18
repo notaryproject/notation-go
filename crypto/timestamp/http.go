@@ -54,7 +54,7 @@ func (ts *httpTimestamper) Timestamp(ctx context.Context, req *Request) (*Respon
 
 	// verify HTTP response
 	if hResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d %s", hResp.StatusCode, hResp.Status)
+		return nil, fmt.Errorf("unexpected status: %s", hResp.Status)
 	}
 	if contentType := hResp.Header.Get("Content-Type"); contentType != "application/timestamp-reply" {
 		return nil, fmt.Errorf("unexpected response content type: %s", contentType)
