@@ -27,7 +27,7 @@ func (e Envelope) Open() CompleteSignature {
 }
 
 // UnmarshalJSON parses the JSON serialized JWS.
-// See https://www.rfc-editor.org/rfc/rfc7515#section-7.2
+// Reference: RFC 7515 7.2 JWS JSON Serialization.
 func (e *Envelope) UnmarshalJSON(data []byte) error {
 	var combined struct {
 		Signature
