@@ -30,3 +30,13 @@ jobs:
             ${{ runner.os }}-go-
       - name: Build and test
         run: go test ./...
+  line_endings:
+    name: Check Line Endings
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Check line endings
+        run: ! find . -name "*.go" -type f -exec file "{}" ";" | grep 
