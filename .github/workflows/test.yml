@@ -29,7 +29,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Build and test
-        run: go test ./...
+        run: make test
   line_endings:
     name: Check Line Endings
     runs-on: ubuntu-20.04
@@ -39,4 +39,4 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
       - name: Check line endings
-        run: ! find . -name "*.go" -type f -exec file "{}" ";" | grep 
+        run: make check-line-endings
