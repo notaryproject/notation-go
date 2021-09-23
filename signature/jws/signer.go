@@ -34,6 +34,12 @@ type Signer struct {
 
 	// TSA is the TimeStamp Authority to timestamp the resulted signature if present.
 	TSA timestamp.Timestamper
+
+	// TSAVerifyOptions is the verify option to verify the fetched timestamp signature.
+	// The `Intermediates` in the verify options will be ignored and re-contrusted using
+	// the certificates in the fetched timestamp signature.
+	// An empty list of `KeyUsages` in the verify options implies ExtKeyUsageTimeStamping.
+	TSAVerifyOptions x509.VerifyOptions
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
@@ -127,22 +133,11 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 		return nil, err
 	}
 	if s.TSA != nil {
-		decodedSig, err := base64.RawURLEncoding.DecodeString(sig.Signature.Signature)
+		token, err := s.timestamp(ctx, sig.Signature.Signature)
 		if err != nil {
 			return nil, err
 		}
-		req, err := timestamp.NewRequestFromBytes(decodedSig)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := s.TSA.Timestamp(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		if status := resp.Status; status.Status != pki.StatusGranted {
-			return nil, fmt.Errorf("tsa: %d: %v", status.Status, status.StatusString)
-		}
-		header.TimeStampToken = resp.TokenBytes()
+		header.TimeStampToken = token
 	}
 
 	// finalize unprotected header
@@ -153,4 +148,36 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 
 	// encode in flatten JWS JSON serialization
 	return json.Marshal(sig)
+}
+
+// timestamp sends a request to the TSA for timestamping the signature.
+func (s *Signer) timestamp(ctx context.Context, sig string) ([]byte, error) {
+	// timestamp the signature
+	decodedSig, err := base64.RawURLEncoding.DecodeString(sig)
+	if err != nil {
+		return nil, err
+	}
+	req, err := timestamp.NewRequestFromBytes(decodedSig)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.TSA.Timestamp(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if status := resp.Status; status.Status != pki.StatusGranted {
+		return nil, fmt.Errorf("tsa: %d: %v", status.Status, status.StatusString)
+	}
+	tokenBytes := resp.TokenBytes()
+
+	// verify the timestamp signature
+	token, err := timestamp.ParseSignedToken(tokenBytes)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := token.Verify(s.TSAVerifyOptions); err != nil {
+		return nil, err
+	}
+
+	return tokenBytes, nil
 }
