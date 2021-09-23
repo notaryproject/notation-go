@@ -83,6 +83,9 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 // NewSignerWithKeyID creates a signer with the specified signing method and a signing key
 // identified by a key ID.
 func NewSignerWithKeyID(method jwt.SigningMethod, key crypto.PrivateKey, keyID string) (*Signer, error) {
+	if key == nil {
+		return nil, errors.New("nil signing key")
+	}
 	if keyID == "" {
 		return nil, errors.New("empty signer key ID")
 	}
@@ -171,11 +174,7 @@ func (s *Signer) timestamp(ctx context.Context, sig string) ([]byte, error) {
 	tokenBytes := resp.TokenBytes()
 
 	// verify the timestamp signature
-	token, err := timestamp.ParseSignedToken(tokenBytes)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := token.Verify(s.TSAVerifyOptions); err != nil {
+	if _, err := verifyTimestamp(decodedSig, tokenBytes, s.TSAVerifyOptions); err != nil {
 		return nil, err
 	}
 
