@@ -30,8 +30,8 @@ func (e Envelope) Open() CompleteSignature {
 // Reference: RFC 7515 7.2 JWS JSON Serialization.
 func (e *Envelope) UnmarshalJSON(data []byte) error {
 	var combined struct {
-		Signature
-		Envelope
+		CompleteSignature
+		Signatures []Signature `json:"signatures"`
 	}
 	if err := json.Unmarshal(data, &combined); err != nil {
 		return ErrInvalidJSONSerialization
@@ -44,7 +44,10 @@ func (e *Envelope) UnmarshalJSON(data []byte) error {
 			},
 		}
 	} else {
-		*e = combined.Envelope
+		*e = Envelope{
+			Payload:    combined.Payload,
+			Signatures: combined.Signatures,
+		}
 	}
 	return nil
 }
