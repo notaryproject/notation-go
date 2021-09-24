@@ -114,7 +114,7 @@ func (tsa *TSA) Timestamp(_ context.Context, req *timestamp.Request) (*timestamp
 	}
 
 	// generate signed data
-	signed, err := tsa.generateSignedData(infoBytes)
+	signed, err := tsa.generateSignedData(infoBytes, req.CertReq)
 	if err != nil {
 		return nil, err
 	}
@@ -166,13 +166,9 @@ func (tsa *TSA) generateTokenInfo(req *timestamp.Request, policy asn1.ObjectIden
 }
 
 // generateSignedData generate signed data according to
-func (tsa *TSA) generateSignedData(infoBytes []byte) (cms.SignedData, error) {
-	certs, err := convertToRawASN1(tsa.cert.Raw, "tag:0")
-	if err != nil {
-		return cms.SignedData{}, err
-	}
+func (tsa *TSA) generateSignedData(infoBytes []byte, requestCert bool) (cms.SignedData, error) {
 	var issuer asn1.RawValue
-	_, err = asn1.Unmarshal(tsa.cert.RawIssuer, &issuer)
+	_, err := asn1.Unmarshal(tsa.cert.RawIssuer, &issuer)
 	if err != nil {
 		return cms.SignedData{}, err
 	}
@@ -203,7 +199,6 @@ func (tsa *TSA) generateSignedData(infoBytes []byte) (cms.SignedData, error) {
 			ContentType: oid.TSTInfo,
 			Content:     infoBytes,
 		},
-		Certificates: certs,
 		SignerInfos: []cms.SignerInfo{
 			{
 				Version: 1,
@@ -233,6 +228,13 @@ func (tsa *TSA) generateSignedData(infoBytes []byte) (cms.SignedData, error) {
 				},
 			},
 		},
+	}
+	if requestCert {
+		certs, err := convertToRawASN1(tsa.cert.Raw, "tag:0")
+		if err != nil {
+			return cms.SignedData{}, err
+		}
+		signed.Certificates = certs
 	}
 
 	// sign data
