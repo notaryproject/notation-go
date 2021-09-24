@@ -138,7 +138,7 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 	if s.TSA != nil {
 		token, err := s.timestamp(ctx, sig.Signature.Signature)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("timestamp failed: %w", err)
 		}
 		header.TimeStampToken = token
 	}
