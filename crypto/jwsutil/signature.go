@@ -1,4 +1,5 @@
-// Package jwsutil provides serialization utilities for JWT libraries.
+// Package jwsutil provides serialization utilities for JWT libraries to comfort JWS.
+// Reference: RFC 7515 JSON Web Signature (JWS).
 package jwsutil
 
 import (

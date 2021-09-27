@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"os"
 )
 
@@ -31,5 +32,5 @@ func ParsePrivateKeyPEM(data []byte) (crypto.PrivateKey, error) {
 	case "RSA PRIVATE KEY":
 		return x509.ParsePKCS1PrivateKey(block.Bytes)
 	}
-	return nil, errors.New("unsupported PEM block type")
+	return nil, fmt.Errorf("unsupported PEM block type: %s", block.Type)
 }

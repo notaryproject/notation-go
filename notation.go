@@ -46,7 +46,7 @@ func (opts SignOptions) Validate() error {
 	return nil
 }
 
-// Signer is an generic interface for signing an artifact.
+// Signer is a generic interface for signing an artifact.
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
 type Signer interface {
@@ -63,7 +63,7 @@ func (opts VerifyOptions) Validate() error {
 	return nil
 }
 
-// Verifier is an generic interface for verifying an artifact.
+// Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
 	// Verify verifies the signature and returns the verified descriptor and
 	// metadata of the signed artifact.
