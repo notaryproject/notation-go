@@ -254,13 +254,10 @@ func (v *Verifier) verifyJWT(tokenString string, key *VerificationKey) (*notatio
 		return nil, err
 	}
 
-	// verify required claims
-	now := time.Now().Unix()
-	if !claims.VerifyIssuedAt(now, true) {
-		return nil, errors.New("missing or invalid iat")
-	}
-	if !claims.VerifyExpiresAt(now, true) {
-		return nil, errors.New("missing exp or token expired")
+	// ensure required claims exist.
+	// Note: the registered claims are already verified by parser.ParseWithClaims().
+	if claims.IssuedAt == nil {
+		return nil, errors.New("missing iat")
 	}
 	return &claims.Notation, nil
 }

@@ -31,7 +31,6 @@ type Metadata struct {
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
 	// Expiry identifies the expiration time of the resulted signature.
-	// This parameter is REQUIRED.
 	Expiry time.Time
 
 	// Metadata is optional for the artifact to be signed.
@@ -40,9 +39,6 @@ type SignOptions struct {
 
 // Validate does basic validation on SignOptions.
 func (opts SignOptions) Validate() error {
-	if opts.Expiry.IsZero() {
-		return ErrExpiryNotSpecified
-	}
 	return nil
 }
 

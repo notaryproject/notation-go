@@ -25,7 +25,7 @@ const MediaTypeNotationPayload = "application/vnd.cncf.notary.signature.v2.paylo
 // protected.
 type payload struct {
 	Notation notationClaim `json:"notary.v2"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // notationClaim is the top level node and private claim, encapsulating the notary v2 data.
@@ -48,6 +48,10 @@ func packPayload(desc notation.Descriptor, opts notation.SignOptions) *payload {
 			"identity": identity,
 		}
 	}
+	var expiresAt *jwt.NumericDate
+	if !opts.Expiry.IsZero() {
+		expiresAt = jwt.NewNumericDate(opts.Expiry)
+	}
 	return &payload{
 		Notation: notationClaim{
 			SubjectManifest: desc,
@@ -56,9 +60,9 @@ func packPayload(desc notation.Descriptor, opts notation.SignOptions) *payload {
 				Custom:   opts.Metadata.Attributes,
 			},
 		},
-		StandardClaims: jwt.StandardClaims{
-			IssuedAt:  time.Now().Unix(),
-			ExpiresAt: opts.Expiry.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: expiresAt,
 		},
 	}
 }
