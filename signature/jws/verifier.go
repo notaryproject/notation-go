@@ -19,50 +19,8 @@ import (
 // maxTimestampAccuracy specifies the max acceptable accuracy for timestamp.
 const maxTimestampAccuracy = time.Minute
 
-// VerificationKey verifies artifacts against JWS signatures.
-type VerificationKey struct {
-	// id is the key ID.
-	id string
-
-	// value is the embedded singing key key.
-	value crypto.PublicKey
-
-	// method is the method to verify artifacts.
-	method jwt.SigningMethod
-}
-
-// NewVerificationKey associate a verification key with the recommended signing method
-// and a key ID.
-func NewVerificationKey(key crypto.PublicKey, keyID string) (*VerificationKey, error) {
-	method, err := SigningMethodFromKey(key)
-	if err != nil {
-		return nil, err
-	}
-	return NewVerificationKeyWithKeyID(method, key, keyID)
-}
-
-// NewVerificationKeyWithKeyID associate a verification key with the specified signing method
-// and a key ID.
-func NewVerificationKeyWithKeyID(method jwt.SigningMethod, key crypto.PublicKey, keyID string) (*VerificationKey, error) {
-	if key == nil {
-		return nil, errors.New("nil signing key")
-	}
-	if keyID == "" {
-		return nil, errors.New("empty signer key ID")
-	}
-
-	return &VerificationKey{
-		id:     keyID,
-		value:  key,
-		method: method,
-	}, nil
-}
-
 // Verifier verifies artifacts against JWS signatures.
 type Verifier struct {
-	// keys is a set of verification keys indexed by key id.
-	keys map[string]*VerificationKey
-
 	// ValidMethods contains a list of acceptable signing methods.
 	// Only signing methods in this list are considerred valid if populated.
 	ValidMethods []string
@@ -93,16 +51,8 @@ type Verifier struct {
 // NewVerifier creates a verifier with a set of trusted verification keys.
 // Callers may be interested in options in the public field of the Verifier, especially
 // VerifyOptions for setting up trusted certificates.
-func NewVerifier(keys []*VerificationKey) *Verifier {
-	indexedKeys := make(map[string]*VerificationKey)
-	for _, key := range keys {
-		if key.id != "" {
-			indexedKeys[key.id] = key
-		}
-	}
-	return &Verifier{
-		keys: indexedKeys,
-	}
+func NewVerifier() *Verifier {
+	return &Verifier{}
 }
 
 // Verify verifies the signature and returns the verified descriptor and
@@ -115,13 +65,13 @@ func (v *Verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 	}
 
 	// verify signing identity
-	key, err := v.verifySigner(&sig.Signature)
+	method, key, err := v.verifySigner(&sig.Signature)
 	if err != nil {
 		return notation.Descriptor{}, notation.Metadata{}, err
 	}
 
 	// verify JWT
-	claim, err := v.verifyJWT(sig.SerializeCompact(), key)
+	claim, err := v.verifyJWT(method, key, sig.SerializeCompact())
 	if err != nil {
 		return notation.Descriptor{}, notation.Metadata{}, err
 	}
@@ -142,37 +92,29 @@ func (v *Verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 }
 
 // verifySigner verifies the signing identity and returns the verification key.
-func (v *Verifier) verifySigner(sig *jwsutil.Signature) (*VerificationKey, error) {
+func (v *Verifier) verifySigner(sig *jwsutil.Signature) (jwt.SigningMethod, crypto.PublicKey, error) {
 	var header unprotectedHeader
 	if err := json.Unmarshal(sig.Unprotected, &header); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if header.KeyID != "" {
-		if len(header.CertChain) != 0 {
-			return nil, errors.New("ambiguous signing identities")
-		}
-		if key, ok := v.keys[header.KeyID]; ok {
-			return key, nil
-		}
-		return nil, fmt.Errorf("unknown key id: %s", header.KeyID)
-	} else if len(header.CertChain) != 0 {
-		return v.verifySignerFromCertChain(header.CertChain, header.TimeStampToken, sig.Signature)
+	if len(header.CertChain) == 0 {
+		return nil, nil, errors.New("signer certificates not found")
 	}
-	return nil, errors.New("signing identity not found")
+	return v.verifySignerFromCertChain(header.CertChain, header.TimeStampToken, sig.Signature)
 }
 
 // verifySignerFromCertChain verifies the signing identity from the provided certificate
 // chain and returns the verification key. The first certificate of the certificate chain
 // contains the key, which used to sign the artifact.
 // Reference: RFC 7515 4.1.6 "x5c" (X.509 Certificate Chain) Header Parameter.
-func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken []byte, encodedSig string) (*VerificationKey, error) {
+func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken []byte, encodedSig string) (jwt.SigningMethod, crypto.PublicKey, error) {
 	// prepare for certificate verification
 	certs := make([]*x509.Certificate, 0, len(certChain))
 	for _, certBytes := range certChain {
 		cert, err := x509.ParseCertificate(certBytes)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		certs = append(certs, cert)
 	}
@@ -191,7 +133,7 @@ func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken 
 	cert := certs[0]
 	if _, err := cert.Verify(verifyOpts); err != nil {
 		if certErr, ok := err.(x509.CertificateInvalidError); !ok || certErr.Reason != x509.Expired {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// verification failed due to expired certificate
@@ -200,11 +142,11 @@ func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken 
 	if checkTimestamp {
 		stampedTime, err := v.verifyTimestamp(timeStampToken, encodedSig)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		verifyOpts.CurrentTime = stampedTime
 		if _, err := cert.Verify(verifyOpts); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -215,13 +157,10 @@ func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken 
 	}
 	method, err := resolveMethod(cert.PublicKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &VerificationKey{
-		value:  cert.PublicKey,
-		method: method,
-	}, nil
+	return method, cert.PublicKey, nil
 }
 
 // verifyTimestamp verifies the timestamp token and returns stamped time.
@@ -235,7 +174,7 @@ func (v *Verifier) verifyTimestamp(tokenBytes []byte, encodedSig string) (time.T
 
 // verifyJWT verifies the JWT token against the specified verification key, and
 // returns notation claim.
-func (v *Verifier) verifyJWT(tokenString string, key *VerificationKey) (*notationClaim, error) {
+func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tokenString string) (*notationClaim, error) {
 	// parse and verify token
 	parser := &jwt.Parser{
 		ValidMethods: v.ValidMethods,
@@ -243,13 +182,13 @@ func (v *Verifier) verifyJWT(tokenString string, key *VerificationKey) (*notatio
 	var claims payload
 	if _, err := parser.ParseWithClaims(tokenString, &claims, func(t *jwt.Token) (interface{}, error) {
 		alg := t.Method.Alg()
-		if expectedAlg := key.method.Alg(); alg != expectedAlg {
+		if expectedAlg := method.Alg(); alg != expectedAlg {
 			return nil, fmt.Errorf("unexpected signing method: %v: require %v", alg, expectedAlg)
 		}
 
 		// override default signing method with key-specific method
-		t.Method = key.method
-		return key.value, nil
+		t.Method = method
+		return key, nil
 	}); err != nil {
 		return nil, err
 	}

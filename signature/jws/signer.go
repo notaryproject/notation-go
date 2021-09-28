@@ -25,9 +25,6 @@ type Signer struct {
 	// The signing key can be either remote or local.
 	key crypto.PrivateKey
 
-	// keyID indicates which key is used to generate the signature.
-	keyID string
-
 	// certChain contains the X.509 public key certificate or certificate chain corresponding
 	// to the key used to generate the signature.
 	certChain [][]byte
@@ -80,23 +77,6 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 	}, nil
 }
 
-// NewSignerWithKeyID creates a signer with the specified signing method and a signing key
-// identified by a key ID.
-func NewSignerWithKeyID(method jwt.SigningMethod, key crypto.PrivateKey, keyID string) (*Signer, error) {
-	if key == nil {
-		return nil, errors.New("nil signing key")
-	}
-	if keyID == "" {
-		return nil, errors.New("empty signer key ID")
-	}
-
-	return &Signer{
-		method: method,
-		key:    key,
-		keyID:  keyID,
-	}, nil
-}
-
 // Sign signs the artifact described by its descriptor, and returns the signature.
 func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	if err := opts.Validate(); err != nil {
@@ -126,7 +106,6 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 
 	// generate unprotected header
 	header := unprotectedHeader{
-		KeyID:     s.keyID,
 		CertChain: s.certChain,
 	}
 

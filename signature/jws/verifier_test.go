@@ -2,8 +2,6 @@ package jws
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"reflect"
 	"testing"
@@ -16,64 +14,6 @@ import (
 func TestVerifierInterface(t *testing.T) {
 	if _, ok := interface{}(&Verifier{}).(notation.Verifier); !ok {
 		t.Error("&Verifier{} does not conform notation.Verifier")
-	}
-}
-
-func TestVerifyWithPlainKey(t *testing.T) {
-	// generate a RSA key pair
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("rsa.GenerateKey() error = %v", err)
-	}
-	keyID := "test key"
-
-	// sign with key
-	method, err := SigningMethodFromKey(key)
-	if err != nil {
-		t.Fatalf("SigningMethodFromKey() error = %v", err)
-	}
-	s, err := NewSignerWithKeyID(method, key, keyID)
-	if err != nil {
-		t.Fatalf("NewSignerWithKeyID() error = %v", err)
-	}
-
-	ctx := context.Background()
-	desc, sOpts := generateSigningContent()
-	sig, err := s.Sign(ctx, desc, sOpts)
-	if err != nil {
-		t.Fatalf("Sign() error = %v", err)
-	}
-
-	// verify signature
-	vk, err := NewVerificationKey(key.Public(), keyID)
-	if err != nil {
-		t.Fatalf("NewVerificationKey() error = %v", err)
-	}
-	v := NewVerifier([]*VerificationKey{vk})
-	var vOpts notation.VerifyOptions
-	got, meta, err := v.Verify(ctx, sig, vOpts)
-	if err != nil {
-		t.Fatalf("Verify() error = %v", err)
-	}
-	if got != desc {
-		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
-	}
-	if !reflect.DeepEqual(meta, sOpts.Metadata) {
-		t.Errorf("Verify() Metadata = %v, want %v", meta, sOpts.Metadata)
-	}
-
-	// should fail if a different key is used
-	key, err = rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("rsa.GenerateKey() error = %v", err)
-	}
-	vk, err = NewVerificationKey(key.Public(), keyID)
-	if err != nil {
-		t.Fatalf("NewVerificationKey() error = %v", err)
-	}
-	v = NewVerifier([]*VerificationKey{vk})
-	if _, _, err := v.Verify(ctx, sig, vOpts); err == nil {
-		t.Errorf("Verify() error = %v, wantErr %v", err, true)
 	}
 }
 
@@ -96,7 +36,7 @@ func TestVerifyWithCertChain(t *testing.T) {
 	}
 
 	// verify signature
-	v := NewVerifier(nil)
+	v := NewVerifier()
 	var vOpts notation.VerifyOptions
 
 	// should fail if nothing is trusted
@@ -150,7 +90,7 @@ func TestVerifyWithTimestamp(t *testing.T) {
 	}
 
 	// verify signature
-	v := NewVerifier(nil)
+	v := NewVerifier()
 	roots := x509.NewCertPool()
 	roots.AddCert(cert)
 	v.VerifyOptions.Roots = roots
