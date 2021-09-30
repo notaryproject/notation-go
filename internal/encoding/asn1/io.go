@@ -8,7 +8,7 @@ type ValueReader interface {
 	io.ByteScanner
 }
 
-// ValueReader is the interface for writing a value.
+// ValueWriter is the interface for writing a value.
 type ValueWriter interface {
 	io.Writer
 	io.ByteWriter
