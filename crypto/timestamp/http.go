@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 // maxBodyLength specifies the max content can be received from the possibly malicious
@@ -21,14 +22,17 @@ type httpTimestamper struct {
 
 // NewHTTPTimestamper creates a HTTP-based timestamper with the endpoint provided by the TSA.
 // http.DefaultTransport is used if nil RoundTripper is passed.
-func NewHTTPTimestamper(rt http.RoundTripper, endpoint string) Timestamper {
+func NewHTTPTimestamper(rt http.RoundTripper, endpoint string) (Timestamper, error) {
 	if rt == nil {
 		rt = http.DefaultTransport
+	}
+	if _, err := url.Parse(endpoint); err != nil {
+		return nil, err
 	}
 	return &httpTimestamper{
 		rt:       rt,
 		endpoint: endpoint,
-	}
+	}, nil
 }
 
 // Timestamp sends the request to the remote TSA server for timestamping.

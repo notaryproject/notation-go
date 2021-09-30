@@ -68,7 +68,10 @@ func TestHTTPTimestampGranted(t *testing.T) {
 	defer ts.Close()
 
 	// do timestamp
-	tsa := NewHTTPTimestamper(nil, ts.URL)
+	tsa, err := NewHTTPTimestamper(nil, ts.URL)
+	if err != nil {
+		t.Fatalf("NewHTTPTimestamper() error = %v", err)
+	}
 	message := []byte("notation")
 	req, err := NewRequestFromBytes(message)
 	if err != nil {
@@ -148,7 +151,10 @@ func TestHTTPTimestampRejection(t *testing.T) {
 	defer ts.Close()
 
 	// do timestamp
-	tsa := NewHTTPTimestamper(nil, ts.URL)
+	tsa, err := NewHTTPTimestamper(nil, ts.URL)
+	if err != nil {
+		t.Fatalf("NewHTTPTimestamper() error = %v", err)
+	}
 	message := []byte("notation")
 	req, err := NewRequestFromBytes(message)
 	if err != nil {
@@ -188,7 +194,10 @@ func TestHTTPTimestampBadEndpoint(t *testing.T) {
 	defer ts.Close()
 
 	// do timestamp
-	tsa := NewHTTPTimestamper(nil, ts.URL)
+	tsa, err := NewHTTPTimestamper(nil, ts.URL)
+	if err != nil {
+		t.Fatalf("NewHTTPTimestamper() error = %v", err)
+	}
 	req, err := NewRequestFromString("notation")
 	if err != nil {
 		t.Fatalf("NewRequestFromString() error = %v", err)
@@ -208,7 +217,10 @@ func TestHTTPTimestampEndpointNotFound(t *testing.T) {
 	defer ts.Close()
 
 	// do timestamp
-	tsa := NewHTTPTimestamper(nil, ts.URL)
+	tsa, err := NewHTTPTimestamper(nil, ts.URL)
+	if err != nil {
+		t.Fatalf("NewHTTPTimestamper() error = %v", err)
+	}
 	req, err := NewRequestFromString("notation")
 	if err != nil {
 		t.Fatalf("NewRequestFromString() error = %v", err)
