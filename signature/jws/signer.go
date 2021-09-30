@@ -52,9 +52,9 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, e
 }
 
 // NewSignerWithCertificateChain creates a signer with the specified signing method and
-// a signing key bundled with a certificate chain.
-// The relation of the provided siging key and its certificate chain is not verified,
-// and should be verified by the caller.
+// a signing key bundled with a (partial) certificate chain.
+// Since the provided signing key could potentially be a remote key, the relation of the
+// siging key and its certificate chain is not verified, and should be verified by the caller.
 func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, error) {
 	if method == nil {
 		return nil, errors.New("nil signing method")
@@ -64,6 +64,17 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 	}
 	if len(certChain) == 0 {
 		return nil, errors.New("missing signer certificate chain")
+	}
+
+	// verify the signing certificate
+	cert := certChain[0]
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	if _, err := cert.Verify(x509.VerifyOptions{
+		Roots:     roots,
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	}); err != nil {
+		return nil, err
 	}
 
 	rawCerts := make([][]byte, 0, len(certChain))
