@@ -29,7 +29,7 @@ func TestVerifyWithCertChain(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	desc, sOpts := generateSigningContent()
+	desc, sOpts := generateSigningContent(nil)
 	sig, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
@@ -76,14 +76,10 @@ func TestVerifyWithTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("timestamptest.NewTSA() error = %v", err)
 	}
-	s.TSA = tsa
-	tsaRoots := x509.NewCertPool()
-	tsaRoots.AddCert(tsa.Certificate())
-	s.TSAVerifyOptions.Roots = tsaRoots
 
 	// sign content
 	ctx := context.Background()
-	desc, sOpts := generateSigningContent()
+	desc, sOpts := generateSigningContent(tsa)
 	sig, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
@@ -103,7 +99,7 @@ func TestVerifyWithTimestamp(t *testing.T) {
 	}
 
 	// verify again with certificate trusted
-	v.TSAVerifyOptions.Roots = tsaRoots
+	v.TSAVerifyOptions.Roots = sOpts.TSAVerifyOptions.Roots
 	got, err := v.Verify(ctx, sig, vOpts)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)

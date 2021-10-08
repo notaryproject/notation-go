@@ -28,15 +28,6 @@ type Signer struct {
 	// certChain contains the X.509 public key certificate or certificate chain corresponding
 	// to the key used to generate the signature.
 	certChain [][]byte
-
-	// TSA is the TimeStamp Authority to timestamp the resulted signature if present.
-	TSA timestamp.Timestamper
-
-	// TSAVerifyOptions is the verify option to verify the fetched timestamp signature.
-	// The `Intermediates` in the verify options will be ignored and re-contrusted using
-	// the certificates in the fetched timestamp signature.
-	// An empty list of `KeyUsages` in the verify options implies ExtKeyUsageTimeStamping.
-	TSAVerifyOptions x509.VerifyOptions
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
@@ -125,8 +116,8 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 	if err != nil {
 		return nil, err
 	}
-	if s.TSA != nil {
-		token, err := s.timestamp(ctx, sig.Signature.Signature)
+	if opts.TSA != nil {
+		token, err := timestampSignature(ctx, sig.Signature.Signature, opts.TSA, opts.TSAVerifyOptions)
 		if err != nil {
 			return nil, fmt.Errorf("timestamp failed: %w", err)
 		}
@@ -143,8 +134,8 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 	return json.Marshal(sig)
 }
 
-// timestamp sends a request to the TSA for timestamping the signature.
-func (s *Signer) timestamp(ctx context.Context, sig string) ([]byte, error) {
+// timestampSignature sends a request to the TSA for timestamping the signature.
+func timestampSignature(ctx context.Context, sig string, tsa timestamp.Timestamper, opts x509.VerifyOptions) ([]byte, error) {
 	// timestamp the signature
 	decodedSig, err := base64.RawURLEncoding.DecodeString(sig)
 	if err != nil {
@@ -154,7 +145,7 @@ func (s *Signer) timestamp(ctx context.Context, sig string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.TSA.Timestamp(ctx, req)
+	resp, err := tsa.Timestamp(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +155,7 @@ func (s *Signer) timestamp(ctx context.Context, sig string) ([]byte, error) {
 	tokenBytes := resp.TokenBytes()
 
 	// verify the timestamp signature
-	if _, err := verifyTimestamp(decodedSig, tokenBytes, s.TSAVerifyOptions); err != nil {
+	if _, err := verifyTimestamp(decodedSig, tokenBytes, opts); err != nil {
 		return nil, err
 	}
 

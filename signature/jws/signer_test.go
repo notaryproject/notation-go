@@ -34,7 +34,7 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	desc, sOpts := generateSigningContent()
+	desc, sOpts := generateSigningContent(nil)
 	sig, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
@@ -66,14 +66,10 @@ func TestSignWithTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("timestamptest.NewTSA() error = %v", err)
 	}
-	s.TSA = tsa
-	tsaRoots := x509.NewCertPool()
-	tsaRoots.AddCert(tsa.Certificate())
-	s.TSAVerifyOptions.Roots = tsaRoots
 
 	// sign content
 	ctx := context.Background()
-	desc, sOpts := generateSigningContent()
+	desc, sOpts := generateSigningContent(tsa)
 	sig, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
@@ -101,7 +97,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	desc, sOpts := generateSigningContent()
+	desc, sOpts := generateSigningContent(nil)
 	sOpts.Expiry = time.Time{} // reset expiry
 	sig, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
@@ -119,7 +115,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 }
 
 // generateSigningContent generates common signing content with options for testing.
-func generateSigningContent() (notation.Descriptor, notation.SignOptions) {
+func generateSigningContent(tsa *timestamptest.TSA) (notation.Descriptor, notation.SignOptions) {
 	content := "hello world"
 	desc := notation.Descriptor{
 		MediaType: "test media type",
@@ -133,6 +129,12 @@ func generateSigningContent() (notation.Descriptor, notation.SignOptions) {
 	now := time.Now().UTC()
 	sOpts := notation.SignOptions{
 		Expiry: now.Add(time.Hour),
+	}
+	if tsa != nil {
+		sOpts.TSA = tsa
+		tsaRoots := x509.NewCertPool()
+		tsaRoots.AddCert(tsa.Certificate())
+		sOpts.TSAVerifyOptions.Roots = tsaRoots
 	}
 	return desc, sOpts
 }

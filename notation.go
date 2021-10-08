@@ -2,8 +2,10 @@ package notation
 
 import (
 	"context"
+	"crypto/x509"
 	"time"
 
+	"github.com/notaryproject/notation-go-lib/crypto/timestamp"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -31,6 +33,15 @@ func (d Descriptor) Equal(t Descriptor) bool {
 type SignOptions struct {
 	// Expiry identifies the expiration time of the resulted signature.
 	Expiry time.Time
+
+	// TSA is the TimeStamp Authority to timestamp the resulted signature if present.
+	TSA timestamp.Timestamper
+
+	// TSAVerifyOptions is the verify option to verify the fetched timestamp signature.
+	// The `Intermediates` in the verify options will be ignored and re-contrusted using
+	// the certificates in the fetched timestamp signature.
+	// An empty list of `KeyUsages` in the verify options implies ExtKeyUsageTimeStamping.
+	TSAVerifyOptions x509.VerifyOptions
 }
 
 // Validate does basic validation on SignOptions.
