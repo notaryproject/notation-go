@@ -1,5 +1,5 @@
 # Notation
-A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts
+A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts. Based on Notary V2 standard.
 
 ## Table of Contents
 - [Core Documents](#core-documents)
