@@ -3,6 +3,7 @@ package timestamp
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/x509"
 	"encoding/asn1"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/notaryproject/notation-go-lib/internal/crypto/hashutil"
 	"github.com/notaryproject/notation-go-lib/internal/crypto/pki"
 )
 
@@ -104,8 +106,23 @@ func TestHTTPTimestampGranted(t *testing.T) {
 		Roots:       roots,
 		CurrentTime: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
-	if _, err := token.Verify(opts); err != nil {
+	certs, err := token.Verify(opts)
+	if err != nil {
 		t.Fatal("SignedToken.Verify() error =", err)
+	}
+	if got := len(certs); got != 1 {
+		t.Fatalf("SignedToken.Verify() len([]*x509.Certificate) = %v, want %v", got, 1)
+	}
+	certThumbprint, err := hashutil.ComputeHash(crypto.SHA256, certs[0].Raw)
+	if err != nil {
+		t.Fatal("failed to compute certificate thumbprint:", err)
+	}
+	wantCertThumbprint := []byte{
+		0x13, 0xd6, 0xe9, 0xc4, 0x20, 0xff, 0x6d, 0x4e, 0x27, 0x54, 0x72, 0x8c, 0x68, 0xe7, 0x78, 0x82,
+		0x65, 0x64, 0x67, 0xdb, 0x9a, 0x19, 0x0f, 0x81, 0x65, 0x97, 0xf6, 0x7f, 0xb6, 0xcc, 0xc6, 0xf9,
+	}
+	if !bytes.Equal(certThumbprint, wantCertThumbprint) {
+		t.Fatalf("SignedToken.Verify() = %v, want %v", certThumbprint, wantCertThumbprint)
 	}
 	info, err := token.Info()
 	if err != nil {

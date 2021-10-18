@@ -76,6 +76,10 @@ func TestVerifyWithTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("timestamptest.NewTSA() error = %v", err)
 	}
+	s.TSA = tsa
+	tsaRoots := x509.NewCertPool()
+	tsaRoots.AddCert(tsa.Certificate())
+	s.TSARoots = tsaRoots
 
 	// sign content
 	ctx := context.Background()
@@ -99,7 +103,7 @@ func TestVerifyWithTimestamp(t *testing.T) {
 	}
 
 	// verify again with certificate trusted
-	v.TSAVerifyOptions.Roots = sOpts.TSAVerifyOptions.Roots
+	v.TSARoots = tsaRoots
 	got, err := v.Verify(ctx, sig, vOpts)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)

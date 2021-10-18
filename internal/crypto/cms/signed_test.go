@@ -54,8 +54,8 @@ func TestVerifySignedData(t *testing.T) {
 	if err != nil {
 		t.Fatal("ParseSignedData.Verify() error =", err)
 	}
-	if !reflect.DeepEqual(verifiedSigners, signed.Signers) {
-		t.Fatalf("ParseSignedData.Verify() = %v, want %v", verifiedSigners, signed.Signers)
+	if !reflect.DeepEqual(verifiedSigners, signed.Certificates[:1]) {
+		t.Fatalf("ParseSignedData.Verify() = %v, want %v", verifiedSigners, signed.Certificates[:1])
 	}
 }
 
