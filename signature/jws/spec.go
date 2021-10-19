@@ -17,8 +17,7 @@ type unprotectedHeader struct {
 }
 
 // MediaTypeNotationPayload describes the media type of the payload of notation signature.
-// WARNING: This media type is in a **TBD** state, and is subject to change.
-const MediaTypeNotationPayload = "application/vnd.cncf.notary.signature.v2.payload+json"
+const MediaTypeNotationPayload = "application/vnd.cncf.notary.v2.jws.v1"
 
 // payload contains the subject manifest and other attributes that have to be integrity
 // protected.
