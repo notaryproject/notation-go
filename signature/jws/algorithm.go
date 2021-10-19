@@ -23,13 +23,13 @@ func SigningMethodFromKey(key interface{}) (jwt.SigningMethod, error) {
 	case *rsa.PublicKey:
 		switch key.Size() {
 		case 256:
-			return jwt.SigningMethodRS256, nil
+			return jwt.SigningMethodPS256, nil
 		case 384:
-			return jwt.SigningMethodRS384, nil
+			return jwt.SigningMethodPS384, nil
 		case 512:
-			return jwt.SigningMethodRS512, nil
+			return jwt.SigningMethodPS512, nil
 		default:
-			return jwt.SigningMethodRS256, nil
+			return jwt.SigningMethodPS256, nil
 		}
 	case *ecdsa.PublicKey:
 		switch key.Curve.Params().BitSize {

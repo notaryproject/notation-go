@@ -40,7 +40,7 @@ func TestVerifyWithCertChain(t *testing.T) {
 	var vOpts notation.VerifyOptions
 
 	// should fail if nothing is trusted
-	if _, _, err := v.Verify(ctx, sig, vOpts); err == nil {
+	if _, err := v.Verify(ctx, sig, vOpts); err == nil {
 		t.Errorf("Verify() error = %v, wantErr %v", err, true)
 	}
 
@@ -48,15 +48,15 @@ func TestVerifyWithCertChain(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AddCert(cert)
 	v.VerifyOptions.Roots = roots
-	got, meta, err := v.Verify(ctx, sig, vOpts)
+	got, err := v.Verify(ctx, sig, vOpts)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
-	if got != desc {
+	if !got.Equal(desc) {
 		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
 	}
-	if !reflect.DeepEqual(meta, sOpts.Metadata) {
-		t.Errorf("Verify() Metadata = %v, want %v", meta, sOpts.Metadata)
+	if !reflect.DeepEqual(got, desc) {
+		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
 	}
 }
 
@@ -98,20 +98,20 @@ func TestVerifyWithTimestamp(t *testing.T) {
 	// should fail if TSA is trusted when signature certificate is expired.
 	v.VerifyOptions.CurrentTime = time.Now().Add(48 * time.Hour)
 	var vOpts notation.VerifyOptions
-	if _, _, err := v.Verify(ctx, sig, vOpts); err == nil {
+	if _, err := v.Verify(ctx, sig, vOpts); err == nil {
 		t.Errorf("Verify() error = %v, wantErr %v", err, true)
 	}
 
 	// verify again with certificate trusted
 	v.TSAVerifyOptions.Roots = tsaRoots
-	got, meta, err := v.Verify(ctx, sig, vOpts)
+	got, err := v.Verify(ctx, sig, vOpts)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
-	if got != desc {
+	if !got.Equal(desc) {
 		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
 	}
-	if !reflect.DeepEqual(meta, sOpts.Metadata) {
-		t.Errorf("Verify() Metadata = %v, want %v", meta, sOpts.Metadata)
+	if !reflect.DeepEqual(got, desc) {
+		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
 	}
 }

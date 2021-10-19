@@ -17,24 +17,20 @@ type Descriptor struct {
 
 	// Size specifies the size in bytes of the blob.
 	Size int64 `json:"size"`
+
+	// Annotations contains optional user defined attributes.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// Metadata contains informational metadata about the signed artifact.
-type Metadata struct {
-	// Identity describes the artifact identity.
-	Identity string
-
-	// Attributes contains user defined attributes.
-	Attributes map[string]interface{}
+// Equal reports whether d and t points to the same content.
+func (d Descriptor) Equal(t Descriptor) bool {
+	return d.MediaType == t.MediaType && d.Digest == t.Digest && d.Size == t.Size
 }
 
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
 	// Expiry identifies the expiration time of the resulted signature.
 	Expiry time.Time
-
-	// Metadata is optional for the artifact to be signed.
-	Metadata Metadata
 }
 
 // Validate does basic validation on SignOptions.
@@ -63,7 +59,7 @@ func (opts VerifyOptions) Validate() error {
 type Verifier interface {
 	// Verify verifies the signature and returns the verified descriptor and
 	// metadata of the signed artifact.
-	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, Metadata, error)
+	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, error)
 }
 
 // Service combines the signing and verification services.

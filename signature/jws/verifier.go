@@ -57,38 +57,26 @@ func NewVerifier() *Verifier {
 
 // Verify verifies the signature and returns the verified descriptor and
 // metadata of the signed artifact.
-func (v *Verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (notation.Descriptor, notation.Metadata, error) {
+func (v *Verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (notation.Descriptor, error) {
 	// unpack envelope
 	sig, err := openEnvelope(signature)
 	if err != nil {
-		return notation.Descriptor{}, notation.Metadata{}, err
+		return notation.Descriptor{}, err
 	}
 
 	// verify signing identity
 	method, key, err := v.verifySigner(&sig.Signature)
 	if err != nil {
-		return notation.Descriptor{}, notation.Metadata{}, err
+		return notation.Descriptor{}, err
 	}
 
 	// verify JWT
 	claim, err := v.verifyJWT(method, key, sig.SerializeCompact())
 	if err != nil {
-		return notation.Descriptor{}, notation.Metadata{}, err
+		return notation.Descriptor{}, err
 	}
 
-	// extract metadata
-	var identity string
-	if value := claim.SignedAttributes.Reserved["identity"]; value != nil {
-		var ok bool
-		if identity, ok = value.(string); !ok {
-			return notation.Descriptor{}, notation.Metadata{}, errors.New("attribute: invalid identity")
-		}
-	}
-
-	return claim.SubjectManifest, notation.Metadata{
-		Identity:   identity,
-		Attributes: claim.SignedAttributes.Custom,
-	}, nil
+	return claim.Subject, nil
 }
 
 // verifySigner verifies the signing identity and returns the verification key.
