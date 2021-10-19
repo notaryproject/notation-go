@@ -23,41 +23,24 @@ const MediaTypeNotationPayload = "application/vnd.cncf.notary.signature.v2.paylo
 // payload contains the subject manifest and other attributes that have to be integrity
 // protected.
 type payload struct {
-	Notation notationClaim `json:"notary.v2"`
+	Notation notationClaim `json:"notary"`
 	jwt.RegisteredClaims
 }
 
 // notationClaim is the top level node and private claim, encapsulating the notary v2 data.
 type notationClaim struct {
-	SubjectManifest  notation.Descriptor `json:"subjectManifest"`
-	SignedAttributes signedAttributes    `json:"signedAttrs,omitempty"`
-}
-
-// signedAttributes contains additional attributes that needs to be integrity protected.
-type signedAttributes struct {
-	Reserved map[string]interface{} `json:"reserved,omitempty"`
-	Custom   map[string]interface{} `json:"custom,omitempty"`
+	Subject notation.Descriptor `json:"subject"`
 }
 
 // packPayload generates JWS payload according the signing content and options.
 func packPayload(desc notation.Descriptor, opts notation.SignOptions) *payload {
-	var reservedAttributes map[string]interface{}
-	if identity := opts.Metadata.Identity; identity != "" {
-		reservedAttributes = map[string]interface{}{
-			"identity": identity,
-		}
-	}
 	var expiresAt *jwt.NumericDate
 	if !opts.Expiry.IsZero() {
 		expiresAt = jwt.NewNumericDate(opts.Expiry)
 	}
 	return &payload{
 		Notation: notationClaim{
-			SubjectManifest: desc,
-			SignedAttributes: signedAttributes{
-				Reserved: reservedAttributes,
-				Custom:   opts.Metadata.Attributes,
-			},
+			Subject: desc,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

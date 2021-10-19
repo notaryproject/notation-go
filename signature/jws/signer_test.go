@@ -45,7 +45,7 @@ func TestSignWithCertChain(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AddCert(cert)
 	v.VerifyOptions.Roots = roots
-	if _, _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
+	if _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
 }
@@ -84,7 +84,7 @@ func TestSignWithTimestamp(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AddCert(cert)
 	v.VerifyOptions.Roots = roots
-	if _, _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
+	if _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
 }
@@ -113,7 +113,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AddCert(cert)
 	v.VerifyOptions.Roots = roots
-	if _, _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
+	if _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
 }
@@ -125,16 +125,14 @@ func generateSigningContent() (notation.Descriptor, notation.SignOptions) {
 		MediaType: "test media type",
 		Digest:    digest.Canonical.FromString(content),
 		Size:      int64(len(content)),
+		Annotations: map[string]string{
+			"identity": "test.registry.io/test:example",
+			"foo":      "bar",
+		},
 	}
 	now := time.Now().UTC()
 	sOpts := notation.SignOptions{
 		Expiry: now.Add(time.Hour),
-		Metadata: notation.Metadata{
-			Identity: "test.registry.io/test:example",
-			Attributes: map[string]interface{}{
-				"foo": "bar",
-			},
-		},
 	}
 	return desc, sOpts
 }
