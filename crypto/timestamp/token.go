@@ -39,12 +39,28 @@ func ParseSignedToken(data []byte) (*SignedToken, error) {
 
 // Verify verifies the signed token as CMS SignedData.
 // An empty list of KeyUsages in VerifyOptions implies ExtKeyUsageTimeStamping.
-func (t *SignedToken) Verify(opts x509.VerifyOptions) ([]cms.SignerInfo, error) {
+func (t *SignedToken) Verify(opts x509.VerifyOptions) ([]*x509.Certificate, error) {
 	if len(opts.KeyUsages) == 0 {
 		opts.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
 	}
 	signed := (*cms.ParsedSignedData)(t)
-	return signed.Verify(opts)
+	certs, err := signed.Verify(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// RFC 3161 2.3: The corresponding certificate MUST contain only one instance of
+	// the extended key usage field extension.
+	verifiedCerts := make([]*x509.Certificate, 0, len(certs))
+	for _, cert := range certs {
+		if len(cert.ExtKeyUsage) == 1 && len(cert.UnknownExtKeyUsage) == 0 {
+			verifiedCerts = append(verifiedCerts, cert)
+		}
+	}
+	if len(verifiedCerts) == 0 {
+		return nil, errors.New("unexpected number of extended key usages")
+	}
+	return verifiedCerts, nil
 }
 
 // Info returns the timestamping information.

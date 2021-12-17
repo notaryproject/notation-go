@@ -41,11 +41,9 @@ type Verifier struct {
 	// An empty list of `KeyUsages` in the verify options implies `ExtKeyUsageCodeSigning`.
 	VerifyOptions x509.VerifyOptions
 
-	// TSAVerifyOptions is the verify option to verify the fetched timestamp signature.
-	// The `Intermediates` in the verify options will be ignored and re-contrusted using
-	// the certificates in the fetched timestamp signature.
-	// An empty list of `KeyUsages` in the verify options implies `ExtKeyUsageTimeStamping`.
-	TSAVerifyOptions x509.VerifyOptions
+	// TSARoots is the set of trusted root certificates for verifying the fetched timestamp
+	// signature. If nil, the system roots or the platform verifier are used.
+	TSARoots *x509.CertPool
 }
 
 // NewVerifier creates a verifier with a set of trusted verification keys.
@@ -157,7 +155,7 @@ func (v *Verifier) verifyTimestamp(tokenBytes []byte, encodedSig string) (time.T
 	if err != nil {
 		return time.Time{}, err
 	}
-	return verifyTimestamp(sig, tokenBytes, v.TSAVerifyOptions)
+	return verifyTimestamp(sig, tokenBytes, v.TSARoots)
 }
 
 // verifyJWT verifies the JWT token against the specified verification key, and
@@ -203,10 +201,13 @@ func openEnvelope(signature []byte) (*jwsutil.CompleteSignature, error) {
 }
 
 // verifyTimestamp verifies the timestamp token and returns stamped time.
-func verifyTimestamp(contentBytes, tokenBytes []byte, opts x509.VerifyOptions) (time.Time, error) {
+func verifyTimestamp(contentBytes, tokenBytes []byte, roots *x509.CertPool) (time.Time, error) {
 	token, err := timestamp.ParseSignedToken(tokenBytes)
 	if err != nil {
 		return time.Time{}, err
+	}
+	opts := x509.VerifyOptions{
+		Roots: roots,
 	}
 	if _, err := token.Verify(opts); err != nil {
 		return time.Time{}, err

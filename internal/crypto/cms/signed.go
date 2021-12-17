@@ -2,9 +2,11 @@ package cms
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/hex"
 	"time"
 
 	"github.com/notaryproject/notation-go-lib/internal/crypto/hashutil"
@@ -53,14 +55,15 @@ func ParseSignedData(data []byte) (*ParsedSignedData, error) {
 // re-contrusted using the certificates in the parsed signed data.
 // If more than one signature is present, the successful validation of any signature
 // implies that the content in the parsed signed data is valid.
-// On successful verification, the list of signers that successfully verify is returned.
+// On successful verification, the list of signing certificates that successfully
+// verify is returned.
 // If all signatures fail to verify, the last error is returned.
 // References:
 // - RFC 5652 5   Signed-data Content Type
 // - RFC 5652 5.4 Message Digest Calculation Process
 // - RFC 5652 5.6 Signature Verification Process
 // WARNING: this function doesn't do any revocation checking.
-func (d *ParsedSignedData) Verify(opts x509.VerifyOptions) ([]SignerInfo, error) {
+func (d *ParsedSignedData) Verify(opts x509.VerifyOptions) ([]*x509.Certificate, error) {
 	if len(d.Signers) == 0 {
 		return nil, ErrSignerNotFound
 	}
@@ -73,17 +76,27 @@ func (d *ParsedSignedData) Verify(opts x509.VerifyOptions) ([]SignerInfo, error)
 		intermediates.AddCert(cert)
 	}
 	opts.Intermediates = intermediates
-	var verifiedSigners []SignerInfo
+	verifiedSignerMap := map[string]*x509.Certificate{}
 	var lastErr error
 	for _, signer := range d.Signers {
-		if err := d.verify(signer, opts); err != nil {
+		cert, err := d.verify(signer, opts)
+		if err != nil {
 			lastErr = err
-		} else {
-			verifiedSigners = append(verifiedSigners, signer)
+			continue
 		}
+		thumbprint, err := hashutil.ComputeHash(crypto.SHA256, cert.Raw)
+		if err != nil {
+			return nil, err
+		}
+		verifiedSignerMap[hex.EncodeToString(thumbprint)] = cert
 	}
-	if len(verifiedSigners) == 0 {
+	if len(verifiedSignerMap) == 0 {
 		return nil, lastErr
+	}
+
+	verifiedSigners := make([]*x509.Certificate, 0, len(verifiedSignerMap))
+	for _, cert := range verifiedSignerMap {
+		verifiedSigners = append(verifiedSigners, cert)
 	}
 	return verifiedSigners, nil
 }
@@ -92,18 +105,27 @@ func (d *ParsedSignedData) Verify(opts x509.VerifyOptions) ([]SignerInfo, error)
 // References:
 // - RFC 5652 5.4 Message Digest Calculation Process
 // - RFC 5652 5.6 Signature Verification Process
-func (d *ParsedSignedData) verify(signer SignerInfo, opts x509.VerifyOptions) error {
+func (d *ParsedSignedData) verify(signer SignerInfo, opts x509.VerifyOptions) (*x509.Certificate, error) {
 	// find signer certificate
 	cert := d.getCertificate(signer.SignerIdentifier)
 	if cert == nil {
-		return ErrCertificateNotFound
+		return nil, ErrCertificateNotFound
 	}
 
 	// verify signer certificate
 	if _, err := cert.Verify(opts); err != nil {
-		return VerificationError{Detail: err}
+		return cert, VerificationError{Detail: err}
 	}
 
+	// verify signature
+	return cert, d.verifySignature(signer, cert)
+}
+
+// verifySignature verifies the signature with a trusted certificate.
+// References:
+// - RFC 5652 5.4 Message Digest Calculation Process
+// - RFC 5652 5.6 Signature Verification Process
+func (d *ParsedSignedData) verifySignature(signer SignerInfo, cert *x509.Certificate) error {
 	// verify signature
 	algorithm := getSignatureAlgorithmFromOID(
 		signer.DigestAlgorithm.Algorithm,
