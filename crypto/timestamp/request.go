@@ -7,7 +7,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/notaryproject/notation-go-lib/internal/crypto/oid"
+	"github.com/notaryproject/notation-go/internal/crypto/oid"
 	digest "github.com/opencontainers/go-digest"
 )
 

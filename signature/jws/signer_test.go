@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notaryproject/notation-go-lib"
-	"github.com/notaryproject/notation-go-lib/crypto/timestamp/timestamptest"
+	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/crypto/timestamp/timestamptest"
 	"github.com/opencontainers/go-digest"
 )
 

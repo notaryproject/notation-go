@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/notaryproject/notation-go-lib"
+	"github.com/notaryproject/notation-go"
 )
 
 // unprotectedHeader contains the header parameters that are not integrity protected.

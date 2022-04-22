@@ -10,10 +10,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/notaryproject/notation-go-lib/internal/crypto/cms"
-	"github.com/notaryproject/notation-go-lib/internal/crypto/hashutil"
-	"github.com/notaryproject/notation-go-lib/internal/crypto/oid"
-	asn1util "github.com/notaryproject/notation-go-lib/internal/encoding/asn1"
+	"github.com/notaryproject/notation-go/internal/crypto/cms"
+	"github.com/notaryproject/notation-go/internal/crypto/hashutil"
+	"github.com/notaryproject/notation-go/internal/crypto/oid"
+	asn1util "github.com/notaryproject/notation-go/internal/encoding/asn1"
 )
 
 // SignedToken is a parsed timestamp token with signatures.
