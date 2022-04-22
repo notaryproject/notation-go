@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notaryproject/notation-go-lib/internal/crypto/hashutil"
-	"github.com/notaryproject/notation-go-lib/internal/crypto/pki"
+	"github.com/notaryproject/notation-go/internal/crypto/hashutil"
+	"github.com/notaryproject/notation-go/internal/crypto/pki"
 )
 
 var testRequest = []byte{

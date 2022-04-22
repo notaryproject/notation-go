@@ -1,4 +1,4 @@
-module github.com/notaryproject/notation-go-lib
+module github.com/notaryproject/notation-go
 
 go 1.17
 

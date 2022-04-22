@@ -10,10 +10,10 @@ import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/notaryproject/notation-go-lib"
-	"github.com/notaryproject/notation-go-lib/crypto/jwsutil"
-	"github.com/notaryproject/notation-go-lib/crypto/timestamp"
-	"github.com/notaryproject/notation-go-lib/internal/crypto/pki"
+	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/crypto/jwsutil"
+	"github.com/notaryproject/notation-go/crypto/timestamp"
+	"github.com/notaryproject/notation-go/internal/crypto/pki"
 )
 
 // Signer signs artifacts and generates JWS signatures.

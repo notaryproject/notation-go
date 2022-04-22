@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notaryproject/notation-go-lib/crypto/timestamp"
-	"github.com/notaryproject/notation-go-lib/internal/crypto/oid"
-	"github.com/notaryproject/notation-go-lib/internal/crypto/pki"
+	"github.com/notaryproject/notation-go/crypto/timestamp"
+	"github.com/notaryproject/notation-go/internal/crypto/oid"
+	"github.com/notaryproject/notation-go/internal/crypto/pki"
 )
 
 func TestTSATimestampGranted(t *testing.T) {

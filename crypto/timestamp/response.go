@@ -4,7 +4,7 @@ import (
 	"encoding/asn1"
 	"errors"
 
-	"github.com/notaryproject/notation-go-lib/internal/crypto/pki"
+	"github.com/notaryproject/notation-go/internal/crypto/pki"
 )
 
 // Response is a time-stamping response.

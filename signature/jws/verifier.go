@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/notaryproject/notation-go-lib"
-	"github.com/notaryproject/notation-go-lib/crypto/jwsutil"
-	"github.com/notaryproject/notation-go-lib/crypto/timestamp"
+	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/crypto/jwsutil"
+	"github.com/notaryproject/notation-go/crypto/timestamp"
 )
 
 // maxTimestampAccuracy specifies the max acceptable accuracy for timestamp.

@@ -9,8 +9,8 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/notaryproject/notation-go-lib/internal/crypto/hashutil"
-	"github.com/notaryproject/notation-go-lib/internal/crypto/oid"
+	"github.com/notaryproject/notation-go/internal/crypto/hashutil"
+	"github.com/notaryproject/notation-go/internal/crypto/oid"
 )
 
 // ParsedSignedData is a parsed SignedData structure for golang friendly types.
