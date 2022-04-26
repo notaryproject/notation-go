@@ -89,12 +89,10 @@ func (mgr *Manager) isCandidate(name string) (fullname string, ok bool) {
 		// (e.g. due to permissions or anything else).
 		return "", false
 	}
-	switch fi.Mode().Type() {
-	case 0, fs.ModeSymlink:
-		// Regular file or symlink, keep going.
+	if fi.Mode().Type() == 0 {
+		// Regular file, keep going.
 		return fullname, true
-	default:
-		// Something else, ignore.
-		return "", false
 	}
+	// Something else, ignore.
+	return "", false
 }
