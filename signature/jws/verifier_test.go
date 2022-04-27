@@ -3,6 +3,7 @@ package jws
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"reflect"
 	"testing"
 	"time"
@@ -43,11 +44,15 @@ func TestVerifyWithCertChain(t *testing.T) {
 	if _, err := v.Verify(ctx, sig, vOpts); err == nil {
 		t.Errorf("Verify() error = %v, wantErr %v", err, true)
 	}
-
 	// verify again with certificate trusted
-	roots := x509.NewCertPool()
-	roots.AddCert(cert)
-	v.VerifyOptions.Roots = roots
+	err = v.AddCertPEM(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	}))
+	if err != nil {
+		t.Fatalf("AddCertPEM() error = %v", err)
+	}
+
 	got, err := v.Verify(ctx, sig, vOpts)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
