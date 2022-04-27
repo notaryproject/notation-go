@@ -6,13 +6,8 @@ import (
 	"os"
 )
 
-var fail = flag.Bool("fail", false, "")
-
 func main() {
 	flag.Parse()
-	if *fail {
-		os.Exit(1)
-	}
 	if flag.NArg() < 1 {
 		os.Exit(1)
 	}

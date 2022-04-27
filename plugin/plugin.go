@@ -24,7 +24,7 @@ var ErrNotFound = errors.New("plugin not found")
 // and returns a Plugin.
 func newPlugin(cmder commander, binPath, name string) *Plugin {
 	p := &Plugin{
-		Path: addExeSuffix(binPath),
+		Path: binPath,
 	}
 
 	meta, err := cmder.Output(p.Path, "get-plugin-metadata")

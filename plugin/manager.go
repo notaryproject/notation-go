@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 )
 
 // commander is defined for mocking purposes.
@@ -12,16 +13,21 @@ type commander interface {
 	Output(string, ...string) ([]byte, error)
 }
 
-type rootedCommander struct {
+type execCommander struct {
 	root string
 }
 
-func (c rootedCommander) Output(name string, args ...string) ([]byte, error) {
+func (c execCommander) Output(name string, args ...string) ([]byte, error) {
 	cmd := &exec.Cmd{
-		Path: path.Join(c.root, name),
-		Args: append([]string{path.Base(name)}, args...),
+		Path: name,
+		Args: append([]string{name}, args...),
 	}
 	return cmd.Output()
+}
+
+type rootedFS struct {
+	fs.FS
+	root string
 }
 
 // Manager manages plugins installed on the system.
@@ -37,17 +43,17 @@ func NewManager() (*Manager, error) {
 		return nil, err
 	}
 	pluginDir := path.Join(homeDir, ".notation", "plugins")
-	return &Manager{os.DirFS(pluginDir), rootedCommander{pluginDir}}, nil
+	return &Manager{rootedFS{os.DirFS(pluginDir), pluginDir}, execCommander{}}, nil
 }
 
 // Get returns a plugin on the system by its name.
 // The plugin might be incomplete if p.Err is not nil.
 func (mgr *Manager) Get(name string) (*Plugin, error) {
-	fullname, ok := mgr.isCandidate(name)
+	binPath, ok := mgr.isCandidate(name)
 	if !ok {
 		return nil, ErrNotFound
 	}
-	p := newPlugin(mgr.cmder, fullname, name)
+	p := newPlugin(mgr.cmder, binPath, name)
 	return p, nil
 }
 
@@ -81,18 +87,20 @@ func (mgr *Manager) Command(name string, args ...string) (*exec.Cmd, error) {
 	return exec.Command(p.Path, args...), nil
 }
 
-func (mgr *Manager) isCandidate(name string) (fullname string, ok bool) {
-	fullname = path.Join(name, "notation-"+name)
-	fi, err := fs.Stat(mgr.fsys, addExeSuffix(fullname))
+func (mgr *Manager) isCandidate(name string) (string, bool) {
+	base := addExeSuffix("notation-" + name)
+	fi, err := fs.Stat(mgr.fsys, path.Join(name, base))
 	if err != nil {
 		// Ignore any file which we cannot Stat
 		// (e.g. due to permissions or anything else).
 		return "", false
 	}
-	if fi.Mode().Type() == 0 {
-		// Regular file, keep going.
-		return fullname, true
+	if fi.Mode().Type() != 0 {
+		// Ignore non-regular files.
+		return "", false
 	}
-	// Something else, ignore.
-	return "", false
+	if fsys, ok := mgr.fsys.(rootedFS); ok {
+		return filepath.Join(fsys.root, name, base), true
+	}
+	return filepath.Join(name, base), true
 }

@@ -50,7 +50,7 @@ func TestIntegration(t *testing.T) {
 		t.Skip()
 	}
 	root := preparePlugin(t)
-	mgr := &Manager{os.DirFS(root), rootedCommander{root}}
+	mgr := &Manager{rootedFS{os.DirFS(root), root}, execCommander{}}
 	p, err := mgr.Get("foo")
 	if err != nil {
 		t.Fatal(err)
@@ -67,5 +67,13 @@ func TestIntegration(t *testing.T) {
 	}
 	if !reflect.DeepEqual(list[0].Metadata, p.Metadata) {
 		t.Errorf("Manager.List() got %v, want %v", list[0], p)
+	}
+	cmd, err := mgr.Command("foo", "other")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = cmd.Run()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
