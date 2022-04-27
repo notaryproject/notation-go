@@ -88,7 +88,7 @@ func (mgr *Manager) Command(name string, args ...string) (*exec.Cmd, error) {
 }
 
 func (mgr *Manager) isCandidate(name string) (string, bool) {
-	base := addExeSuffix("notation-" + name)
+	base := addExeSuffix(NamePrefix + name)
 	fi, err := fs.Stat(mgr.fsys, path.Join(name, base))
 	if err != nil {
 		// Ignore any file which we cannot Stat

@@ -34,7 +34,7 @@ func preparePlugin(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := filepath.Join(root, "foo", "notation-foo")
+	out := filepath.Join(root, "foo", NamePrefix+"foo")
 	out = addExeSuffix(out)
 	cmd := exec.Command("go", "build", "-o", out)
 	cmd.Dir = root

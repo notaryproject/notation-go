@@ -7,6 +7,16 @@ import (
 	"runtime"
 )
 
+const (
+	// NamePrefix is the prefix required on all plugin binary names.
+	NamePrefix = "notation-"
+
+	// MetadataSubcommandName is the name of the plugin subcommand
+	// which must be supported by every plugin and returns the
+	// plugin metadata.
+	MetadataSubcommandName = "get-plugin-metadata"
+)
+
 // Plugin represents a potential plugin with all it's metadata.
 type Plugin struct {
 	Metadata
@@ -27,7 +37,7 @@ func newPlugin(cmder commander, binPath, name string) *Plugin {
 		Path: binPath,
 	}
 
-	meta, err := cmder.Output(p.Path, "get-plugin-metadata")
+	meta, err := cmder.Output(p.Path, MetadataSubcommandName)
 	if err != nil {
 		p.Err = fmt.Errorf("failed to fetch metadata: %w", err)
 		return p
