@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math"
@@ -175,4 +176,36 @@ func generateKeyCertPair() (*rsa.PrivateKey, *x509.Certificate, error) {
 		return nil, nil, err
 	}
 	return key, cert, nil
+}
+
+func TestNewSignerFromCertificate(t *testing.T) {
+	key, cert, err := generateKeyCertPair()
+	if err != nil {
+		t.Fatalf("generateKeyCertPair() error = %v", err)
+	}
+	tlscert := tls.Certificate{
+		Certificate:                  [][]byte{cert.Raw},
+		PrivateKey:                   key,
+		SupportedSignatureAlgorithms: []tls.SignatureScheme{tls.ECDSAWithP521AndSHA512},
+	}
+	s, err := NewSignerFromCertificate(tlscert)
+	if err != nil {
+		t.Fatalf("NewSigner() error = %v", err)
+	}
+
+	ctx := context.Background()
+	desc, sOpts := generateSigningContent(nil)
+	sig, err := s.Sign(ctx, desc, sOpts)
+	if err != nil {
+		t.Fatalf("Sign() error = %v", err)
+	}
+
+	// basic verification
+	v := NewVerifier()
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	v.VerifyOptions.Roots = roots
+	if _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
 }

@@ -3,6 +3,7 @@ package jws
 import (
 	"context"
 	"crypto"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -39,7 +40,7 @@ type Signer struct {
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
 // with a certificate chain.
-// The relation of the provided siging key and its certificate chain is not verified,
+// The relation of the provided signing key and its certificate chain is not verified,
 // and should be verified by the caller.
 func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, error) {
 	method, err := SigningMethodFromKey(key)
@@ -52,7 +53,7 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, e
 // NewSignerWithCertificateChain creates a signer with the specified signing method and
 // a signing key bundled with a (partial) certificate chain.
 // Since the provided signing key could potentially be a remote key, the relation of the
-// siging key and its certificate chain is not verified, and should be verified by the caller.
+// signing key and its certificate chain is not verified, and should be verified by the caller.
 func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, error) {
 	if method == nil {
 		return nil, errors.New("nil signing method")
@@ -84,6 +85,26 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		key:       key,
 		certChain: rawCerts,
 	}, nil
+}
+
+// NewSignerFromFiles creates a signer from a key and certificate files.
+// Since the provided certificate signing key could potentially be a remote key, the relation of the
+// signing key and its certificate chain is not verified, and should be verified by the caller.
+func NewSignerFromCertificate(cert tls.Certificate) (*Signer, error) {
+	certs := make([]*x509.Certificate, len(cert.Certificate))
+	for i, c := range cert.Certificate {
+		cert, err := x509.ParseCertificate(c)
+		if err != nil {
+			return nil, err
+		}
+		certs[i] = cert
+	}
+	key := cert.PrivateKey
+	method, err := SigningMethodFromKey(key)
+	if err != nil {
+		return nil, err
+	}
+	return NewSignerWithCertificateChain(method, key, certs)
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
