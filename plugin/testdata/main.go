@@ -18,7 +18,7 @@ func main() {
 			Description               string   `json:"description"`
 			Version                   string   `json:"version"`
 			URL                       string   `json:"url"`
-			SupportedContractVersions []string `json:"supported-contract-versions"`
+			SupportedContractVersions []string `json:"supportedContractVersions"`
 			Capabilities              []string `json:"capabilities"`
 		}{Name: "foo", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1"}, Capabilities: []string{"cap"}}
 		data, err := json.Marshal(&m)

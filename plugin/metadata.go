@@ -8,7 +8,7 @@ type Metadata struct {
 	Description               string   `json:"description"`
 	Version                   string   `json:"version"`
 	URL                       string   `json:"url"`
-	SupportedContractVersions []string `json:"supported-contract-versions"`
+	SupportedContractVersions []string `json:"supportedContractVersions"`
 	Capabilities              []string `json:"capabilities"`
 }
 

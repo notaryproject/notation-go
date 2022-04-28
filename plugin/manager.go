@@ -13,9 +13,10 @@ type commander interface {
 	Output(string, ...string) ([]byte, error)
 }
 
-type execCommander struct {
-	root string
-}
+// execCommander implements the commander interface
+// using exec.Cmd without calling exec.Command() so
+// it avoids calling the sometimes-unsafe exec.LookPath.
+type execCommander struct{}
 
 func (c execCommander) Output(name string, args ...string) ([]byte, error) {
 	cmd := &exec.Cmd{
@@ -25,6 +26,8 @@ func (c execCommander) Output(name string, args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
+// rootedFS is io.FS implementation used in NewManager.
+// root is the root of the file system tree passed to os.DirFS.
 type rootedFS struct {
 	fs.FS
 	root string
