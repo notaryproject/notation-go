@@ -15,22 +15,22 @@ type Metadata struct {
 // Validate checks if the metadata is correctly populated.
 func (m *Metadata) Validate() error {
 	if m.Name == "" {
-		return errors.New("name must not be empty")
+		return errors.New("empty name")
 	}
 	if m.Description == "" {
-		return errors.New("description name must not be empty")
+		return errors.New("empty description")
 	}
 	if m.Version == "" {
-		return errors.New("version must not be empty")
+		return errors.New("empty version")
 	}
 	if m.URL == "" {
-		return errors.New("url must not be empty")
+		return errors.New("empty url")
 	}
 	if len(m.Capabilities) == 0 {
-		return errors.New("capabilities must not be empty")
+		return errors.New("empty capabilities")
 	}
 	if len(m.SupportedContractVersions) == 0 {
-		return errors.New("supported contract versions must not be empty")
+		return errors.New("empty supported contract versions")
 	}
 	return nil
 }
