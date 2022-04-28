@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"time"
@@ -52,31 +51,6 @@ type Verifier struct {
 // VerifyOptions for setting up trusted certificates.
 func NewVerifier() *Verifier {
 	return &Verifier{}
-}
-
-// AddCertPEM decodes data as a PEM certificate
-// and adds it to v.VerifyOptions.Roots.
-func (v *Verifier) AddCertPEM(data []byte) error {
-	var certs []*x509.Certificate
-	for {
-		var block *pem.Block
-		block, data = pem.Decode(data)
-		if block == nil {
-			break
-		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return err
-		}
-		certs = append(certs, cert)
-	}
-	if v.VerifyOptions.Roots == nil {
-		v.VerifyOptions.Roots = x509.NewCertPool()
-	}
-	for _, cert := range certs {
-		v.VerifyOptions.Roots.AddCert(cert)
-	}
-	return nil
 }
 
 // Verify verifies the signature and returns the verified descriptor and

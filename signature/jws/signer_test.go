@@ -184,11 +184,15 @@ func TestNewSignerFromCertificate(t *testing.T) {
 		t.Fatalf("generateKeyCertPair() error = %v", err)
 	}
 	tlscert := tls.Certificate{
-		Certificate:                  [][]byte{cert.Raw},
 		PrivateKey:                   key,
 		SupportedSignatureAlgorithms: []tls.SignatureScheme{tls.ECDSAWithP521AndSHA512},
 	}
 	s, err := NewSignerFromCertificate(tlscert)
+	if err == nil {
+		t.Error("NewSigner() should return error on empty certificate chain")
+	}
+	tlscert.Certificate = [][]byte{cert.Raw}
+	s, err = NewSignerFromCertificate(tlscert)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}

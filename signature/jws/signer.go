@@ -91,6 +91,9 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 // Since the provided certificate signing key could potentially be a remote key, the relation of the
 // signing key and its certificate chain is not verified, and should be verified by the caller.
 func NewSignerFromCertificate(cert tls.Certificate) (*Signer, error) {
+	if len(cert.Certificate) == 0 {
+		return nil, errors.New("missing signer certificate chain")
+	}
 	certs := make([]*x509.Certificate, len(cert.Certificate))
 	for i, c := range cert.Certificate {
 		cert, err := x509.ParseCertificate(c)
