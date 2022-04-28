@@ -1,4 +1,4 @@
-package plugin
+package manager
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+
+	"github.com/notaryproject/notation-go/plugin"
 )
 
 const (
@@ -20,7 +22,7 @@ const (
 
 // Plugin represents a potential plugin with all it's metadata.
 type Plugin struct {
-	Metadata
+	plugin.Metadata
 
 	Path string `json:",omitempty"`
 

@@ -1,4 +1,4 @@
-package plugin
+package manager
 
 import (
 	"encoding/json"
@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/notaryproject/notation-go/plugin"
 )
 
 type testCommander struct {
@@ -19,7 +21,7 @@ func (t testCommander) Output(string, ...string) ([]byte, error) {
 	return t.output, t.err
 }
 
-var validMetadata = Metadata{
+var validMetadata = plugin.Metadata{
 	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
 	SupportedContractVersions: []string{"1"}, Capabilities: []string{"cap"},
 }
@@ -89,7 +91,7 @@ func TestManager_Get(t *testing.T) {
 				addExeSuffix("baz/notation-baz"): new(fstest.MapFile),
 			}, testCommander{metadataJSON(validMetadata), nil}},
 			args{"baz"},
-			&Plugin{Metadata: Metadata{Name: "baz"}, Path: addExeSuffix("baz/notation-baz")},
+			&Plugin{Metadata: plugin.Metadata{Name: "baz"}, Path: addExeSuffix("baz/notation-baz")},
 			"", "executable name must be",
 		},
 		{
@@ -97,9 +99,9 @@ func TestManager_Get(t *testing.T) {
 			&Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(Metadata{Name: "foo"}), nil}},
+			}, testCommander{metadataJSON(plugin.Metadata{Name: "foo"}), nil}},
 			args{"foo"},
-			&Plugin{Metadata: Metadata{Name: "foo"}, Path: addExeSuffix("foo/notation-foo")},
+			&Plugin{Metadata: plugin.Metadata{Name: "foo"}, Path: addExeSuffix("foo/notation-foo")},
 			"", "invalid metadata",
 		},
 		{
@@ -144,7 +146,7 @@ func TestManager_Get(t *testing.T) {
 	}
 }
 
-func metadataJSON(m Metadata) []byte {
+func metadataJSON(m plugin.Metadata) []byte {
 	d, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
