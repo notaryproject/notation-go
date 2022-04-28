@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"runtime"
 )
 
@@ -48,7 +49,7 @@ func newPlugin(cmder commander, binPath, name string) *Plugin {
 		return p
 	}
 	if p.Name != name {
-		p.Err = fmt.Errorf("metadata name %q is not valid, must be %q", name, p.Name)
+		p.Err = fmt.Errorf("executable name must be %q instead of %q", addExeSuffix(NamePrefix+p.Name), filepath.Base(binPath))
 		return p
 	}
 	if err := p.Metadata.Validate(); err != nil {

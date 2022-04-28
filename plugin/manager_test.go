@@ -90,7 +90,7 @@ func TestManager_Get(t *testing.T) {
 			}, testCommander{metadataJSON(validMetadata), nil}},
 			args{"baz"},
 			&Plugin{Metadata: Metadata{Name: "baz"}, Path: addExeSuffix("baz/notation-baz")},
-			"", "metadata name \"baz\" is not valid, must be \"foo\"",
+			"", "executable name must be",
 		},
 		{
 			"invalid metadata content",
