@@ -1,9 +1,11 @@
 package manager
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -17,13 +19,72 @@ type testCommander struct {
 	err    error
 }
 
-func (t testCommander) Output(string, ...string) ([]byte, error) {
+func (t testCommander) Output(context.Context, string, ...string) ([]byte, error) {
 	return t.output, t.err
+}
+
+type testMultiCommander struct {
+	output [][]byte
+	err    []error
+	n      int
+}
+
+func (t *testMultiCommander) Output(context.Context, string, ...string) ([]byte, error) {
+	defer func() { t.n++ }()
+	return t.output[t.n], t.err[t.n]
 }
 
 var validMetadata = plugin.Metadata{
 	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
-	SupportedContractVersions: []string{"1"}, Capabilities: []string{"cap"},
+	SupportedContractVersions: []string{"1"}, Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator},
+}
+
+func TestManager_Get_Empty(t *testing.T) {
+	mgr := &Manager{fstest.MapFS{}, nil}
+	got, err := mgr.Get(context.Background(), "foo")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("Manager.Get() error = %v, want %v", got, ErrNotFound)
+	}
+	if got != nil {
+		t.Errorf("Manager.Get() = %v, want nil", got)
+	}
+}
+
+func TestManager_Get_NotFound(t *testing.T) {
+	check := func(got *Plugin, err error) {
+		t.Helper()
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("Manager.Get() error = %v, want %v", got, ErrNotFound)
+		}
+		if got != nil {
+			t.Errorf("Manager.Get() = %v, want nil", got)
+		}
+	}
+	ctx := context.Background()
+
+	// empty fsys.
+	mgr := Manager{fstest.MapFS{}, nil}
+	check(mgr.Get(ctx, "foo"))
+
+	// plugin directory exists without executable.
+	mgr = Manager{fstest.MapFS{
+		"foo": &fstest.MapFile{Mode: fs.ModeDir},
+	}, nil}
+	check(mgr.Get(ctx, "foo"))
+
+	// plugin directory exists with symlinked executable.
+	mgr = Manager{fstest.MapFS{
+		"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+		addExeSuffix("foo/notation-foo"): &fstest.MapFile{Mode: fs.ModeSymlink},
+	}, nil}
+	check(mgr.Get(ctx, "foo"))
+
+	// valid plugin exists but is not the target.
+	mgr = Manager{fstest.MapFS{
+		"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+		addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+	}, testCommander{metadataJSON(validMetadata), nil}}
+	check(mgr.Get(ctx, "baz"))
 }
 
 func TestManager_Get(t *testing.T) {
@@ -31,48 +92,21 @@ func TestManager_Get(t *testing.T) {
 		name string
 	}
 	tests := []struct {
-		name    string
-		mgr     *Manager
-		args    args
-		want    *Plugin
-		err     string
-		invalid string
+		name string
+		mgr  *Manager
+		args args
+		want *Plugin
+		err  string
 	}{
-		{"empty fsys", &Manager{fstest.MapFS{}, nil}, args{"foo"}, nil, "plugin not found", ""},
 		{
-			"plugin not found",
-			&Manager{fstest.MapFS{
-				"baz": &fstest.MapFile{Mode: fs.ModeDir},
-			}, nil},
-			args{"foo"},
-			nil, "plugin not found", "",
-		},
-		{
-			"plugin executable does not exists",
-			&Manager{fstest.MapFS{
-				"foo": &fstest.MapFile{Mode: fs.ModeDir},
-			}, nil},
-			args{"foo"},
-			nil, "plugin not found", "",
-		},
-		{
-			"plugin executable invalid mode",
-			&Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): &fstest.MapFile{Mode: fs.ModeDir},
-			}, testCommander{[]byte("content"), nil}},
-			args{"foo"},
-			nil, "plugin not found", "",
-		},
-		{
-			"discover error",
+			"command error",
 			&Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 			}, testCommander{nil, errors.New("failed")}},
 			args{"foo"},
 			&Plugin{Path: addExeSuffix("foo/notation-foo")},
-			"", "failed to fetch metadata",
+			"failed to fetch metadata",
 		},
 		{
 			"invalid json",
@@ -82,7 +116,7 @@ func TestManager_Get(t *testing.T) {
 			}, testCommander{[]byte("content"), nil}},
 			args{"foo"},
 			&Plugin{Path: addExeSuffix("foo/notation-foo")},
-			"", "metadata can't be decoded",
+			"failed to fetch metadata",
 		},
 		{
 			"invalid metadata name",
@@ -91,8 +125,8 @@ func TestManager_Get(t *testing.T) {
 				addExeSuffix("baz/notation-baz"): new(fstest.MapFile),
 			}, testCommander{metadataJSON(validMetadata), nil}},
 			args{"baz"},
-			&Plugin{Metadata: plugin.Metadata{Name: "baz"}, Path: addExeSuffix("baz/notation-baz")},
-			"", "executable name must be",
+			&Plugin{Metadata: validMetadata, Path: addExeSuffix("baz/notation-baz")},
+			"executable name must be",
 		},
 		{
 			"invalid metadata content",
@@ -102,7 +136,7 @@ func TestManager_Get(t *testing.T) {
 			}, testCommander{metadataJSON(plugin.Metadata{Name: "foo"}), nil}},
 			args{"foo"},
 			&Plugin{Metadata: plugin.Metadata{Name: "foo"}, Path: addExeSuffix("foo/notation-foo")},
-			"", "invalid metadata",
+			"invalid metadata",
 		},
 		{
 			"valid",
@@ -111,36 +145,26 @@ func TestManager_Get(t *testing.T) {
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 			}, testCommander{metadataJSON(validMetadata), nil}},
 			args{"foo"},
-			&Plugin{Metadata: validMetadata, Path: addExeSuffix("foo/notation-foo")}, "", "",
+			&Plugin{Metadata: validMetadata, Path: addExeSuffix("foo/notation-foo")}, "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.mgr.Get(tt.args.name)
+			got, err := tt.mgr.Get(context.Background(), tt.args.name)
+			if err != nil {
+				t.Fatalf("Manager.Get() error = %v, want nil", err)
+			}
 			if tt.err != "" {
-				if err == nil {
-					t.Fatalf("Manager.Get() error = nil, want %s", tt.err)
+				if got.Err == nil {
+					t.Errorf("Manager.Get() got.Err = nil, want %v", tt.err)
+				} else if !strings.Contains(got.Err.Error(), tt.err) {
+					t.Errorf("Manager.Get() got.Err = %v, want %v", got.Err, tt.err)
 				}
-				if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("Manager.Get() error = %v, want %v", err, tt.err)
-				}
-			} else if tt.invalid != "" {
-				if err != nil {
-					t.Fatalf("Manager.Get() error = %v, want nil", err)
-				}
-				if !strings.Contains(got.Err.Error(), tt.invalid) {
-					t.Fatalf("Manager.Get() error = %v, want %v", got.Err, tt.invalid)
-				}
-			} else {
-				if err != nil {
-					t.Fatalf("Manager.Get() error = %v, want nil", err)
-				}
-				if got.Err != nil {
-					t.Fatalf("Manager.Get() error = %v, want nil", got.Err)
-				}
-				if !reflect.DeepEqual(got.Metadata, tt.want.Metadata) {
-					t.Errorf("Manager.Get() = %v, want %v", got, tt.want)
-				}
+			} else if got.Err != nil {
+				t.Errorf("Manager.Get() got.Err = %v, want nil", got.Err)
+			}
+			if !reflect.DeepEqual(got.Metadata, tt.want.Metadata) {
+				t.Errorf("Manager.Get() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -182,7 +206,7 @@ func TestManager_List(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _ := tt.mgr.List()
+			got, _ := tt.mgr.List(context.Background())
 			if len(got) != len(tt.want) {
 				t.Fatalf("Manager.List() len = %v, want len %v", len(got), len(tt.want))
 			}
@@ -195,42 +219,76 @@ func TestManager_List(t *testing.T) {
 	}
 }
 
-func TestManager_Command(t *testing.T) {
+func TestManager_Run(t *testing.T) {
+	var errExec = errors.New("exec failed")
 	type args struct {
 		name string
+		cmd  plugin.Command
 	}
 	tests := []struct {
-		name    string
-		mgr     *Manager
-		args    args
-		wantErr bool
+		name string
+		mgr  *Manager
+		args args
+		err  error
 	}{
-		{"empty fsys", &Manager{fstest.MapFS{}, nil}, args{"foo"}, true},
+		{"empty fsys", &Manager{fstest.MapFS{}, nil}, args{"foo", plugin.CommandGenerateSignature}, ErrNotFound},
 		{
 			"invalid plugin", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 			}, testCommander{nil, errors.New("err")}},
-			args{"foo"}, true,
+			args{"foo", plugin.CommandGenerateSignature}, ErrNotCompliant,
+		},
+		{
+			"no capability", &Manager{fstest.MapFS{
+				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+			}, testCommander{metadataJSON(validMetadata), nil}},
+			args{"foo", plugin.CommandGenerateEnvelope}, ErrNotCapable,
+		},
+		{
+			"exec error", &Manager{fstest.MapFS{
+				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), nil}, []error{nil, errExec}, 0}},
+			args{"foo", plugin.CommandGenerateSignature}, errExec,
+		},
+		{
+			"exit error", &Manager{fstest.MapFS{
+				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), nil}, []error{nil, new(exec.ExitError)}, 0}},
+			args{"foo", plugin.CommandGenerateSignature}, ErrNotCompliant,
 		},
 		{
 			"valid", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 			}, testCommander{metadataJSON(validMetadata), nil}},
-			args{"foo"}, false,
+			args{"foo", plugin.CommandGenerateSignature}, nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.mgr.Command(tt.args.name)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Manager.Command() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			got, err := tt.mgr.Run(context.Background(), tt.args.name, tt.args.cmd)
+			wantErr := tt.err != nil
+			if (err != nil) != wantErr {
+				t.Fatalf("Manager.Run() error = %v, wantErr %v", err, wantErr)
 			}
-			if !tt.wantErr && got == nil {
-				t.Error("Manager.Command() want non-nil cmd")
+			if wantErr {
+				if !errors.Is(err, tt.err) {
+					t.Fatalf("Manager.Run() error = %v, want %v", err, tt.err)
+				}
+			} else if got == nil {
+				t.Error("Manager.Run() want non-nil output")
 			}
 		})
+	}
+}
+
+func TestNewManager(t *testing.T) {
+	mgr := NewManager()
+	if mgr == nil {
+		t.Error("NewManager() = nil")
 	}
 }

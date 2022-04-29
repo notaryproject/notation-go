@@ -1,12 +1,15 @@
 package manager
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/notaryproject/notation-go/plugin"
 )
 
 func preparePlugin(t *testing.T) string {
@@ -51,14 +54,14 @@ func TestIntegration(t *testing.T) {
 	}
 	root := preparePlugin(t)
 	mgr := &Manager{rootedFS{os.DirFS(root), root}, execCommander{}}
-	p, err := mgr.Get("foo")
+	p, err := mgr.Get(context.Background(), "foo")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if p.Err != nil {
 		t.Fatal(p.Err)
 	}
-	list, err := mgr.List()
+	list, err := mgr.List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,11 +71,7 @@ func TestIntegration(t *testing.T) {
 	if !reflect.DeepEqual(list[0].Metadata, p.Metadata) {
 		t.Errorf("Manager.List() got %v, want %v", list[0], p)
 	}
-	cmd, err := mgr.Command("foo", "other")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = cmd.Run()
+	_, err = mgr.Run(context.Background(), "foo", plugin.CommandGetMetadata)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,29 +1,55 @@
 package manager
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
+
+	"github.com/notaryproject/notation-go/plugin"
 )
+
+const (
+	// NamePrefix is the prefix required on all plugin binary names.
+	NamePrefix = "notation-"
+)
+
+// Plugin represents a potential plugin with all it's metadata.
+type Plugin struct {
+	plugin.Metadata
+
+	Path string `json:",omitempty"`
+
+	// Err is non-nil if the plugin failed one of the candidate tests.
+	Err error `json:",omitempty"`
+}
+
+// ErrNotFound is returned by Manager.Get and Manager.Run when the plugin is not found.
+var ErrNotFound = errors.New("plugin not found")
+
+// ErrNotCompliant is returned by Manager.Run when the plugin is found but not compliant.
+var ErrNotCompliant = errors.New("plugin not compliant")
+
+// ErrNotCapable is returned by Manager.Run when the plugin is found and compliant, but is missing a necessary capability.
+var ErrNotCapable = errors.New("plugin not capable")
 
 // commander is defined for mocking purposes.
 type commander interface {
-	Output(string, ...string) ([]byte, error)
+	Output(context.Context, string, ...string) ([]byte, error)
 }
 
 // execCommander implements the commander interface
-// using exec.Cmd without calling exec.Command() so
-// it avoids calling the sometimes-unsafe exec.LookPath.
+// using exec.Command().
 type execCommander struct{}
 
-func (c execCommander) Output(name string, args ...string) ([]byte, error) {
-	cmd := &exec.Cmd{
-		Path: name,
-		Args: append([]string{name}, args...),
-	}
-	return cmd.Output()
+func (c execCommander) Output(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, args...).Output()
 }
 
 // rootedFS is io.FS implementation used in NewManager.
@@ -40,35 +66,36 @@ type Manager struct {
 }
 
 // NewManager returns a new manager.
-func NewManager() (*Manager, error) {
+func NewManager() *Manager {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return nil, err
+		// Lets panic for now.
+		// Once the config is moved to notation-go we will move this code to
+		// the config package as a global initialization.
+		panic(err)
 	}
-	pluginDir := path.Join(homeDir, ".notation", "plugins")
-	return &Manager{rootedFS{os.DirFS(pluginDir), pluginDir}, execCommander{}}, nil
+	pluginDir := filepath.Join(homeDir, ".notation", "plugins")
+	return &Manager{rootedFS{os.DirFS(pluginDir), pluginDir}, execCommander{}}
 }
 
 // Get returns a plugin on the system by its name.
+//
+// If the plugin is not found, the error is of type ErrNotFound.
 // The plugin might be incomplete if p.Err is not nil.
-func (mgr *Manager) Get(name string) (*Plugin, error) {
-	binPath, ok := mgr.isCandidate(name)
-	if !ok {
-		return nil, ErrNotFound
-	}
-	p := newPlugin(mgr.cmder, binPath, name)
-	return p, nil
+func (mgr *Manager) Get(ctx context.Context, name string) (*Plugin, error) {
+	return mgr.newPlugin(ctx, name)
 }
 
 // List produces a list of the plugins available on the system.
+//
 // Some plugins might be incomplete if their Err is not nil.
-func (mgr *Manager) List() ([]*Plugin, error) {
+func (mgr *Manager) List(ctx context.Context) ([]*Plugin, error) {
 	var plugins []*Plugin
 	fs.WalkDir(mgr.fsys, ".", func(dir string, d fs.DirEntry, _ error) error {
 		if dir == "." || !d.IsDir() {
 			return nil
 		}
-		p, err := mgr.Get(d.Name())
+		p, err := mgr.newPlugin(ctx, d.Name())
 		if err == nil {
 			plugins = append(plugins, p)
 		}
@@ -77,33 +104,137 @@ func (mgr *Manager) List() ([]*Plugin, error) {
 	return plugins, nil
 }
 
-// Command returns an "os/exec".Cmd which when .Run() will execute the named plugin.
-// The error returned is ErrNotFound if no plugin was found.
-func (mgr *Manager) Command(name string, args ...string) (*exec.Cmd, error) {
-	p, err := mgr.Get(name)
+// Run executes the specified command against the named plugin and waits for it to complete.
+//
+// When the returned object is not nil, its type is guaranteed to remain always the same for a given Command.
+// The type associated to each Command can be found at Command.NewResponse().
+//
+// The returned error is nil if:
+// - the plugin exists and is valid
+// - the plugin supports the capability returned by cmd.Capability()
+// - the command runs and exits with a zero exit status
+// - the command stdout is a valid json object which can be unmarshal-ed into the object returned by cmd.NewResponse().
+//
+// If the plugin is not found, the error is of type ErrNotFound.
+// If the plugin metadata is not valid or stdout and stderr can't be decoded into a valid response, the error is of type ErrNotCompliant.
+// If the plugin does not have the required capability, the error is of type ErrNotCapable.
+// If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
+// Other error types may be returned for other situations.
+func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, args ...string) (interface{}, error) {
+	p, err := mgr.newPlugin(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	if p.Err != nil {
-		return nil, p.Err
+		return nil, withErr(p.Err, ErrNotCompliant)
 	}
-	return exec.Command(p.Path, args...), nil
+	if c := cmd.Capability(); !p.HasCapability(c) {
+		return nil, ErrNotCapable
+	}
+	return run(ctx, mgr.cmder, p.Path, cmd, args...)
 }
 
-func (mgr *Manager) isCandidate(name string) (string, bool) {
-	base := addExeSuffix(NamePrefix + name)
-	fi, err := fs.Stat(mgr.fsys, path.Join(name, base))
+// newPlugin determines if the given candidate is valid and returns a Plugin.
+func (mgr *Manager) newPlugin(ctx context.Context, name string) (*Plugin, error) {
+	ok := isCandidate(mgr.fsys, name)
+	if !ok {
+		return nil, ErrNotFound
+	}
+
+	p := &Plugin{Path: binPath(mgr.fsys, name)}
+	out, err := run(ctx, mgr.cmder, p.Path, plugin.CommandGetMetadata)
+	if err != nil {
+		p.Err = fmt.Errorf("failed to fetch metadata: %w", err)
+		return p, nil
+	}
+	p.Metadata = *out.(*plugin.Metadata)
+	if p.Name != name {
+		p.Err = fmt.Errorf("executable name must be %q instead of %q", addExeSuffix(NamePrefix+p.Name), filepath.Base(p.Path))
+	} else if err := p.Metadata.Validate(); err != nil {
+		p.Err = fmt.Errorf("invalid metadata: %w", err)
+	}
+	return p, nil
+}
+
+// run executes the command and decodes the response.
+func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Command, args ...string) (interface{}, error) {
+	out, err := cmder.Output(ctx, pluginPath, append([]string{string(cmd)}, args...)...)
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			var re plugin.RequestError
+			err = json.Unmarshal(ee.Stderr, &re)
+			if err == nil {
+				return nil, re
+			}
+			return nil, withErr(plugin.RequestError{Code: plugin.ErrorCodeGeneric, Err: ee}, ErrNotCompliant)
+		}
+		return nil, err
+	}
+	resp := cmd.NewResponse()
+	err = json.Unmarshal(out, resp)
+	if err != nil {
+		err = fmt.Errorf("failed to decode json response: %w", err)
+		return nil, withErr(err, ErrNotCompliant)
+	}
+	return resp, nil
+}
+
+// isCandidate checks if the named plugin is a valid candidate.
+func isCandidate(fsys fs.FS, name string) bool {
+	base := binName(name)
+	fi, err := fs.Stat(fsys, path.Join(name, base))
 	if err != nil {
 		// Ignore any file which we cannot Stat
 		// (e.g. due to permissions or anything else).
-		return "", false
+		return false
 	}
 	if fi.Mode().Type() != 0 {
 		// Ignore non-regular files.
-		return "", false
+		return false
 	}
-	if fsys, ok := mgr.fsys.(rootedFS); ok {
-		return filepath.Join(fsys.root, name, base), true
+	return true
+}
+
+func binName(name string) string {
+	return addExeSuffix(NamePrefix + name)
+}
+
+func binPath(fsys fs.FS, name string) string {
+	base := binName(name)
+	if fsys, ok := fsys.(rootedFS); ok {
+		return filepath.Join(fsys.root, name, base)
 	}
-	return filepath.Join(name, base), true
+	return filepath.Join(name, base)
+}
+
+func addExeSuffix(s string) string {
+	if runtime.GOOS == "windows" {
+		s += ".exe"
+	}
+	return s
+}
+
+func withErr(err, other error) error {
+	return unionError{err: err, other: other}
+}
+
+type unionError struct {
+	err   error
+	other error
+}
+
+func (u unionError) Error() string {
+	return fmt.Sprintf("%s: %s", u.other, u.err)
+}
+
+func (u unionError) Is(target error) bool {
+	return errors.Is(u.other, target)
+}
+
+func (u unionError) As(target interface{}) bool {
+	return errors.As(u.other, target)
+}
+
+func (u unionError) Unwrap() error {
+	return u.err
 }

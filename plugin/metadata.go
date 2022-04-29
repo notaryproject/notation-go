@@ -4,12 +4,12 @@ import "errors"
 
 // Metadata provided by the plugin.
 type Metadata struct {
-	Name                      string   `json:"name"`
-	Description               string   `json:"description"`
-	Version                   string   `json:"version"`
-	URL                       string   `json:"url"`
-	SupportedContractVersions []string `json:"supportedContractVersions"`
-	Capabilities              []string `json:"capabilities"`
+	Name                      string       `json:"name"`
+	Description               string       `json:"description"`
+	Version                   string       `json:"version"`
+	URL                       string       `json:"url"`
+	SupportedContractVersions []string     `json:"supportedContractVersions"`
+	Capabilities              []Capability `json:"capabilities"`
 }
 
 // Validate checks if the metadata is correctly populated.
@@ -37,7 +37,11 @@ func (m *Metadata) Validate() error {
 
 // HasCapability return true if the metadata states that the
 // capability is supported.
-func (m *Metadata) HasCapability(capability string) bool {
+// Returns true if capability is empty.
+func (m *Metadata) HasCapability(capability Capability) bool {
+	if capability == "" {
+		return true
+	}
 	for _, c := range m.Capabilities {
 		if c == capability {
 			return true

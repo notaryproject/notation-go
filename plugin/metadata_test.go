@@ -15,9 +15,9 @@ func TestMetadata_Validate(t *testing.T) {
 		{&Metadata{Name: "name", Description: "friendly"}, true},
 		{&Metadata{Name: "name", Description: "friendly", Version: "1"}, true},
 		{&Metadata{Name: "name", Description: "friendly", Version: "1", URL: "example.com"}, true},
-		{&Metadata{Name: "name", Description: "friendly", Version: "1", URL: "example.com", Capabilities: []string{"cap"}}, true},
+		{&Metadata{Name: "name", Description: "friendly", Version: "1", URL: "example.com", Capabilities: []Capability{"cap"}}, true},
 		{&Metadata{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1"}}, true},
-		{&Metadata{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1"}, Capabilities: []string{"cap"}}, false},
+		{&Metadata{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1"}, Capabilities: []Capability{"cap"}}, false},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -30,7 +30,7 @@ func TestMetadata_Validate(t *testing.T) {
 
 func TestMetadata_HasCapability(t *testing.T) {
 	type args struct {
-		capability string
+		capability Capability
 	}
 	tests := []struct {
 		name string
@@ -39,8 +39,9 @@ func TestMetadata_HasCapability(t *testing.T) {
 		want bool
 	}{
 		{"empty capabilities", &Metadata{}, args{"cap"}, false},
-		{"other capabilities", &Metadata{Capabilities: []string{"foo", "baz"}}, args{"cap"}, false},
-		{"found", &Metadata{Capabilities: []string{"foo", "baz"}}, args{"baz"}, true},
+		{"other capabilities", &Metadata{Capabilities: []Capability{"foo", "baz"}}, args{"cap"}, false},
+		{"empty target capability", &Metadata{Capabilities: []Capability{"foo", "baz"}}, args{""}, true},
+		{"found", &Metadata{Capabilities: []Capability{"foo", "baz"}}, args{"baz"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
