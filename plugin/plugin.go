@@ -66,6 +66,15 @@ const (
 	CapabilityEnvelopeGenerator Capability = "SIGNATURE_ENVELOPE_GENERATOR"
 )
 
+// Command line argument names used in several requests.
+const (
+	ArgContractVersion       = "--contract-version"
+	ArgKeyName               = "--key-name"
+	ArgKeyID                 = "--key-id"
+	ArgPayloadType           = "--payload-type"
+	ArgSignatureEnvelopeType = "--signature-envelop-type"
+)
+
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 // All parameters are required.
 type GenerateSignatureRequest struct {
@@ -76,6 +85,14 @@ type GenerateSignatureRequest struct {
 
 func (req *GenerateSignatureRequest) Command() Command {
 	return CommandGenerateSignature
+}
+
+func (req *GenerateSignatureRequest) Args() []string {
+	return []string{
+		ArgContractVersion, req.ContractVersion,
+		ArgKeyName, req.KeyName,
+		ArgKeyID, req.KeyID,
+	}
 }
 
 func (req *GenerateSignatureRequest) Validate() error {
@@ -125,6 +142,15 @@ func (req *GenerateEnvelopeRequest) Command() Command {
 	return CommandGenerateEnvelope
 }
 
+func (req *GenerateEnvelopeRequest) Args() []string {
+	return []string{
+		ArgContractVersion, req.ContractVersion,
+		ArgKeyName, req.KeyName,
+		ArgKeyID, req.KeyID,
+		ArgPayloadType, req.PayloadType,
+		ArgSignatureEnvelopeType, req.SignatureEnvelopeType,
+	}
+}
 
 func (req *GenerateEnvelopeRequest) Validate() error {
 	if req == nil {
