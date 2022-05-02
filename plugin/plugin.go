@@ -66,33 +66,13 @@ const (
 	CapabilityEnvelopeGenerator Capability = "SIGNATURE_ENVELOPE_GENERATOR"
 )
 
-// Command line argument names used in several requests.
-const (
-	ArgContractVersion       = "--contract-version"
-	ArgKeyName               = "--key-name"
-	ArgKeyID                 = "--key-id"
-	ArgPayloadType           = "--payload-type"
-	ArgSignatureEnvelopeType = "--signature-envelop-type"
-)
-
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 // All parameters are required.
 type GenerateSignatureRequest struct {
-	ContractVersion string
-	KeyName         string
-	KeyID           string
-}
-
-func (req *GenerateSignatureRequest) Command() Command {
-	return CommandGenerateSignature
-}
-
-func (req *GenerateSignatureRequest) Args() []string {
-	return []string{
-		ArgContractVersion, req.ContractVersion,
-		ArgKeyName, req.KeyName,
-		ArgKeyID, req.KeyID,
-	}
+	ContractVersion string `json:"contractVersion"`
+	KeyName         string `json:"keyName"`
+	KeyID           string `json:"keyId"`
+	Payload         string `json:"payload"`
 }
 
 func (req *GenerateSignatureRequest) Validate() error {
@@ -131,25 +111,12 @@ type GenerateSignatureResponse struct {
 // GenerateEnvelopeRequest contains the parameters passed in a generate-envelop request.
 // All parameters are required.
 type GenerateEnvelopeRequest struct {
-	ContractVersion       string
-	KeyName               string
-	KeyID                 string
-	PayloadType           string
-	SignatureEnvelopeType string
-}
-
-func (req *GenerateEnvelopeRequest) Command() Command {
-	return CommandGenerateEnvelope
-}
-
-func (req *GenerateEnvelopeRequest) Args() []string {
-	return []string{
-		ArgContractVersion, req.ContractVersion,
-		ArgKeyName, req.KeyName,
-		ArgKeyID, req.KeyID,
-		ArgPayloadType, req.PayloadType,
-		ArgSignatureEnvelopeType, req.SignatureEnvelopeType,
-	}
+	ContractVersion       string `json:"contractVersion"`
+	KeyName               string `json:"keyName"`
+	KeyID                 string `json:"keyId"`
+	PayloadType           string `json:"payloadType"`
+	SignatureEnvelopeType string `json:"signatureEnvelopeType"`
+	Payload               string `json:"payload"`
 }
 
 func (req *GenerateEnvelopeRequest) Validate() error {

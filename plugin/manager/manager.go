@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -41,15 +42,29 @@ var ErrNotCapable = errors.New("plugin not capable")
 
 // commander is defined for mocking purposes.
 type commander interface {
-	Output(context.Context, string, ...string) ([]byte, error)
+	// Output runs the command, passing req to the its stdin.
+	// It only returns an error if the binary can't be executed.
+	// Returns stdout if success is true, stderr if success is false.
+	Output(ctx context.Context, path string, command string, req []byte) (out []byte, success bool, err error)
 }
 
-// execCommander implements the commander interface
-// using exec.Command().
+// execCommander implements the commander interface using exec.Command().
 type execCommander struct{}
 
-func (c execCommander) Output(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, args...).Output()
+func (c execCommander) Output(ctx context.Context, name string, command string, req []byte) ([]byte, bool, error) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, name, command)
+	cmd.Stdin = bytes.NewReader(req)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if _, ok := err.(*exec.ExitError); err != nil && !ok {
+		return nil, false, err
+	}
+	if !cmd.ProcessState.Success() {
+		return stderr.Bytes(), false, nil
+	}
+	return stdout.Bytes(), true, nil
 }
 
 // rootedFS is io.FS implementation used in NewManager.
@@ -120,7 +135,7 @@ func (mgr *Manager) List(ctx context.Context) ([]*Plugin, error) {
 // If the plugin does not have the required capability, the error is of type ErrNotCapable.
 // If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
 // Other error types may be returned for other situations.
-func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, args ...string) (interface{}, error) {
+func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, req interface{}) (interface{}, error) {
 	p, err := mgr.newPlugin(ctx, name)
 	if err != nil {
 		return nil, err
@@ -131,7 +146,14 @@ func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, ar
 	if c := cmd.Capability(); !p.HasCapability(c) {
 		return nil, ErrNotCapable
 	}
-	return run(ctx, mgr.cmder, p.Path, cmd, args...)
+	var data []byte
+	if req != nil {
+		data, err = json.Marshal(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request object: %w", err)
+		}
+	}
+	return run(ctx, mgr.cmder, p.Path, cmd, data)
 }
 
 // newPlugin determines if the given candidate is valid and returns a Plugin.
@@ -142,7 +164,7 @@ func (mgr *Manager) newPlugin(ctx context.Context, name string) (*Plugin, error)
 	}
 
 	p := &Plugin{Path: binPath(mgr.fsys, name)}
-	out, err := run(ctx, mgr.cmder, p.Path, plugin.CommandGetMetadata)
+	out, err := run(ctx, mgr.cmder, p.Path, plugin.CommandGetMetadata, nil)
 	if err != nil {
 		p.Err = fmt.Errorf("failed to fetch metadata: %w", err)
 		return p, nil
@@ -157,18 +179,18 @@ func (mgr *Manager) newPlugin(ctx context.Context, name string) (*Plugin, error)
 }
 
 // run executes the command and decodes the response.
-func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Command, args ...string) (interface{}, error) {
-	out, err := cmder.Output(ctx, pluginPath, append([]string{string(cmd)}, args...)...)
+func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Command, req []byte) (interface{}, error) {
+	out, ok, err := cmder.Output(ctx, pluginPath, string(cmd), req)
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			var re plugin.RequestError
-			err = json.Unmarshal(ee.Stderr, &re)
-			if err == nil {
-				return nil, re
-			}
-			return nil, withErr(plugin.RequestError{Code: plugin.ErrorCodeGeneric, Err: ee}, ErrNotCompliant)
+		return nil, fmt.Errorf("failed running the plugin: %w", err)
+	}
+	if !ok {
+		var re plugin.RequestError
+		err = json.Unmarshal(out, &re)
+		if err != nil {
+			return nil, withErr(plugin.RequestError{Code: plugin.ErrorCodeGeneric, Err: err}, ErrNotCompliant)
 		}
-		return nil, err
+		return nil, re
 	}
 	resp := cmd.NewResponse()
 	err = json.Unmarshal(out, resp)
