@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
-	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -15,23 +14,25 @@ import (
 )
 
 type testCommander struct {
-	output []byte
-	err    error
+	output  []byte
+	success bool
+	err     error
 }
 
-func (t testCommander) Output(context.Context, string, ...string) ([]byte, error) {
-	return t.output, t.err
+func (t testCommander) Output(ctx context.Context, path string, command string, req []byte) (out []byte, success bool, err error) {
+	return t.output, t.success, t.err
 }
 
 type testMultiCommander struct {
-	output [][]byte
-	err    []error
-	n      int
+	output  [][]byte
+	success []bool
+	err     []error
+	n       int
 }
 
-func (t *testMultiCommander) Output(context.Context, string, ...string) ([]byte, error) {
+func (t *testMultiCommander) Output(ctx context.Context, path string, command string, req []byte) (out []byte, success bool, err error) {
 	defer func() { t.n++ }()
-	return t.output[t.n], t.err[t.n]
+	return t.output[t.n], t.success[t.n], t.err[t.n]
 }
 
 var validMetadata = plugin.Metadata{
@@ -83,7 +84,7 @@ func TestManager_Get_NotFound(t *testing.T) {
 	mgr = Manager{fstest.MapFS{
 		"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 		addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-	}, testCommander{metadataJSON(validMetadata), nil}}
+	}, testCommander{metadataJSON(validMetadata), true, nil}}
 	check(mgr.Get(ctx, "baz"))
 }
 
@@ -103,7 +104,7 @@ func TestManager_Get(t *testing.T) {
 			&Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{nil, errors.New("failed")}},
+			}, testCommander{nil, false, errors.New("failed")}},
 			args{"foo"},
 			&Plugin{Path: addExeSuffix("foo/notation-foo")},
 			"failed to fetch metadata",
@@ -113,7 +114,7 @@ func TestManager_Get(t *testing.T) {
 			&Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{[]byte("content"), nil}},
+			}, testCommander{[]byte("content"), true, nil}},
 			args{"foo"},
 			&Plugin{Path: addExeSuffix("foo/notation-foo")},
 			"failed to fetch metadata",
@@ -123,7 +124,7 @@ func TestManager_Get(t *testing.T) {
 			&Manager{fstest.MapFS{
 				"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("baz/notation-baz"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), nil}},
+			}, testCommander{metadataJSON(validMetadata), true, nil}},
 			args{"baz"},
 			&Plugin{Metadata: validMetadata, Path: addExeSuffix("baz/notation-baz")},
 			"executable name must be",
@@ -133,7 +134,7 @@ func TestManager_Get(t *testing.T) {
 			&Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(plugin.Metadata{Name: "foo"}), nil}},
+			}, testCommander{metadataJSON(plugin.Metadata{Name: "foo"}), true, nil}},
 			args{"foo"},
 			&Plugin{Metadata: plugin.Metadata{Name: "foo"}, Path: addExeSuffix("foo/notation-foo")},
 			"invalid metadata",
@@ -143,7 +144,7 @@ func TestManager_Get(t *testing.T) {
 			&Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), nil}},
+			}, testCommander{metadataJSON(validMetadata), true, nil}},
 			args{"foo"},
 			&Plugin{Metadata: validMetadata, Path: addExeSuffix("foo/notation-foo")}, "",
 		},
@@ -191,7 +192,7 @@ func TestManager_List(t *testing.T) {
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-				}, testCommander{metadataJSON(validMetadata), nil}},
+				}, testCommander{metadataJSON(validMetadata), true, nil}},
 			[]*Plugin{{Metadata: validMetadata}},
 		},
 		{
@@ -200,7 +201,7 @@ func TestManager_List(t *testing.T) {
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
-				}, testCommander{metadataJSON(validMetadata), nil}},
+				}, testCommander{metadataJSON(validMetadata), true, nil}},
 			[]*Plugin{{Metadata: validMetadata}},
 		},
 	}
@@ -236,41 +237,41 @@ func TestManager_Run(t *testing.T) {
 			"invalid plugin", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{nil, errors.New("err")}},
+			}, testCommander{nil, false, errors.New("err")}},
 			args{"foo", plugin.CommandGenerateSignature}, ErrNotCompliant,
 		},
 		{
 			"no capability", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), nil}},
+			}, testCommander{metadataJSON(validMetadata), true, nil}},
 			args{"foo", plugin.CommandGenerateEnvelope}, ErrNotCapable,
 		},
 		{
 			"exec error", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), nil}, []error{nil, errExec}, 0}},
+			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), nil}, []bool{true, false}, []error{nil, errExec}, 0}},
 			args{"foo", plugin.CommandGenerateSignature}, errExec,
 		},
 		{
 			"exit error", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), nil}, []error{nil, new(exec.ExitError)}, 0}},
+			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), {}}, []bool{true, false}, []error{nil, nil}, 0}},
 			args{"foo", plugin.CommandGenerateSignature}, ErrNotCompliant,
 		},
 		{
 			"valid", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), nil}},
+			}, testCommander{metadataJSON(validMetadata), true, nil}},
 			args{"foo", plugin.CommandGenerateSignature}, nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.mgr.Run(context.Background(), tt.args.name, tt.args.cmd)
+			got, err := tt.mgr.Run(context.Background(), tt.args.name, tt.args.cmd, "1")
 			wantErr := tt.err != nil
 			if (err != nil) != wantErr {
 				t.Fatalf("Manager.Run() error = %v, wantErr %v", err, wantErr)
