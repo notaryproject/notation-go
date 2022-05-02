@@ -49,12 +49,14 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 		return nil, fmt.Errorf("failed to marshal signing payload: %w", err)
 	}
 
+	encPayload := base64.RawURLEncoding.EncodeToString(jsonPayload)
+
 	// Execute plugin.
 	req := plugin.GenerateSignatureRequest{
 		ContractVersion: "1",
 		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
-		Payload:         string(jsonPayload),
+		Payload:         encPayload,
 	}
 	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGenerateSignature, req)
 	if err != nil {
@@ -75,7 +77,7 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	if err != nil {
 		return nil, err
 	}
-	if sig.Payload != string(jsonPayload) {
+	if sig.Payload != encPayload {
 		return nil, errors.New("signing payload has been modified")
 	}
 
@@ -85,7 +87,7 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	if err != nil {
 		return nil, err
 	}
-	err = verifyJWT(resp.SigningAlgorithm, string(jsonPayload), resp.Signature, certs)
+	err = verifyJWT(resp.SigningAlgorithm, encPayload, resp.Signature, certs)
 	if err != nil {
 		return nil, err
 	}
