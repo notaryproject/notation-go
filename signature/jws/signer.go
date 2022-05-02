@@ -28,13 +28,6 @@ type Signer struct {
 	// certChain contains the X.509 public key certificate or certificate chain corresponding
 	// to the key used to generate the signature.
 	certChain [][]byte
-
-	// TSA is the TimeStamp Authority to timestamp the resulted signature if present.
-	TSA timestamp.Timestamper
-
-	// TSARoots is the set of trusted root certificates for verifying the fetched timestamp
-	// signature. If nil, the system roots or the platform verifier are used.
-	TSARoots *x509.CertPool
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled

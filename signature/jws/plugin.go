@@ -15,9 +15,9 @@ import (
 )
 
 var supportedAlgs = map[string]bool{
-	jwt.SigningMethodES256.Name: true,
-	jwt.SigningMethodES384.Name: true,
-	jwt.SigningMethodES512.Name: true,
+	jwt.SigningMethodPS256.Name: true,
+	jwt.SigningMethodPS384.Name: true,
+	jwt.SigningMethodPS512.Name: true,
 	jwt.SigningMethodES256.Name: true,
 	jwt.SigningMethodES384.Name: true,
 	jwt.SigningMethodES512.Name: true,
@@ -129,20 +129,5 @@ func verifyJWT(sigAlg string, payload string, sig string, certChain []*x509.Cert
 	signingCert := certChain[0]
 	// Verify the hash of req.payload against resp.signature using the public key if the leaf certificate.
 	method := jwt.GetSigningMethod(sigAlg)
-	err := method.Verify(payload, sig, signingCert.PublicKey)
-	return err
-}
-
-func checkCertChain(certChain []*x509.Certificate) error {
-	if len(certChain) == 0 {
-		return nil
-	}
-	signingCert := certChain[0]
-	roots := x509.NewCertPool()
-	roots.AddCert(signingCert)
-	_, err := signingCert.Verify(x509.VerifyOptions{
-		Roots:     roots,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-	})
-	return err
+	return method.Verify(payload, sig, signingCert.PublicKey)
 }
