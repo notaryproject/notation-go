@@ -91,7 +91,6 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-
 	// generate JWT
 	payload := packPayload(desc, opts)
 	if err := payload.Valid(); err != nil {
@@ -112,10 +111,13 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 	if err != nil {
 		return nil, err
 	}
+	return jwtEnvelop(ctx, opts, compact, s.certChain)
+}
 
+func jwtEnvelop(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
 	// generate unprotected header
 	header := unprotectedHeader{
-		CertChain: s.certChain,
+		CertChain: certChain,
 	}
 
 	// timestamp JWT
