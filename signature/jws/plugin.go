@@ -33,17 +33,47 @@ type PluginSigner struct {
 }
 
 func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	if err := opts.Validate(); err != nil {
-		return nil, err
+	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGetMetadata, nil)
+	if err != nil {
+		return nil, fmt.Errorf("metadata command failed: %w", err)
 	}
+	metadata := out.(*plugin.Metadata)
 
 	// Generate payload to be signed.
 	payload := packPayload(desc, opts)
 	if err := payload.Valid(); err != nil {
 		return nil, err
 	}
+
+	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
+		return s.generateSignature(ctx, opts, payload)
+	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
+
+	}
+	return nil, fmt.Errorf("plugin %q does not have signing capabilities", s.PluginName)
+}
+
+func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResponse, error) {
+	req := plugin.DescribeKeyRequest{
+		ContractVersion: "1",
+		KeyName:         s.KeyName,
+		KeyID:           s.KeyID,
+	}
+	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandDescribeKey, req)
+	if err != nil {
+		return nil, fmt.Errorf("describe-key command failed: %w", err)
+	}
+	return out.(*plugin.DescribeKeyResponse), nil
+}
+
+func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.SignOptions, payload *payload) ([]byte, error) {
+	key, err := s.describeKey(ctx)
+	if err != nil {
+		return nil, err
+	}
 	token := &jwt.Token{
 		Header: map[string]interface{}{
+			"alg": key.Algorithm,
 			"cty": MediaTypeNotationPayload,
 			"crit": []string{
 				"cty",
@@ -66,10 +96,7 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	if err != nil {
 		return nil, fmt.Errorf("sign command failed: %w", err)
 	}
-	resp, ok := out.(*plugin.GenerateSignatureResponse)
-	if !ok {
-		return nil, fmt.Errorf("invalid sign response type %T", resp)
-	}
+	resp := out.(*plugin.GenerateSignatureResponse)
 
 	// Check algorithm is supported.
 	if !supportedAlgs[resp.SigningAlgorithm] {

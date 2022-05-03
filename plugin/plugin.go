@@ -16,6 +16,11 @@ const (
 	// plugin metadata.
 	CommandGetMetadata Command = "get-plugin-metadata"
 
+	// CommandDescribeKey is the name of the plugin command
+	// which must be supported by every plugin that has the
+	// SIGNATURE_GENERATOR capability.
+	CommandDescribeKey Command = "describe-key"
+
 	// CommandGenerateSignature is the name of the plugin command
 	// which must be supported by every plugin that has the
 	// SIGNATURE_GENERATOR capability.
@@ -39,6 +44,22 @@ const (
 	// which should support a plugin to support generating envelope signatures.
 	CapabilityEnvelopeGenerator Capability = "SIGNATURE_ENVELOPE_GENERATOR"
 )
+
+// DescribeKeyRequest contains the parameters passed in a describe-key request.
+// All parameters are required.
+type DescribeKeyRequest struct {
+	ContractVersion string `json:"contractVersion"`
+	KeyName         string `json:"keyName"`
+	KeyID           string `json:"keyId"`
+}
+
+// GenerateSignatureResponse is the response of a describe-key request.
+type DescribeKeyResponse struct {
+	// The same key id as passed in the request.
+	KeyID string `json:"keyId"`
+
+	Algorithm string `json:"algorithm"`
+}
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 // All parameters are required.
