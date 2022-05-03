@@ -77,7 +77,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	token := &jwt.Token{
 		Header: map[string]interface{}{
 			"alg":  key.Algorithm,
-			"cty":  MediaTypeSignatureEnvelope,
+			"cty":  MediaTypeNotationPayload,
 			"crit": []string{"cty"},
 		},
 		Claims: payload,

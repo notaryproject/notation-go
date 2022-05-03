@@ -54,6 +54,8 @@ type DescribeKeyResponse struct {
 	// The same key id as passed in the request.
 	KeyID string `json:"keyId"`
 
+	// One of following supported signing algorithms:
+	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 	Algorithm string `json:"algorithm"`
 }
 
@@ -99,6 +101,7 @@ type GenerateEnvelopeResponse struct {
 	// Base64 encoded signature envelope.
 	SignatureEnvelope string `json:"signatureEnvelope"`
 
+	// The media type of the envelope of notation signature.
 	SignatureEnvelopeType string `json:"signatureEnvelopeType"`
 
 	// Annotations to be appended to Signature Manifest annotations.
