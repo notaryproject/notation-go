@@ -6,8 +6,6 @@ import (
 	"fmt"
 )
 
-var ErrUnknownCommand = errors.New("not a plugin command")
-
 type ErrorCode string
 
 const (
