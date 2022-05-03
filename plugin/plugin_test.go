@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"reflect"
 	"testing"
 )
 
@@ -46,26 +45,6 @@ func TestGenerateEnvelopeRequest_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.req.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("GenerateEnvelopeRequest.Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestCommand_NewResponse(t *testing.T) {
-	tests := []struct {
-		name string
-		c    Command
-		want interface{}
-	}{
-		{"empty", "", nil},
-		{"metadata", CommandGetMetadata, new(Metadata)},
-		{"sign", CommandGenerateSignature, new(GenerateSignatureResponse)},
-		{"envelop", CommandGenerateEnvelope, new(GenerateEnvelopeResponse)},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.c.NewResponse(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Command.NewResponse() = %v, want %v", got, tt.want)
 			}
 		})
 	}
