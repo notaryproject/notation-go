@@ -78,18 +78,21 @@ func verifyCert(cert *x509.Certificate, extKeyUsage x509.ExtKeyUsage) error {
 	if cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
 		return errors.New("keyUsage must have the bit positions for digitalSignature set")
 	}
-	if len(cert.ExtKeyUsage) != 1 || cert.ExtKeyUsage[0] != extKeyUsage {
-		return fmt.Errorf("extKeyUsage must be %d", extKeyUsage)
+	var hasExtKeyUsage bool
+	for _, ext := range cert.ExtKeyUsage {
+		if ext == extKeyUsage {
+			hasExtKeyUsage = true
+			break
+		}
+	}
+	if !hasExtKeyUsage {
+		return fmt.Errorf("extKeyUsage must contain be %d", extKeyUsage)
 	}
 	for _, ext := range cert.Extensions {
 		switch ext.Id[3] {
 		case 15:
 			if !ext.Critical {
 				return errors.New("the keyUsage extension must be marked critical")
-			}
-		case 37:
-			if !ext.Critical {
-				return errors.New("the extKeyUsage extension must be marked critical")
 			}
 		}
 	}

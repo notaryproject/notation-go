@@ -4,13 +4,11 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/plugin"
 )
 
@@ -44,19 +42,25 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	if err := payload.Valid(); err != nil {
 		return nil, err
 	}
-	jsonPayload, err := json.Marshal(payload)
+	token := &jwt.Token{
+		Header: map[string]interface{}{
+			"cty": MediaTypeNotationPayload,
+			"crit": []string{
+				"cty",
+			},
+		},
+		Claims: payload,
+	}
+	signing, err := token.SigningString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal signing payload: %w", err)
 	}
-
-	encPayload := base64.RawURLEncoding.EncodeToString(jsonPayload)
-
 	// Execute plugin.
 	req := plugin.GenerateSignatureRequest{
 		ContractVersion: "1",
 		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
-		Payload:         encPayload,
+		Payload:         base64.RawStdEncoding.EncodeToString([]byte(signing)),
 	}
 	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGenerateSignature, req)
 	if err != nil {
@@ -72,22 +76,19 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 		return nil, fmt.Errorf("signing algorithm %q not supported", resp.SigningAlgorithm)
 	}
 
-	// Check payload has not been modified.
-	sig, err := jwsutil.ParseCompact(resp.Signature)
-	if err != nil {
-		return nil, err
-	}
-	if sig.Payload != encPayload {
-		return nil, errors.New("signing payload has been modified")
-	}
-
 	// Verify the hash of the request payload against the response signature
 	// using the public key of the signing certificate.
 	certs, err := parseCertChainBase64(resp.CertificateChain)
 	if err != nil {
 		return nil, err
 	}
-	err = verifyJWT(resp.SigningAlgorithm, encPayload, resp.Signature, certs)
+
+	signed, err := base64.RawStdEncoding.DecodeString(resp.Signature)
+	if err != nil {
+		return nil, err
+	}
+	base64Signed := base64.RawURLEncoding.EncodeToString(signed)
+	err = verifyJWT(resp.SigningAlgorithm, signing, base64Signed, certs)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,8 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	for i, c := range certs {
 		rawCerts[i] = c.Raw
 	}
-	return jwtEnvelop(ctx, opts, resp.Signature, rawCerts)
+	compact := strings.Join([]string{signing, resp.Signature}, ".")
+	return jwtEnvelop(ctx, opts, compact, rawCerts)
 }
 
 func parseCertChainBase64(certChain []string) ([]*x509.Certificate, error) {
@@ -122,7 +124,7 @@ func parseCertChainBase64(certChain []string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func verifyJWT(sigAlg string, payload string, sig string, certChain []*x509.Certificate) error {
+func verifyJWT(sigAlg string, payload, sig string, certChain []*x509.Certificate) error {
 	if len(certChain) == 0 {
 		return nil
 	}
