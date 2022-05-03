@@ -132,7 +132,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	for i, c := range certs {
 		rawCerts[i] = c.Raw
 	}
-	compact := strings.Join([]string{signing, resp.Signature}, ".")
+	compact := strings.Join([]string{signing, base64.RawURLEncoding.EncodeToString(signed)}, ".")
 	return jwtEnvelop(ctx, opts, compact, rawCerts)
 }
 
