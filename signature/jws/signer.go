@@ -81,9 +81,6 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
 func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	if err := opts.Validate(); err != nil {
-		return nil, err
-	}
 	// generate JWT
 	payload := packPayload(desc, opts)
 	if err := payload.Valid(); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -67,17 +68,17 @@ func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResp
 }
 
 func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.SignOptions, payload *payload) ([]byte, error) {
+	// Get key info.
 	key, err := s.describeKey(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// Generate signing string.
 	token := &jwt.Token{
 		Header: map[string]interface{}{
-			"alg": key.Algorithm,
-			"cty": MediaTypeNotationPayload,
-			"crit": []string{
-				"cty",
-			},
+			"alg":  key.Algorithm,
+			"cty":  MediaTypeSignatureEnvelope,
+			"crit": []string{"cty"},
 		},
 		Claims: payload,
 	}
@@ -85,7 +86,8 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal signing payload: %w", err)
 	}
-	// Execute plugin.
+
+	// Execute plugin sign command.
 	req := plugin.GenerateSignatureRequest{
 		ContractVersion: "1",
 		KeyName:         s.KeyName,
@@ -103,19 +105,18 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 		return nil, fmt.Errorf("signing algorithm %q not supported", resp.SigningAlgorithm)
 	}
 
-	// Verify the hash of the request payload against the response signature
-	// using the public key of the signing certificate.
-	certs, err := parseCertChainBase64(resp.CertificateChain)
+	certs, err := parseCertChain(resp.CertificateChain)
 	if err != nil {
 		return nil, err
 	}
 
+	// Verify the hash of the request payload against the response signature
+	// using the public key of the signing certificate.
 	signed, err := base64.RawStdEncoding.DecodeString(resp.Signature)
 	if err != nil {
 		return nil, err
 	}
-	base64Signed := base64.RawURLEncoding.EncodeToString(signed)
-	err = verifyJWT(resp.SigningAlgorithm, signing, base64Signed, certs)
+	err = verifyJWT(resp.SigningAlgorithm, signing, signed, certs)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +136,11 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	return jwtEnvelop(ctx, opts, compact, rawCerts)
 }
 
-func parseCertChainBase64(certChain []string) ([]*x509.Certificate, error) {
+func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, opts notation.SignOptions, payload *payload) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func parseCertChain(certChain []string) ([]*x509.Certificate, error) {
 	certs := make([]*x509.Certificate, len(certChain))
 	for i, data := range certChain {
 		der, err := base64.RawStdEncoding.DecodeString(data)
@@ -151,12 +156,13 @@ func parseCertChainBase64(certChain []string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func verifyJWT(sigAlg string, payload, sig string, certChain []*x509.Certificate) error {
+func verifyJWT(sigAlg string, payload string, sig []byte, certChain []*x509.Certificate) error {
 	if len(certChain) == 0 {
 		return nil
 	}
 	signingCert := certChain[0]
 	// Verify the hash of req.payload against resp.signature using the public key if the leaf certificate.
 	method := jwt.GetSigningMethod(sigAlg)
-	return method.Verify(payload, sig, signingCert.PublicKey)
+	encSig := base64.RawURLEncoding.EncodeToString(sig)
+	return method.Verify(payload, encSig, signingCert.PublicKey)
 }

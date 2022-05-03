@@ -44,11 +44,6 @@ type SignOptions struct {
 	TSAVerifyOptions x509.VerifyOptions
 }
 
-// Validate does basic validation on SignOptions.
-func (opts SignOptions) Validate() error {
-	return nil
-}
-
 // Signer is a generic interface for signing an artifact.
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
