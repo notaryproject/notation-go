@@ -1,9 +1,5 @@
 package plugin
 
-import (
-	"errors"
-)
-
 // Prefix is the prefix required on all plugin binary names.
 const Prefix = "notation-"
 
@@ -49,22 +45,6 @@ type GenerateSignatureRequest struct {
 	Payload         string `json:"payload"`
 }
 
-func (req *GenerateSignatureRequest) Validate() error {
-	if req == nil {
-		return errors.New("nil request")
-	}
-	if req.ContractVersion == "" {
-		return errors.New("empty contractVersion")
-	}
-	if req.KeyName == "" {
-		return errors.New("empty keyName")
-	}
-	if req.KeyID == "" {
-		return errors.New("empty keyId")
-	}
-	return nil
-}
-
 // GenerateSignatureResponse is the response of a generate-signature request.
 type GenerateSignatureResponse struct {
 	// The same key id as passed in the request.
@@ -91,28 +71,6 @@ type GenerateEnvelopeRequest struct {
 	PayloadType           string `json:"payloadType"`
 	SignatureEnvelopeType string `json:"signatureEnvelopeType"`
 	Payload               string `json:"payload"`
-}
-
-func (req *GenerateEnvelopeRequest) Validate() error {
-	if req == nil {
-		return errors.New("nil request")
-	}
-	if req.ContractVersion == "" {
-		return errors.New("empty contractVersion")
-	}
-	if req.KeyName == "" {
-		return errors.New("empty keyName")
-	}
-	if req.KeyID == "" {
-		return errors.New("empty keyId")
-	}
-	if req.PayloadType == "" {
-		return errors.New("empty payloadType")
-	}
-	if req.SignatureEnvelopeType == "" {
-		return errors.New("empty envelopeType")
-	}
-	return nil
 }
 
 // GenerateSignatureResponse is the response of a generate-envelop request.
