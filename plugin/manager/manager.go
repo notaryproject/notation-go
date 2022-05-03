@@ -16,11 +16,6 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 )
 
-const (
-	// NamePrefix is the prefix required on all plugin binary names.
-	NamePrefix = "notation-"
-)
-
 // Plugin represents a potential plugin with all it's metadata.
 type Plugin struct {
 	plugin.Metadata
@@ -36,9 +31,6 @@ var ErrNotFound = errors.New("plugin not found")
 
 // ErrNotCompliant is returned by Manager.Run when the plugin is found but not compliant.
 var ErrNotCompliant = errors.New("plugin not compliant")
-
-// ErrNotCapable is returned by Manager.Run when the plugin is found and compliant, but is missing a necessary capability.
-var ErrNotCapable = errors.New("plugin not capable")
 
 // commander is defined for mocking purposes.
 type commander interface {
@@ -82,14 +74,14 @@ type Manager struct {
 
 // NewManager returns a new manager.
 func NewManager() *Manager {
-	homeDir, err := os.UserHomeDir()
+	configDir, err := os.UserConfigDir()
 	if err != nil {
 		// Lets panic for now.
 		// Once the config is moved to notation-go we will move this code to
 		// the config package as a global initialization.
 		panic(err)
 	}
-	pluginDir := filepath.Join(homeDir, ".notation", "plugins")
+	pluginDir := filepath.Join(configDir, "notation", "plugins")
 	return &Manager{rootedFS{os.DirFS(pluginDir), pluginDir}, execCommander{}}
 }
 
@@ -132,28 +124,28 @@ func (mgr *Manager) List(ctx context.Context) ([]*Plugin, error) {
 //
 // If the plugin is not found, the error is of type ErrNotFound.
 // If the plugin metadata is not valid or stdout and stderr can't be decoded into a valid response, the error is of type ErrNotCompliant.
-// If the plugin does not have the required capability, the error is of type ErrNotCapable.
 // If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
 // Other error types may be returned for other situations.
 func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, req interface{}) (interface{}, error) {
 	p, err := mgr.newPlugin(ctx, name)
 	if err != nil {
-		return nil, err
+		return nil, pluginErr(name, err)
 	}
 	if p.Err != nil {
-		return nil, withErr(p.Err, ErrNotCompliant)
-	}
-	if c := cmd.Capability(); !p.HasCapability(c) {
-		return nil, ErrNotCapable
+		return nil, pluginErr(name, withErr(p.Err, ErrNotCompliant))
 	}
 	var data []byte
 	if req != nil {
 		data, err = json.Marshal(req)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request object: %w", err)
+			return nil, pluginErr(name, fmt.Errorf("failed to marshal request object: %w", err))
 		}
 	}
-	return run(ctx, mgr.cmder, p.Path, cmd, data)
+	resp, err := run(ctx, mgr.cmder, p.Path, cmd, data)
+	if err != nil {
+		return nil, pluginErr(name, err)
+	}
+	return resp, nil
 }
 
 // newPlugin determines if the given candidate is valid and returns a Plugin.
@@ -171,7 +163,7 @@ func (mgr *Manager) newPlugin(ctx context.Context, name string) (*Plugin, error)
 	}
 	p.Metadata = *out.(*plugin.Metadata)
 	if p.Name != name {
-		p.Err = fmt.Errorf("executable name must be %q instead of %q", addExeSuffix(NamePrefix+p.Name), filepath.Base(p.Path))
+		p.Err = fmt.Errorf("executable name must be %q instead of %q", addExeSuffix(plugin.Prefix+p.Name), filepath.Base(p.Path))
 	} else if err := p.Metadata.Validate(); err != nil {
 		p.Err = fmt.Errorf("invalid metadata: %w", err)
 	}
@@ -201,6 +193,10 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 	return resp, nil
 }
 
+func pluginErr(name string, err error) error {
+	return fmt.Errorf("%s: %w", name, err)
+}
+
 // isCandidate checks if the named plugin is a valid candidate.
 func isCandidate(fsys fs.FS, name string) bool {
 	base := binName(name)
@@ -218,7 +214,7 @@ func isCandidate(fsys fs.FS, name string) bool {
 }
 
 func binName(name string) string {
-	return addExeSuffix(NamePrefix + name)
+	return addExeSuffix(plugin.Prefix + name)
 }
 
 func binPath(fsys fs.FS, name string) string {

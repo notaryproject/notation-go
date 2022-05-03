@@ -4,8 +4,8 @@ import (
 	"errors"
 )
 
-// NamePrefix is the prefix required on all plugin binary names.
-const NamePrefix = "notation-"
+// Prefix is the prefix required on all plugin binary names.
+const Prefix = "notation-"
 
 // Command is a CLI command available in the plugin contract.
 type Command string

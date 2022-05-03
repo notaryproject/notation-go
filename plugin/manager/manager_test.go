@@ -241,13 +241,6 @@ func TestManager_Run(t *testing.T) {
 			args{"foo", plugin.CommandGenerateSignature}, ErrNotCompliant,
 		},
 		{
-			"no capability", &Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), true, nil}},
-			args{"foo", plugin.CommandGenerateEnvelope}, ErrNotCapable,
-		},
-		{
 			"exec error", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
