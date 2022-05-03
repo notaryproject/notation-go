@@ -27,32 +27,6 @@ const (
 	CommandGenerateEnvelope Command = "generate-envelope"
 )
 
-// Capability returns the capability associated to the command.
-func (c Command) Capability() Capability {
-	switch c {
-	case CommandGenerateSignature:
-		return CapabilitySignatureGenerator
-	case CommandGenerateEnvelope:
-		return CapabilityEnvelopeGenerator
-	default:
-		return ""
-	}
-}
-
-// Capability returns the response associated to the command.
-func (c Command) NewResponse() interface{} {
-	switch c {
-	case CommandGetMetadata:
-		return new(Metadata)
-	case CommandGenerateSignature:
-		return new(GenerateSignatureResponse)
-	case CommandGenerateEnvelope:
-		return new(GenerateEnvelopeResponse)
-	default:
-		return nil
-	}
-}
-
 // Capability is a feature available in the plugin contract.
 type Capability string
 

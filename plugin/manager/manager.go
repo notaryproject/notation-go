@@ -114,13 +114,11 @@ func (mgr *Manager) List(ctx context.Context) ([]*Plugin, error) {
 // Run executes the specified command against the named plugin and waits for it to complete.
 //
 // When the returned object is not nil, its type is guaranteed to remain always the same for a given Command.
-// The type associated to each Command can be found at Command.NewResponse().
 //
 // The returned error is nil if:
 // - the plugin exists and is valid
-// - the plugin supports the capability returned by cmd.Capability()
 // - the command runs and exits with a zero exit status
-// - the command stdout is a valid json object which can be unmarshal-ed into the object returned by cmd.NewResponse().
+// - the command stdout contains a valid json object which can be unmarshal-ed.
 //
 // If the plugin is not found, the error is of type ErrNotFound.
 // If the plugin metadata is not valid or stdout and stderr can't be decoded into a valid response, the error is of type ErrNotCompliant.
@@ -133,6 +131,9 @@ func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, re
 	}
 	if p.Err != nil {
 		return nil, pluginErr(name, withErr(p.Err, ErrNotCompliant))
+	}
+	if cmd == plugin.CommandGetMetadata {
+		return &p.Metadata, nil
 	}
 	var data []byte
 	if req != nil {
@@ -184,7 +185,17 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 		}
 		return nil, re
 	}
-	resp := cmd.NewResponse()
+	var resp interface{}
+	switch cmd {
+	case plugin.CommandGetMetadata:
+		resp = new(plugin.Metadata)
+	case plugin.CommandGenerateSignature:
+		resp = new(plugin.GenerateSignatureResponse)
+	case plugin.CommandGenerateEnvelope:
+		resp = new(plugin.GenerateEnvelopeResponse)
+	default:
+		return nil, fmt.Errorf("unsupported command: %s", cmd)
+	}
 	err = json.Unmarshal(out, resp)
 	if err != nil {
 		err = fmt.Errorf("failed to decode json response: %w", err)
