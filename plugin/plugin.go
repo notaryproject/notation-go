@@ -1,7 +1,38 @@
 package plugin
 
+import (
+	"crypto"
+)
+
 // Prefix is the prefix required on all plugin binary names.
 const Prefix = "notation-"
+
+// KeySpec defines a key type and size.
+type KeySpec string
+
+// One of following supported specs
+// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
+const (
+	RSA_2048 KeySpec = "RSA_2048"
+	RSA_3072 KeySpec = "RSA_3072"
+	RSA_4096 KeySpec = "RSA_4096"
+	EC_256   KeySpec = "EC_256"
+	EC_384   KeySpec = "EC_384"
+	EC_512   KeySpec = "EC_512"
+)
+
+// HashFunc returns the Hash associated k.
+func (k KeySpec) HashFunc() crypto.Hash {
+	switch k {
+	case RSA_2048, EC_256:
+		return crypto.SHA256
+	case RSA_3072, EC_384:
+		return crypto.SHA384
+	case RSA_4096, EC_512:
+		return crypto.SHA512
+	}
+	return crypto.Hash(0)
+}
 
 // Command is a CLI command available in the plugin contract.
 type Command string
@@ -57,7 +88,7 @@ type DescribeKeyResponse struct {
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec string `json:"keySpec"`
+	KeySpec KeySpec `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.

@@ -77,7 +77,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	}
 	alg := keySpecToAlg(key.KeySpec)
 	if alg == "" {
-		return nil, errors.New("unsupported key spec: " + key.KeySpec)
+		return nil, errors.New("unsupported key spec: " + string(key.KeySpec))
 	}
 	// Generate signing string.
 	token := &jwt.Token{
@@ -173,19 +173,19 @@ func verifyJWT(sigAlg string, payload string, sig []byte, certChain []*x509.Cert
 	return method.Verify(payload, encSig, signingCert.PublicKey)
 }
 
-func keySpecToAlg(name string) string {
+func keySpecToAlg(name plugin.KeySpec) string {
 	switch name {
-	case "RSA_2048":
+	case plugin.RSA_2048:
 		return jwt.SigningMethodPS256.Alg()
-	case "RSA_3072":
+	case plugin.RSA_3072:
 		return jwt.SigningMethodPS384.Alg()
-	case "RSA_4096":
+	case plugin.RSA_4096:
 		return jwt.SigningMethodPS512.Alg()
-	case "EC_256":
+	case plugin.EC_256:
 		return jwt.SigningMethodES256.Alg()
-	case "EC_384":
+	case plugin.EC_384:
 		return jwt.SigningMethodES384.Alg()
-	case "EC_512":
+	case plugin.EC_512:
 		return jwt.SigningMethodES512.Alg()
 	}
 	return ""
