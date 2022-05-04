@@ -98,7 +98,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 		ContractVersion: "1",
 		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
-		Payload:         base64.RawStdEncoding.EncodeToString([]byte(signing)),
+		Payload:         signing,
 	}
 	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGenerateSignature, req)
 	if err != nil {
