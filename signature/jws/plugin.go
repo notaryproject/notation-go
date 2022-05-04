@@ -176,11 +176,11 @@ func verifyJWT(sigAlg string, payload string, sig []byte, certChain []*x509.Cert
 func keySpecToAlg(name string) string {
 	switch name {
 	case "RSA_2048":
-		return jwt.SigningMethodRS256.Alg()
+		return jwt.SigningMethodPS256.Alg()
 	case "RSA_3072":
-		return jwt.SigningMethodRS384.Alg()
+		return jwt.SigningMethodPS384.Alg()
 	case "RSA_4096":
-		return jwt.SigningMethodRS512.Alg()
+		return jwt.SigningMethodPS512.Alg()
 	case "EC_256":
 		return jwt.SigningMethodES256.Alg()
 	case "EC_384":
