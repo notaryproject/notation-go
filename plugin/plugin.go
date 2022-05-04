@@ -44,9 +44,10 @@ const (
 // DescribeKeyRequest contains the parameters passed in a describe-key request.
 // All parameters are required.
 type DescribeKeyRequest struct {
-	ContractVersion string `json:"contractVersion"`
-	KeyName         string `json:"keyName"`
-	KeyID           string `json:"keyId"`
+	ContractVersion string            `json:"contractVersion"`
+	KeyName         string            `json:"keyName"`
+	KeyID           string            `json:"keyId"`
+	PluginConfig    map[string]string `json:"pluginConfig"`
 }
 
 // GenerateSignatureResponse is the response of a describe-key request.
@@ -54,9 +55,9 @@ type DescribeKeyResponse struct {
 	// The same key id as passed in the request.
 	KeyID string `json:"keyId"`
 
-	// One of following supported signing algorithms:
+	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	Algorithm string `json:"algorithm"`
+	KeySpec string `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.

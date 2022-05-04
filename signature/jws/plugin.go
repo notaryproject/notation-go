@@ -27,10 +27,11 @@ type PluginRunner interface {
 }
 
 type PluginSigner struct {
-	Runner     PluginRunner
-	PluginName string
-	KeyID      string
-	KeyName    string
+	Runner       PluginRunner
+	PluginName   string
+	KeyID        string
+	KeyName      string
+	PluginConfig map[string]string
 }
 
 func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
@@ -49,7 +50,7 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, opts, payload)
 	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
-
+		return s.generateSignatureEnvelope(ctx, opts, payload)
 	}
 	return nil, fmt.Errorf("plugin %q does not have signing capabilities", s.PluginName)
 }
@@ -59,6 +60,7 @@ func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResp
 		ContractVersion: "1",
 		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
+		PluginConfig:    s.PluginConfig,
 	}
 	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandDescribeKey, req)
 	if err != nil {
@@ -73,10 +75,14 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	if err != nil {
 		return nil, err
 	}
+	alg := keySpecToAlg(key.KeySpec)
+	if alg == "" {
+		return nil, errors.New("unsupported key spec: " + key.KeySpec)
+	}
 	// Generate signing string.
 	token := &jwt.Token{
 		Header: map[string]interface{}{
-			"alg":  key.Algorithm,
+			"alg":  alg,
 			"cty":  MediaTypeNotationPayload,
 			"crit": []string{"cty"},
 		},
@@ -165,4 +171,22 @@ func verifyJWT(sigAlg string, payload string, sig []byte, certChain []*x509.Cert
 	method := jwt.GetSigningMethod(sigAlg)
 	encSig := base64.RawURLEncoding.EncodeToString(sig)
 	return method.Verify(payload, encSig, signingCert.PublicKey)
+}
+
+func keySpecToAlg(name string) string {
+	switch name {
+	case "RSA_2048":
+		return jwt.SigningMethodRS256.Alg()
+	case "RSA_3072":
+		return jwt.SigningMethodRS384.Alg()
+	case "RSA_4096":
+		return jwt.SigningMethodRS512.Alg()
+	case "EC_256":
+		return jwt.SigningMethodES256.Alg()
+	case "EC_384":
+		return jwt.SigningMethodES384.Alg()
+	case "EC_512":
+		return jwt.SigningMethodES512.Alg()
+	}
+	return ""
 }
