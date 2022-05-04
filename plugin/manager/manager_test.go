@@ -188,6 +188,15 @@ func TestManager_List(t *testing.T) {
 		{"empty fsys", &Manager{fstest.MapFS{}, nil}, nil},
 		{"fsys without plugins", &Manager{fstest.MapFS{"a.go": &fstest.MapFile{}}, nil}, nil},
 		{
+			"fsys with plugins but symlinked", &Manager{
+				fstest.MapFS{
+					"foo":                            &fstest.MapFile{Mode: fs.ModeDir | fs.ModeSymlink},
+					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
+				}, testCommander{metadataJSON(validMetadata), true, nil}},
+			nil,
+		},
+		{
 			"fsys with some invalid plugins", &Manager{
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
