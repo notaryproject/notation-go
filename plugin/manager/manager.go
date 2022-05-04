@@ -99,7 +99,13 @@ func (mgr *Manager) Get(ctx context.Context, name string) (*Plugin, error) {
 func (mgr *Manager) List(ctx context.Context) ([]*Plugin, error) {
 	var plugins []*Plugin
 	fs.WalkDir(mgr.fsys, ".", func(dir string, d fs.DirEntry, _ error) error {
-		if dir == "." || !d.IsDir() {
+		if dir == "." {
+			// Ignore root dir.
+			return nil
+		}
+		typ := d.Type()
+		if !typ.IsDir() || typ&fs.ModeSymlink != 0 {
+			// Ignore non-directories and symlinked directories.
 			return nil
 		}
 		p, err := mgr.newPlugin(ctx, d.Name())
@@ -219,7 +225,7 @@ func isCandidate(fsys fs.FS, name string) bool {
 		// (e.g. due to permissions or anything else).
 		return false
 	}
-	if fi.Mode().Type() != 0 {
+	if !fi.Mode().IsRegular() {
 		// Ignore non-regular files.
 		return false
 	}
@@ -232,6 +238,8 @@ func binName(name string) string {
 
 func binPath(fsys fs.FS, name string) string {
 	base := binName(name)
+	// NewManager() always instantiate a rootedFS.
+	// Other fs.FS implementations are only supported for testing purposes.
 	if fsys, ok := fsys.(rootedFS); ok {
 		return filepath.Join(fsys.root, name, base)
 	}
