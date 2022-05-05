@@ -22,10 +22,28 @@ var supportedAlgs = map[string]bool{
 	jwt.SigningMethodES512.Name: true,
 }
 
+var keySpecToAlg = map[plugin.KeySpec]string{
+	plugin.RSA_2048: jwt.SigningMethodPS256.Alg(),
+	plugin.RSA_3072: jwt.SigningMethodPS384.Alg(),
+	plugin.RSA_4096: jwt.SigningMethodPS512.Alg(),
+	plugin.EC_256:   jwt.SigningMethodES256.Alg(),
+	plugin.EC_384:   jwt.SigningMethodES384.Alg(),
+	plugin.EC_512:   jwt.SigningMethodES512.Alg(),
+}
+
+// PluginRunner is the interface implemented by plugin/manager.Manager,
+// but which can be swapped by a custom third-party implementation
+// if this constrains are meet:
+// - Run fails if the plugin does not exist or is not valid
+// - Run returns the appropriate type for each cmd
 type PluginRunner interface {
 	Run(ctx context.Context, pluginName string, cmd plugin.Command, req interface{}) (interface{}, error)
 }
 
+// PluginSigner signs artifacts and generates JWS signatures
+// by delegating the one or both operations to the named plugin,
+// as defined in
+// https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 type PluginSigner struct {
 	Runner       PluginRunner
 	PluginName   string
@@ -34,6 +52,7 @@ type PluginSigner struct {
 	PluginConfig map[string]string
 }
 
+// Sign signs the artifact described by its descriptor, and returns the signature.
 func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGetMetadata, nil)
 	if err != nil {
@@ -56,7 +75,7 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 }
 
 func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResponse, error) {
-	req := plugin.DescribeKeyRequest{
+	req := &plugin.DescribeKeyRequest{
 		ContractVersion: "1",
 		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
@@ -75,9 +94,14 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	if err != nil {
 		return nil, err
 	}
-	alg := keySpecToAlg(key.KeySpec)
+
+	// Check keyID is honored.
+	if s.KeyID != key.KeyID {
+		return nil, fmt.Errorf("keyID mismatch")
+	}
+	alg := keySpecToAlg[key.KeySpec]
 	if alg == "" {
-		return nil, errors.New("unsupported key spec: " + string(key.KeySpec))
+		return nil, fmt.Errorf("keySpec %q not supported: ", key.KeySpec)
 	}
 	// Generate signing string.
 	token := &jwt.Token{
@@ -90,21 +114,29 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	}
 	signing, err := token.SigningString()
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal signing payload: %w", err)
+		return nil, fmt.Errorf("failed to marshal signing payload: %v", err)
 	}
 
 	// Execute plugin sign command.
-	req := plugin.GenerateSignatureRequest{
+	req := &plugin.GenerateSignatureRequest{
 		ContractVersion: "1",
 		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
+		KeySpec:         key.KeySpec,
+		Hash:            key.KeySpec.Hash(),
 		Payload:         signing,
+		PluginConfig:    s.PluginConfig,
 	}
 	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGenerateSignature, req)
 	if err != nil {
-		return nil, fmt.Errorf("sign command failed: %w", err)
+		return nil, fmt.Errorf("generate-signature command failed: %w", err)
 	}
 	resp := out.(*plugin.GenerateSignatureResponse)
+
+	// Check keyID is honored.
+	if s.KeyID != resp.KeyID {
+		return nil, fmt.Errorf("keyID mismatch")
+	}
 
 	// Check algorithm is supported.
 	if !supportedAlgs[resp.SigningAlgorithm] {
@@ -120,11 +152,11 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	// using the public key of the signing certificate.
 	signed, err := base64.RawStdEncoding.DecodeString(resp.Signature)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("signature not base64-encoded: %v", err)
 	}
 	err = verifyJWT(resp.SigningAlgorithm, signing, signed, certs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("verification error: %v", err)
 	}
 
 	// Check the the certificate chain conforms to the spec.
@@ -151,7 +183,7 @@ func parseCertChain(certChain []string) ([]*x509.Certificate, error) {
 	for i, data := range certChain {
 		der, err := base64.RawStdEncoding.DecodeString(data)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("certificate not base64-encoded: %v", err)
 		}
 		cert, err := x509.ParseCertificate(der)
 		if err != nil {
@@ -171,22 +203,4 @@ func verifyJWT(sigAlg string, payload string, sig []byte, certChain []*x509.Cert
 	method := jwt.GetSigningMethod(sigAlg)
 	encSig := base64.RawURLEncoding.EncodeToString(sig)
 	return method.Verify(payload, encSig, signingCert.PublicKey)
-}
-
-func keySpecToAlg(name plugin.KeySpec) string {
-	switch name {
-	case plugin.RSA_2048:
-		return jwt.SigningMethodPS256.Alg()
-	case plugin.RSA_3072:
-		return jwt.SigningMethodPS384.Alg()
-	case plugin.RSA_4096:
-		return jwt.SigningMethodPS512.Alg()
-	case plugin.EC_256:
-		return jwt.SigningMethodES256.Alg()
-	case plugin.EC_384:
-		return jwt.SigningMethodES384.Alg()
-	case plugin.EC_512:
-		return jwt.SigningMethodES512.Alg()
-	}
-	return ""
 }

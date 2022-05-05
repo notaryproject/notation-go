@@ -21,17 +21,39 @@ const (
 	EC_512   KeySpec = "EC_512"
 )
 
-// HashFunc returns the Hash associated k.
-func (k KeySpec) HashFunc() crypto.Hash {
+// Hash returns the Hash associated k.
+func (k KeySpec) Hash() Hash {
 	switch k {
 	case RSA_2048, EC_256:
-		return crypto.SHA256
+		return SHA256
 	case RSA_3072, EC_384:
-		return crypto.SHA384
+		return SHA384
 	case RSA_4096, EC_512:
+		return SHA512
+	}
+	return ""
+}
+
+// Hash algorithm associated with the key spec.
+type Hash string
+
+const (
+	SHA256 Hash = "SHA_256"
+	SHA384 Hash = "SHA_384"
+	SHA512 Hash = "SHA_512"
+)
+
+// HashFunc returns the Hash associated k.
+func (h Hash) HashFunc() crypto.Hash {
+	switch h {
+	case SHA256:
+		return crypto.SHA256
+	case SHA384:
+		return crypto.SHA384
+	case SHA512:
 		return crypto.SHA512
 	}
-	return crypto.Hash(0)
+	return 0
 }
 
 // Command is a CLI command available in the plugin contract.
@@ -78,7 +100,7 @@ type DescribeKeyRequest struct {
 	ContractVersion string            `json:"contractVersion"`
 	KeyName         string            `json:"keyName"`
 	KeyID           string            `json:"keyId"`
-	PluginConfig    map[string]string `json:"pluginConfig"`
+	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
 }
 
 // GenerateSignatureResponse is the response of a describe-key request.
@@ -94,10 +116,14 @@ type DescribeKeyResponse struct {
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 // All parameters are required.
 type GenerateSignatureRequest struct {
-	ContractVersion string `json:"contractVersion"`
-	KeyName         string `json:"keyName"`
-	KeyID           string `json:"keyId"`
-	Payload         string `json:"payload"`
+	ContractVersion       string            `json:"contractVersion"`
+	KeyName               string            `json:"keyName"`
+	KeyID                 string            `json:"keyId"`
+	KeySpec               KeySpec           `json:"keySpec"`
+	Hash                  Hash              `json:"hashAlgorithm"`
+	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
+	Payload               string            `json:"payload"`
+	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
 }
 
 // GenerateSignatureResponse is the response of a generate-signature request.
@@ -120,12 +146,13 @@ type GenerateSignatureResponse struct {
 // GenerateEnvelopeRequest contains the parameters passed in a generate-envelop request.
 // All parameters are required.
 type GenerateEnvelopeRequest struct {
-	ContractVersion       string `json:"contractVersion"`
-	KeyName               string `json:"keyName"`
-	KeyID                 string `json:"keyId"`
-	PayloadType           string `json:"payloadType"`
-	SignatureEnvelopeType string `json:"signatureEnvelopeType"`
-	Payload               string `json:"payload"`
+	ContractVersion       string            `json:"contractVersion"`
+	KeyName               string            `json:"keyName"`
+	KeyID                 string            `json:"keyId"`
+	PayloadType           string            `json:"payloadType"`
+	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
+	Payload               string            `json:"payload"`
+	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
 }
 
 // GenerateSignatureResponse is the response of a generate-envelop request.
