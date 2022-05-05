@@ -14,6 +14,7 @@ import (
 	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 	"github.com/notaryproject/notation-go/internal/crypto/pki"
+	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
 
 // Signer signs artifacts and generates JWS signatures.
@@ -80,7 +81,7 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *Signer) Sign(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	// generate JWT
 	payload := packPayload(desc, opts)
 	if err := payload.Valid(); err != nil {
@@ -89,10 +90,7 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 	token := &jwt.Token{
 		Header: map[string]interface{}{
 			"alg": s.method.Alg(),
-			"cty": MediaTypeNotationPayload,
-			"crit": []string{
-				"cty",
-			},
+			"cty": signature.MediaTypeJWSEnvelope,
 		},
 		Claims: payload,
 		Method: s.method,
@@ -106,7 +104,7 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 
 func jwtEnvelop(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
 	// generate unprotected header
-	header := unprotectedHeader{
+	header := signature.JWSUnprotectedHeader{
 		CertChain: certChain,
 	}
 

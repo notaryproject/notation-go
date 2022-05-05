@@ -1,60 +1,9 @@
 package plugin
 
-import (
-	"crypto"
-)
+import "github.com/notaryproject/notation-go/spec/v1/signature"
 
 // Prefix is the prefix required on all plugin binary names.
 const Prefix = "notation-"
-
-// KeySpec defines a key type and size.
-type KeySpec string
-
-// One of following supported specs
-// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-const (
-	RSA_2048 KeySpec = "RSA_2048"
-	RSA_3072 KeySpec = "RSA_3072"
-	RSA_4096 KeySpec = "RSA_4096"
-	EC_256   KeySpec = "EC_256"
-	EC_384   KeySpec = "EC_384"
-	EC_512   KeySpec = "EC_512"
-)
-
-// Hash returns the Hash associated k.
-func (k KeySpec) Hash() Hash {
-	switch k {
-	case RSA_2048, EC_256:
-		return SHA256
-	case RSA_3072, EC_384:
-		return SHA384
-	case RSA_4096, EC_512:
-		return SHA512
-	}
-	return ""
-}
-
-// Hash algorithm associated with the key spec.
-type Hash string
-
-const (
-	SHA256 Hash = "SHA_256"
-	SHA384 Hash = "SHA_384"
-	SHA512 Hash = "SHA_512"
-)
-
-// HashFunc returns the Hash associated k.
-func (h Hash) HashFunc() crypto.Hash {
-	switch h {
-	case SHA256:
-		return crypto.SHA256
-	case SHA384:
-		return crypto.SHA384
-	case SHA512:
-		return crypto.SHA512
-	}
-	return 0
-}
 
 // Command is a CLI command available in the plugin contract.
 type Command string
@@ -110,17 +59,16 @@ type DescribeKeyResponse struct {
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec KeySpec `json:"keySpec"`
+	KeySpec signature.Key `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
-// All parameters are required.
 type GenerateSignatureRequest struct {
 	ContractVersion       string            `json:"contractVersion"`
 	KeyName               string            `json:"keyName"`
 	KeyID                 string            `json:"keyId"`
-	KeySpec               KeySpec           `json:"keySpec"`
-	Hash                  Hash              `json:"hashAlgorithm"`
+	KeySpec               signature.Key     `json:"keySpec"`
+	Hash                  signature.Hash    `json:"hashAlgorithm"`
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
 	Payload               string            `json:"payload"`
 	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
@@ -144,7 +92,6 @@ type GenerateSignatureResponse struct {
 }
 
 // GenerateEnvelopeRequest contains the parameters passed in a generate-envelop request.
-// All parameters are required.
 type GenerateEnvelopeRequest struct {
 	ContractVersion       string            `json:"contractVersion"`
 	KeyName               string            `json:"keyName"`

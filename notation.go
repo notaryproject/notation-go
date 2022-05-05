@@ -6,28 +6,8 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-go/crypto/timestamp"
-	"github.com/opencontainers/go-digest"
+	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
-
-// Descriptor describes the content signed or to be signed.
-type Descriptor struct {
-	// MediaType is the media type of the targeted content.
-	MediaType string `json:"mediaType"`
-
-	// Digest is the digest of the targeted content.
-	Digest digest.Digest `json:"digest"`
-
-	// Size specifies the size in bytes of the blob.
-	Size int64 `json:"size"`
-
-	// Annotations contains optional user defined attributes.
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-// Equal reports whether d and t points to the same content.
-func (d Descriptor) Equal(t Descriptor) bool {
-	return d.MediaType == t.MediaType && d.Digest == t.Digest && d.Size == t.Size
-}
 
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
@@ -50,7 +30,7 @@ type SignOptions struct {
 type Signer interface {
 	// Sign signs the artifact described by its descriptor,
 	// and returns the signature.
-	Sign(ctx context.Context, desc Descriptor, opts SignOptions) ([]byte, error)
+	Sign(ctx context.Context, desc signature.Descriptor, opts SignOptions) ([]byte, error)
 }
 
 // VerifyOptions contains parameters for Verifier.Verify.
@@ -65,7 +45,7 @@ func (opts VerifyOptions) Validate() error {
 type Verifier interface {
 	// Verify verifies the signature and returns the verified descriptor and
 	// metadata of the signed artifact.
-	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, error)
+	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (signature.Descriptor, error)
 }
 
 // Service combines the signing and verification services.

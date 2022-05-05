@@ -10,7 +10,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/spec/v1/plugin"
+	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
 
 var supportedAlgs = map[string]bool{
@@ -22,13 +23,13 @@ var supportedAlgs = map[string]bool{
 	jwt.SigningMethodES512.Name: true,
 }
 
-var keySpecToAlg = map[plugin.KeySpec]string{
-	plugin.RSA_2048: jwt.SigningMethodPS256.Alg(),
-	plugin.RSA_3072: jwt.SigningMethodPS384.Alg(),
-	plugin.RSA_4096: jwt.SigningMethodPS512.Alg(),
-	plugin.EC_256:   jwt.SigningMethodES256.Alg(),
-	plugin.EC_384:   jwt.SigningMethodES384.Alg(),
-	plugin.EC_512:   jwt.SigningMethodES512.Alg(),
+var keySpecToAlg = map[signature.Key]string{
+	signature.RSA_2048: jwt.SigningMethodPS256.Alg(),
+	signature.RSA_3072: jwt.SigningMethodPS384.Alg(),
+	signature.RSA_4096: jwt.SigningMethodPS512.Alg(),
+	signature.EC_256:   jwt.SigningMethodES256.Alg(),
+	signature.EC_384:   jwt.SigningMethodES384.Alg(),
+	signature.EC_512:   jwt.SigningMethodES512.Alg(),
 }
 
 // PluginRunner is the interface implemented by plugin/manager.Manager,
@@ -53,7 +54,7 @@ type PluginSigner struct {
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGetMetadata, nil)
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
@@ -88,7 +89,7 @@ func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResp
 	return out.(*plugin.DescribeKeyResponse), nil
 }
 
-func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.SignOptions, payload *payload) ([]byte, error) {
+func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.SignOptions, payload jwt.Claims) ([]byte, error) {
 	// Get key info.
 	key, err := s.describeKey(ctx)
 	if err != nil {
@@ -107,7 +108,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	token := &jwt.Token{
 		Header: map[string]interface{}{
 			"alg":  alg,
-			"cty":  MediaTypeNotationPayload,
+			"cty":  signature.MediaTypeJWSEnvelope,
 			"crit": []string{"cty"},
 		},
 		Claims: payload,
@@ -179,7 +180,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	return jwtEnvelop(ctx, opts, compact, rawCerts)
 }
 
-func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, opts notation.SignOptions, payload *payload) ([]byte, error) {
+func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, opts notation.SignOptions, payload jwt.Claims) ([]byte, error) {
 	return nil, errors.New("not implemented")
 }
 

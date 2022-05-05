@@ -15,7 +15,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/spec/v1/plugin"
+	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
 
 type mockRunner struct {
@@ -31,7 +32,7 @@ func (r *mockRunner) Run(ctx context.Context, pluginName string, cmd plugin.Comm
 
 type mockSignerPlugin struct {
 	KeyID      string
-	KeySpec    plugin.KeySpec
+	KeySpec    signature.Key
 	Sign       func(payload string) string
 	SigningAlg string
 	Cert       string
@@ -66,7 +67,7 @@ func (s *mockSignerPlugin) Run(ctx context.Context, pluginName string, cmd plugi
 
 func testPluginSignerError(t *testing.T, signer PluginSigner, wantEr string) {
 	t.Helper()
-	_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
+	_, err := signer.Sign(context.Background(), signature.Descriptor{}, notation.SignOptions{})
 	if err == nil || !strings.Contains(err.Error(), wantEr) {
 		t.Errorf("PluginSigner.Sign() error = %v, wantErr %v", err, wantEr)
 	}
@@ -85,7 +86,7 @@ func TestPluginSigner_Sign_PayloadNotValid(t *testing.T) {
 			&plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}},
 		}, []error{nil}, 0},
 	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
+	_, err := signer.Sign(context.Background(), signature.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
 	wantEr := "token is expired"
 	if err == nil || !strings.Contains(err.Error(), wantEr) {
 		t.Errorf("PluginSigner.Sign() error = %v, wantErr %v", err, wantEr)
@@ -113,7 +114,7 @@ func TestPluginSigner_Sign_DescribeKeyFailed(t *testing.T) {
 
 func TestPluginSigner_Sign_DescribeKeyKeyIDMismatch(t *testing.T) {
 	signer := PluginSigner{
-		Runner: &mockSignerPlugin{KeyID: "2", KeySpec: plugin.RSA_2048},
+		Runner: &mockSignerPlugin{KeyID: "2", KeySpec: signature.RSA_2048},
 		KeyID:  "1",
 	}
 	testPluginSignerError(t, signer, "keyID mismatch")
@@ -131,7 +132,7 @@ func TestPluginSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockRunner{[]interface{}{
 			&plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}},
-			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: plugin.RSA_2048},
+			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: signature.RSA_2048},
 			&plugin.GenerateSignatureResponse{KeyID: "2"},
 		}, []error{nil, nil, nil}, 0},
 		KeyID: "1",
@@ -141,7 +142,7 @@ func TestPluginSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
 
 func TestPluginSigner_Sign_UnsuportedAlgorithm(t *testing.T) {
 	signer := PluginSigner{
-		Runner: &mockSignerPlugin{KeyID: "1", KeySpec: plugin.RSA_2048, SigningAlg: "custom"},
+		Runner: &mockSignerPlugin{KeyID: "1", KeySpec: signature.RSA_2048, SigningAlg: "custom"},
 		KeyID:  "1",
 	}
 	testPluginSignerError(t, signer, "signing algorithm \"custom\" not supported")
@@ -151,7 +152,7 @@ func TestPluginSigner_Sign_NoCertChain(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodES256.Alg(),
 		},
 		KeyID: "1",
@@ -163,7 +164,7 @@ func TestPluginSigner_Sign_CertNotBase64(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodES256.Alg(),
 			Cert:       "r a w",
 		},
@@ -176,7 +177,7 @@ func TestPluginSigner_Sign_MalformedCert(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodES256.Alg(),
 			Cert:       base64.RawStdEncoding.EncodeToString([]byte("mocked")),
 		},
@@ -193,7 +194,7 @@ func TestPluginSigner_Sign_SignatureNotBase64(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodES256.Alg(),
 			Sign:       func(payload string) string { return "r a w" },
 			Cert:       base64.RawStdEncoding.EncodeToString(cert.Raw),
@@ -211,7 +212,7 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodES256.Alg(),
 			Sign:       func(payload string) string { return base64.RawStdEncoding.EncodeToString([]byte("r a w")) },
 			Cert:       base64.RawStdEncoding.EncodeToString(cert.Raw),
@@ -255,7 +256,7 @@ func TestPluginSigner_Sign_CertWithoutDigitalSignatureBit(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
 			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
@@ -284,7 +285,7 @@ func TestPluginSigner_Sign_CertWithout_idkpcodeSigning(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
 			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
@@ -314,7 +315,7 @@ func TestPluginSigner_Sign_CertBasicConstraintCA(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
 			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
@@ -332,14 +333,14 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
-			KeySpec:    plugin.RSA_2048,
+			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
 			Cert:       base64.RawStdEncoding.EncodeToString(cert.Raw),
 		},
 		KeyID: "1",
 	}
-	_, err = signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
+	_, err = signer.Sign(context.Background(), signature.Descriptor{}, notation.SignOptions{})
 	if err != nil {
 		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
 	}

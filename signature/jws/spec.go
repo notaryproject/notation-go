@@ -13,43 +13,24 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
 
-// unprotectedHeader contains the header parameters that are not integrity protected.
-type unprotectedHeader struct {
-	TimeStampToken []byte   `json:"timestamp,omitempty"`
-	CertChain      [][]byte `json:"x5c,omitempty"`
-}
-
-// MediaTypeNotationPayload describes the media type of the payload of notation signature.
-const MediaTypeNotationPayload = "application/vnd.cncf.notary.v2.jws.v1"
-
-// payload contains the subject manifest and other attributes that have to be integrity
-// protected.
-type payload struct {
-	Notation notationClaim `json:"notary"`
-	jwt.RegisteredClaims
-}
-
-// notationClaim is the top level node and private claim, encapsulating the notary v2 data.
-type notationClaim struct {
-	Subject notation.Descriptor `json:"subject"`
-}
-
 // packPayload generates JWS payload according the signing content and options.
-func packPayload(desc notation.Descriptor, opts notation.SignOptions) *payload {
+func packPayload(desc signature.Descriptor, opts notation.SignOptions) jwt.Claims {
 	var expiresAt *jwt.NumericDate
 	if !opts.Expiry.IsZero() {
 		expiresAt = jwt.NewNumericDate(opts.Expiry)
 	}
-	return &payload{
-		Notation: notationClaim{
-			Subject: desc,
-		},
+	return struct {
+		jwt.RegisteredClaims
+		Notary signature.JWSNotaryClaim `json:"notary"`
+	}{
 		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: expiresAt,
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
+		Notary: signature.JWSNotaryClaim{Subject: desc},
 	}
 }
 

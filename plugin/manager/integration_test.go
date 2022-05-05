@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/spec/v1/plugin"
 )
 
 func preparePlugin(t *testing.T) string {

@@ -14,6 +14,7 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
+	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
 
 // maxTimestampAccuracy specifies the max acceptable accuracy for timestamp.
@@ -55,23 +56,23 @@ func NewVerifier() *Verifier {
 
 // Verify verifies the signature and returns the verified descriptor and
 // metadata of the signed artifact.
-func (v *Verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (notation.Descriptor, error) {
+func (v *Verifier) Verify(ctx context.Context, sig []byte, opts notation.VerifyOptions) (signature.Descriptor, error) {
 	// unpack envelope
-	sig, err := openEnvelope(signature)
+	envelope, err := openEnvelope(sig)
 	if err != nil {
-		return notation.Descriptor{}, err
+		return signature.Descriptor{}, err
 	}
 
 	// verify signing identity
-	method, key, err := v.verifySigner(&sig.Signature)
+	method, key, err := v.verifySigner(&envelope.Signature)
 	if err != nil {
-		return notation.Descriptor{}, err
+		return signature.Descriptor{}, err
 	}
 
 	// verify JWT
-	claim, err := v.verifyJWT(method, key, sig.SerializeCompact())
+	claim, err := v.verifyJWT(method, key, envelope.SerializeCompact())
 	if err != nil {
-		return notation.Descriptor{}, err
+		return signature.Descriptor{}, err
 	}
 
 	return claim.Subject, nil
@@ -79,7 +80,7 @@ func (v *Verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 
 // verifySigner verifies the signing identity and returns the verification key.
 func (v *Verifier) verifySigner(sig *jwsutil.Signature) (jwt.SigningMethod, crypto.PublicKey, error) {
-	var header unprotectedHeader
+	var header signature.JWSUnprotectedHeader
 	if err := json.Unmarshal(sig.Unprotected, &header); err != nil {
 		return nil, nil, err
 	}
@@ -160,12 +161,15 @@ func (v *Verifier) verifyTimestamp(tokenBytes []byte, encodedSig string) (time.T
 
 // verifyJWT verifies the JWT token against the specified verification key, and
 // returns notation claim.
-func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tokenString string) (*notationClaim, error) {
+func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tokenString string) (*signature.JWSNotaryClaim, error) {
 	// parse and verify token
 	parser := &jwt.Parser{
 		ValidMethods: v.ValidMethods,
 	}
-	var claims payload
+	var claims struct {
+		jwt.RegisteredClaims
+		Notary signature.JWSNotaryClaim `json:"notary"`
+	}
 	if _, err := parser.ParseWithClaims(tokenString, &claims, func(t *jwt.Token) (interface{}, error) {
 		alg := t.Method.Alg()
 		if expectedAlg := method.Alg(); alg != expectedAlg {
@@ -184,7 +188,7 @@ func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tok
 	if claims.IssuedAt == nil {
 		return nil, errors.New("missing iat")
 	}
-	return &claims.Notation, nil
+	return &claims.Notary, nil
 }
 
 // openEnvelope opens the signature envelope and get the embedded signature.
