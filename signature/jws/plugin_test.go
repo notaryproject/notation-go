@@ -39,6 +39,10 @@ type mockSignerPlugin struct {
 }
 
 func (s *mockSignerPlugin) Run(ctx context.Context, pluginName string, cmd plugin.Command, req interface{}) (interface{}, error) {
+	var chain []string
+	if s.Cert != "" {
+		chain = append(chain, s.Cert)
+	}
 	defer func() { s.n++ }()
 	switch s.n {
 	case 0:
@@ -54,7 +58,7 @@ func (s *mockSignerPlugin) Run(ctx context.Context, pluginName string, cmd plugi
 			KeyID:            s.KeyID,
 			SigningAlgorithm: s.SigningAlg,
 			Signature:        signed,
-			CertificateChain: []string{s.Cert},
+			CertificateChain: chain,
 		}, nil
 	}
 	panic("too many calls")
@@ -143,12 +147,25 @@ func TestPluginSigner_Sign_UnsuportedAlgorithm(t *testing.T) {
 	testPluginSignerError(t, signer, "signing algorithm \"custom\" not supported")
 }
 
+func TestPluginSigner_Sign_NoCertChain(t *testing.T) {
+	signer := PluginSigner{
+		Runner: &mockSignerPlugin{
+			KeyID:      "1",
+			KeySpec:    plugin.RSA_2048,
+			SigningAlg: jwt.SigningMethodES256.Alg(),
+		},
+		KeyID: "1",
+	}
+	testPluginSignerError(t, signer, "empty certificate chain")
+}
+
 func TestPluginSigner_Sign_CertNotBase64(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    plugin.RSA_2048,
-			SigningAlg: jwt.SigningMethodES256.Alg(), Cert: "r a w",
+			SigningAlg: jwt.SigningMethodES256.Alg(),
+			Cert:       "r a w",
 		},
 		KeyID: "1",
 	}

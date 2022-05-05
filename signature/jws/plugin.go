@@ -143,6 +143,11 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 		return nil, fmt.Errorf("signing algorithm %q not supported", resp.SigningAlgorithm)
 	}
 
+	// Check certificate chain is not empty.
+	if len(resp.CertificateChain) == 0 {
+		return nil, errors.New("empty certificate chain")
+	}
+
 	certs, err := parseCertChain(resp.CertificateChain)
 	if err != nil {
 		return nil, err
@@ -154,7 +159,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	if err != nil {
 		return nil, fmt.Errorf("signature not base64-encoded: %v", err)
 	}
-	err = verifyJWT(resp.SigningAlgorithm, signing, signed, certs)
+	err = verifyJWT(resp.SigningAlgorithm, signing, signed, certs[0])
 	if err != nil {
 		return nil, fmt.Errorf("verification error: %v", err)
 	}
@@ -194,11 +199,7 @@ func parseCertChain(certChain []string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func verifyJWT(sigAlg string, payload string, sig []byte, certChain []*x509.Certificate) error {
-	if len(certChain) == 0 {
-		return nil
-	}
-	signingCert := certChain[0]
+func verifyJWT(sigAlg string, payload string, sig []byte, signingCert *x509.Certificate) error {
 	// Verify the hash of req.payload against resp.signature using the public key if the leaf certificate.
 	method := jwt.GetSigningMethod(sigAlg)
 	encSig := base64.RawURLEncoding.EncodeToString(sig)
