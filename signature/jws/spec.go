@@ -72,6 +72,10 @@ func checkCertChain(certChain []*x509.Certificate) error {
 	return nil
 }
 
+var (
+	oidExtensionKeyUsage = []int{2, 5, 29, 15}
+)
+
 // validateCert checks cert meets the requirements defined in
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#certificate-requirements.
 func verifyCert(cert *x509.Certificate, extKeyUsage x509.ExtKeyUsage) error {
@@ -86,18 +90,18 @@ func verifyCert(cert *x509.Certificate, extKeyUsage x509.ExtKeyUsage) error {
 		}
 	}
 	if !hasExtKeyUsage {
-		return fmt.Errorf("extKeyUsage must contain be %d", extKeyUsage)
+		return fmt.Errorf("extKeyUsage must contain %d", extKeyUsage)
 	}
-	for _, ext := range cert.Extensions {
-		switch ext.Id[3] {
-		case 15:
-			if !ext.Critical {
+	for _, e := range cert.Extensions {
+		if e.Id.Equal(oidExtensionKeyUsage) {
+			if !e.Critical {
 				return errors.New("the keyUsage extension must be marked critical")
 			}
+			break
 		}
 	}
 	if cert.BasicConstraintsValid && cert.IsCA {
-		return errors.New("if the basicConstraints extension is present, the cA field MUST be set false")
+		return errors.New("if the basicConstraints extension is present, the CA field MUST be set false")
 	}
 	switch key := cert.PublicKey.(type) {
 	case *rsa.PublicKey:

@@ -2,8 +2,13 @@ package jws
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"errors"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -150,7 +155,7 @@ func TestPluginSigner_Sign_CertNotBase64(t *testing.T) {
 	testPluginSignerError(t, signer, "certificate not base64-encoded")
 }
 
-func TestPluginSigner_Sign_InvalidCert(t *testing.T) {
+func TestPluginSigner_Sign_MalformedCert(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
@@ -199,6 +204,109 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 	testPluginSignerError(t, signer, "verification error")
 }
 
+func validSign(t *testing.T, key interface{}) func(string) string {
+	t.Helper()
+	return func(payload string) string {
+		signed, err := jwt.SigningMethodPS256.Sign(payload, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encSigned, err := base64.RawURLEncoding.DecodeString(signed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return base64.RawStdEncoding.EncodeToString(encSigned)
+	}
+}
+
+func TestPluginSigner_Sign_CertWithoutDigitalSignatureBit(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(0),
+		Subject:               pkix.Name{CommonName: "test"},
+		KeyUsage:              x509.KeyUsageEncipherOnly,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		BasicConstraintsValid: true,
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, key.Public(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer := PluginSigner{
+		Runner: &mockSignerPlugin{
+			KeyID:      "1",
+			KeySpec:    plugin.RSA_2048,
+			SigningAlg: jwt.SigningMethodPS256.Alg(),
+			Sign:       validSign(t, key),
+			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
+		},
+		KeyID: "1",
+	}
+	testPluginSignerError(t, signer, "keyUsage must have the bit positions for digitalSignature set")
+}
+
+func TestPluginSigner_Sign_CertWithout_idkpcodeSigning(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(0),
+		Subject:               pkix.Name{CommonName: "test"},
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, key.Public(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer := PluginSigner{
+		Runner: &mockSignerPlugin{
+			KeyID:      "1",
+			KeySpec:    plugin.RSA_2048,
+			SigningAlg: jwt.SigningMethodPS256.Alg(),
+			Sign:       validSign(t, key),
+			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
+		},
+		KeyID: "1",
+	}
+	testPluginSignerError(t, signer, "extKeyUsage must contain")
+}
+
+func TestPluginSigner_Sign_CertBasicConstraintCA(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(0),
+		Subject:               pkix.Name{CommonName: "test"},
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, key.Public(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer := PluginSigner{
+		Runner: &mockSignerPlugin{
+			KeyID:      "1",
+			KeySpec:    plugin.RSA_2048,
+			SigningAlg: jwt.SigningMethodPS256.Alg(),
+			Sign:       validSign(t, key),
+			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
+		},
+		KeyID: "1",
+	}
+	testPluginSignerError(t, signer, "if the basicConstraints extension is present, the CA field MUST be set false")
+}
+
 func TestPluginSigner_Sign_Valid(t *testing.T) {
 	key, cert, err := generateKeyCertPair()
 	if err != nil {
@@ -209,18 +317,8 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 			KeyID:      "1",
 			KeySpec:    plugin.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
-			Sign: func(payload string) string {
-				signed, err := jwt.SigningMethodPS256.Sign(payload, key)
-				if err != nil {
-					t.Fatal(err)
-				}
-				encSigned, err := base64.RawURLEncoding.DecodeString(signed)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return base64.RawStdEncoding.EncodeToString(encSigned)
-			},
-			Cert: base64.RawStdEncoding.EncodeToString(cert.Raw),
+			Sign:       validSign(t, key),
+			Cert:       base64.RawStdEncoding.EncodeToString(cert.Raw),
 		},
 		KeyID: "1",
 	}
