@@ -166,10 +166,7 @@ func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tok
 	parser := &jwt.Parser{
 		ValidMethods: v.ValidMethods,
 	}
-	var claims struct {
-		jwt.RegisteredClaims
-		Notary signature.JWSNotaryClaim `json:"notary"`
-	}
+	var claims notaryClaim
 	if _, err := parser.ParseWithClaims(tokenString, &claims, func(t *jwt.Token) (interface{}, error) {
 		alg := t.Method.Alg()
 		if expectedAlg := method.Alg(); alg != expectedAlg {

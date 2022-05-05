@@ -16,16 +16,18 @@ import (
 	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
 
+type notaryClaim struct {
+	jwt.RegisteredClaims
+	Notary signature.JWSNotaryClaim `json:"notary"`
+}
+
 // packPayload generates JWS payload according the signing content and options.
 func packPayload(desc signature.Descriptor, opts notation.SignOptions) jwt.Claims {
 	var expiresAt *jwt.NumericDate
 	if !opts.Expiry.IsZero() {
 		expiresAt = jwt.NewNumericDate(opts.Expiry)
 	}
-	return struct {
-		jwt.RegisteredClaims
-		Notary signature.JWSNotaryClaim `json:"notary"`
-	}{
+	return notaryClaim{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: expiresAt,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
