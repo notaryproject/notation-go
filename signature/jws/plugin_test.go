@@ -80,19 +80,6 @@ func TestPluginSigner_Sign_RunMetadataFails(t *testing.T) {
 	testPluginSignerError(t, signer, "metadata command failed")
 }
 
-func TestPluginSigner_Sign_PayloadNotValid(t *testing.T) {
-	signer := PluginSigner{
-		Runner: &mockRunner{[]interface{}{
-			&plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}},
-		}, []error{nil}, 0},
-	}
-	_, err := signer.Sign(context.Background(), signature.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
-	wantEr := "token is expired"
-	if err == nil || !strings.Contains(err.Error(), wantEr) {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr %v", err, wantEr)
-	}
-}
-
 func TestPluginSigner_Sign_NoCapability(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockRunner{[]interface{}{
@@ -126,6 +113,21 @@ func TestPluginSigner_Sign_KeySpecNotSupported(t *testing.T) {
 		KeyID:  "1",
 	}
 	testPluginSignerError(t, signer, "keySpec \"custom\" not supported")
+}
+
+func TestPluginSigner_Sign_PayloadNotValid(t *testing.T) {
+	signer := PluginSigner{
+		Runner: &mockRunner{[]interface{}{
+			&plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}},
+			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: signature.RSA_2048},
+		}, []error{nil, nil}, 0},
+		KeyID: "1",
+	}
+	_, err := signer.Sign(context.Background(), signature.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
+	wantEr := "token is expired"
+	if err == nil || !strings.Contains(err.Error(), wantEr) {
+		t.Errorf("PluginSigner.Sign() error = %v, wantErr %v", err, wantEr)
+	}
 }
 
 func TestPluginSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {

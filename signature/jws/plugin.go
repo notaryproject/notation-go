@@ -61,16 +61,10 @@ func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts
 	}
 	metadata := out.(*plugin.Metadata)
 
-	// Generate payload to be signed.
-	payload := packPayload(desc, opts)
-	if err := payload.Valid(); err != nil {
-		return nil, err
-	}
-
 	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
-		return s.generateSignature(ctx, opts, payload)
+		return s.generateSignature(ctx, desc, opts)
 	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
-		return s.generateSignatureEnvelope(ctx, opts, payload)
+		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
 	return nil, fmt.Errorf("plugin %q does not have signing capabilities", s.PluginName)
 }
@@ -89,7 +83,7 @@ func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResp
 	return out.(*plugin.DescribeKeyResponse), nil
 }
 
-func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.SignOptions, payload jwt.Claims) ([]byte, error) {
+func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	// Get key info.
 	key, err := s.describeKey(ctx)
 	if err != nil {
@@ -100,10 +94,19 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	if s.KeyID != key.KeyID {
 		return nil, fmt.Errorf("keyID mismatch")
 	}
+
+	// Get algorithm associated to key.
 	alg := keySpecToAlg[key.KeySpec]
 	if alg == "" {
 		return nil, fmt.Errorf("keySpec %q not supported: ", key.KeySpec)
 	}
+
+	// Generate payload to be signed.
+	payload := packPayload(desc, opts)
+	if err := payload.Valid(); err != nil {
+		return nil, err
+	}
+
 	// Generate signing string.
 	token := &jwt.Token{
 		Header: map[string]interface{}{
@@ -180,7 +183,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, opts notation.Sign
 	return jwtEnvelop(ctx, opts, compact, rawCerts)
 }
 
-func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, opts notation.SignOptions, payload jwt.Claims) ([]byte, error) {
+func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	return nil, errors.New("not implemented")
 }
 
