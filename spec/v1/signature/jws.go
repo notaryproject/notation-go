@@ -34,10 +34,10 @@ type JWSProtectedHeader struct {
 // JWSUnprotectedHeader contains the set of unprotected headers.
 type JWSUnprotectedHeader struct {
 	// RFC3161 time stamp token Base64-encoded.
-	TimeStampToken []byte `json:"timestamp,omitempty"`
+	TimeStampToken string `json:"timestamp,omitempty"`
 
 	// List of X.509 certificates, each one Base64-encoded.
-	CertChain [][]byte `json:"x5c"`
+	CertChain []string `json:"x5c"`
 }
 
 // JWSEnvelope is the final signature envelope.

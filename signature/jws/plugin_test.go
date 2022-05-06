@@ -7,8 +7,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"math/big"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -342,8 +344,35 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 		},
 		KeyID: "1",
 	}
-	_, err = signer.Sign(context.Background(), signature.Descriptor{}, notation.SignOptions{})
+	data, err := signer.Sign(context.Background(), signature.Descriptor{}, notation.SignOptions{})
 	if err != nil {
 		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+	}
+	var got signature.JWSEnvelope
+	err = json.Unmarshal(data, &got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := signature.JWSEnvelope{
+		Protected: "eyJhbGciOiJQUzI1NiIsImNyaXQiOlsiY3R5Il0sImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS52Mi5qd3MudjEifQ",
+		Header: signature.JWSUnprotectedHeader{
+			CertChain: []string{base64.RawStdEncoding.EncodeToString(cert.Raw)},
+		},
+	}
+	if got.Protected != want.Protected {
+		t.Errorf("PluginSigner.Sign() Protected %v, want %v", got.Protected, want.Protected)
+	}
+	if _, err = base64.RawURLEncoding.DecodeString(got.Signature); err != nil {
+		t.Errorf("PluginSigner.Sign() Signature %v is not encoded as Base64URL", got.Signature)
+	}
+	if !reflect.DeepEqual(got.Header, want.Header) {
+		t.Errorf("PluginSigner.Sign() Header %v, want %v", got.Header, want.Header)
+	}
+	v := NewVerifier()
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	v.VerifyOptions.Roots = roots
+	if _, err := v.Verify(context.Background(), data, notation.VerifyOptions{}); err != nil {
+		t.Fatalf("Verify() error = %v", err)
 	}
 }

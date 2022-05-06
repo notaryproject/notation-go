@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
@@ -163,7 +162,8 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	if err != nil {
 		return nil, fmt.Errorf("signature not base64-encoded: %v", err)
 	}
-	err = verifyJWT(resp.SigningAlgorithm, signing, signed, certs[0])
+	signed64Url := base64.RawURLEncoding.EncodeToString(signed)
+	err = verifyJWT(resp.SigningAlgorithm, signing, signed64Url, certs[0])
 	if err != nil {
 		return nil, fmt.Errorf("verification error: %v", err)
 	}
@@ -175,12 +175,11 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	}
 
 	// Assemble the JWS signature envelope.
-	rawCerts := make([][]byte, len(certs))
-	for i, c := range certs {
-		rawCerts[i] = c.Raw
+	rawCerts := make([]string, len(certs))
+	for i, cert := range certs {
+		rawCerts[i] = base64.RawStdEncoding.EncodeToString(cert.Raw)
 	}
-	compact := strings.Join([]string{signing, base64.RawURLEncoding.EncodeToString(signed)}, ".")
-	return jwtEnvelop(ctx, opts, compact, rawCerts)
+	return jwtEnvelop(ctx, opts, signing+"."+signed64Url, rawCerts)
 }
 
 func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
@@ -203,9 +202,8 @@ func parseCertChain(certChain []string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func verifyJWT(sigAlg string, payload string, sig []byte, signingCert *x509.Certificate) error {
+func verifyJWT(sigAlg string, payload string, sig string, signingCert *x509.Certificate) error {
 	// Verify the hash of req.payload against resp.signature using the public key if the leaf certificate.
 	method := jwt.GetSigningMethod(sigAlg)
-	encSig := base64.RawURLEncoding.EncodeToString(sig)
-	return method.Verify(payload, encSig, signingCert.PublicKey)
+	return method.Verify(payload, sig, signingCert.PublicKey)
 }
