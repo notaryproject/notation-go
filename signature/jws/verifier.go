@@ -8,11 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
@@ -64,13 +64,14 @@ func (v *Verifier) Verify(ctx context.Context, sig []byte, opts notation.VerifyO
 	}
 
 	// verify signing identity
-	method, key, err := v.verifySigner(&envelope.Signature)
+	method, key, err := v.verifySigner(envelope)
 	if err != nil {
 		return signature.Descriptor{}, err
 	}
 
 	// verify JWT
-	claim, err := v.verifyJWT(method, key, envelope.SerializeCompact())
+	compact := strings.Join([]string{envelope.Protected, envelope.Payload, envelope.Signature}, ".")
+	claim, err := v.verifyJWT(method, key, compact)
 	if err != nil {
 		return signature.Descriptor{}, err
 	}
@@ -79,16 +80,11 @@ func (v *Verifier) Verify(ctx context.Context, sig []byte, opts notation.VerifyO
 }
 
 // verifySigner verifies the signing identity and returns the verification key.
-func (v *Verifier) verifySigner(sig *jwsutil.Signature) (jwt.SigningMethod, crypto.PublicKey, error) {
-	var header signature.JWSUnprotectedHeader
-	if err := json.Unmarshal(sig.Unprotected, &header); err != nil {
-		return nil, nil, err
-	}
-
-	if len(header.CertChain) == 0 {
+func (v *Verifier) verifySigner(sig *signature.JWSEnvelope) (jwt.SigningMethod, crypto.PublicKey, error) {
+	if len(sig.Header.CertChain) == 0 {
 		return nil, nil, errors.New("signer certificates not found")
 	}
-	return v.verifySignerFromCertChain(header.CertChain, header.TimeStampToken, sig.Signature)
+	return v.verifySignerFromCertChain(sig.Header.CertChain, sig.Header.TimeStampToken, sig.Signature)
 }
 
 // verifySignerFromCertChain verifies the signing identity from the provided certificate
@@ -189,16 +185,12 @@ func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tok
 }
 
 // openEnvelope opens the signature envelope and get the embedded signature.
-func openEnvelope(signature []byte) (*jwsutil.CompleteSignature, error) {
-	var envelope jwsutil.Envelope
-	if err := json.Unmarshal(signature, &envelope); err != nil {
+func openEnvelope(sig []byte) (*signature.JWSEnvelope, error) {
+	var envelope signature.JWSEnvelope
+	if err := json.Unmarshal(sig, &envelope); err != nil {
 		return nil, err
 	}
-	if len(envelope.Signatures) != 1 {
-		return nil, errors.New("single signature envelope expected")
-	}
-	sig := envelope.Open()
-	return &sig, nil
+	return &envelope, nil
 }
 
 // verifyTimestamp verifies the timestamp token and returns stamped time.

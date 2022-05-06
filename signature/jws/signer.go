@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 	"github.com/notaryproject/notation-go/internal/crypto/pki"
 	"github.com/notaryproject/notation-go/spec/v1/signature"
@@ -103,32 +103,30 @@ func (s *Signer) Sign(ctx context.Context, desc signature.Descriptor, opts notat
 }
 
 func jwtEnvelop(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
-	// generate unprotected header
-	header := signature.JWSUnprotectedHeader{
-		CertChain: certChain,
+	parts := strings.Split(compact, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("invalid compact serialization")
+	}
+	envelope := signature.JWSEnvelope{
+		Protected: parts[0],
+		Payload:   parts[1],
+		Signature: parts[2],
+		Header: signature.JWSUnprotectedHeader{
+			CertChain: certChain,
+		},
 	}
 
 	// timestamp JWT
-	sig, err := jwsutil.ParseCompact(compact)
-	if err != nil {
-		return nil, err
-	}
 	if opts.TSA != nil {
-		token, err := timestampSignature(ctx, sig.Signature.Signature, opts.TSA, opts.TSAVerifyOptions)
+		token, err := timestampSignature(ctx, envelope.Signature, opts.TSA, opts.TSAVerifyOptions)
 		if err != nil {
 			return nil, fmt.Errorf("timestamp failed: %w", err)
 		}
-		header.TimeStampToken = token
-	}
-
-	// finalize unprotected header
-	sig.Unprotected, err = json.Marshal(header)
-	if err != nil {
-		return nil, err
+		envelope.Header.TimeStampToken = token
 	}
 
 	// encode in flatten JWS JSON serialization
-	return json.Marshal(sig)
+	return json.Marshal(envelope)
 }
 
 // timestampSignature sends a request to the TSA for timestamping the signature.
