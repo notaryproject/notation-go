@@ -43,14 +43,14 @@ type JWSUnprotectedHeader struct {
 // JWSEnvelope is the final signature envelope.
 type JWSEnvelope struct {
 	// JWSPayload Base64URL-encoded.
-	Payload string
+	Payload string `json:"payload"`
 
 	// JWSProtectedHeader Base64URL-encoded.
-	Protected string
+	Protected string `json:"protected"`
 
 	// Signature metadata that is not integrity protected
-	Header JWSUnprotectedHeader `json:"header,omitempty"`
+	Header JWSUnprotectedHeader `json:"header"`
 
 	// Base64URL-encoded signature.
-	Signature string
+	Signature string `json:"signature"`
 }
