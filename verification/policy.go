@@ -53,7 +53,7 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 
 	// Validate Version
 	if !isPresent(policyDoc.Version, supportedPolicyVersions) {
-		return fmt.Errorf("version '%s' is not supported", policyDoc.Version)
+		return fmt.Errorf("version %q is not supported", policyDoc.Version)
 	}
 
 	// Validate the policy according to 1.0 rules
@@ -72,7 +72,7 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 
 		// Verify registry scopes are valid
 		if len(statement.RegistryScopes) == 0 {
-			return fmt.Errorf("policy statement '%s' has zero registry scopes", statement.Name)
+			return fmt.Errorf("policy statement %q has zero registry scopes", statement.Name)
 		}
 		if len(statement.RegistryScopes) > 1 && isPresent(wildcard, statement.RegistryScopes) {
 			return errors.New("wildcard registry scope can not be shared with other registries")
@@ -83,26 +83,26 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 
 		// Verify signature verification preset is valid
 		if !isPresent(statement.SignatureVerification, supportedVerificationPresets) {
-			return fmt.Errorf("signatureVerification '%s' is not supported", statement.SignatureVerification)
+			return fmt.Errorf("signatureVerification %q is not supported", statement.SignatureVerification)
 		}
 
 		// Any signature verification other than "skip" needs a trust store
 		if statement.SignatureVerification != "skip" && (statement.TrustStore == "" || len(statement.TrustedIdentities) == 0) {
-			return fmt.Errorf("'%s' is either missing a trust store or trusted identities", statement.Name)
+			return fmt.Errorf("%q is either missing a trust store or trusted identities", statement.Name)
 		}
 
-		// Verify trust store type is valid
+		// Verify trust store type is valid if it is present (trust store is optional for "skip" signature verification)
 		if statement.TrustStore != "" {
 			i := strings.Index(statement.TrustStore, ":")
 			if i < 0 || !isPresent(statement.TrustStore[:i], supportedTrustStorePrefixes) {
-				return fmt.Errorf("'%s' has a trust store with an unsupported trust store type", statement.Name)
+				return fmt.Errorf("%q has a trust store with an unsupported trust store type", statement.Name)
 			}
 		}
 
 		// If there are trusted identities, verify they are not empty
 		for _, identity := range statement.TrustedIdentities {
 			if identity == "" {
-				return fmt.Errorf("'%s' has an empty trusted identity", statement.Name)
+				return fmt.Errorf("%q has an empty trusted identity", statement.Name)
 			}
 		}
 		// If there is a wildcard in trusted identies, there shouldn't be any other identities
@@ -121,7 +121,7 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 	// Verify one policy statement per registry scope
 	for key := range registryScopeCount {
 		if registryScopeCount[key] > 1 {
-			return fmt.Errorf("registry '%s' is present in multiple policy statements", key)
+			return fmt.Errorf("registry %q is present in multiple policy statements", key)
 		}
 	}
 
