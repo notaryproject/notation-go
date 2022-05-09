@@ -1,6 +1,10 @@
 package plugin
 
-import "github.com/notaryproject/notation-go/spec/v1/signature"
+import (
+	"context"
+
+	"github.com/notaryproject/notation-go/spec/v1/signature"
+)
 
 // Prefix is the prefix required on all plugin binary names.
 const Prefix = "notation-"
@@ -112,4 +116,20 @@ type GenerateEnvelopeResponse struct {
 
 	// Annotations to be appended to Signature Manifest annotations.
 	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// Runner is an interface for running commands against a plugin.
+type Runner interface {
+	// Run executes the specified command and waits for it to complete.
+	//
+	// When the returned object is not nil, its type is guaranteed to remain always the same for a given Command.
+	//
+	// The returned error is nil if:
+	// - the plugin exists
+	// - the command runs and exits with a zero exit status
+	// - the command stdout contains a valid json object which can be unmarshal-ed.
+	//
+	// If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
+	// Other error types may be returned for other situations.
+	Run(ctx context.Context, cmd Command, req interface{}) (interface{}, error)
 }

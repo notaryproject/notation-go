@@ -31,22 +31,12 @@ var keySpecToAlg = map[signature.Key]string{
 	signature.EC_512:   jwt.SigningMethodES512.Alg(),
 }
 
-// PluginRunner is the interface implemented by plugin/manager.Manager,
-// but which can be swapped by a custom third-party implementation
-// if this constrains are meet:
-// - Run fails if the plugin does not exist or is not valid
-// - Run returns the appropriate type for each cmd
-type PluginRunner interface {
-	Run(ctx context.Context, pluginName string, cmd plugin.Command, req interface{}) (interface{}, error)
-}
-
 // PluginSigner signs artifacts and generates JWS signatures
 // by delegating the one or both operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 type PluginSigner struct {
-	Runner       PluginRunner
-	PluginName   string
+	Runner       plugin.Runner
 	KeyID        string
 	KeyName      string
 	PluginConfig map[string]string
@@ -54,18 +44,20 @@ type PluginSigner struct {
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
 func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGetMetadata, nil)
+	out, err := s.Runner.Run(ctx, plugin.CommandGetMetadata, nil)
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
 	}
 	metadata := out.(*plugin.Metadata)
-
+	if err := metadata.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid plugin metadata: %w", err)
+	}
 	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts)
 	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
-	return nil, fmt.Errorf("plugin %q does not have signing capabilities", s.PluginName)
+	return nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
 func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResponse, error) {
@@ -75,7 +67,7 @@ func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResp
 		KeyID:           s.KeyID,
 		PluginConfig:    s.PluginConfig,
 	}
-	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandDescribeKey, req)
+	out, err := s.Runner.Run(ctx, plugin.CommandDescribeKey, req)
 	if err != nil {
 		return nil, fmt.Errorf("describe-key command failed: %w", err)
 	}
@@ -123,7 +115,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 		Payload:         signing,
 		PluginConfig:    s.PluginConfig,
 	}
-	out, err := s.Runner.Run(ctx, s.PluginName, plugin.CommandGenerateSignature, req)
+	out, err := s.Runner.Run(ctx, plugin.CommandGenerateSignature, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate-signature command failed: %w", err)
 	}

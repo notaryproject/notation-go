@@ -88,3 +88,29 @@ func TestRequestError_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestRequestError_Is(t *testing.T) {
+	type args struct {
+		target error
+	}
+	tests := []struct {
+		name string
+		e    RequestError
+		args args
+		want bool
+	}{
+		{"nil", RequestError{}, args{nil}, false},
+		{"not same type", RequestError{Err: errors.New("foo")}, args{errors.New("foo")}, false},
+		{"only same code", RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}, args{RequestError{Code: ErrorCodeGeneric, Err: errors.New("bar")}}, false},
+		{"only same message", RequestError{Code: ErrorCodeTimeout, Err: errors.New("foo")}, args{RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}}, false},
+		{"same with nil message", RequestError{Code: ErrorCodeGeneric}, args{RequestError{Code: ErrorCodeGeneric}}, true},
+		{"same", RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}, args{RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.e.Is(tt.args.target); got != tt.want {
+				t.Errorf("RequestError.Is() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

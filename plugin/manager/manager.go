@@ -112,42 +112,16 @@ func (mgr *Manager) List(ctx context.Context) ([]*Plugin, error) {
 	return plugins, nil
 }
 
-// Run executes the specified command against the named plugin and waits for it to complete.
+// Runner returns a plugin.Runner.
 //
-// When the returned object is not nil, its type is guaranteed to remain always the same for a given Command.
-//
-// The returned error is nil if:
-// - the plugin exists and is valid
-// - the command runs and exits with a zero exit status
-// - the command stdout contains a valid json object which can be unmarshal-ed.
-//
-// If the plugin is not found, the error is of type ErrNotFound.
-// If the plugin metadata is not valid or stdout and stderr can't be decoded into a valid response, the error is of type ErrNotCompliant.
-// If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
-// Other error types may be returned for other situations.
-func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, req interface{}) (interface{}, error) {
-	p, err := mgr.newPlugin(ctx, name)
-	if err != nil {
-		return nil, pluginErr(name, err)
+// If the plugin is not found or is not a valid candidate, the error is of type ErrNotFound.
+func (mgr *Manager) Runner(name string) (plugin.Runner, error) {
+	ok := isCandidate(mgr.fsys, name)
+	if !ok {
+		return nil, ErrNotFound
 	}
-	if p.Err != nil {
-		return nil, pluginErr(name, withErr(p.Err, ErrNotCompliant))
-	}
-	if cmd == plugin.CommandGetMetadata {
-		return &p.Metadata, nil
-	}
-	var data []byte
-	if req != nil {
-		data, err = json.Marshal(req)
-		if err != nil {
-			return nil, pluginErr(name, fmt.Errorf("failed to marshal request object: %w", err))
-		}
-	}
-	resp, err := run(ctx, mgr.cmder, p.Path, cmd, data)
-	if err != nil {
-		return nil, pluginErr(name, err)
-	}
-	return resp, nil
+
+	return pluginRunner{name: name, path: binPath(mgr.fsys, name), cmder: mgr.cmder}, nil
 }
 
 // newPlugin determines if the given candidate is valid and returns a Plugin.
@@ -170,6 +144,28 @@ func (mgr *Manager) newPlugin(ctx context.Context, name string) (*Plugin, error)
 		p.Err = fmt.Errorf("invalid metadata: %w", err)
 	}
 	return p, nil
+}
+
+type pluginRunner struct {
+	name  string
+	path  string
+	cmder commander
+}
+
+func (p pluginRunner) Run(ctx context.Context, cmd plugin.Command, req interface{}) (interface{}, error) {
+	var data []byte
+	if req != nil {
+		var err error
+		data, err = json.Marshal(req)
+		if err != nil {
+			return nil, pluginErr(p.name, fmt.Errorf("failed to marshal request object: %w", err))
+		}
+	}
+	resp, err := run(ctx, p.cmder, p.path, cmd, data)
+	if err != nil {
+		return nil, pluginErr(p.name, err)
+	}
+	return resp, nil
 }
 
 // run executes the command and decodes the response.

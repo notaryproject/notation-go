@@ -73,7 +73,11 @@ func TestIntegration(t *testing.T) {
 	if !reflect.DeepEqual(list[0].Metadata, p.Metadata) {
 		t.Errorf("Manager.List() got %v, want %v", list[0], p)
 	}
-	_, err = mgr.Run(context.Background(), "foo", plugin.CommandGetMetadata, nil)
+	r, err := mgr.Runner("foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.Run(context.Background(), plugin.CommandGetMetadata, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

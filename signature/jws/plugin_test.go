@@ -21,13 +21,18 @@ import (
 	"github.com/notaryproject/notation-go/spec/v1/signature"
 )
 
+var validMetadata = plugin.Metadata{
+	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
+	SupportedContractVersions: []string{"1"}, Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator},
+}
+
 type mockRunner struct {
 	resp []interface{}
 	err  []error
 	n    int
 }
 
-func (r *mockRunner) Run(ctx context.Context, pluginName string, cmd plugin.Command, req interface{}) (interface{}, error) {
+func (r *mockRunner) Run(ctx context.Context, cmd plugin.Command, req interface{}) (interface{}, error) {
 	defer func() { r.n++ }()
 	return r.resp[r.n], r.err[r.n]
 }
@@ -41,7 +46,7 @@ type mockSignerPlugin struct {
 	n          int
 }
 
-func (s *mockSignerPlugin) Run(ctx context.Context, pluginName string, cmd plugin.Command, req interface{}) (interface{}, error) {
+func (s *mockSignerPlugin) Run(ctx context.Context, cmd plugin.Command, req interface{}) (interface{}, error) {
 	var chain []string
 	if s.Cert != "" {
 		chain = append(chain, s.Cert)
@@ -49,7 +54,7 @@ func (s *mockSignerPlugin) Run(ctx context.Context, pluginName string, cmd plugi
 	defer func() { s.n++ }()
 	switch s.n {
 	case 0:
-		return &plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}}, nil
+		return &validMetadata, nil
 	case 1:
 		return &plugin.DescribeKeyResponse{KeyID: s.KeyID, KeySpec: s.KeySpec}, nil
 	case 2:
@@ -83,20 +88,17 @@ func TestPluginSigner_Sign_RunMetadataFails(t *testing.T) {
 }
 
 func TestPluginSigner_Sign_NoCapability(t *testing.T) {
+	m := validMetadata
+	m.Capabilities = []plugin.Capability{""}
 	signer := PluginSigner{
-		Runner: &mockRunner{[]interface{}{
-			&plugin.Metadata{Capabilities: []plugin.Capability{}},
-		}, []error{nil}, 0},
+		Runner: &mockRunner{[]interface{}{&m}, []error{nil}, 0},
 	}
 	testPluginSignerError(t, signer, "does not have signing capabilities")
 }
 
 func TestPluginSigner_Sign_DescribeKeyFailed(t *testing.T) {
 	signer := PluginSigner{
-		Runner: &mockRunner{[]interface{}{
-			&plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}},
-			nil,
-		}, []error{nil, errors.New("failed")}, 0},
+		Runner: &mockRunner{[]interface{}{&validMetadata, nil}, []error{nil, errors.New("failed")}, 0},
 	}
 	testPluginSignerError(t, signer, "describe-key command failed")
 }
@@ -120,7 +122,7 @@ func TestPluginSigner_Sign_KeySpecNotSupported(t *testing.T) {
 func TestPluginSigner_Sign_PayloadNotValid(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockRunner{[]interface{}{
-			&plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}},
+			&validMetadata,
 			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: signature.RSA_2048},
 		}, []error{nil, nil}, 0},
 		KeyID: "1",
@@ -135,7 +137,7 @@ func TestPluginSigner_Sign_PayloadNotValid(t *testing.T) {
 func TestPluginSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockRunner{[]interface{}{
-			&plugin.Metadata{Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator}},
+			&validMetadata,
 			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: signature.RSA_2048},
 			&plugin.GenerateSignatureResponse{KeyID: "2"},
 		}, []error{nil, nil, nil}, 0},
