@@ -59,7 +59,7 @@ func (c execCommander) Output(ctx context.Context, name string, command string, 
 	return stdout.Bytes(), true, nil
 }
 
-// rootedFS is io.FS implementation used in NewManager.
+// rootedFS is io.FS implementation used in New.
 // root is the root of the file system tree passed to os.DirFS.
 type rootedFS struct {
 	fs.FS
@@ -72,17 +72,12 @@ type Manager struct {
 	cmder commander
 }
 
-// NewManager returns a new manager.
-func NewManager() *Manager {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		// Lets panic for now.
-		// Once the config is moved to notation-go we will move this code to
-		// the config package as a global initialization.
-		panic(err)
-	}
-	pluginDir := filepath.Join(configDir, "notation", "plugins")
-	return &Manager{rootedFS{os.DirFS(pluginDir), pluginDir}, execCommander{}}
+// New returns a new manager rooted at root.
+//
+// root is the path of the directory where plugins are stored
+// following the {root}/{plugin-name}/notation-{plugin-name}[.exe] pattern.
+func New(root string) *Manager {
+	return &Manager{rootedFS{os.DirFS(root), root}, execCommander{}}
 }
 
 // Get returns a plugin on the system by its name.
@@ -238,7 +233,7 @@ func binName(name string) string {
 
 func binPath(fsys fs.FS, name string) string {
 	base := binName(name)
-	// NewManager() always instantiate a rootedFS.
+	// New() always instantiate a rootedFS.
 	// Other fs.FS implementations are only supported for testing purposes.
 	if fsys, ok := fsys.(rootedFS); ok {
 		return filepath.Join(fsys.root, name, base)

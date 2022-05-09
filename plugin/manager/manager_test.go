@@ -289,9 +289,9 @@ func TestManager_Run(t *testing.T) {
 	}
 }
 
-func TestNewManager(t *testing.T) {
-	mgr := NewManager()
+func TestNew(t *testing.T) {
+	mgr := New("")
 	if mgr == nil {
-		t.Error("NewManager() = nil")
+		t.Error("New() = nil")
 	}
 }

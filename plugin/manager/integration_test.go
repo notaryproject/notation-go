@@ -1,4 +1,4 @@
-package manager
+package manager_test
 
 import (
 	"context"
@@ -7,8 +7,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
+	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/spec/v1/plugin"
 )
 
@@ -53,7 +55,7 @@ func TestIntegration(t *testing.T) {
 		t.Skip()
 	}
 	root := preparePlugin(t)
-	mgr := &Manager{rootedFS{os.DirFS(root), root}, execCommander{}}
+	mgr := manager.New(root)
 	p, err := mgr.Get(context.Background(), "foo")
 	if err != nil {
 		t.Fatal(err)
@@ -75,4 +77,11 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func addExeSuffix(s string) string {
+	if runtime.GOOS == "windows" {
+		s += ".exe"
+	}
+	return s
 }
