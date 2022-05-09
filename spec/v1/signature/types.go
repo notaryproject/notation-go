@@ -20,9 +20,6 @@ type Descriptor struct {
 
 	// Contains optional user defined attributes.
 	Annotations map[string]string `json:"annotations,omitempty"`
-
-	// The artifact type of the targeted content.
-	ArtifactType string `json:"artifactType,omitempty"`
 }
 
 // Equal reports whether d and t points to the same content.
