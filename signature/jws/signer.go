@@ -87,19 +87,23 @@ func (s *Signer) Sign(ctx context.Context, desc signature.Descriptor, opts notat
 	if err := payload.Valid(); err != nil {
 		return nil, err
 	}
-	token := &jwt.Token{
-		Header: map[string]interface{}{
-			"alg": s.method.Alg(),
-			"cty": signature.MediaTypeJWSEnvelope,
-		},
-		Claims: payload,
-		Method: s.method,
-	}
+	token := jwtToken(s.method.Alg(), payload)
+	token.Method = s.method
 	compact, err := token.SignedString(s.key)
 	if err != nil {
 		return nil, err
 	}
 	return jwtEnvelop(ctx, opts, compact, s.certChain)
+}
+
+func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
+	return &jwt.Token{
+		Header: map[string]interface{}{
+			"alg": alg,
+			"cty": signature.MediaTypeJWSEnvelope,
+		},
+		Claims: claims,
+	}
 }
 
 func jwtEnvelop(ctx context.Context, opts notation.SignOptions, compact string, certChain []string) ([]byte, error) {

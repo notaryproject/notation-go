@@ -107,14 +107,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	}
 
 	// Generate signing string.
-	token := &jwt.Token{
-		Header: map[string]interface{}{
-			"alg":  alg,
-			"cty":  signature.MediaTypeJWSEnvelope,
-			"crit": []string{"cty"},
-		},
-		Claims: payload,
-	}
+	token := jwtToken(alg, payload)
 	signing, err := token.SigningString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal signing payload: %v", err)

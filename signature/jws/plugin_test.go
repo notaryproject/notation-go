@@ -354,7 +354,7 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := signature.JWSEnvelope{
-		Protected: "eyJhbGciOiJQUzI1NiIsImNyaXQiOlsiY3R5Il0sImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS52Mi5qd3MudjEifQ",
+		Protected: "eyJhbGciOiJQUzI1NiIsImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS52Mi5qd3MudjEifQ",
 		Header: signature.JWSUnprotectedHeader{
 			CertChain: []string{base64.RawStdEncoding.EncodeToString(cert.Raw)},
 		},
