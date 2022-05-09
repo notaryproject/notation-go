@@ -96,7 +96,6 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 			i := strings.Index(statement.TrustStore, ":")
 			if i < 0 || !isPresent(statement.TrustStore[:i], supportedTrustStorePrefixes) {
 				return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, statement.TrustStore[:i], statement.TrustStore)
-				return fmt.Errorf("%q has a trust store with an unsupported trust store type", statement.Name)
 			}
 		}
 
@@ -109,7 +108,6 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 		// If there is a wildcard in trusted identies, there shouldn't be any other identities
 		if len(statement.TrustedIdentities) > 1 && isPresent(wildcard, statement.TrustedIdentities) {
 			return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
-			return errors.New("wildcard trusted identity can not be shared with other identities")
 		}
 	}
 
