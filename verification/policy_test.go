@@ -64,7 +64,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc := dummyPolicyDocument()
 	policyDoc.Version = "invalid"
 	err := ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "version \"invalid\" is not supported" {
+	if err == nil || err.Error() != "trust policy document uses unsupported version \"invalid\"" {
 		t.Fatalf("invalid version should return error")
 	}
 
@@ -72,7 +72,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies = nil
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "trust policy document can not have zero policy statements" {
+	if err == nil || err.Error() != "trust policy document can not have zero trust policy statements" {
 		t.Fatalf("zero policy statements should return error")
 	}
 
@@ -82,7 +82,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.Name = ""
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "policy statement is missing a name" {
+	if err == nil || err.Error() != "a trust policy statement is missing a name, every statement requires a name" {
 		t.Fatalf("policy statement with no name should return an error")
 	}
 
@@ -92,7 +92,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.RegistryScopes = nil
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "policy statement \"test-statement-name\" has zero registry scopes" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has zero registry scopes, it must specify registry scopes with at least one value" {
 		t.Fatalf("policy statement with registry scopes should return error")
 	}
 
@@ -103,7 +103,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement2.Name = "test-statement-name-2"
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement1, policyStatement2}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "registry \"test-registry-scope\" is present in multiple policy statements" {
+	if err == nil || err.Error() != "registry scope \"test-registry-scope\" is present in multiple trust policy statements, one registry scope value can only be associated with one statement" {
 		t.Fatalf("Policy statements with same registry scope should return error")
 	}
 
@@ -113,7 +113,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.RegistryScopes = []string{"*", "test-registry-scope"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "wildcard registry scope can not be shared with other registries" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values" {
 		t.Fatalf("policy statement with more than a wildcard registry scope should return error")
 	}
 
@@ -123,7 +123,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.SignatureVerification = "invalid"
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "signatureVerification \"invalid\" is not supported" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses unsupported signatureVerification value \"invalid\"" {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
@@ -133,7 +133,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustStore = ""
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "\"test-statement-name\" is either missing a trust store or trusted identities" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is either missing a trust store or trusted identities, both must be specified" {
 		t.Fatalf("strict SignatureVerification should have a trust store")
 	}
 
@@ -143,7 +143,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "\"test-statement-name\" is either missing a trust store or trusted identities" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is either missing a trust store or trusted identities, both must be specified" {
 		t.Fatalf("strict SignatureVerification should have trusted identities")
 	}
 
@@ -153,7 +153,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{""}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "\"test-statement-name\" has an empty trusted identity" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has an empty trusted identity" {
 		t.Fatalf("policy statement with empty trusted identity should return error")
 	}
 
@@ -174,7 +174,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustStore = "invalid:test-trust-store"
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "\"test-statement-name\" has a trust store with an unsupported trust store type" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses an unsupported trust store type \"invalid\" in trust store value \"invalid:test-trust-store\"" {
 		t.Fatalf("policy statement with invalid trust store type should return error")
 	}
 
@@ -184,7 +184,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{"*", "test-identity"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "wildcard trusted identity can not be shared with other identities" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values" {
 		t.Fatalf("policy statement with more than a wildcard trusted identity should return error")
 	}
 
@@ -194,7 +194,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement2 = dummyPolicyStatement()
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement1, policyStatement2}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "multiple policy statements with same name : test-statement-name" {
+	if err == nil || err.Error() != "multiple trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
 		t.Fatalf("policy statements with same name should return error")
 	}
 }
