@@ -47,7 +47,10 @@ func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
 	}
-	metadata := out.(*plugin.Metadata)
+	metadata, ok := out.(*plugin.Metadata)
+	if !ok {
+		return nil, fmt.Errorf("plugin runner returned incorrect get-plugin-metadata response type '%T'", out)
+	}
 	if err := metadata.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid plugin metadata: %w", err)
 	}
@@ -69,7 +72,11 @@ func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string
 	if err != nil {
 		return nil, fmt.Errorf("describe-key command failed: %w", err)
 	}
-	return out.(*plugin.DescribeKeyResponse), nil
+	resp, ok := out.(*plugin.DescribeKeyResponse)
+	if !ok {
+		return nil, fmt.Errorf("plugin runner returned incorrect describe-key response type '%T'", out)
+	}
+	return resp, nil
 }
 
 func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
@@ -117,7 +124,10 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	if err != nil {
 		return nil, fmt.Errorf("generate-signature command failed: %w", err)
 	}
-	resp := out.(*plugin.GenerateSignatureResponse)
+	resp, ok := out.(*plugin.GenerateSignatureResponse)
+	if !ok {
+		return nil, fmt.Errorf("plugin runner returned incorrect generate-signature response type '%T'", out)
+	}
 
 	// Check keyID is honored.
 	if s.KeyID != resp.KeyID {
