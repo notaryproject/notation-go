@@ -27,22 +27,22 @@ func (d Descriptor) Equal(t Descriptor) bool {
 	return d.MediaType == t.MediaType && d.Digest == t.Digest && d.Size == t.Size
 }
 
-// Key defines a key type and size.
-type Key string
+// KeyType defines a key type and size.
+type KeyType string
 
 // One of following supported specs
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 const (
-	RSA_2048 Key = "RSA_2048"
-	RSA_3072 Key = "RSA_3072"
-	RSA_4096 Key = "RSA_4096"
-	EC_256   Key = "EC_256"
-	EC_384   Key = "EC_384"
-	EC_512   Key = "EC_512"
+	RSA_2048 KeyType = "RSA_2048"
+	RSA_3072 KeyType = "RSA_3072"
+	RSA_4096 KeyType = "RSA_4096"
+	EC_256   KeyType = "EC_256"
+	EC_384   KeyType = "EC_384"
+	EC_512   KeyType = "EC_512"
 )
 
 // Hash returns the Hash associated k.
-func (k Key) Hash() Hash {
+func (k KeyType) Hash() Hash {
 	switch k {
 	case RSA_2048, EC_256:
 		return SHA256

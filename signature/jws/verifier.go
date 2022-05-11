@@ -84,26 +84,18 @@ func (v *Verifier) verifySigner(sig *signature.JWSEnvelope) (jwt.SigningMethod, 
 	if len(sig.Header.CertChain) == 0 {
 		return nil, nil, errors.New("signer certificates not found")
 	}
-	token, err := base64.RawStdEncoding.DecodeString(sig.Header.TimeStampToken)
-	if err != nil {
-		return nil, nil, err
-	}
-	return v.verifySignerFromCertChain(sig.Header.CertChain, token, sig.Signature)
+	return v.verifySignerFromCertChain(sig.Header.CertChain, sig.Header.TimeStampToken, sig.Signature)
 }
 
 // verifySignerFromCertChain verifies the signing identity from the provided certificate
 // chain and returns the verification key. The first certificate of the certificate chain
 // contains the key, which used to sign the artifact.
 // Reference: RFC 7515 4.1.6 "x5c" (X.509 Certificate Chain) Header Parameter.
-func (v *Verifier) verifySignerFromCertChain(certChain []string, timeStampToken []byte, encodedSig string) (jwt.SigningMethod, crypto.PublicKey, error) {
+func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken []byte, encodedSig string) (jwt.SigningMethod, crypto.PublicKey, error) {
 	// prepare for certificate verification
 	certs := make([]*x509.Certificate, 0, len(certChain))
 	for _, certBytes := range certChain {
-		raw, err := base64.RawStdEncoding.DecodeString(certBytes)
-		if err != nil {
-			return nil, nil, err
-		}
-		cert, err := x509.ParseCertificate(raw)
+		cert, err := x509.ParseCertificate(certBytes)
 		if err != nil {
 			return nil, nil, err
 		}

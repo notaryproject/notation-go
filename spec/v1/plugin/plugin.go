@@ -61,14 +61,14 @@ type DescribeKeyResponse struct {
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec signature.Key `json:"keySpec"`
+	KeySpec signature.KeyType `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 type GenerateSignatureRequest struct {
 	ContractVersion       string            `json:"contractVersion"`
 	KeyID                 string            `json:"keyId"`
-	KeySpec               signature.Key     `json:"keySpec"`
+	KeySpec               signature.KeyType `json:"keySpec"`
 	Hash                  signature.Hash    `json:"hashAlgorithm"`
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
 	Payload               string            `json:"payload"`
@@ -77,11 +77,8 @@ type GenerateSignatureRequest struct {
 
 // GenerateSignatureResponse is the response of a generate-signature request.
 type GenerateSignatureResponse struct {
-	// The same key id as passed in the request.
-	KeyID string `json:"keyId"`
-
-	// Base64 encoded signature.
-	Signature string `json:"signature"`
+	KeyID     string `json:"keyId"`
+	Signature []byte `json:"signature"`
 
 	// One of following supported signing algorithms:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
@@ -89,7 +86,7 @@ type GenerateSignatureResponse struct {
 
 	// Ordered list of certificates starting with leaf certificate
 	// and ending with root certificate.
-	CertificateChain []string `json:"certificateChain"`
+	CertificateChain [][]byte `json:"certificateChain"`
 }
 
 // GenerateEnvelopeRequest contains the parameters passed in a generate-envelop request.
@@ -98,20 +95,15 @@ type GenerateEnvelopeRequest struct {
 	KeyID                 string            `json:"keyId"`
 	PayloadType           string            `json:"payloadType"`
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
-	Payload               string            `json:"payload"`
+	Payload               []byte            `json:"payload"`
 	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
 }
 
 // GenerateSignatureResponse is the response of a generate-envelop request.
 type GenerateEnvelopeResponse struct {
-	// Base64 encoded signature envelope.
-	SignatureEnvelope string `json:"signatureEnvelope"`
-
-	// The media type of the envelope of notation signature.
-	SignatureEnvelopeType string `json:"signatureEnvelopeType"`
-
-	// Annotations to be appended to Signature Manifest annotations.
-	Annotations map[string]string `json:"annotations,omitempty"`
+	SignatureEnvelope     []byte            `json:"signatureEnvelope"`
+	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
+	Annotations           map[string]string `json:"annotations,omitempty"`
 }
 
 // Runner is an interface for running commands against a plugin.

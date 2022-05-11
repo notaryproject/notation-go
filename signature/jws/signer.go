@@ -28,7 +28,7 @@ type Signer struct {
 
 	// certChain contains the X.509 public key certificate or certificate chain corresponding
 	// to the key used to generate the signature.
-	certChain []string
+	certChain [][]byte
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
@@ -69,9 +69,9 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		return nil, err
 	}
 
-	rawCerts := make([]string, len(certChain))
+	rawCerts := make([][]byte, len(certChain))
 	for i, cert := range certChain {
-		rawCerts[i] = base64.RawStdEncoding.EncodeToString(cert.Raw)
+		rawCerts[i] = cert.Raw
 	}
 	return &Signer{
 		method:    method,
@@ -93,7 +93,7 @@ func (s *Signer) Sign(ctx context.Context, desc signature.Descriptor, opts notat
 	if err != nil {
 		return nil, err
 	}
-	return jwtEnvelop(ctx, opts, compact, s.certChain)
+	return jwtEnvelope(ctx, opts, compact, s.certChain)
 }
 
 func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
@@ -106,7 +106,7 @@ func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
 	}
 }
 
-func jwtEnvelop(ctx context.Context, opts notation.SignOptions, compact string, certChain []string) ([]byte, error) {
+func jwtEnvelope(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
 	parts := strings.Split(compact, ".")
 	if len(parts) != 3 {
 		return nil, errors.New("invalid compact serialization")
@@ -126,7 +126,7 @@ func jwtEnvelop(ctx context.Context, opts notation.SignOptions, compact string, 
 		if err != nil {
 			return nil, fmt.Errorf("timestamp failed: %w", err)
 		}
-		envelope.Header.TimeStampToken = base64.RawStdEncoding.EncodeToString(token)
+		envelope.Header.TimeStampToken = token
 	}
 
 	// encode in flatten JWS JSON serialization

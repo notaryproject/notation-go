@@ -39,16 +39,16 @@ func (r *mockRunner) Run(ctx context.Context, cmd plugin.Command, req interface{
 
 type mockSignerPlugin struct {
 	KeyID      string
-	KeySpec    signature.Key
-	Sign       func(payload string) string
+	KeySpec    signature.KeyType
+	Sign       func(payload string) []byte
 	SigningAlg string
-	Cert       string
+	Cert       []byte
 	n          int
 }
 
 func (s *mockSignerPlugin) Run(ctx context.Context, cmd plugin.Command, req interface{}) (interface{}, error) {
-	var chain []string
-	if s.Cert != "" {
+	var chain [][]byte
+	if len(s.Cert) != 0 {
 		chain = append(chain, s.Cert)
 	}
 	defer func() { s.n++ }()
@@ -58,7 +58,7 @@ func (s *mockSignerPlugin) Run(ctx context.Context, cmd plugin.Command, req inte
 	case 1:
 		return &plugin.DescribeKeyResponse{KeyID: s.KeyID, KeySpec: s.KeySpec}, nil
 	case 2:
-		var signed string
+		var signed []byte
 		if s.Sign != nil {
 			signed = s.Sign(req.(*plugin.GenerateSignatureRequest).Payload)
 		}
@@ -166,48 +166,17 @@ func TestPluginSigner_Sign_NoCertChain(t *testing.T) {
 	testPluginSignerError(t, signer, "empty certificate chain")
 }
 
-func TestPluginSigner_Sign_CertNotBase64(t *testing.T) {
-	signer := PluginSigner{
-		Runner: &mockSignerPlugin{
-			KeyID:      "1",
-			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodES256.Alg(),
-			Cert:       "r a w",
-		},
-		KeyID: "1",
-	}
-	testPluginSignerError(t, signer, "certificate not base64-encoded")
-}
-
 func TestPluginSigner_Sign_MalformedCert(t *testing.T) {
 	signer := PluginSigner{
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodES256.Alg(),
-			Cert:       base64.RawStdEncoding.EncodeToString([]byte("mocked")),
+			Cert:       []byte("mocked"),
 		},
 		KeyID: "1",
 	}
 	testPluginSignerError(t, signer, "x509: malformed certificate")
-}
-
-func TestPluginSigner_Sign_SignatureNotBase64(t *testing.T) {
-	_, cert, err := generateKeyCertPair()
-	if err != nil {
-		t.Fatalf("generateKeyCertPair() error = %v", err)
-	}
-	signer := PluginSigner{
-		Runner: &mockSignerPlugin{
-			KeyID:      "1",
-			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodES256.Alg(),
-			Sign:       func(payload string) string { return "r a w" },
-			Cert:       base64.RawStdEncoding.EncodeToString(cert.Raw),
-		},
-		KeyID: "1",
-	}
-	testPluginSignerError(t, signer, "signature not base64-encoded")
 }
 
 func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
@@ -220,17 +189,17 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodES256.Alg(),
-			Sign:       func(payload string) string { return base64.RawStdEncoding.EncodeToString([]byte("r a w")) },
-			Cert:       base64.RawStdEncoding.EncodeToString(cert.Raw),
+			Sign:       func(payload string) []byte { return []byte("r a w") },
+			Cert:       cert.Raw,
 		},
 		KeyID: "1",
 	}
 	testPluginSignerError(t, signer, "verification error")
 }
 
-func validSign(t *testing.T, key interface{}) func(string) string {
+func validSign(t *testing.T, key interface{}) func(string) []byte {
 	t.Helper()
-	return func(payload string) string {
+	return func(payload string) []byte {
 		signed, err := jwt.SigningMethodPS256.Sign(payload, key)
 		if err != nil {
 			t.Fatal(err)
@@ -239,7 +208,7 @@ func validSign(t *testing.T, key interface{}) func(string) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return base64.RawStdEncoding.EncodeToString(encSigned)
+		return encSigned
 	}
 }
 
@@ -265,7 +234,7 @@ func TestPluginSigner_Sign_CertWithoutDigitalSignatureBit(t *testing.T) {
 			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
-			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
+			Cert:       certBytes,
 		},
 		KeyID: "1",
 	}
@@ -294,7 +263,7 @@ func TestPluginSigner_Sign_CertWithout_idkpcodeSigning(t *testing.T) {
 			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
-			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
+			Cert:       certBytes,
 		},
 		KeyID: "1",
 	}
@@ -324,7 +293,7 @@ func TestPluginSigner_Sign_CertBasicConstraintCA(t *testing.T) {
 			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
-			Cert:       base64.RawStdEncoding.EncodeToString(certBytes),
+			Cert:       certBytes,
 		},
 		KeyID: "1",
 	}
@@ -342,7 +311,7 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 			KeySpec:    signature.RSA_2048,
 			SigningAlg: jwt.SigningMethodPS256.Alg(),
 			Sign:       validSign(t, key),
-			Cert:       base64.RawStdEncoding.EncodeToString(cert.Raw),
+			Cert:       cert.Raw,
 		},
 		KeyID: "1",
 	}
@@ -358,7 +327,7 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 	want := signature.JWSEnvelope{
 		Protected: "eyJhbGciOiJQUzI1NiIsImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS52Mi5qd3MudjEifQ",
 		Header: signature.JWSUnprotectedHeader{
-			CertChain: []string{base64.RawStdEncoding.EncodeToString(cert.Raw)},
+			CertChain: [][]byte{cert.Raw},
 		},
 	}
 	if got.Protected != want.Protected {

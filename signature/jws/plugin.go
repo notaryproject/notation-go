@@ -22,7 +22,7 @@ var supportedAlgs = map[string]bool{
 	jwt.SigningMethodES512.Name: true,
 }
 
-var keySpecToAlg = map[signature.Key]string{
+var keySpecToAlg = map[signature.KeyType]string{
 	signature.RSA_2048: jwt.SigningMethodPS256.Alg(),
 	signature.RSA_3072: jwt.SigningMethodPS384.Alg(),
 	signature.RSA_4096: jwt.SigningMethodPS512.Alg(),
@@ -141,11 +141,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 
 	// Verify the hash of the request payload against the response signature
 	// using the public key of the signing certificate.
-	signed, err := base64.RawStdEncoding.DecodeString(resp.Signature)
-	if err != nil {
-		return nil, fmt.Errorf("signature not base64-encoded: %v", err)
-	}
-	signed64Url := base64.RawURLEncoding.EncodeToString(signed)
+	signed64Url := base64.RawURLEncoding.EncodeToString(resp.Signature)
 	err = verifyJWT(resp.SigningAlgorithm, signing, signed64Url, certs[0])
 	if err != nil {
 		return nil, fmt.Errorf("verification error: %v", err)
@@ -158,11 +154,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	}
 
 	// Assemble the JWS signature envelope.
-	rawCerts := make([]string, len(certs))
-	for i, cert := range certs {
-		rawCerts[i] = base64.RawStdEncoding.EncodeToString(cert.Raw)
-	}
-	return jwtEnvelop(ctx, opts, signing+"."+signed64Url, rawCerts)
+	return jwtEnvelope(ctx, opts, signing+"."+signed64Url, resp.CertificateChain)
 }
 
 func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {
@@ -182,14 +174,10 @@ func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc signa
 	return nil, errors.New("not implemented")
 }
 
-func parseCertChain(certChain []string) ([]*x509.Certificate, error) {
+func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 	certs := make([]*x509.Certificate, len(certChain))
-	for i, data := range certChain {
-		der, err := base64.RawStdEncoding.DecodeString(data)
-		if err != nil {
-			return nil, fmt.Errorf("certificate not base64-encoded: %v", err)
-		}
-		cert, err := x509.ParseCertificate(der)
+	for i, cert := range certChain {
+		cert, err := x509.ParseCertificate(cert)
 		if err != nil {
 			return nil, err
 		}

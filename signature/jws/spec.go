@@ -40,13 +40,13 @@ func checkCertChain(certChain []*x509.Certificate) error {
 	if len(certChain) == 0 {
 		return nil
 	}
-	if err := verifyCert(certChain[0], x509.ExtKeyUsageCodeSigning); err != nil {
+	if err := verifyCertExtKeyUsage(certChain[0], x509.ExtKeyUsageCodeSigning); err != nil {
 		return fmt.Errorf("signing certificate does not meet the minimum requirements: %w", err)
 	}
 	for _, c := range certChain[1:] {
 		for _, ext := range c.ExtKeyUsage {
 			if ext == x509.ExtKeyUsageTimeStamping {
-				if err := verifyCert(c, x509.ExtKeyUsageTimeStamping); err != nil {
+				if err := verifyCertExtKeyUsage(c, x509.ExtKeyUsageTimeStamping); err != nil {
 					return fmt.Errorf("timestamping certificate does not meet the minimum requirements: %w", err)
 				}
 			}
@@ -59,9 +59,9 @@ var (
 	oidExtensionKeyUsage = []int{2, 5, 29, 15}
 )
 
-// validateCert checks cert meets the requirements defined in
+// verifyCertExtKeyUsage checks cert meets the requirements defined in
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#certificate-requirements.
-func verifyCert(cert *x509.Certificate, extKeyUsage x509.ExtKeyUsage) error {
+func verifyCertExtKeyUsage(cert *x509.Certificate, extKeyUsage x509.ExtKeyUsage) error {
 	if cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
 		return errors.New("keyUsage must have the bit positions for digitalSignature set")
 	}
