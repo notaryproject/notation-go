@@ -22,6 +22,9 @@ type SignOptions struct {
 	// the certificates in the fetched timestamp signature.
 	// An empty list of `KeyUsages` in the verify options implies ExtKeyUsageTimeStamping.
 	TSAVerifyOptions x509.VerifyOptions
+
+	// Sets or overrides the plugin configuration.
+	PluginConfig map[string]string
 }
 
 // Signer is a generic interface for signing an artifact.

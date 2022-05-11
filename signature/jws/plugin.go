@@ -38,7 +38,6 @@ var keySpecToAlg = map[signature.Key]string{
 type PluginSigner struct {
 	Runner       plugin.Runner
 	KeyID        string
-	KeyName      string
 	PluginConfig map[string]string
 }
 
@@ -60,12 +59,11 @@ func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts
 	return nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResponse, error) {
+func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
 	req := &plugin.DescribeKeyRequest{
 		ContractVersion: "1",
-		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
-		PluginConfig:    s.PluginConfig,
+		PluginConfig:    config,
 	}
 	out, err := s.Runner.Run(ctx, plugin.CommandDescribeKey, req)
 	if err != nil {
@@ -75,8 +73,9 @@ func (s *PluginSigner) describeKey(ctx context.Context) (*plugin.DescribeKeyResp
 }
 
 func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
+	config := s.mergeConfig(opts.PluginConfig)
 	// Get key info.
-	key, err := s.describeKey(ctx)
+	key, err := s.describeKey(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +107,11 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	// Execute plugin sign command.
 	req := &plugin.GenerateSignatureRequest{
 		ContractVersion: "1",
-		KeyName:         s.KeyName,
 		KeyID:           s.KeyID,
 		KeySpec:         key.KeySpec,
 		Hash:            key.KeySpec.Hash(),
 		Payload:         signing,
-		PluginConfig:    s.PluginConfig,
+		PluginConfig:    config,
 	}
 	out, err := s.Runner.Run(ctx, plugin.CommandGenerateSignature, req)
 	if err != nil {
@@ -165,6 +163,19 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 		rawCerts[i] = base64.RawStdEncoding.EncodeToString(cert.Raw)
 	}
 	return jwtEnvelop(ctx, opts, signing+"."+signed64Url, rawCerts)
+}
+
+func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {
+	c := make(map[string]string, len(s.PluginConfig)+len(config))
+	// First clone s.PluginConfig.
+	for k, v := range s.PluginConfig {
+		c[k] = v
+	}
+	// Then set or override entries from config.
+	for k, v := range config {
+		c[k] = v
+	}
+	return c
 }
 
 func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {

@@ -48,10 +48,8 @@ const (
 )
 
 // DescribeKeyRequest contains the parameters passed in a describe-key request.
-// All parameters are required.
 type DescribeKeyRequest struct {
 	ContractVersion string            `json:"contractVersion"`
-	KeyName         string            `json:"keyName"`
 	KeyID           string            `json:"keyId"`
 	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
 }
@@ -69,7 +67,6 @@ type DescribeKeyResponse struct {
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 type GenerateSignatureRequest struct {
 	ContractVersion       string            `json:"contractVersion"`
-	KeyName               string            `json:"keyName"`
 	KeyID                 string            `json:"keyId"`
 	KeySpec               signature.Key     `json:"keySpec"`
 	Hash                  signature.Hash    `json:"hashAlgorithm"`
@@ -98,7 +95,6 @@ type GenerateSignatureResponse struct {
 // GenerateEnvelopeRequest contains the parameters passed in a generate-envelop request.
 type GenerateEnvelopeRequest struct {
 	ContractVersion       string            `json:"contractVersion"`
-	KeyName               string            `json:"keyName"`
 	KeyID                 string            `json:"keyId"`
 	PayloadType           string            `json:"payloadType"`
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
