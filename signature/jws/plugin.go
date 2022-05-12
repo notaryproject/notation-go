@@ -13,24 +13,6 @@ import (
 	"github.com/notaryproject/notation-go/spec/signature"
 )
 
-var supportedAlgs = map[string]bool{
-	jwt.SigningMethodPS256.Name: true,
-	jwt.SigningMethodPS384.Name: true,
-	jwt.SigningMethodPS512.Name: true,
-	jwt.SigningMethodES256.Name: true,
-	jwt.SigningMethodES384.Name: true,
-	jwt.SigningMethodES512.Name: true,
-}
-
-var keySpecToAlg = map[signature.KeyType]string{
-	signature.RSA_2048: jwt.SigningMethodPS256.Alg(),
-	signature.RSA_3072: jwt.SigningMethodPS384.Alg(),
-	signature.RSA_4096: jwt.SigningMethodPS512.Alg(),
-	signature.EC_256:   jwt.SigningMethodES256.Alg(),
-	signature.EC_384:   jwt.SigningMethodES384.Alg(),
-	signature.EC_512:   jwt.SigningMethodES512.Alg(),
-}
-
 // PluginSigner signs artifacts and generates JWS signatures
 // by delegating the one or both operations to the named plugin,
 // as defined in
@@ -93,7 +75,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	}
 
 	// Get algorithm associated to key.
-	alg := keySpecToAlg[key.KeySpec]
+	alg := key.KeySpec.SignatureAlgorithm()
 	if alg == "" {
 		return nil, fmt.Errorf("keySpec %q not supported: ", key.KeySpec)
 	}
@@ -105,7 +87,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	}
 
 	// Generate signing string.
-	token := jwtToken(alg, payload)
+	token := jwtToken(alg.JWS(), payload)
 	signing, err := token.SigningString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal signing payload: %v", err)
@@ -116,7 +98,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 		ContractVersion: "1",
 		KeyID:           s.KeyID,
 		KeySpec:         key.KeySpec,
-		Hash:            key.KeySpec.Hash(),
+		Hash:            alg.Hash(),
 		Payload:         signing,
 		PluginConfig:    config,
 	}
@@ -135,7 +117,8 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	}
 
 	// Check algorithm is supported.
-	if !supportedAlgs[resp.SigningAlgorithm] {
+	jwsAlg := resp.SigningAlgorithm.JWS()
+	if jwsAlg == "" {
 		return nil, fmt.Errorf("signing algorithm %q not supported", resp.SigningAlgorithm)
 	}
 
@@ -152,7 +135,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	// Verify the hash of the request payload against the response signature
 	// using the public key of the signing certificate.
 	signed64Url := base64.RawURLEncoding.EncodeToString(resp.Signature)
-	err = verifyJWT(resp.SigningAlgorithm, signing, signed64Url, certs[0])
+	err = verifyJWT(jwsAlg, signing, signed64Url, certs[0])
 	if err != nil {
 		return nil, fmt.Errorf("verification error: %v", err)
 	}

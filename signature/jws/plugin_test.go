@@ -41,7 +41,7 @@ type mockSignerPlugin struct {
 	KeyID      string
 	KeySpec    signature.KeyType
 	Sign       func(payload string) []byte
-	SigningAlg string
+	SigningAlg signature.SignatureAlgorithm
 	Cert       []byte
 	n          int
 }
@@ -159,7 +159,7 @@ func TestPluginSigner_Sign_NoCertChain(t *testing.T) {
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodES256.Alg(),
+			SigningAlg: signature.RSASSA_PSS_SHA_256,
 		},
 		KeyID: "1",
 	}
@@ -171,7 +171,7 @@ func TestPluginSigner_Sign_MalformedCert(t *testing.T) {
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodES256.Alg(),
+			SigningAlg: signature.RSASSA_PSS_SHA_256,
 			Cert:       []byte("mocked"),
 		},
 		KeyID: "1",
@@ -188,7 +188,7 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodES256.Alg(),
+			SigningAlg: signature.RSASSA_PSS_SHA_256,
 			Sign:       func(payload string) []byte { return []byte("r a w") },
 			Cert:       cert.Raw,
 		},
@@ -232,7 +232,7 @@ func TestPluginSigner_Sign_CertWithoutDigitalSignatureBit(t *testing.T) {
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodPS256.Alg(),
+			SigningAlg: signature.RSASSA_PSS_SHA_256,
 			Sign:       validSign(t, key),
 			Cert:       certBytes,
 		},
@@ -261,7 +261,7 @@ func TestPluginSigner_Sign_CertWithout_idkpcodeSigning(t *testing.T) {
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodPS256.Alg(),
+			SigningAlg: signature.RSASSA_PSS_SHA_256,
 			Sign:       validSign(t, key),
 			Cert:       certBytes,
 		},
@@ -291,7 +291,7 @@ func TestPluginSigner_Sign_CertBasicConstraintCA(t *testing.T) {
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodPS256.Alg(),
+			SigningAlg: signature.RSASSA_PSS_SHA_256,
 			Sign:       validSign(t, key),
 			Cert:       certBytes,
 		},
@@ -309,7 +309,7 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 		Runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
-			SigningAlg: jwt.SigningMethodPS256.Alg(),
+			SigningAlg: signature.RSASSA_PSS_SHA_256,
 			Sign:       validSign(t, key),
 			Cert:       cert.Raw,
 		},

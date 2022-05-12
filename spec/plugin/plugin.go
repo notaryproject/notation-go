@@ -77,12 +77,9 @@ type GenerateSignatureRequest struct {
 
 // GenerateSignatureResponse is the response of a generate-signature request.
 type GenerateSignatureResponse struct {
-	KeyID     string `json:"keyId"`
-	Signature []byte `json:"signature"`
-
-	// One of following supported signing algorithms:
-	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	SigningAlgorithm string `json:"signingAlgorithm"`
+	KeyID            string                       `json:"keyId"`
+	Signature        []byte                       `json:"signature"`
+	SigningAlgorithm signature.SignatureAlgorithm `json:"signingAlgorithm"`
 
 	// Ordered list of certificates starting with leaf certificate
 	// and ending with root certificate.

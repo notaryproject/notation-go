@@ -54,3 +54,42 @@ type JWSEnvelope struct {
 	// Base64URL-encoded signature.
 	Signature string `json:"signature"`
 }
+
+// JWS returns the JWS algorithm name.
+func (s SignatureAlgorithm) JWS() string {
+	switch s {
+	case RSASSA_PSS_SHA_256:
+		return "PS256"
+	case RSASSA_PSS_SHA_384:
+		return "PS384"
+	case RSASSA_PSS_SHA_512:
+		return "PS512"
+	case ECDSA_SHA_256:
+		return "ES256"
+	case ECDSA_SHA_384:
+		return "ES384"
+	case ECDSA_SHA_512:
+		return "ES512"
+	}
+	return ""
+}
+
+// NewSignatureAlgorithmJWS returns the algorithm associated to alg.
+// It returns an empty string if alg is not supported.
+func NewSignatureAlgorithmJWS(alg string) SignatureAlgorithm {
+	switch alg {
+	case "PS256":
+		return RSASSA_PSS_SHA_256
+	case "PS384":
+		return RSASSA_PSS_SHA_384
+	case "PS512":
+		return RSASSA_PSS_SHA_512
+	case "ES256":
+		return ECDSA_SHA_256
+	case "ES384":
+		return ECDSA_SHA_384
+	case "ES512":
+		return ECDSA_SHA_512
+	}
+	return ""
+}
