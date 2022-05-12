@@ -158,9 +158,8 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 	}
 
 	// Check the the certificate chain conforms to the spec.
-	err = checkCertChain(certs)
-	if err != nil {
-		return nil, err
+	if err := verifyCertExtKeyUsage(certs[0], x509.ExtKeyUsageCodeSigning); err != nil {
+		return nil, fmt.Errorf("signing certificate does not meet the minimum requirements: %w", err)
 	}
 
 	// Assemble the JWS signature envelope.

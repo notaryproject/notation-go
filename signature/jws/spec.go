@@ -36,25 +36,6 @@ func packPayload(desc signature.Descriptor, opts notation.SignOptions) jwt.Claim
 	}
 }
 
-func checkCertChain(certChain []*x509.Certificate) error {
-	if len(certChain) == 0 {
-		return nil
-	}
-	if err := verifyCertExtKeyUsage(certChain[0], x509.ExtKeyUsageCodeSigning); err != nil {
-		return fmt.Errorf("signing certificate does not meet the minimum requirements: %w", err)
-	}
-	for _, c := range certChain[1:] {
-		for _, ext := range c.ExtKeyUsage {
-			if ext == x509.ExtKeyUsageTimeStamping {
-				if err := verifyCertExtKeyUsage(c, x509.ExtKeyUsageTimeStamping); err != nil {
-					return fmt.Errorf("timestamping certificate does not meet the minimum requirements: %w", err)
-				}
-			}
-		}
-	}
-	return nil
-}
-
 var (
 	oidExtensionKeyUsage = []int{2, 5, 29, 15}
 )
