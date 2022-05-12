@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-ldap/ldap"
+	ldapv3 "github.com/go-ldap/ldap/v3"
 )
 
 // isPresent is a utility function to check if a string exists in an array
@@ -44,7 +44,7 @@ func validateRegistryScopeFormat(scope string) error {
 func validateDistinguishedName(name string) error {
 	mandatoryFields := []string{"C", "ST", "O"}
 	rDnCount := make(map[string]int)
-	dn, err := ldap.ParseDN(name)
+	dn, err := ldapv3.ParseDN(name)
 
 	if err != nil {
 		return fmt.Errorf("distinguished name (DN) %q is not valid, make sure it is following rfc4514 standard", name)
