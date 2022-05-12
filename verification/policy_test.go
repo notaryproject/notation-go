@@ -7,10 +7,10 @@ import (
 func dummyPolicyStatement() (policyStatement TrustPolicy) {
 	policyStatement = TrustPolicy{
 		Name:                  "test-statement-name",
-		RegistryScopes:        []string{"test-registry-scope"},
+		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 		SignatureVerification: "strict",
 		TrustStore:            "ca:test-store",
-		TrustedIdentities:     []string{"test-identity"},
+		TrustedIdentities:     []string{"x509.subject:C=US, ST=WA, O=wabbit-network.io, OU=org1"},
 	}
 	return
 }
@@ -31,12 +31,14 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 
 	policyStatement2 := dummyPolicyStatement()
 	policyStatement2.Name = "test-statement-name-2"
-	policyStatement2.RegistryScopes = []string{"test-registry-scope-2"}
+	policyStatement2.RegistryScopes = []string{"registry.wabbit-networks.io/software/unsigned/net-utils"}
 	policyStatement2.SignatureVerification = "permissive"
 
 	policyStatement3 := dummyPolicyStatement()
 	policyStatement3.Name = "test-statement-name-3"
-	policyStatement3.RegistryScopes = []string{"test-registry-scope-3"}
+	policyStatement3.RegistryScopes = []string{"registry.acme-rockets.io/software/legacy/metrics"}
+	policyStatement3.TrustStore = ""
+	policyStatement3.TrustedIdentities = []string{}
 	policyStatement3.SignatureVerification = "skip"
 
 	policyStatement4 := dummyPolicyStatement()
@@ -44,20 +46,148 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 	policyStatement4.RegistryScopes = []string{"*"}
 	policyStatement4.SignatureVerification = "audit"
 
+	policyStatement5 := dummyPolicyStatement()
+	policyStatement5.Name = "test-statement-name-5"
+	policyStatement5.RegistryScopes = []string{"registry.acme-rockets2.io/software"}
+	policyStatement5.TrustedIdentities = []string{"*"}
+	policyStatement5.SignatureVerification = "strict"
+
 	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement1,
 		policyStatement2,
 		policyStatement3,
 		policyStatement4,
+		policyStatement5,
 	}
 	err := ValidatePolicyDocument(&policyDoc)
 	if err != nil {
-		t.Fatalf("validation failed on a good policy document")
+		t.Fatalf("validation failed on a good policy document. Error : %q", err)
+	}
+}
+
+// TestValidateTrustedIdentities tests only valid x509.subjects are accepted
+func TestValidateTrustedIdentities(t *testing.T) {
+
+	// No trusted identity prefix throws error
+	policyDoc := dummyPolicyDocument()
+	policyStatement := dummyPolicyStatement()
+	policyStatement.TrustedIdentities = []string{"C=US, ST=WA, O=wabbit-network.io, OU=org1"}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err := ValidatePolicyDocument(&policyDoc)
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"C=US, ST=WA, O=wabbit-network.io, OU=org1\" without an identity prefix" {
+		t.Fatalf("trusted identity without a prefix should return error")
+	}
+
+	// Accept unknown identity prefixes
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	policyStatement.TrustedIdentities = []string{"unknown:my-trusted-idenity"}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err != nil {
+		t.Fatalf("unknown identity prefix should not return an error. Error: %q", err)
+	}
+
+	// Validate x509.subject identities
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	invalidDN := "x509.subject:,,,"
+	policyStatement.TrustedIdentities = []string{invalidDN}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err == nil || err.Error() != "distinguished name (DN) \",,,\" is not valid, make sure it is following rfc4514 standard" {
+		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
+	}
+
+	// Validate duplicate RDNs
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	invalidDN = "x509.subject:C=US,C=IN"
+	policyStatement.TrustedIdentities = []string{invalidDN}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err == nil || err.Error() != "distinguished name (DN) \"C=US,C=IN\" has duplicate RDNs, DN can only have unique RDNs" {
+		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
+	}
+
+	// Validate mandatory RDNs
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	invalidDN = "x509.subject:C=US,ST=WA"
+	policyStatement.TrustedIdentities = []string{invalidDN}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err == nil || err.Error() != "distinguished name (DN) \"C=US,ST=WA\" has no mandatory RDN for \"O\"" {
+		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
+	}
+
+	// DN may have optional RDNs
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	validDN := "x509.subject:C=US,ST=WA,O=MyOrg,CustomRDN=CustomValue"
+	policyStatement.TrustedIdentities = []string{validDN}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err != nil {
+		t.Fatalf("valid x509.subject identity should not return error. Error : %q", err)
+	}
+
+	// Validate rfc4514 DNs
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	validDN1 := "x509.subject:C=US+ST=WA,O=MyOrg"
+	validDN2 := "x509.subject:C=US,ST=WA,O=  My.  Org"
+	validDN3 := "x509.subject:C=US,ST=WA,O=My \"special\" Org \\, \\; \\\\ others"
+	validDN4 := "x509.subject:C=US,ST=WA,O=My Org,1.3.6.1.4.1.1466.0=#04024869"
+	policyStatement.TrustedIdentities = []string{validDN1, validDN2, validDN3, validDN4}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err != nil {
+		t.Fatalf("valid x509.subject identity should not return error. Error : %q", err)
+	}
+}
+
+// TestInvalidRegistryScopes tests invalid scopes are rejected
+func TestInvalidRegistryScopes(t *testing.T) {
+	invalidScopes := []string{
+		"", "1:1", "a,b", "abcd", "1111", "1,2", "example.com/rep:tag",
+		"example.com/rep/subrep/sub:latest", "example.com", "rep/rep2:latest",
+		"repository", "10.10.10.10", "10.10.10.10:8080/rep/rep2:latest",
+	}
+
+	for _, scope := range invalidScopes {
+		policyDoc := dummyPolicyDocument()
+		policyStatement := dummyPolicyStatement()
+		policyStatement.RegistryScopes = []string{scope}
+		policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+		err := ValidatePolicyDocument(&policyDoc)
+		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository" {
+			t.Fatalf("invalid registry scope should return error. Error : %q", err)
+		}
+	}
+}
+
+// TestValidRegistryScopes tests valid scopes are accepted
+func TestValidRegistryScopes(t *testing.T) {
+	validScopes := []string{
+		"example.com/rep", "example.com:8080/rep/rep2", "example.com/rep/subrep/subsub",
+		"10.10.10.10:8080/rep/rep2", "domain/rep", "domain:1234/rep",
+	}
+
+	for _, scope := range validScopes {
+		policyDoc := dummyPolicyDocument()
+		policyStatement := dummyPolicyStatement()
+		policyStatement.RegistryScopes = []string{scope}
+		policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+		err := ValidatePolicyDocument(&policyDoc)
+		if err != nil {
+			t.Fatalf("valid registry scope should not return error. Error : %q", err)
+		}
 	}
 }
 
 // TestValidatePolicyDocument calls verification.ValidatePolicyDocument
-// and tests various validations
+// and tests various validations on policy eliments
 func TestValidateInvalidPolicyDocument(t *testing.T) {
 
 	// Invalid Version
@@ -103,14 +233,14 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement2.Name = "test-statement-name-2"
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement1, policyStatement2}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "registry scope \"test-registry-scope\" is present in multiple trust policy statements, one registry scope value can only be associated with one statement" {
-		t.Fatalf("Policy statements with same registry scope should return error")
+	if err == nil || err.Error() != "registry scope \"registry.acme-rockets.io/software/net-monitor\" is present in multiple trust policy statements, one registry scope value can only be associated with one statement" {
+		t.Fatalf("Policy statements with same registry scope should return error %q", err)
 	}
 
 	// Registry scopes with a wildcard
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
-	policyStatement.RegistryScopes = []string{"*", "test-registry-scope"}
+	policyStatement.RegistryScopes = []string{"*", "registry.acme-rockets.io/software/net-monitor"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values" {
@@ -144,6 +274,16 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is either missing a trust store or trusted identities, both must be specified" {
+		t.Fatalf("strict SignatureVerification should have trusted identities")
+	}
+
+	// skip SignatureVerification should not have trust store or trusted identities
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	policyStatement.SignatureVerification = "skip"
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is set to skip signature verification but configured with a trust store or trusted identities, remove them if signature verification needs to be skipped" {
 		t.Fatalf("strict SignatureVerification should have trusted identities")
 	}
 
@@ -192,6 +332,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyPolicyDocument()
 	policyStatement1 = dummyPolicyStatement()
 	policyStatement2 = dummyPolicyStatement()
+	policyStatement2.RegistryScopes = []string{"registry.acme-rockets.io/software/legacy/metrics"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement1, policyStatement2}
 	err = ValidatePolicyDocument(&policyDoc)
 	if err == nil || err.Error() != "multiple trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
