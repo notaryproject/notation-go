@@ -17,8 +17,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/spec/v1/plugin"
-	"github.com/notaryproject/notation-go/spec/v1/signature"
+	"github.com/notaryproject/notation-go/spec/plugin"
+	"github.com/notaryproject/notation-go/spec/signature"
 )
 
 var validMetadata = plugin.Metadata{

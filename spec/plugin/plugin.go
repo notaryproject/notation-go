@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 
-	"github.com/notaryproject/notation-go/spec/v1/signature"
+	"github.com/notaryproject/notation-go/spec/signature"
 )
 
 // Prefix is the prefix required on all plugin binary names.

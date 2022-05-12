@@ -13,7 +13,7 @@ import (
 
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp/timestamptest"
-	"github.com/notaryproject/notation-go/spec/v1/signature"
+	"github.com/notaryproject/notation-go/spec/signature"
 	"github.com/opencontainers/go-digest"
 )
 

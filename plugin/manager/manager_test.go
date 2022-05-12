@@ -10,7 +10,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/notaryproject/notation-go/spec/v1/plugin"
+	"github.com/notaryproject/notation-go/spec/plugin"
 )
 
 type testCommander struct {

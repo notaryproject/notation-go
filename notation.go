@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-go/crypto/timestamp"
-	"github.com/notaryproject/notation-go/spec/v1/signature"
+	"github.com/notaryproject/notation-go/spec/signature"
 )
 
 // SignOptions contains parameters for Signer.Sign.
