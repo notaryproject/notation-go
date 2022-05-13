@@ -76,7 +76,7 @@ func (v *Verifier) Verify(ctx context.Context, sig []byte, opts notation.VerifyO
 		return signature.Descriptor{}, err
 	}
 
-	return claim.Subject, nil
+	return claim, nil
 }
 
 // verifySigner verifies the signing identity and returns the verification key.
@@ -157,7 +157,7 @@ func (v *Verifier) verifyTimestamp(tokenBytes []byte, encodedSig string) (time.T
 
 // verifyJWT verifies the JWT token against the specified verification key, and
 // returns notation claim.
-func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tokenString string) (*signature.JWSNotaryClaim, error) {
+func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tokenString string) (signature.Descriptor, error) {
 	// parse and verify token
 	parser := &jwt.Parser{
 		ValidMethods: v.ValidMethods,
@@ -173,15 +173,15 @@ func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tok
 		t.Method = method
 		return key, nil
 	}); err != nil {
-		return nil, err
+		return signature.Descriptor{}, err
 	}
 
 	// ensure required claims exist.
 	// Note: the registered claims are already verified by parser.ParseWithClaims().
 	if claims.IssuedAt == nil {
-		return nil, errors.New("missing iat")
+		return signature.Descriptor{}, errors.New("missing iat")
 	}
-	return &claims.Notary, nil
+	return claims.Subject, nil
 }
 
 // openEnvelope opens the signature envelope and get the embedded signature.

@@ -25,6 +25,19 @@ type PluginSigner struct {
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
 func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
+	metadata, err := s.getMetadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
+		return s.generateSignature(ctx, desc, opts)
+	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
+		return s.generateSignatureEnvelope(ctx, desc, opts)
+	}
+	return nil, fmt.Errorf("plugin does not have signing capabilities")
+}
+
+func (s *PluginSigner) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
 	out, err := s.Runner.Run(ctx, plugin.CommandGetMetadata, nil)
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
@@ -36,17 +49,12 @@ func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts
 	if err := metadata.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid plugin metadata: %w", err)
 	}
-	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
-		return s.generateSignature(ctx, desc, opts)
-	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
-		return s.generateSignatureEnvelope(ctx, desc, opts)
-	}
-	return nil, fmt.Errorf("plugin does not have signing capabilities")
+	return metadata, nil
 }
 
 func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
 	req := &plugin.DescribeKeyRequest{
-		ContractVersion: "1",
+		ContractVersion: plugin.ContractVersion,
 		KeyID:           s.KeyID,
 		PluginConfig:    config,
 	}
@@ -95,11 +103,11 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 
 	// Execute plugin sign command.
 	req := &plugin.GenerateSignatureRequest{
-		ContractVersion: "1",
+		ContractVersion: plugin.ContractVersion,
 		KeyID:           s.KeyID,
 		KeySpec:         key.KeySpec,
 		Hash:            alg.Hash(),
-		Payload:         signing,
+		Payload:         []byte(signing),
 		PluginConfig:    config,
 	}
 	out, err := s.Runner.Run(ctx, plugin.CommandGenerateSignature, req)
@@ -134,6 +142,8 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 
 	// Verify the hash of the request payload against the response signature
 	// using the public key of the signing certificate.
+	// At this point, resp.Signature is not base64-encoded,
+	// but verifyJWT expects a base64URL encoded string.
 	signed64Url := base64.RawURLEncoding.EncodeToString(resp.Signature)
 	err = verifyJWT(jwsAlg, signing, signed64Url, certs[0])
 	if err != nil {

@@ -40,7 +40,7 @@ func (r *mockRunner) Run(ctx context.Context, cmd plugin.Command, req interface{
 type mockSignerPlugin struct {
 	KeyID      string
 	KeySpec    signature.KeyType
-	Sign       func(payload string) []byte
+	Sign       func(payload []byte) []byte
 	SigningAlg signature.SignatureAlgorithm
 	Cert       []byte
 	n          int
@@ -50,6 +50,17 @@ func (s *mockSignerPlugin) Run(ctx context.Context, cmd plugin.Command, req inte
 	var chain [][]byte
 	if len(s.Cert) != 0 {
 		chain = append(chain, s.Cert)
+	}
+	if req != nil {
+		// Test json roundtrip.
+		jsonReq, err := json.Marshal(req)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(jsonReq, req)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer func() { s.n++ }()
 	switch s.n {
@@ -189,7 +200,7 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 			KeyID:      "1",
 			KeySpec:    signature.RSA_2048,
 			SigningAlg: signature.RSASSA_PSS_SHA_256,
-			Sign:       func(payload string) []byte { return []byte("r a w") },
+			Sign:       func(payload []byte) []byte { return []byte("r a w") },
 			Cert:       cert.Raw,
 		},
 		KeyID: "1",
@@ -197,10 +208,10 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 	testPluginSignerError(t, signer, "verification error")
 }
 
-func validSign(t *testing.T, key interface{}) func(string) []byte {
+func validSign(t *testing.T, key interface{}) func([]byte) []byte {
 	t.Helper()
-	return func(payload string) []byte {
-		signed, err := jwt.SigningMethodPS256.Sign(payload, key)
+	return func(payload []byte) []byte {
+		signed, err := jwt.SigningMethodPS256.Sign(string(payload), key)
 		if err != nil {
 			t.Fatal(err)
 		}

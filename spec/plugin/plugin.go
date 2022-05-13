@@ -9,6 +9,9 @@ import (
 // Prefix is the prefix required on all plugin binary names.
 const Prefix = "notation-"
 
+// ContractVersion is the <major>.<minor> version of the plugin contract.
+const ContractVersion = "1.0"
+
 // Command is a CLI command available in the plugin contract.
 type Command string
 
@@ -66,13 +69,12 @@ type DescribeKeyResponse struct {
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 type GenerateSignatureRequest struct {
-	ContractVersion       string            `json:"contractVersion"`
-	KeyID                 string            `json:"keyId"`
-	KeySpec               signature.KeyType `json:"keySpec"`
-	Hash                  signature.Hash    `json:"hashAlgorithm"`
-	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
-	Payload               string            `json:"payload"`
-	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
+	ContractVersion string            `json:"contractVersion"`
+	KeyID           string            `json:"keyId"`
+	KeySpec         signature.KeyType `json:"keySpec"`
+	Hash            signature.Hash    `json:"hashAlgorithm"`
+	Payload         []byte            `json:"payload"`
+	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
 }
 
 // GenerateSignatureResponse is the response of a generate-signature request.

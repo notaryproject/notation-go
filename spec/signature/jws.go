@@ -5,15 +5,10 @@ const (
 	MediaTypeJWSEnvelope = "application/vnd.cncf.notary.v2.jws.v1"
 )
 
-// JWSNotaryClaim is a Notary private claim.
-type JWSNotaryClaim struct {
-	Subject Descriptor `json:"subject"`
-}
-
 // JWSPayload contains the set of claims used by Notary V2.
 type JWSPayload struct {
 	// Private claim.
-	Notary JWSNotaryClaim `json:"notary"`
+	Subject Descriptor `json:"subject"`
 
 	// Identifies the number of seconds since Epoch at which the signature was issued.
 	IssuedAt int64 `json:"iat"`

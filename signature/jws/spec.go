@@ -18,7 +18,7 @@ import (
 
 type notaryClaim struct {
 	jwt.RegisteredClaims
-	Notary signature.JWSNotaryClaim `json:"notary"`
+	Subject signature.Descriptor `json:"subject"`
 }
 
 // packPayload generates JWS payload according the signing content and options.
@@ -32,7 +32,7 @@ func packPayload(desc signature.Descriptor, opts notation.SignOptions) jwt.Claim
 			ExpiresAt: expiresAt,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
-		Notary: signature.JWSNotaryClaim{Subject: desc},
+		Subject: desc,
 	}
 }
 
