@@ -178,7 +178,7 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 		var re plugin.RequestError
 		err = json.Unmarshal(out, &re)
 		if err != nil {
-			return nil, withErr(plugin.RequestError{Code: plugin.ErrorCodeGeneric, Err: err}, ErrNotCompliant)
+			return nil, plugin.RequestError{Code: plugin.ErrorCodeGeneric, Err: fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)}
 		}
 		return nil, re
 	}
@@ -197,8 +197,7 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 	}
 	err = json.Unmarshal(out, resp)
 	if err != nil {
-		err = fmt.Errorf("failed to decode json response: %w", err)
-		return nil, withErr(err, ErrNotCompliant)
+		return nil, fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
 	}
 	return resp, nil
 }
@@ -242,29 +241,4 @@ func addExeSuffix(s string) string {
 		s += ".exe"
 	}
 	return s
-}
-
-func withErr(err, other error) error {
-	return unionError{err: err, other: other}
-}
-
-type unionError struct {
-	err   error
-	other error
-}
-
-func (u unionError) Error() string {
-	return fmt.Sprintf("%s: %s", u.other, u.err)
-}
-
-func (u unionError) Is(target error) bool {
-	return errors.Is(u.other, target)
-}
-
-func (u unionError) As(target interface{}) bool {
-	return errors.As(u.other, target)
-}
-
-func (u unionError) Unwrap() error {
-	return u.err
 }
