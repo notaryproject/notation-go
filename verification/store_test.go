@@ -1,0 +1,41 @@
+package verification
+
+import (
+	"testing"
+)
+
+// TestLoadTrustStore tests a valid trust store
+func TestLoadValidTrustStore(t *testing.T) {
+	_, err := LoadX509TrustStore("testdata/trust-store/valid-trust-store")
+	if err != nil {
+		t.Fatalf("could not load a valid trust store. %q", err)
+	}
+}
+
+func TestLoadSymlinkTrustStore(t *testing.T) {
+	_, err := LoadX509TrustStore("testdata/trust-store/valid-trust-store_SYMLINK")
+	if err == nil || err.Error() != "\"testdata/trust-store/valid-trust-store_SYMLINK\" is not a regular directory (symlinks are not supported)" {
+		t.Fatalf("symlinks should return error : %q", err)
+	}
+}
+
+func TestLoadTrustStoreWithSymlinks(t *testing.T) {
+	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-cert-symlinks")
+	if err == nil || err.Error() != "\"testdata/trust-store/trust-store-with-cert-symlinks/GlobalSignRootCA_SYMLINK.crt\" is not a regular file (directories or symlinks are not supported)" {
+		t.Fatalf("symlinks should return error : %q", err)
+	}
+}
+
+func TestLoadTrustStoreWithDirs(t *testing.T) {
+	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-directories")
+	if err == nil || err.Error() != "\"testdata/trust-store/trust-store-with-directories/sub-dir\" is not a regular file (directories or symlinks are not supported)" {
+		t.Fatalf("sub directories should return error : %q", err)
+	}
+}
+
+func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
+	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-invalid-certs")
+	if err == nil || err.Error() != "could not parse a certificate from \"testdata/trust-store/trust-store-with-invalid-certs/invalid\", every file in a trust store must have a PEM or DER certificate in it" {
+		t.Fatalf("invalid certs should return error : %q", err)
+	}
+}
