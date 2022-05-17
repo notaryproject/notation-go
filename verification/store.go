@@ -61,6 +61,6 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 
 	trustStore.Name = filepath.Base(path)
 	trustStore.Path = path
-	fmt.Println(len(trustStore.Certificates))
+
 	return &trustStore, nil
 }
