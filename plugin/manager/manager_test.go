@@ -23,18 +23,6 @@ func (t testCommander) Output(ctx context.Context, path string, command string, 
 	return t.output, t.success, t.err
 }
 
-type testMultiCommander struct {
-	output  [][]byte
-	success []bool
-	err     []error
-	n       int
-}
-
-func (t *testMultiCommander) Output(ctx context.Context, path string, command string, req []byte) (out []byte, success bool, err error) {
-	defer func() { t.n++ }()
-	return t.output[t.n], t.success[t.n], t.err[t.n]
-}
-
 var validMetadata = plugin.Metadata{
 	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
 	SupportedContractVersions: []string{"1"}, Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator},
@@ -229,7 +217,15 @@ func TestManager_List(t *testing.T) {
 	}
 }
 
-func TestManager_Run(t *testing.T) {
+func TestManager_Runner_Run_NotFound(t *testing.T) {
+	mgr := &Manager{fstest.MapFS{}, nil}
+	_, err := mgr.Runner("foo")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Manager.Runner() error = %v, want %v", err, ErrNotFound)
+	}
+}
+
+func TestManager_Runner_Run(t *testing.T) {
 	var errExec = errors.New("exec failed")
 	type args struct {
 		name string
@@ -241,27 +237,19 @@ func TestManager_Run(t *testing.T) {
 		args args
 		err  error
 	}{
-		{"empty fsys", &Manager{fstest.MapFS{}, nil}, args{"foo", plugin.CommandGenerateSignature}, ErrNotFound},
-		{
-			"invalid plugin", &Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{nil, false, errors.New("err")}},
-			args{"foo", plugin.CommandGenerateSignature}, ErrNotCompliant,
-		},
 		{
 			"exec error", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), nil}, []bool{true, false}, []error{nil, errExec}, 0}},
+			}, &testCommander{nil, false, errExec}},
 			args{"foo", plugin.CommandGenerateSignature}, errExec,
 		},
 		{
-			"exit error", &Manager{fstest.MapFS{
+			"request error", &Manager{fstest.MapFS{
 				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, &testMultiCommander{[][]byte{metadataJSON(validMetadata), {}}, []bool{true, false}, []error{nil, nil}, 0}},
-			args{"foo", plugin.CommandGenerateSignature}, ErrNotCompliant,
+			}, &testCommander{[]byte("{\"errorCode\": \"ERROR\"}"), false, nil}},
+			args{"foo", plugin.CommandGenerateSignature}, plugin.RequestError{Code: plugin.ErrorCodeGeneric},
 		},
 		{
 			"valid", &Manager{fstest.MapFS{
@@ -273,25 +261,35 @@ func TestManager_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.mgr.Run(context.Background(), tt.args.name, tt.args.cmd, "1")
+			runner, err := tt.mgr.Runner(tt.args.name)
+			if err != nil {
+				t.Fatalf("Manager.Runner() error = %v, want nil", err)
+			}
+			got, err := runner.Run(context.Background(), requester(tt.args.cmd))
 			wantErr := tt.err != nil
 			if (err != nil) != wantErr {
-				t.Fatalf("Manager.Run() error = %v, wantErr %v", err, wantErr)
+				t.Fatalf("Runner.Run() error = %v, wantErr %v", err, wantErr)
 			}
 			if wantErr {
 				if !errors.Is(err, tt.err) {
-					t.Fatalf("Manager.Run() error = %v, want %v", err, tt.err)
+					t.Fatalf("Runner.Run() error = %v, want %v", err, tt.err)
 				}
 			} else if got == nil {
-				t.Error("Manager.Run() want non-nil output")
+				t.Error("Runner.Run() want non-nil output")
 			}
 		})
 	}
 }
 
-func TestNewManager(t *testing.T) {
-	mgr := NewManager()
+type requester plugin.Command
+
+func (r requester) Command() plugin.Command {
+	return plugin.Command(r)
+}
+
+func TestNew(t *testing.T) {
+	mgr := New("")
 	if mgr == nil {
-		t.Error("NewManager() = nil")
+		t.Error("New() = nil")
 	}
 }

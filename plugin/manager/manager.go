@@ -59,7 +59,7 @@ func (c execCommander) Output(ctx context.Context, name string, command string, 
 	return stdout.Bytes(), true, nil
 }
 
-// rootedFS is io.FS implementation used in NewManager.
+// rootedFS is io.FS implementation used in New.
 // root is the root of the file system tree passed to os.DirFS.
 type rootedFS struct {
 	fs.FS
@@ -72,17 +72,12 @@ type Manager struct {
 	cmder commander
 }
 
-// NewManager returns a new manager.
-func NewManager() *Manager {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		// Lets panic for now.
-		// Once the config is moved to notation-go we will move this code to
-		// the config package as a global initialization.
-		panic(err)
-	}
-	pluginDir := filepath.Join(configDir, "notation", "plugins")
-	return &Manager{rootedFS{os.DirFS(pluginDir), pluginDir}, execCommander{}}
+// New returns a new manager rooted at root.
+//
+// root is the path of the directory where plugins are stored
+// following the {root}/{plugin-name}/notation-{plugin-name}[.exe] pattern.
+func New(root string) *Manager {
+	return &Manager{rootedFS{os.DirFS(root), root}, execCommander{}}
 }
 
 // Get returns a plugin on the system by its name.
@@ -117,42 +112,16 @@ func (mgr *Manager) List(ctx context.Context) ([]*Plugin, error) {
 	return plugins, nil
 }
 
-// Run executes the specified command against the named plugin and waits for it to complete.
+// Runner returns a plugin.Runner.
 //
-// When the returned object is not nil, its type is guaranteed to remain always the same for a given Command.
-//
-// The returned error is nil if:
-// - the plugin exists and is valid
-// - the command runs and exits with a zero exit status
-// - the command stdout contains a valid json object which can be unmarshal-ed.
-//
-// If the plugin is not found, the error is of type ErrNotFound.
-// If the plugin metadata is not valid or stdout and stderr can't be decoded into a valid response, the error is of type ErrNotCompliant.
-// If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
-// Other error types may be returned for other situations.
-func (mgr *Manager) Run(ctx context.Context, name string, cmd plugin.Command, req interface{}) (interface{}, error) {
-	p, err := mgr.newPlugin(ctx, name)
-	if err != nil {
-		return nil, pluginErr(name, err)
+// If the plugin is not found or is not a valid candidate, the error is of type ErrNotFound.
+func (mgr *Manager) Runner(name string) (plugin.Runner, error) {
+	ok := isCandidate(mgr.fsys, name)
+	if !ok {
+		return nil, ErrNotFound
 	}
-	if p.Err != nil {
-		return nil, pluginErr(name, withErr(p.Err, ErrNotCompliant))
-	}
-	if cmd == plugin.CommandGetMetadata {
-		return &p.Metadata, nil
-	}
-	var data []byte
-	if req != nil {
-		data, err = json.Marshal(req)
-		if err != nil {
-			return nil, pluginErr(name, fmt.Errorf("failed to marshal request object: %w", err))
-		}
-	}
-	resp, err := run(ctx, mgr.cmder, p.Path, cmd, data)
-	if err != nil {
-		return nil, pluginErr(name, err)
-	}
-	return resp, nil
+
+	return pluginRunner{name: name, path: binPath(mgr.fsys, name), cmder: mgr.cmder}, nil
 }
 
 // newPlugin determines if the given candidate is valid and returns a Plugin.
@@ -177,6 +146,28 @@ func (mgr *Manager) newPlugin(ctx context.Context, name string) (*Plugin, error)
 	return p, nil
 }
 
+type pluginRunner struct {
+	name  string
+	path  string
+	cmder commander
+}
+
+func (p pluginRunner) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
+	var data []byte
+	if req != nil {
+		var err error
+		data, err = json.Marshal(req)
+		if err != nil {
+			return nil, pluginErr(p.name, fmt.Errorf("failed to marshal request object: %w", err))
+		}
+	}
+	resp, err := run(ctx, p.cmder, p.path, req.Command(), data)
+	if err != nil {
+		return nil, pluginErr(p.name, err)
+	}
+	return resp, nil
+}
+
 // run executes the command and decodes the response.
 func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Command, req []byte) (interface{}, error) {
 	out, ok, err := cmder.Output(ctx, pluginPath, string(cmd), req)
@@ -187,7 +178,7 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 		var re plugin.RequestError
 		err = json.Unmarshal(out, &re)
 		if err != nil {
-			return nil, withErr(plugin.RequestError{Code: plugin.ErrorCodeGeneric, Err: err}, ErrNotCompliant)
+			return nil, plugin.RequestError{Code: plugin.ErrorCodeGeneric, Err: fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)}
 		}
 		return nil, re
 	}
@@ -199,13 +190,14 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 		resp = new(plugin.GenerateSignatureResponse)
 	case plugin.CommandGenerateEnvelope:
 		resp = new(plugin.GenerateEnvelopeResponse)
+	case plugin.CommandDescribeKey:
+		resp = new(plugin.DescribeKeyResponse)
 	default:
 		return nil, fmt.Errorf("unsupported command: %s", cmd)
 	}
 	err = json.Unmarshal(out, resp)
 	if err != nil {
-		err = fmt.Errorf("failed to decode json response: %w", err)
-		return nil, withErr(err, ErrNotCompliant)
+		return nil, fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
 	}
 	return resp, nil
 }
@@ -236,7 +228,7 @@ func binName(name string) string {
 
 func binPath(fsys fs.FS, name string) string {
 	base := binName(name)
-	// NewManager() always instantiate a rootedFS.
+	// New() always instantiate a rootedFS.
 	// Other fs.FS implementations are only supported for testing purposes.
 	if fsys, ok := fsys.(rootedFS); ok {
 		return filepath.Join(fsys.root, name, base)
@@ -249,29 +241,4 @@ func addExeSuffix(s string) string {
 		s += ".exe"
 	}
 	return s
-}
-
-func withErr(err, other error) error {
-	return unionError{err: err, other: other}
-}
-
-type unionError struct {
-	err   error
-	other error
-}
-
-func (u unionError) Error() string {
-	return fmt.Sprintf("%s: %s", u.other, u.err)
-}
-
-func (u unionError) Is(target error) bool {
-	return errors.Is(u.other, target)
-}
-
-func (u unionError) As(target interface{}) bool {
-	return errors.As(u.other, target)
-}
-
-func (u unionError) Unwrap() error {
-	return u.err
 }

@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 	"github.com/notaryproject/notation-go/internal/crypto/pki"
 )
@@ -28,13 +28,6 @@ type Signer struct {
 	// certChain contains the X.509 public key certificate or certificate chain corresponding
 	// to the key used to generate the signature.
 	certChain [][]byte
-
-	// TSA is the TimeStamp Authority to timestamp the resulted signature if present.
-	TSA timestamp.Timestamper
-
-	// TSARoots is the set of trusted root certificates for verifying the fetched timestamp
-	// signature. If nil, the system roots or the platform verifier are used.
-	TSARoots *x509.CertPool
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
@@ -75,9 +68,9 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		return nil, err
 	}
 
-	rawCerts := make([][]byte, 0, len(certChain))
-	for _, cert := range certChain {
-		rawCerts = append(rawCerts, cert.Raw)
+	rawCerts := make([][]byte, len(certChain))
+	for i, cert := range certChain {
+		rawCerts[i] = cert.Raw
 	}
 	return &Signer{
 		method:    method,
@@ -88,57 +81,55 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
 func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	if err := opts.Validate(); err != nil {
-		return nil, err
-	}
-
 	// generate JWT
 	payload := packPayload(desc, opts)
 	if err := payload.Valid(); err != nil {
 		return nil, err
 	}
-	token := &jwt.Token{
-		Header: map[string]interface{}{
-			"alg": s.method.Alg(),
-			"cty": MediaTypeNotationPayload,
-			"crit": []string{
-				"cty",
-			},
-		},
-		Claims: payload,
-		Method: s.method,
-	}
+	token := jwtToken(s.method.Alg(), payload)
+	token.Method = s.method
 	compact, err := token.SignedString(s.key)
 	if err != nil {
 		return nil, err
 	}
+	return jwsEnvelope(ctx, opts, compact, s.certChain)
+}
 
-	// generate unprotected header
-	header := unprotectedHeader{
-		CertChain: s.certChain,
+func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
+	return &jwt.Token{
+		Header: map[string]interface{}{
+			"alg": alg,
+			"cty": notation.MediaTypeJWSEnvelope,
+		},
+		Claims: claims,
+	}
+}
+
+func jwsEnvelope(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
+	parts := strings.Split(compact, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("invalid compact serialization")
+	}
+	envelope := notation.JWSEnvelope{
+		Protected: parts[0],
+		Payload:   parts[1],
+		Signature: parts[2],
+		Header: notation.JWSUnprotectedHeader{
+			CertChain: certChain,
+		},
 	}
 
 	// timestamp JWT
-	sig, err := jwsutil.ParseCompact(compact)
-	if err != nil {
-		return nil, err
-	}
 	if opts.TSA != nil {
-		token, err := timestampSignature(ctx, sig.Signature.Signature, opts.TSA, opts.TSAVerifyOptions)
+		token, err := timestampSignature(ctx, envelope.Signature, opts.TSA, opts.TSAVerifyOptions)
 		if err != nil {
 			return nil, fmt.Errorf("timestamp failed: %w", err)
 		}
-		header.TimeStampToken = token
-	}
-
-	// finalize unprotected header
-	sig.Unprotected, err = json.Marshal(header)
-	if err != nil {
-		return nil, err
+		envelope.Header.TimeStampToken = token
 	}
 
 	// encode in flatten JWS JSON serialization
-	return json.Marshal(sig)
+	return json.Marshal(envelope)
 }
 
 // timestampSignature sends a request to the TSA for timestamping the signature.
