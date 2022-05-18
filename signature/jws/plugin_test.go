@@ -118,7 +118,7 @@ func TestPluginSigner_Sign_DescribeKeyKeyIDMismatch(t *testing.T) {
 		Runner: &mockSignerPlugin{KeyID: "2", KeySpec: notation.RSA_2048},
 		KeyID:  "1",
 	}
-	testPluginSignerError(t, signer, "keyID mismatch")
+	testPluginSignerError(t, signer, "keyID in describeKey response \"2\" does not match request \"1\"")
 }
 
 func TestPluginSigner_Sign_KeySpecNotSupported(t *testing.T) {
@@ -126,7 +126,7 @@ func TestPluginSigner_Sign_KeySpecNotSupported(t *testing.T) {
 		Runner: &mockSignerPlugin{KeyID: "1", KeySpec: "custom"},
 		KeyID:  "1",
 	}
-	testPluginSignerError(t, signer, "keySpec \"custom\" not supported")
+	testPluginSignerError(t, signer, "keySpec \"custom\" for key \"1\" is not supported")
 }
 
 func TestPluginSigner_Sign_PayloadNotValid(t *testing.T) {
@@ -153,7 +153,7 @@ func TestPluginSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
 		}, []error{nil, nil, nil}, 0},
 		KeyID: "1",
 	}
-	testPluginSignerError(t, signer, "keyID mismatch")
+	testPluginSignerError(t, signer, "keyID in generateSignature response \"2\" does not match request \"1\"")
 }
 
 func TestPluginSigner_Sign_UnsuportedAlgorithm(t *testing.T) {
@@ -161,7 +161,7 @@ func TestPluginSigner_Sign_UnsuportedAlgorithm(t *testing.T) {
 		Runner: &mockSignerPlugin{KeyID: "1", KeySpec: notation.RSA_2048, SigningAlg: "custom"},
 		KeyID:  "1",
 	}
-	testPluginSignerError(t, signer, "signing algorithm \"custom\" not supported")
+	testPluginSignerError(t, signer, "signing algorithm \"custom\" in generateSignature response is not supported")
 }
 
 func TestPluginSigner_Sign_NoCertChain(t *testing.T) {

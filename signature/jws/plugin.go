@@ -95,7 +95,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 
 	// Generate signing string.
 	token := jwtToken(alg.JWS(), payload)
-	signing, err := token.SigningString()
+	payloadToSign, err := token.SigningString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal signing payload: %v", err)
 	}
@@ -106,7 +106,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		KeyID:           s.KeyID,
 		KeySpec:         key.KeySpec,
 		Hash:            alg.Hash(),
-		Payload:         []byte(signing),
+		Payload:         []byte(payloadToSign),
 		PluginConfig:    config,
 	}
 	out, err := s.Runner.Run(ctx, req)
@@ -120,7 +120,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 
 	// Check keyID is honored.
 	if s.KeyID != resp.KeyID {
-		return nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q",resp.KeyID, s.KeyID")
+		return nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q", resp.KeyID, s.KeyID)
 	}
 
 	// Check algorithm is supported.
@@ -144,7 +144,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	// At this point, resp.Signature is not base64-encoded,
 	// but verifyJWT expects a base64URL encoded string.
 	signed64Url := base64.RawURLEncoding.EncodeToString(resp.Signature)
-	err = verifyJWT(jwsAlg, signing, signed64Url, certs[0])
+	err = verifyJWT(jwsAlg, payloadToSign, signed64Url, certs[0])
 	if err != nil {
 		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", err)
 	}
@@ -155,7 +155,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	}
 
 	// Assemble the JWS signature envelope.
-	return jwsEnvelope(ctx, opts, signing+"."+signed64Url, resp.CertificateChain)
+	return jwsEnvelope(ctx, opts, payloadToSign+"."+signed64Url, resp.CertificateChain)
 }
 
 func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {
