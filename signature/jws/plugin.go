@@ -78,13 +78,13 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 
 	// Check keyID is honored.
 	if s.KeyID != key.KeyID {
-		return nil, fmt.Errorf("keyID mismatch")
+		return nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.KeyID)
 	}
 
 	// Get algorithm associated to key.
 	alg := key.KeySpec.SignatureAlgorithm()
 	if alg == "" {
-		return nil, fmt.Errorf("keySpec %q not supported: ", key.KeySpec)
+		return nil, fmt.Errorf("keySpec %q for key %q is not supported", key.KeySpec, key.KeyID)
 	}
 
 	// Generate payload to be signed.
@@ -120,18 +120,18 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 
 	// Check keyID is honored.
 	if s.KeyID != resp.KeyID {
-		return nil, fmt.Errorf("keyID mismatch")
+		return nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q",resp.KeyID, s.KeyID")
 	}
 
 	// Check algorithm is supported.
 	jwsAlg := resp.SigningAlgorithm.JWS()
 	if jwsAlg == "" {
-		return nil, fmt.Errorf("signing algorithm %q not supported", resp.SigningAlgorithm)
+		return nil, fmt.Errorf("signing algorithm %q in generateSignature response is not supported", resp.SigningAlgorithm)
 	}
 
 	// Check certificate chain is not empty.
 	if len(resp.CertificateChain) == 0 {
-		return nil, errors.New("empty certificate chain")
+		return nil, errors.New("generateSignature response has empty certificate chain")
 	}
 
 	certs, err := parseCertChain(resp.CertificateChain)
@@ -146,12 +146,12 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	signed64Url := base64.RawURLEncoding.EncodeToString(resp.Signature)
 	err = verifyJWT(jwsAlg, signing, signed64Url, certs[0])
 	if err != nil {
-		return nil, fmt.Errorf("verification error: %v", err)
+		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", err)
 	}
 
 	// Check the the certificate chain conforms to the spec.
 	if err := verifyCertExtKeyUsage(certs[0], x509.ExtKeyUsageCodeSigning); err != nil {
-		return nil, fmt.Errorf("signing certificate does not meet the minimum requirements: %w", err)
+		return nil, fmt.Errorf("signing certificate in generateSignature response.CertificateChain does not meet the minimum requirements: %w", err)
 	}
 
 	// Assemble the JWS signature envelope.
@@ -188,7 +188,7 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 }
 
 func verifyJWT(sigAlg string, payload string, sig string, signingCert *x509.Certificate) error {
-	// Verify the hash of req.payload against resp.signature using the public key if the leaf certificate.
+	// Verify the hash of req.payload against resp.signature using the public key in the leaf certificate.
 	method := jwt.GetSigningMethod(sigAlg)
 	return method.Verify(payload, sig, signingCert.PublicKey)
 }
