@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 
-	"github.com/notaryproject/notation-go/spec/signature"
+	"github.com/notaryproject/notation-go"
 )
 
 // Prefix is the prefix required on all plugin binary names.
@@ -75,15 +75,15 @@ type DescribeKeyResponse struct {
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec signature.KeyType `json:"keySpec"`
+	KeySpec notation.KeyType `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 type GenerateSignatureRequest struct {
 	ContractVersion string            `json:"contractVersion"`
 	KeyID           string            `json:"keyId"`
-	KeySpec         signature.KeyType `json:"keySpec"`
-	Hash            signature.Hash    `json:"hashAlgorithm"`
+	KeySpec         notation.KeyType  `json:"keySpec"`
+	Hash            notation.Hash     `json:"hashAlgorithm"`
 	Payload         []byte            `json:"payload"`
 	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
 }
@@ -94,9 +94,9 @@ func (GenerateSignatureRequest) Command() Command {
 
 // GenerateSignatureResponse is the response of a generate-signature request.
 type GenerateSignatureResponse struct {
-	KeyID            string                       `json:"keyId"`
-	Signature        []byte                       `json:"signature"`
-	SigningAlgorithm signature.SignatureAlgorithm `json:"signingAlgorithm"`
+	KeyID            string                      `json:"keyId"`
+	Signature        []byte                      `json:"signature"`
+	SigningAlgorithm notation.SignatureAlgorithm `json:"signingAlgorithm"`
 
 	// Ordered list of certificates starting with leaf certificate
 	// and ending with root certificate.

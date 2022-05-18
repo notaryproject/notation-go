@@ -9,8 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/spec/plugin"
-	"github.com/notaryproject/notation-go/spec/signature"
+	"github.com/notaryproject/notation-go/plugin"
 )
 
 // PluginSigner signs artifacts and generates JWS signatures
@@ -24,7 +23,7 @@ type PluginSigner struct {
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
 		return nil, err
@@ -69,7 +68,7 @@ func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string
 	return resp, nil
 }
 
-func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	config := s.mergeConfig(opts.PluginConfig)
 	// Get key info.
 	key, err := s.describeKey(ctx, config)
@@ -172,7 +171,7 @@ func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {
 	return c
 }
 
-func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	return nil, errors.New("not implemented")
 }
 

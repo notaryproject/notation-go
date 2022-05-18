@@ -13,7 +13,6 @@ import (
 
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp/timestamptest"
-	"github.com/notaryproject/notation-go/spec/signature"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -116,11 +115,11 @@ func TestSignWithoutExpiry(t *testing.T) {
 }
 
 // generateSigningContent generates common signing content with options for testing.
-func generateSigningContent(tsa *timestamptest.TSA) (signature.Descriptor, notation.SignOptions) {
+func generateSigningContent(tsa *timestamptest.TSA) (notation.Descriptor, notation.SignOptions) {
 	content := "hello world"
-	desc := signature.Descriptor{
+	desc := notation.Descriptor{
 		MediaType: "test media type",
-		Digest:    string(digest.Canonical.FromString(content)),
+		Digest:    digest.Canonical.FromString(content),
 		Size:      int64(len(content)),
 		Annotations: map[string]string{
 			"identity": "test.registry.io/test:example",

@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/notaryproject/notation-go/spec/plugin"
+	"github.com/notaryproject/notation-go/plugin"
 )
 
 // Plugin represents a potential plugin with all it's metadata.

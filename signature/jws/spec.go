@@ -13,16 +13,15 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/spec/signature"
 )
 
 type notaryClaim struct {
 	jwt.RegisteredClaims
-	Subject signature.Descriptor `json:"subject"`
+	Subject notation.Descriptor `json:"subject"`
 }
 
 // packPayload generates JWS payload according the signing content and options.
-func packPayload(desc signature.Descriptor, opts notation.SignOptions) jwt.Claims {
+func packPayload(desc notation.Descriptor, opts notation.SignOptions) jwt.Claims {
 	var expiresAt *jwt.NumericDate
 	if !opts.Expiry.IsZero() {
 		expiresAt = jwt.NewNumericDate(opts.Expiry)

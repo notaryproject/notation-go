@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/spec/plugin"
 )
 
 func preparePlugin(t *testing.T) string {

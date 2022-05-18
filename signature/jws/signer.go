@@ -14,7 +14,6 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 	"github.com/notaryproject/notation-go/internal/crypto/pki"
-	"github.com/notaryproject/notation-go/spec/signature"
 )
 
 // Signer signs artifacts and generates JWS signatures.
@@ -81,7 +80,7 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *Signer) Sign(ctx context.Context, desc signature.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	// generate JWT
 	payload := packPayload(desc, opts)
 	if err := payload.Valid(); err != nil {
@@ -100,7 +99,7 @@ func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
 	return &jwt.Token{
 		Header: map[string]interface{}{
 			"alg": alg,
-			"cty": signature.MediaTypeJWSEnvelope,
+			"cty": notation.MediaTypeJWSEnvelope,
 		},
 		Claims: claims,
 	}
@@ -111,11 +110,11 @@ func jwtEnvelope(ctx context.Context, opts notation.SignOptions, compact string,
 	if len(parts) != 3 {
 		return nil, errors.New("invalid compact serialization")
 	}
-	envelope := signature.JWSEnvelope{
+	envelope := notation.JWSEnvelope{
 		Protected: parts[0],
 		Payload:   parts[1],
 		Signature: parts[2],
-		Header: signature.JWSUnprotectedHeader{
+		Header: notation.JWSUnprotectedHeader{
 			CertChain: certChain,
 		},
 	}

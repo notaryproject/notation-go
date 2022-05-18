@@ -1,4 +1,4 @@
-package signature
+package notation
 
 const (
 	// MediaTypeJWSEnvelope describes the media type of the JWS envelope.
