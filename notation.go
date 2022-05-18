@@ -78,22 +78,22 @@ type Service interface {
 	Verifier
 }
 
-// KeyType defines a key type and size.
-type KeyType string
+// KeySpec defines a key type and size.
+type KeySpec string
 
 // One of following supported specs
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 const (
-	RSA_2048 KeyType = "RSA_2048"
-	RSA_3072 KeyType = "RSA_3072"
-	RSA_4096 KeyType = "RSA_4096"
-	EC_256   KeyType = "EC_256"
-	EC_384   KeyType = "EC_384"
-	EC_512   KeyType = "EC_512"
+	RSA_2048 KeySpec = "RSA_2048"
+	RSA_3072 KeySpec = "RSA_3072"
+	RSA_4096 KeySpec = "RSA_4096"
+	EC_256   KeySpec = "EC_256"
+	EC_384   KeySpec = "EC_384"
+	EC_512   KeySpec = "EC_512"
 )
 
-// Hash returns the Hash associated k.
-func (k KeyType) SignatureAlgorithm() SignatureAlgorithm {
+// SignatureAlgorithm returns the signing algorithm associated with KeyType k.
+func (k KeySpec) SignatureAlgorithm() SignatureAlgorithm {
 	switch k {
 	case RSA_2048:
 		return RSASSA_PSS_SHA_256
@@ -111,17 +111,17 @@ func (k KeyType) SignatureAlgorithm() SignatureAlgorithm {
 	return ""
 }
 
-// Hash algorithm associated with the key spec.
-type Hash string
+// HashAlgorithm algorithm associated with the key spec.
+type HashAlgorithm string
 
 const (
-	SHA256 Hash = "SHA_256"
-	SHA384 Hash = "SHA_384"
-	SHA512 Hash = "SHA_512"
+	SHA256 HashAlgorithm = "SHA_256"
+	SHA384 HashAlgorithm = "SHA_384"
+	SHA512 HashAlgorithm = "SHA_512"
 )
 
 // HashFunc returns the Hash associated k.
-func (h Hash) HashFunc() crypto.Hash {
+func (h HashAlgorithm) HashFunc() crypto.Hash {
 	switch h {
 	case SHA256:
 		return crypto.SHA256
@@ -146,7 +146,7 @@ const (
 )
 
 // Hash returns the Hash associated s.
-func (s SignatureAlgorithm) Hash() Hash {
+func (s SignatureAlgorithm) Hash() HashAlgorithm {
 	switch s {
 	case RSASSA_PSS_SHA_256, ECDSA_SHA_256:
 		return SHA256

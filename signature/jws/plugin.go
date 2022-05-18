@@ -155,7 +155,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	}
 
 	// Assemble the JWS signature envelope.
-	return jwtEnvelope(ctx, opts, signing+"."+signed64Url, resp.CertificateChain)
+	return jwsEnvelope(ctx, opts, signing+"."+signed64Url, resp.CertificateChain)
 }
 
 func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {

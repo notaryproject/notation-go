@@ -38,7 +38,7 @@ func (r *mockRunner) Run(ctx context.Context, req plugin.Request) (interface{}, 
 
 type mockSignerPlugin struct {
 	KeyID      string
-	KeySpec    notation.KeyType
+	KeySpec    notation.KeySpec
 	Sign       func(payload []byte) []byte
 	SigningAlg notation.SignatureAlgorithm
 	Cert       []byte

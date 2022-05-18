@@ -75,17 +75,17 @@ type DescribeKeyResponse struct {
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec notation.KeyType `json:"keySpec"`
+	KeySpec notation.KeySpec `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 type GenerateSignatureRequest struct {
-	ContractVersion string            `json:"contractVersion"`
-	KeyID           string            `json:"keyId"`
-	KeySpec         notation.KeyType  `json:"keySpec"`
-	Hash            notation.Hash     `json:"hashAlgorithm"`
-	Payload         []byte            `json:"payload"`
-	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
+	ContractVersion string                 `json:"contractVersion"`
+	KeyID           string                 `json:"keyId"`
+	KeySpec         notation.KeySpec       `json:"keySpec"`
+	Hash            notation.HashAlgorithm `json:"hashAlgorithm"`
+	Payload         []byte                 `json:"payload"`
+	PluginConfig    map[string]string      `json:"pluginConfig,omitempty"`
 }
 
 func (GenerateSignatureRequest) Command() Command {
@@ -103,7 +103,7 @@ type GenerateSignatureResponse struct {
 	CertificateChain [][]byte `json:"certificateChain"`
 }
 
-// GenerateEnvelopeRequest contains the parameters passed in a generate-envelop request.
+// GenerateEnvelopeRequest contains the parameters passed in a generate-envelope request.
 type GenerateEnvelopeRequest struct {
 	ContractVersion       string            `json:"contractVersion"`
 	KeyID                 string            `json:"keyId"`
@@ -117,7 +117,7 @@ func (GenerateEnvelopeRequest) Command() Command {
 	return CommandGenerateSignature
 }
 
-// GenerateSignatureResponse is the response of a generate-envelop request.
+// GenerateSignatureResponse is the response of a generate-envelope request.
 type GenerateEnvelopeResponse struct {
 	SignatureEnvelope     []byte            `json:"signatureEnvelope"`
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
