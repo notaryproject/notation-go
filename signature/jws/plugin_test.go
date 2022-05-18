@@ -32,7 +32,7 @@ type mockRunner struct {
 	n    int
 }
 
-func (r *mockRunner) Run(ctx context.Context, cmd plugin.Command, req interface{}) (interface{}, error) {
+func (r *mockRunner) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
 	defer func() { r.n++ }()
 	return r.resp[r.n], r.err[r.n]
 }
@@ -46,7 +46,7 @@ type mockSignerPlugin struct {
 	n          int
 }
 
-func (s *mockSignerPlugin) Run(ctx context.Context, cmd plugin.Command, req interface{}) (interface{}, error) {
+func (s *mockSignerPlugin) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
 	var chain [][]byte
 	if len(s.Cert) != 0 {
 		chain = append(chain, s.Cert)

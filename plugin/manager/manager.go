@@ -152,7 +152,7 @@ type pluginRunner struct {
 	cmder commander
 }
 
-func (p pluginRunner) Run(ctx context.Context, cmd plugin.Command, req interface{}) (interface{}, error) {
+func (p pluginRunner) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
 	var data []byte
 	if req != nil {
 		var err error
@@ -161,7 +161,7 @@ func (p pluginRunner) Run(ctx context.Context, cmd plugin.Command, req interface
 			return nil, pluginErr(p.name, fmt.Errorf("failed to marshal request object: %w", err))
 		}
 	}
-	resp, err := run(ctx, p.cmder, p.path, cmd, data)
+	resp, err := run(ctx, p.cmder, p.path, req.Command(), data)
 	if err != nil {
 		return nil, pluginErr(p.name, err)
 	}

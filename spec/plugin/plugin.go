@@ -50,11 +50,22 @@ const (
 	CapabilityEnvelopeGenerator Capability = "SIGNATURE_ENVELOPE_GENERATOR"
 )
 
+// GetMetadataRequest contains the parameters passed in a get-plugin-metadata request.
+type GetMetadataRequest struct{}
+
+func (GetMetadataRequest) Command() Command {
+	return CommandGetMetadata
+}
+
 // DescribeKeyRequest contains the parameters passed in a describe-key request.
 type DescribeKeyRequest struct {
 	ContractVersion string            `json:"contractVersion"`
 	KeyID           string            `json:"keyId"`
 	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
+}
+
+func (DescribeKeyRequest) Command() Command {
+	return CommandDescribeKey
 }
 
 // GenerateSignatureResponse is the response of a describe-key request.
@@ -75,6 +86,10 @@ type GenerateSignatureRequest struct {
 	Hash            signature.Hash    `json:"hashAlgorithm"`
 	Payload         []byte            `json:"payload"`
 	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
+}
+
+func (GenerateSignatureRequest) Command() Command {
+	return CommandGenerateSignature
 }
 
 // GenerateSignatureResponse is the response of a generate-signature request.
@@ -98,11 +113,20 @@ type GenerateEnvelopeRequest struct {
 	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
 }
 
+func (GenerateEnvelopeRequest) Command() Command {
+	return CommandGenerateSignature
+}
+
 // GenerateSignatureResponse is the response of a generate-envelop request.
 type GenerateEnvelopeResponse struct {
 	SignatureEnvelope     []byte            `json:"signatureEnvelope"`
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
 	Annotations           map[string]string `json:"annotations,omitempty"`
+}
+
+// Request defines a plugin request, which is always associated to a command.
+type Request interface {
+	Command() Command
 }
 
 // Runner is an interface for running commands against a plugin.
@@ -118,5 +142,5 @@ type Runner interface {
 	//
 	// If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
 	// Other error types may be returned for other situations.
-	Run(ctx context.Context, cmd Command, req interface{}) (interface{}, error)
+	Run(ctx context.Context, req Request) (interface{}, error)
 }

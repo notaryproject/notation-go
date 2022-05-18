@@ -265,7 +265,7 @@ func TestManager_Runner_Run(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Manager.Runner() error = %v, want nil", err)
 			}
-			got, err := runner.Run(context.Background(), tt.args.cmd, "1")
+			got, err := runner.Run(context.Background(), requester(tt.args.cmd))
 			wantErr := tt.err != nil
 			if (err != nil) != wantErr {
 				t.Fatalf("Runner.Run() error = %v, wantErr %v", err, wantErr)
@@ -279,6 +279,12 @@ func TestManager_Runner_Run(t *testing.T) {
 			}
 		})
 	}
+}
+
+type requester plugin.Command
+
+func (r requester) Command() plugin.Command {
+	return plugin.Command(r)
 }
 
 func TestNew(t *testing.T) {

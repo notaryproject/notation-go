@@ -38,7 +38,7 @@ func (s *PluginSigner) Sign(ctx context.Context, desc signature.Descriptor, opts
 }
 
 func (s *PluginSigner) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
-	out, err := s.Runner.Run(ctx, plugin.CommandGetMetadata, nil)
+	out, err := s.Runner.Run(ctx, new(plugin.GetMetadataRequest))
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
 	}
@@ -58,7 +58,7 @@ func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string
 		KeyID:           s.KeyID,
 		PluginConfig:    config,
 	}
-	out, err := s.Runner.Run(ctx, plugin.CommandDescribeKey, req)
+	out, err := s.Runner.Run(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("describe-key command failed: %w", err)
 	}
@@ -110,7 +110,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc signature.Des
 		Payload:         []byte(signing),
 		PluginConfig:    config,
 	}
-	out, err := s.Runner.Run(ctx, plugin.CommandGenerateSignature, req)
+	out, err := s.Runner.Run(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate-signature command failed: %w", err)
 	}

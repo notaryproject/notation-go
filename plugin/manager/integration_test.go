@@ -77,7 +77,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = r.Run(context.Background(), plugin.CommandGetMetadata, nil)
+	_, err = r.Run(context.Background(), plugin.GetMetadataRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
