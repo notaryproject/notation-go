@@ -31,7 +31,8 @@ type JWSUnprotectedHeader struct {
 	// RFC3161 time stamp token Base64-encoded.
 	TimeStampToken []byte `json:"timestamp,omitempty"`
 
-	// List of X.509 certificates, each one Base64-encoded.
+	// List of X.509 Base64-DER-encoded certificates
+	// as defined at https://datatracker.ietf.org/doc/html/rfc7515#section-4.1.6.
 	CertChain [][]byte `json:"x5c"`
 }
 
