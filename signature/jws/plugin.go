@@ -205,7 +205,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 	}
 	out, err := s.runner.Run(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("generate-signature command failed: %w", err)
+		return nil, fmt.Errorf("generate-envelope command failed: %w", err)
 	}
 	resp, ok := out.(*plugin.GenerateEnvelopeResponse)
 	if !ok {
