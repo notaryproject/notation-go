@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -38,6 +39,12 @@ func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if !metadata.SupportsContract(plugin.ContractVersion) {
+		return nil, fmt.Errorf(
+			"contract version %q is not in the list of the plugin supported versions %v",
+			plugin.ContractVersion, metadata.SupportedContractVersions,
+		)
 	}
 	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts)
@@ -183,7 +190,102 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	return nil, errors.New("not implemented")
+	rawDesc, err := json.Marshal(desc)
+	if err != nil {
+		return nil, err
+	}
+	// Execute plugin sign command.
+	req := &plugin.GenerateEnvelopeRequest{
+		ContractVersion:       plugin.ContractVersion,
+		KeyID:                 s.keyID,
+		Payload:               rawDesc,
+		SignatureEnvelopeType: notation.MediaTypeJWSEnvelope,
+		PayloadType:           notation.MediaTypeDescriptor,
+		PluginConfig:          s.mergeConfig(opts.PluginConfig),
+	}
+	out, err := s.runner.Run(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("generate-signature command failed: %w", err)
+	}
+	resp, ok := out.(*plugin.GenerateEnvelopeResponse)
+	if !ok {
+		return nil, fmt.Errorf("plugin runner returned incorrect generate-envelope response type '%T'", out)
+	}
+
+	// Check signatureEnvelopeType is honored.
+	if resp.SignatureEnvelopeType != req.SignatureEnvelopeType {
+		return nil, fmt.Errorf(
+			"signatureEnvelopeType in generateEnvelope response %q does not match request %q",
+			resp.SignatureEnvelopeType, req.SignatureEnvelopeType,
+		)
+	}
+
+	// Check signatureEnvelope contains a valid JWSEnvelope.
+	var envelope notation.JWSEnvelope
+	if err = json.Unmarshal(resp.SignatureEnvelope, &envelope); err != nil ||
+		len(envelope.Payload) == 0 ||
+		len(envelope.Protected) == 0 ||
+		len(envelope.Signature) == 0 ||
+		len(envelope.Header.CertChain) == 0 {
+
+		return nil, errors.New("envelope content does not match envelope format")
+	}
+
+	// Check algorithm is supported.
+	var protected notation.JWSProtectedHeader
+	if err = decodeBase64URLJSON(envelope.Protected, &protected); err != nil {
+		return nil, err
+	}
+	if notation.SignatureAlgorithm(protected.Algorithm).JWS() == "" {
+		return nil, fmt.Errorf("signing algorithm %q not supported", protected.Algorithm)
+	}
+
+	// Check descriptor subject is honored.
+	var payload notation.JWSPayload
+	err = decodeBase64URLJSON(envelope.Payload, &payload)
+	if err != nil {
+		return nil, err
+	}
+	if !sameDesc(desc, payload.Subject) {
+		return nil, errors.New("descriptor subject has changed")
+	}
+
+	// Check signatureEnvelope can be verified against signing certificate.
+	certs, err := parseCertChain(envelope.Header.CertChain)
+	if err != nil {
+		return nil, err
+	}
+	err = verifyJWT(protected.Algorithm, envelope.Protected+"."+envelope.Payload, envelope.Signature, certs[0])
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the the certificate chain conforms to the spec.
+	if err := verifyCertExtKeyUsage(certs[0], x509.ExtKeyUsageCodeSigning); err != nil {
+		return nil, fmt.Errorf("signing certificate does not meet the minimum requirements: %w", err)
+	}
+	return resp.SignatureEnvelope, nil
+}
+
+func sameDesc(original, desc notation.Descriptor) bool {
+	if !original.Equal(desc) {
+		return false
+	}
+	// Plugins may append additional annotations but ust not replace/override existing.
+	for k, v := range original.Annotations {
+		if v2, ok := desc.Annotations[k]; !ok || v != v2 {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeBase64URLJSON(str string, v interface{}) error {
+	dec, err := base64.RawURLEncoding.DecodeString(str)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(dec, v)
 }
 
 func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {

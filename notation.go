@@ -10,6 +10,9 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
+// MediaTypeDescriptor describes the media type of the descriptor.
+const MediaTypeDescriptor = "application/vnd.oci.descriptor.v1+json"
+
 // Descriptor describes the content signed or to be signed.
 type Descriptor struct {
 	// The media type of the targeted content.
