@@ -246,7 +246,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 	if err != nil {
 		return nil, err
 	}
-	if !sameDesc(desc, payload.Subject) {
+	if !descriptorPartialEqual(desc, payload.Subject) {
 		return nil, errors.New("descriptor subject has changed")
 	}
 
@@ -267,13 +267,15 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 	return resp.SignatureEnvelope, nil
 }
 
-func sameDesc(original, desc notation.Descriptor) bool {
-	if !original.Equal(desc) {
+// descriptorPartialEqual checks if the both descriptors point to the same resource
+// and that newDesc hasn't replaced or overridden existing annotations.
+func descriptorPartialEqual(original, newDesc notation.Descriptor) bool {
+	if !original.Equal(newDesc) {
 		return false
 	}
-	// Plugins may append additional annotations but ust not replace/override existing.
+	// Plugins may append additional annotations but not replace/override existing.
 	for k, v := range original.Annotations {
-		if v2, ok := desc.Annotations[k]; !ok || v != v2 {
+		if v2, ok := newDesc.Annotations[k]; !ok || v != v2 {
 			return false
 		}
 	}
