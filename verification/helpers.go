@@ -47,7 +47,7 @@ func validateDistinguishedName(name string) error {
 	dn, err := ldapv3.ParseDN(name)
 
 	if err != nil {
-		return fmt.Errorf("distinguished name (DN) %q is not valid, make sure it is following rfc4514 standard", name)
+		return fmt.Errorf("distinguished name (DN) %q is not valid, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name)
 	}
 
 	for _, rdn := range dn.RDNs {
@@ -59,14 +59,14 @@ func validateDistinguishedName(name string) error {
 	// Verify there are no duplicate RDNs (multi-valdued RDNs are not supported)
 	for key := range rDnCount {
 		if rDnCount[key] > 1 {
-			return fmt.Errorf("distinguished name (DN) %q has duplicate RDNs, DN can only have unique RDNs", name)
+			return fmt.Errorf("distinguished name (DN) %q has duplicate RDN attribute for %q, DN can only have unique RDN attributes", name, key)
 		}
 	}
 
 	// Verify mandatory fields are present
 	for _, field := range mandatoryFields {
 		if rDnCount[field] != 1 {
-			return fmt.Errorf("distinguished name (DN) %q has no mandatory RDN for %q", name, field)
+			return fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum", name, field)
 		}
 	}
 	// No errors

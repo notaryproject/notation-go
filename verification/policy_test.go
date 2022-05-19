@@ -95,7 +95,7 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{invalidDN}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "distinguished name (DN) \",,,\" is not valid, make sure it is following rfc4514 standard" {
+	if err == nil || err.Error() != "distinguished name (DN) \",,,\" is not valid, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard" {
 		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
 	}
 
@@ -106,7 +106,7 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{invalidDN}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "distinguished name (DN) \"C=US,C=IN\" has duplicate RDNs, DN can only have unique RDNs" {
+	if err == nil || err.Error() != "distinguished name (DN) \"C=US,C=IN\" has duplicate RDN attribute for \"C\", DN can only have unique RDN attributes" {
 		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
 	}
 
@@ -117,7 +117,7 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{invalidDN}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = ValidatePolicyDocument(&policyDoc)
-	if err == nil || err.Error() != "distinguished name (DN) \"C=US,ST=WA\" has no mandatory RDN for \"O\"" {
+	if err == nil || err.Error() != "distinguished name (DN) \"C=US,ST=WA\" has no mandatory RDN attribute for \"O\", it must contain 'C', 'ST', and 'O' RDN attributes at a minimum" {
 		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
 	}
 
