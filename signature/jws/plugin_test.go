@@ -22,7 +22,8 @@ import (
 
 var validMetadata = plugin.Metadata{
 	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
-	SupportedContractVersions: []string{plugin.ContractVersion}, Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator},
+	SupportedContractVersions: []string{plugin.ContractVersion},
+	Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
 }
 
 type mockRunner struct {
