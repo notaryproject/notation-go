@@ -4,7 +4,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -36,7 +35,7 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 		return nil, fmt.Errorf("%q is not a regular directory (symlinks are not supported)", path)
 	}
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +43,7 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 	var trustStore X509TrustStore
 	for _, file := range files {
 		joinedPath := filepath.Join(path, file.Name())
-		if file.IsDir() || file.Mode()&fs.ModeSymlink != 0 {
+		if file.IsDir() || file.Type()&fs.ModeSymlink != 0 {
 			return nil, fmt.Errorf("%q is not a regular file (directories or symlinks are not supported)", joinedPath)
 		}
 		certs, err := cryptoutil.ReadCertificateFile(joinedPath) // TODO support DER formatted files
