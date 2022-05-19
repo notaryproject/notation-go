@@ -14,21 +14,8 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 	"github.com/notaryproject/notation-go/internal/crypto/pki"
+	"github.com/notaryproject/notation-go/plugin"
 )
-
-// Signer signs artifacts and generates JWS signatures.
-type Signer struct {
-	// method is the method to sign artifacts.
-	method jwt.SigningMethod
-
-	// key is the signing key used to sign artifacts.
-	// The signing key can be either remote or local.
-	key crypto.PrivateKey
-
-	// certChain contains the X.509 public key certificate or certificate chain corresponding
-	// to the key used to generate the signature.
-	certChain [][]byte
-}
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
 // with a certificate chain.
@@ -68,31 +55,88 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		return nil, err
 	}
 
+	keySpec, err := keySpecFromJWS(method.Alg())
+	if err != nil {
+		return nil, err
+	}
+
 	rawCerts := make([][]byte, len(certChain))
 	for i, cert := range certChain {
 		rawCerts[i] = cert.Raw
 	}
 	return &Signer{
-		method:    method,
-		key:       key,
-		certChain: rawCerts,
+		runner: &inMemoryRunner{
+			keySpec:   keySpec,
+			method:    method,
+			key:       key,
+			certChain: rawCerts,
+		},
 	}, nil
 }
 
-// Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	// generate JWT
-	payload := packPayload(desc, opts)
-	if err := payload.Valid(); err != nil {
-		return nil, err
+type inMemoryRunner struct {
+	keySpec notation.KeySpec
+
+	// method is the method to sign artifacts.
+	method jwt.SigningMethod
+
+	// key is the signing key used to sign artifacts.
+	// The signing key can be either remote or local.
+	key crypto.PrivateKey
+
+	// certChain contains the X.509 public key certificate or certificate chain corresponding
+	// to the key used to generate the signature.
+	certChain [][]byte
+}
+
+func (inMemoryRunner) metadata() *plugin.Metadata {
+	return &plugin.Metadata{
+		Name:                      "builtin-jws",
+		Description:               "Build in JWS signer",
+		Version:                   plugin.ContractVersion,
+		SupportedContractVersions: []string{plugin.ContractVersion},
+		URL:                       "https://github.com/notaryproject/notation-go",
+		Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
 	}
-	token := jwtToken(s.method.Alg(), payload)
-	token.Method = s.method
-	compact, err := token.SignedString(s.key)
-	if err != nil {
-		return nil, err
+}
+
+func (r *inMemoryRunner) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
+	switch req.Command() {
+	case plugin.CommandGetMetadata:
+		return r.metadata(), nil
+	case plugin.CommandDescribeKey:
+		req1 := req.(*plugin.DescribeKeyRequest)
+		return &plugin.DescribeKeyResponse{
+			KeyID:   req1.KeyID,
+			KeySpec: r.keySpec,
+		}, nil
+	case plugin.CommandGenerateSignature:
+		req1 := req.(*plugin.GenerateSignatureRequest)
+		signed, err := r.method.Sign(string(req1.Payload), r.key)
+		if err != nil {
+			return nil, plugin.RequestError{
+				Code: plugin.ErrorCodeGeneric,
+				Err:  err,
+			}
+		}
+		signedDecoded, err := base64.RawURLEncoding.DecodeString(signed)
+		if err != nil {
+			return nil, plugin.RequestError{
+				Code: plugin.ErrorCodeGeneric,
+				Err:  err,
+			}
+		}
+		return &plugin.GenerateSignatureResponse{
+			KeyID:            req1.KeyID,
+			Signature:        signedDecoded,
+			SigningAlgorithm: req1.KeySpec.SignatureAlgorithm(),
+			CertificateChain: r.certChain,
+		}, nil
 	}
-	return jwsEnvelope(ctx, opts, compact, s.certChain)
+	return nil, plugin.RequestError{
+		Code: plugin.ErrorCodeGeneric,
+		Err:  fmt.Errorf("command %q is not supported", req.Command()),
+	}
 }
 
 func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
@@ -103,6 +147,27 @@ func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
 		},
 		Claims: claims,
 	}
+}
+
+func keySpecFromJWS(alg string) (notation.KeySpec, error) {
+	var keySpec notation.KeySpec
+	switch alg {
+	case jwt.SigningMethodES256.Name:
+		keySpec = notation.EC_256
+	case jwt.SigningMethodES384.Name:
+		keySpec = notation.EC_384
+	case jwt.SigningMethodES512.Name:
+		keySpec = notation.EC_512
+	case jwt.SigningMethodPS256.Name:
+		keySpec = notation.RSA_2048
+	case jwt.SigningMethodPS384.Name:
+		keySpec = notation.RSA_3072
+	case jwt.SigningMethodPS512.Name:
+		keySpec = notation.RSA_4096
+	default:
+		return "", fmt.Errorf("algorithm %q is not supported", alg)
+	}
+	return keySpec, nil
 }
 
 func jwsEnvelope(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
