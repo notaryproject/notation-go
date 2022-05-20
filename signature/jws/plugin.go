@@ -234,9 +234,9 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 	// Check algorithm is supported.
 	var protected notation.JWSProtectedHeader
 	if err = decodeBase64URLJSON(envelope.Protected, &protected); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("envelope protected header can't be decoded: %w", err)
 	}
-	if notation.SignatureAlgorithm(protected.Algorithm).JWS() == "" {
+	if notation.NewSignatureAlgorithmJWS(protected.Algorithm) == "" {
 		return nil, fmt.Errorf("signing algorithm %q not supported", protected.Algorithm)
 	}
 
@@ -244,7 +244,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 	var payload notation.JWSPayload
 	err = decodeBase64URLJSON(envelope.Payload, &payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("envelope payload can't be decoded: %w", err)
 	}
 	if !descriptorPartialEqual(desc, payload.Subject) {
 		return nil, errors.New("descriptor subject has changed")

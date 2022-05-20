@@ -358,3 +358,79 @@ func TestSigner_Sign_Valid(t *testing.T) {
 		t.Fatalf("Verify() error = %v", err)
 	}
 }
+
+type mockEnvelopePlugin struct {
+	n int
+}
+
+func (s *mockEnvelopePlugin) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
+	defer func() { s.n++ }()
+	switch s.n {
+	case 0:
+		m := validMetadata
+		m.Capabilities[0] = plugin.CapabilityEnvelopeGenerator
+		return &m, nil
+	case 1:
+		key, certs, err := generateKeyCertPair()
+		if err != nil {
+			return nil, err
+		}
+		method, err := SigningMethodFromKey(key)
+		if err != nil {
+			return nil, err
+		}
+		req1 := req.(*plugin.GenerateEnvelopeRequest)
+		t := &jwt.Token{
+			Method: method,
+			Header: map[string]interface{}{
+				"alg": method.Alg(),
+				"cty": notation.MediaTypeJWSEnvelope,
+			},
+			Claims: struct {
+				jwt.RegisteredClaims
+				Subject json.RawMessage `json:"subject"`
+			}{
+				RegisteredClaims: jwt.RegisteredClaims{
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Subject: req1.Payload,
+			},
+		}
+		signed, err := t.SignedString(key)
+		if err != nil {
+			return nil, err
+		}
+		parts := strings.Split(signed, ".")
+		if len(parts) != 3 {
+			return nil, errors.New("invalid compact serialization")
+		}
+		envelope := notation.JWSEnvelope{
+			Protected: parts[0],
+			Payload:   parts[1],
+			Signature: parts[2],
+			Header: notation.JWSUnprotectedHeader{
+				CertChain: [][]byte{certs.Raw},
+			},
+		}
+		data, _ := json.Marshal(envelope)
+		return &plugin.GenerateEnvelopeResponse{
+			SignatureEnvelope:     data,
+			SignatureEnvelopeType: req1.SignatureEnvelopeType,
+		}, nil
+	}
+	panic("too many calls")
+}
+
+func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
+	signer := PluginSigner{
+		Runner: &mockEnvelopePlugin{},
+		KeyID:  "1",
+	}
+	_, err := signer.Sign(context.Background(), notation.Descriptor{
+		MediaType: notation.MediaTypeDescriptor,
+		Size:      1,
+	}, notation.SignOptions{})
+	if err != nil {
+		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+	}
+}
