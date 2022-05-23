@@ -336,7 +336,7 @@ func TestSigner_Sign_Valid(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := notation.JWSEnvelope{
-		Protected: "eyJhbGciOiJQUzI1NiIsImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS52Mi5qd3MudjEifQ",
+		Protected: "eyJhbGciOiJQUzI1NiIsImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5vY2kuZGVzY3JpcHRvci52MStqc29uIn0",
 		Header: notation.JWSUnprotectedHeader{
 			CertChain: [][]byte{cert.Raw},
 		},
@@ -393,7 +393,7 @@ func (s *mockEnvelopePlugin) Run(ctx context.Context, req plugin.Request) (inter
 			Method: method,
 			Header: map[string]interface{}{
 				"alg": method.Alg(),
-				"cty": notation.MediaTypeJWSEnvelope,
+				"cty": notation.MediaTypeDescriptor,
 			},
 			Claims: struct {
 				jwt.RegisteredClaims
