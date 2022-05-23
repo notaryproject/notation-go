@@ -143,7 +143,7 @@ func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
 	return &jwt.Token{
 		Header: map[string]interface{}{
 			"alg": alg,
-			"cty": notation.MediaTypeDescriptor,
+			"cty": notation.MediaTypePayload,
 		},
 		Claims: claims,
 	}

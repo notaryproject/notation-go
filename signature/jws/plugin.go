@@ -200,7 +200,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		KeyID:                 s.keyID,
 		Payload:               rawDesc,
 		SignatureEnvelopeType: notation.MediaTypeJWSEnvelope,
-		PayloadType:           notation.MediaTypeDescriptor,
+		PayloadType:           notation.MediaTypePayload,
 		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
 	out, err := s.runner.Run(ctx, req)

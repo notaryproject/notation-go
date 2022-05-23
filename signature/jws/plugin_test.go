@@ -393,7 +393,7 @@ func (s *mockEnvelopePlugin) Run(ctx context.Context, req plugin.Request) (inter
 			Method: method,
 			Header: map[string]interface{}{
 				"alg": method.Alg(),
-				"cty": notation.MediaTypeDescriptor,
+				"cty": notation.MediaTypePayload,
 			},
 			Claims: struct {
 				jwt.RegisteredClaims
@@ -445,7 +445,7 @@ func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
 		KeyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypeDescriptor,
+		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "generate-envelope command failed: failed" {
@@ -459,7 +459,7 @@ func TestPluginSigner_SignEnvelope_InvalidEnvelopeType(t *testing.T) {
 		KeyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypeDescriptor,
+		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "signatureEnvelopeType in generateEnvelope response \"other\" does not match request \"application/vnd.cncf.notary.v2.jws.v1\"" {
@@ -473,7 +473,7 @@ func TestPluginSigner_SignEnvelope_EmptyCert(t *testing.T) {
 		KeyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypeDescriptor,
+		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "envelope content does not match envelope format" {
@@ -487,7 +487,7 @@ func TestPluginSigner_SignEnvelope_MalformedCertChain(t *testing.T) {
 		KeyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypeDescriptor,
+		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "x509: malformed certificate" {
@@ -519,7 +519,7 @@ func TestPluginSigner_SignEnvelope_CertBasicConstraintCA(t *testing.T) {
 		KeyID: "1",
 	}
 	_, err = signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypeDescriptor,
+		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "signing certificate does not meet the minimum requirements: keyUsage must have the bit positions for digitalSignature set" {
@@ -537,7 +537,7 @@ func TestPluginSigner_SignEnvelope_SignatureVerifyError(t *testing.T) {
 		KeyID:  "1",
 	}
 	_, err = signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypeDescriptor,
+		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "crypto/rsa: verification error" {
@@ -551,7 +551,7 @@ func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
 		KeyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypeDescriptor,
+		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err != nil {
