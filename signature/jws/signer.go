@@ -84,7 +84,6 @@ type builtinPlugin struct {
 	method jwt.SigningMethod
 
 	// key is the signing key used to sign artifacts.
-	// The signing key can be either remote or local.
 	key crypto.PrivateKey
 
 	// certChain contains the X.509 public key certificate or certificate chain corresponding
@@ -130,6 +129,8 @@ func (r *builtinPlugin) Run(ctx context.Context, req plugin.Request) (interface{
 				Err:  err,
 			}
 		}
+		// jwt.Sign returns a base64url-encoded encoded signature,
+		// but GenerateSignatureResponse.Signature expects it to be decoded.
 		signedDecoded, err := base64.RawURLEncoding.DecodeString(signed)
 		if err != nil {
 			return nil, plugin.RequestError{
