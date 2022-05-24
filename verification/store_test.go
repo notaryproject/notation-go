@@ -39,3 +39,10 @@ func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
 		t.Fatalf("invalid certs should return error : %q", err)
 	}
 }
+
+func TestLoadTrustStoreWithLeafCerts(t *testing.T) {
+	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-leaf-certs")
+	if err == nil || err.Error() != "certificate with subject \"CN=lol,OU=lol,O=lol,L=lol,ST=Some-State,C=AU,1.2.840.113549.1.9.1=#13036c6f6c\" from file \"testdata/trust-store/trust-store-with-leaf-certs/non-ca.crt\" is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed" {
+		t.Fatalf("leaf cert in a trust store should return error : %q", err)
+	}
+}
