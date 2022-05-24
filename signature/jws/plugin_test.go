@@ -336,7 +336,7 @@ func TestSigner_Sign_Valid(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := notation.JWSEnvelope{
-		Protected: "eyJhbGciOiJQUzI1NiIsImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5vY2kuZGVzY3JpcHRvci52MStqc29uIn0",
+		Protected: "eyJhbGciOiJQUzI1NiIsImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS5wYXlsb2FkLnYxK2pzb24ifQ",
 		Header: notation.JWSUnprotectedHeader{
 			CertChain: [][]byte{cert.Raw},
 		},
