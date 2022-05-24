@@ -10,7 +10,7 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-// MediaTypePayload describes the media type of the descriptor.
+// Media type for Notary payload for OCI artifacts, which contains an artifact descriptor.
 const MediaTypePayload = "application/vnd.cncf.notary.payload.v1+json"
 
 // Descriptor describes the content signed or to be signed.
