@@ -55,7 +55,7 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		return nil, err
 	}
 
-	keySpec, err := keySpecFromJWS(method.Alg())
+	keySpec, err := keySpecFromKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -159,27 +159,6 @@ func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
 		},
 		Claims: claims,
 	}
-}
-
-func keySpecFromJWS(alg string) (notation.KeySpec, error) {
-	var keySpec notation.KeySpec
-	switch alg {
-	case jwt.SigningMethodES256.Name:
-		keySpec = notation.EC_256
-	case jwt.SigningMethodES384.Name:
-		keySpec = notation.EC_384
-	case jwt.SigningMethodES512.Name:
-		keySpec = notation.EC_512
-	case jwt.SigningMethodPS256.Name:
-		keySpec = notation.RSA_2048
-	case jwt.SigningMethodPS384.Name:
-		keySpec = notation.RSA_3072
-	case jwt.SigningMethodPS512.Name:
-		keySpec = notation.RSA_4096
-	default:
-		return "", fmt.Errorf("algorithm %q is not supported", alg)
-	}
-	return keySpec, nil
 }
 
 func jwsEnvelope(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {

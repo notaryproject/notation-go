@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/notaryproject/notation-go"
 )
 
 // SigningMethodFromKey picks up a recommended algorithm for private and public keys.
@@ -46,4 +47,38 @@ func SigningMethodFromKey(key interface{}) (jwt.SigningMethod, error) {
 		return jwt.SigningMethodEdDSA, nil
 	}
 	return nil, errors.New("key not recognized")
+}
+
+func keySpecFromKey(key interface{}) (notation.KeySpec, error) {
+	if k, ok := key.(interface {
+		Public() crypto.PublicKey
+	}); ok {
+		key = k.Public()
+	}
+
+	switch key := key.(type) {
+	case *rsa.PublicKey:
+		switch key.Size() {
+		case 256:
+			return notation.RSA_2048, nil
+		case 384:
+			return notation.RSA_3072, nil
+		case 512:
+			return notation.RSA_4096, nil
+		default:
+			return notation.RSA_2048, nil
+		}
+	case *ecdsa.PublicKey:
+		switch key.Curve.Params().BitSize {
+		case jwt.SigningMethodES256.CurveBits:
+			return notation.EC_256, nil
+		case jwt.SigningMethodES384.CurveBits:
+			return notation.EC_384, nil
+		case jwt.SigningMethodES512.CurveBits:
+			return notation.EC_512, nil
+		default:
+			return "", errors.New("ecdsa key not recognized")
+		}
+	}
+	return "", errors.New("key not recognized")
 }
