@@ -100,7 +100,7 @@ func (builtinPlugin) metadata() *plugin.Metadata {
 		SupportedContractVersions: []string{plugin.ContractVersion},
 		Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
 		Name:                      "built-in",
-		Description:               "Built-in signer",
+		Description:               "Notation built-in signer",
 		Version:                   plugin.ContractVersion,
 		URL:                       "https://github.com/notaryproject/notation-go",
 	}

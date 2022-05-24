@@ -19,8 +19,8 @@ type Signer struct {
 	pluginConfig map[string]string
 }
 
-// NewSignerPlugin created a Signer that signs artifacts and generates JWS signatures
-// by delegating the one or both operations to the named plugin,
+// NewSignerPlugin creates a Signer that signs artifacts and generates JWS signatures
+// by delegating the one or more operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string) (*Signer, error) {
