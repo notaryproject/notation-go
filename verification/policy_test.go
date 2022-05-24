@@ -135,7 +135,7 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	// Validate rfc4514 DNs
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
-	validDN1 := "x509.subject:C=US+ST=WA,O=MyOrg"
+	validDN1 := "x509.subject:C=US,ST=WA,O=MyOrg"
 	validDN2 := "x509.subject:C=US,ST=WA,O=  My.  Org"
 	validDN3 := "x509.subject:C=US,ST=WA,O=My \"special\" Org \\, \\; \\\\ others"
 	validDN4 := "x509.subject:C=US,ST=WA,O=My Org,1.3.6.1.4.1.1466.0=#04024869"
@@ -144,6 +144,29 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	err = ValidatePolicyDocument(&policyDoc)
 	if err != nil {
 		t.Fatalf("valid x509.subject identity should not return error. Error : %q", err)
+	}
+
+	// Validate overlapping DNs
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	validDN1 = "x509.subject:C=US,ST=WA,O=MyOrg"
+	validDN2 = "x509.subject:C=US,ST=WA,O=MyOrg,X=Y"
+	policyStatement.TrustedIdentities = []string{validDN1, validDN2}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has overlapping x509 trustedIdentities, \"x509.subject:C=US,ST=WA,O=MyOrg\" overlaps with \"x509.subject:C=US,ST=WA,O=MyOrg,X=Y\"" {
+		t.Fatalf("overlapping DNs should return error")
+	}
+
+	// Validate multi-valued RDNs
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	multiValduedRDN := "x509.subject:C=US+ST=WA,O=MyOrg"
+	policyStatement.TrustedIdentities = []string{multiValduedRDN}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = ValidatePolicyDocument(&policyDoc)
+	if err == nil || err.Error() != "distinguished name (DN) \"C=US+ST=WA,O=MyOrg\" has multi-valued RDN attributes, remove multi-valued RDN attributes as they are not supported" {
+		t.Fatalf("multi-valued RDN should return error. Error : %q", err)
 	}
 }
 

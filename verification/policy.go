@@ -38,6 +38,12 @@ type TrustPolicy struct {
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 }
 
+// Internal type to hold raw and parsed Distinguished Names
+type parsedDN struct {
+	RawString string
+	ParsedMap map[string]string
+}
+
 // validateRegistryScopes validates if the policy document is following the Notary V2 spec rules for registry scopes
 func validateRegistryScopes(policyDoc *PolicyDocument) error {
 	registryScopeCount := make(map[string]int)
@@ -79,6 +85,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
 
+	var parsedDNs []parsedDN
 	// If there are trusted identities, verify they are valid
 	for _, identity := range statement.TrustedIdentities {
 		if identity == "" {
@@ -96,11 +103,18 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 			// notation natively supports x509.subject identities only
 			if identityPrefix == x509Subject {
-				if err := validateDistinguishedName(identityValue); err != nil {
+				validatedDN, err := validateDistinguishedName(identityValue)
+				if err != nil {
 					return err
 				}
+				parsedDNs = append(parsedDNs, parsedDN{RawString: identity, ParsedMap: validatedDN})
 			}
 		}
+	}
+
+	// Verify there are no overlapping DNs
+	if err := validateOverlappingDNs(statement.Name, parsedDNs); err != nil {
+		return err
 	}
 
 	// No error

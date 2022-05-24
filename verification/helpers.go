@@ -40,35 +40,58 @@ func validateRegistryScopeFormat(scope string) error {
 	return nil
 }
 
-// validateDistinguishedName validates if a DN name parsable and follows Notary V2 rules
-func validateDistinguishedName(name string) error {
+// validateDistinguishedName validates if a DN name is parsable and follows Notary V2 rules
+func validateDistinguishedName(name string) (map[string]string, error) {
 	mandatoryFields := []string{"C", "ST", "O"}
-	rDnCount := make(map[string]int)
+	attrKeyValue := make(map[string]string)
 	dn, err := ldapv3.ParseDN(name)
 
 	if err != nil {
-		return fmt.Errorf("distinguished name (DN) %q is not valid, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name)
+		return nil, fmt.Errorf("distinguished name (DN) %q is not valid, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name)
 	}
 
 	for _, rdn := range dn.RDNs {
-		for _, attribute := range rdn.Attributes {
-			rDnCount[attribute.Type]++
-		}
-	}
 
-	// Verify there are no duplicate RDNs (multi-valdued RDNs are not supported)
-	for key := range rDnCount {
-		if rDnCount[key] > 1 {
-			return fmt.Errorf("distinguished name (DN) %q has duplicate RDN attribute for %q, DN can only have unique RDN attributes", name, key)
+		// multi-valued RDNs are not supported (TODO: add spec reference here)
+		if len(rdn.Attributes) > 1 {
+			return nil, fmt.Errorf("distinguished name (DN) %q has multi-valued RDN attributes, remove multi-valued RDN attributes as they are not supported", name)
+		}
+		for _, attribute := range rdn.Attributes {
+			if attrKeyValue[attribute.Type] == "" {
+				attrKeyValue[attribute.Type] = attribute.Value
+			} else {
+				return nil, fmt.Errorf("distinguished name (DN) %q has duplicate RDN attribute for %q, DN can only have unique RDN attributes", name, attribute.Type)
+			}
 		}
 	}
 
 	// Verify mandatory fields are present
 	for _, field := range mandatoryFields {
-		if rDnCount[field] != 1 {
-			return fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum", name, field)
+		if attrKeyValue[field] == "" {
+			return nil, fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum", name, field)
 		}
 	}
 	// No errors
+	return attrKeyValue, nil
+}
+
+func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
+	for i, dn1 := range parsedDNs {
+		for j, dn2 := range parsedDNs {
+			if i != j && isOverlappingDN(dn1.ParsedMap, dn2.ParsedMap) {
+				return fmt.Errorf("trust policy statement %q has overlapping x509 trustedIdentities, %q overlaps with %q", policyName, dn1.RawString, dn2.RawString)
+			}
+		}
+	}
+
 	return nil
+}
+
+func isOverlappingDN(dn1 map[string]string, dn2 map[string]string) bool {
+	for key := range dn1 {
+		if dn1[key] != dn2[key] {
+			return false
+		}
+	}
+	return true
 }
