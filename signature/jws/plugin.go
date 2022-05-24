@@ -200,8 +200,9 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		KeyID:                 s.keyID,
 		Payload:               rawDesc,
 		SignatureEnvelopeType: notation.MediaTypeJWSEnvelope,
-		PayloadType:           notation.MediaTypePayload,
-		PluginConfig:          s.mergeConfig(opts.PluginConfig),
+		// TODO: Update payload type once https://github.com/notaryproject/notaryproject/pull/158 is approved.
+		PayloadType:  notation.MediaTypePayload,
+		PluginConfig: s.mergeConfig(opts.PluginConfig),
 	}
 	out, err := s.runner.Run(ctx, req)
 	if err != nil {
