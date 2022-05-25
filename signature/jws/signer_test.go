@@ -16,12 +16,6 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-func TestSignerInterface(t *testing.T) {
-	if _, ok := interface{}(&pluginSigner{}).(notation.Signer); !ok {
-		t.Error("&Signer{} does not conform notation.Signer")
-	}
-}
-
 func TestSignWithCertChain(t *testing.T) {
 	// sign with key
 	key, cert, err := generateKeyCertPair()
