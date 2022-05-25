@@ -27,7 +27,7 @@ func keySpecFromKey(key interface{}) (notation.KeySpec, jwt.SigningMethod, error
 
 	switch key := key.(type) {
 	case *rsa.PublicKey:
-		switch key.Size() {
+		switch size := key.Size(); size {
 		case 256:
 			return notation.RSA_2048, jwt.SigningMethodPS256, nil
 		case 384:
@@ -35,10 +35,10 @@ func keySpecFromKey(key interface{}) (notation.KeySpec, jwt.SigningMethod, error
 		case 512:
 			return notation.RSA_4096, jwt.SigningMethodPS512, nil
 		default:
-			return "", nil, fmt.Errorf("RSA key of size %q bits is not supported", key.Size()*8)
+			return "", nil, fmt.Errorf("RSA key of size %q bits is not supported", key.N.BitLen())
 		}
 	case *ecdsa.PublicKey:
-		switch key.Curve.Params().BitSize {
+		switch params := key.Curve.Params(); params.BitSize {
 		case 256:
 			return notation.EC_256, jwt.SigningMethodES256, nil
 		case 384:
@@ -46,7 +46,7 @@ func keySpecFromKey(key interface{}) (notation.KeySpec, jwt.SigningMethod, error
 		case 521:
 			return notation.EC_512, jwt.SigningMethodES512, nil
 		default:
-			return "", nil, fmt.Errorf("EC key %q of size %q bits is not supported", key.Curve.Params().Name, key.Curve.Params().BitSize)
+			return "", nil, fmt.Errorf("EC key %q of size %q bits is not supported", params.Name, params.BitSize)
 		}
 	}
 	return "", nil, errors.New("unsupported key type, only RSA and EC keys are supported")
