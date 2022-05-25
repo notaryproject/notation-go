@@ -17,7 +17,7 @@ import (
 )
 
 func TestSignerInterface(t *testing.T) {
-	if _, ok := interface{}(&Signer{}).(notation.Signer); !ok {
+	if _, ok := interface{}(&pluginSigner{}).(notation.Signer); !ok {
 		t.Error("&Signer{} does not conform notation.Signer")
 	}
 }

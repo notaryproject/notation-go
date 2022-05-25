@@ -82,7 +82,7 @@ func (s *mockSignerPlugin) Run(ctx context.Context, req plugin.Request) (interfa
 	panic("too many calls")
 }
 
-func testSignerError(t *testing.T, signer Signer, wantEr string) {
+func testSignerError(t *testing.T, signer pluginSigner, wantEr string) {
 	t.Helper()
 	_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
 	if err == nil || !strings.Contains(err.Error(), wantEr) {
@@ -91,7 +91,7 @@ func testSignerError(t *testing.T, signer Signer, wantEr string) {
 }
 
 func TestSigner_Sign_RunMetadataFails(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockRunner{[]interface{}{nil}, []error{errors.New("failed")}, 0},
 	}
 	testSignerError(t, signer, "metadata command failed")
@@ -100,21 +100,21 @@ func TestSigner_Sign_RunMetadataFails(t *testing.T) {
 func TestSigner_Sign_NoCapability(t *testing.T) {
 	m := validMetadata
 	m.Capabilities = []plugin.Capability{""}
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockRunner{[]interface{}{&m}, []error{nil}, 0},
 	}
 	testSignerError(t, signer, "does not have signing capabilities")
 }
 
 func TestSigner_Sign_DescribeKeyFailed(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockRunner{[]interface{}{&validMetadata, nil}, []error{nil, errors.New("failed")}, 0},
 	}
 	testSignerError(t, signer, "describe-key command failed")
 }
 
 func TestSigner_Sign_DescribeKeyKeyIDMismatch(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{KeyID: "2", KeySpec: notation.RSA_2048},
 		keyID:  "1",
 	}
@@ -122,7 +122,7 @@ func TestSigner_Sign_DescribeKeyKeyIDMismatch(t *testing.T) {
 }
 
 func TestSigner_Sign_KeySpecNotSupported(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{KeyID: "1", KeySpec: "custom"},
 		keyID:  "1",
 	}
@@ -130,7 +130,7 @@ func TestSigner_Sign_KeySpecNotSupported(t *testing.T) {
 }
 
 func TestSigner_Sign_PayloadNotValid(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockRunner{[]interface{}{
 			&validMetadata,
 			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: notation.RSA_2048},
@@ -145,7 +145,7 @@ func TestSigner_Sign_PayloadNotValid(t *testing.T) {
 }
 
 func TestSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockRunner{[]interface{}{
 			&validMetadata,
 			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: notation.RSA_2048},
@@ -157,7 +157,7 @@ func TestSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
 }
 
 func TestSigner_Sign_UnsuportedAlgorithm(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{KeyID: "1", KeySpec: notation.RSA_2048, SigningAlg: "custom"},
 		keyID:  "1",
 	}
@@ -165,7 +165,7 @@ func TestSigner_Sign_UnsuportedAlgorithm(t *testing.T) {
 }
 
 func TestSigner_Sign_NoCertChain(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    notation.RSA_2048,
@@ -177,7 +177,7 @@ func TestSigner_Sign_NoCertChain(t *testing.T) {
 }
 
 func TestSigner_Sign_MalformedCert(t *testing.T) {
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    notation.RSA_2048,
@@ -194,7 +194,7 @@ func TestSigner_Sign_SignatureVerifyError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generateKeyCertPair() error = %v", err)
 	}
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    notation.RSA_2048,
@@ -238,7 +238,7 @@ func TestSigner_Sign_CertWithoutDigitalSignatureBit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    notation.RSA_2048,
@@ -267,7 +267,7 @@ func TestSigner_Sign_CertWithout_idkpcodeSigning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    notation.RSA_2048,
@@ -297,7 +297,7 @@ func TestSigner_Sign_CertBasicConstraintCA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    notation.RSA_2048,
@@ -315,7 +315,7 @@ func TestSigner_Sign_Valid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer := Signer{
+	signer := pluginSigner{
 		runner: &mockSignerPlugin{
 			KeyID:      "1",
 			KeySpec:    notation.RSA_2048,

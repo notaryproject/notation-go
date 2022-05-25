@@ -21,7 +21,7 @@ import (
 // with a certificate chain.
 // The relation of the provided siging key and its certificate chain is not verified,
 // and should be verified by the caller.
-func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, error) {
+func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
 	method, err := SigningMethodFromKey(key)
 	if err != nil {
 		return nil, err
@@ -32,8 +32,8 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, e
 // NewSignerWithCertificateChain creates a signer with the specified signing method and
 // a signing key bundled with a (partial) certificate chain.
 // Since the provided signing key could potentially be a remote key, the relation of the
-// siging key and its certificate chain is not verified, and should be verified by the caller.
-func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, error) {
+// signing key and its certificate chain is not verified, and should be verified by the caller.
+func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
 	if method == nil {
 		return nil, errors.New("nil signing method")
 	}
@@ -64,7 +64,7 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 	for i, cert := range certChain {
 		rawCerts[i] = cert.Raw
 	}
-	return &Signer{
+	return &pluginSigner{
 		runner: &builtinPlugin{
 			keySpec:   keySpec,
 			method:    method,

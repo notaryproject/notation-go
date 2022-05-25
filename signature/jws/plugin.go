@@ -12,29 +12,29 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 )
 
-// Signer signs artifacts and generates JWS signatures.
-type Signer struct {
+// pluginSigner signs artifacts and generates JWS signatures.
+type pluginSigner struct {
 	runner       plugin.Runner
 	keyID        string
 	pluginConfig map[string]string
 }
 
-// NewSignerPlugin creates a Signer that signs artifacts and generates JWS signatures
+// NewSignerPlugin creates a notation.Signer that signs artifacts and generates JWS signatures
 // by delegating the one or more operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string) (*Signer, error) {
+func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
 	if runner == nil {
 		return nil, errors.New("nil plugin runner")
 	}
 	if keyID == "" {
 		return nil, errors.New("nil signing keyID")
 	}
-	return &Signer{runner, keyID, pluginConfig}, nil
+	return &pluginSigner{runner, keyID, pluginConfig}, nil
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notati
 	return nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *Signer) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
+func (s *pluginSigner) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
 	out, err := s.runner.Run(ctx, new(plugin.GetMetadataRequest))
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
@@ -62,7 +62,7 @@ func (s *Signer) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
 	return metadata, nil
 }
 
-func (s *Signer) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
+func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
 	req := &plugin.DescribeKeyRequest{
 		ContractVersion: plugin.ContractVersion,
 		KeyID:           s.keyID,
@@ -79,7 +79,7 @@ func (s *Signer) describeKey(ctx context.Context, config map[string]string) (*pl
 	return resp, nil
 }
 
-func (s *Signer) generateSignature(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	config := s.mergeConfig(opts.PluginConfig)
 	// Get key info.
 	key, err := s.describeKey(ctx, config)
@@ -169,7 +169,7 @@ func (s *Signer) generateSignature(ctx context.Context, desc notation.Descriptor
 	return jwsEnvelope(ctx, opts, payloadToSign+"."+signed64Url, resp.CertificateChain)
 }
 
-func (s *Signer) mergeConfig(config map[string]string) map[string]string {
+func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 	c := make(map[string]string, len(s.pluginConfig)+len(config))
 	// First clone s.PluginConfig.
 	for k, v := range s.pluginConfig {
@@ -182,7 +182,7 @@ func (s *Signer) mergeConfig(config map[string]string) map[string]string {
 	return c
 }
 
-func (s *Signer) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	return nil, errors.New("not implemented")
 }
 
