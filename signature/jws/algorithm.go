@@ -66,7 +66,7 @@ func keySpecFromKey(key interface{}) (notation.KeySpec, error) {
 		case 512:
 			return notation.RSA_4096, nil
 		default:
-			return notation.RSA_2048, nil
+			return "", fmt.Errorf("RSA key of size %q bits is not supported", key.Size()*8)
 		}
 	case *ecdsa.PublicKey:
 		switch key.Curve.Params().BitSize {
@@ -77,8 +77,8 @@ func keySpecFromKey(key interface{}) (notation.KeySpec, error) {
 		case jwt.SigningMethodES512.CurveBits:
 			return notation.EC_512, nil
 		default:
-			return "", errors.New("ecdsa key not recognized")
+			return "", return fmt.Errorf("EC key %q of size %q bits is not supported", key.Curve.Params().Name, key.Curve.BitSize)
 		}
 	}
-	return "", errors.New("key not recognized")
+	return "", errors.New("unsupported key type, only RSA and EC keys are supported")
 }
