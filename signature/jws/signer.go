@@ -22,28 +22,16 @@ import (
 // The relation of the provided siging key and its certificate chain is not verified,
 // and should be verified by the caller.
 func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
-	method, err := SigningMethodFromKey(key)
-	if err != nil {
-		return nil, err
-	}
-	return NewSignerWithCertificateChain(method, key, certChain)
-}
-
-// NewSignerWithCertificateChain creates a signer with the specified signing method and
-// a signing key bundled with a (partial) certificate chain.
-// Since the provided signing key could potentially be a remote key, the relation of the
-// signing key and its certificate chain is not verified, and should be verified by the caller.
-func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
-	if method == nil {
-		return nil, errors.New("nil signing method")
-	}
 	if key == nil {
 		return nil, errors.New("nil signing key")
 	}
 	if len(certChain) == 0 {
 		return nil, errors.New("missing signer certificate chain")
 	}
-
+	method, err := signingMethodFromKey(key)
+	if err != nil {
+		return nil, err
+	}
 	// verify the signing certificate
 	cert := certChain[0]
 	roots := x509.NewCertPool()
@@ -55,7 +43,7 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		return nil, err
 	}
 
-	keySpec, _, err := keySpecFromKey(key)
+	keySpec, err := keySpecFromKey(key)
 	if err != nil {
 		return nil, err
 	}
