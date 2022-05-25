@@ -55,7 +55,7 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		return nil, err
 	}
 
-	keySpec, err := keySpecFromKey(key)
+	keySpec, _, err := keySpecFromKey(key)
 	if err != nil {
 		return nil, err
 	}
