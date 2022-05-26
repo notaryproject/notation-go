@@ -384,15 +384,16 @@ func (s *mockEnvelopePlugin) Run(ctx context.Context, req plugin.Request) (inter
 		if key == nil {
 			key = tmpkey
 		}
-		method, err := signingMethodFromKey(key)
+		keySpec, err := keySpecFromKey(key)
 		if err != nil {
 			return nil, err
 		}
+		alg := keySpec.SignatureAlgorithm().JWS()
 		req1 := req.(*plugin.GenerateEnvelopeRequest)
 		t := &jwt.Token{
-			Method: method,
+			Method: jwt.GetSigningMethod(alg),
 			Header: map[string]interface{}{
-				"alg": method.Alg(),
+				"alg": alg,
 				"cty": notation.MediaTypePayload,
 			},
 			Claims: struct {

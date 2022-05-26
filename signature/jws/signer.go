@@ -28,7 +28,7 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.S
 	if len(certChain) == 0 {
 		return nil, errors.New("missing signer certificate chain")
 	}
-	method, err := signingMethodFromKey(key)
+	keySpec, err := keySpecFromKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -43,11 +43,6 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.S
 		return nil, err
 	}
 
-	keySpec, err := keySpecFromKey(key)
-	if err != nil {
-		return nil, err
-	}
-
 	rawCerts := make([][]byte, len(certChain))
 	for i, cert := range certChain {
 		rawCerts[i] = cert.Raw
@@ -55,7 +50,6 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.S
 	return &pluginSigner{
 		runner: &builtinPlugin{
 			keySpec:   keySpec,
-			method:    method,
 			key:       key,
 			certChain: rawCerts,
 		},
@@ -67,9 +61,6 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.S
 // the provided key and certificates.
 type builtinPlugin struct {
 	keySpec notation.KeySpec
-
-	// method is the method to sign artifacts.
-	method jwt.SigningMethod
 
 	// key is the signing key used to sign artifacts.
 	key crypto.PrivateKey
@@ -110,7 +101,9 @@ func (r *builtinPlugin) Run(ctx context.Context, req plugin.Request) (interface{
 		// Stop using a jwt.MethodSigner and use instead
 		// the hash provided in req1.Hash and a Sign method
 		// which does not hash data itself.
-		signed, err := r.method.Sign(string(req1.Payload), r.key)
+		sigAlg := r.keySpec.SignatureAlgorithm()
+		method := jwt.GetSigningMethod(sigAlg.JWS())
+		signed, err := method.Sign(string(req1.Payload), r.key)
 		if err != nil {
 			return nil, plugin.RequestError{
 				Code: plugin.ErrorCodeGeneric,
@@ -129,7 +122,7 @@ func (r *builtinPlugin) Run(ctx context.Context, req plugin.Request) (interface{
 		return &plugin.GenerateSignatureResponse{
 			KeyID:            req1.KeyID,
 			Signature:        signedDecoded,
-			SigningAlgorithm: req1.KeySpec.SignatureAlgorithm(),
+			SigningAlgorithm: sigAlg,
 			CertificateChain: r.certChain,
 		}, nil
 	}

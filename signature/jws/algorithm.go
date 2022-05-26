@@ -7,20 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
 )
-
-// signingMethodFromKey picks up a recommended algorithm for private and public keys.
-// Reference: RFC 7518 3.1 "alg" (Algorithm) Header Parameter Values for JWS.
-func signingMethodFromKey(key interface{}) (jwt.SigningMethod, error) {
-	keySpec, err := keySpecFromKey(key)
-	if err != nil {
-		return nil, err
-	}
-	method := jwt.GetSigningMethod(keySpec.SignatureAlgorithm().JWS())
-	return method, err
-}
 
 func keySpecFromKey(key interface{}) (notation.KeySpec, error) {
 	if k, ok := key.(interface {
