@@ -384,7 +384,7 @@ func (s *mockEnvelopePlugin) Run(ctx context.Context, req plugin.Request) (inter
 		if key == nil {
 			key = tmpkey
 		}
-		method, err := SigningMethodFromKey(key)
+		method, err := signingMethodFromKey(key)
 		if err != nil {
 			return nil, err
 		}
@@ -440,58 +440,58 @@ func (s *mockEnvelopePlugin) Run(ctx context.Context, req plugin.Request) (inter
 	panic("too many calls")
 }
 func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
-	signer := PluginSigner{
-		Runner: &mockEnvelopePlugin{err: errors.New("failed")},
-		KeyID:  "1",
+	signer := pluginSigner{
+		runner: &mockEnvelopePlugin{err: errors.New("failed")},
+		keyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
 		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "generate-envelope command failed: failed" {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
 	}
 }
 
 func TestPluginSigner_SignEnvelope_InvalidEnvelopeType(t *testing.T) {
-	signer := PluginSigner{
-		Runner: &mockEnvelopePlugin{envelopeType: "other"},
-		KeyID:  "1",
+	signer := pluginSigner{
+		runner: &mockEnvelopePlugin{envelopeType: "other"},
+		keyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
 		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "signatureEnvelopeType in generateEnvelope response \"other\" does not match request \"application/vnd.cncf.notary.v2.jws.v1\"" {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
 	}
 }
 
 func TestPluginSigner_SignEnvelope_EmptyCert(t *testing.T) {
-	signer := PluginSigner{
-		Runner: &mockEnvelopePlugin{certChain: make([][]byte, 0)},
-		KeyID:  "1",
+	signer := pluginSigner{
+		runner: &mockEnvelopePlugin{certChain: make([][]byte, 0)},
+		keyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
 		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "envelope content does not match envelope format" {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
 	}
 }
 
 func TestPluginSigner_SignEnvelope_MalformedCertChain(t *testing.T) {
-	signer := PluginSigner{
-		Runner: &mockEnvelopePlugin{certChain: [][]byte{make([]byte, 0)}},
-		KeyID:  "1",
+	signer := pluginSigner{
+		runner: &mockEnvelopePlugin{certChain: [][]byte{make([]byte, 0)}},
+		keyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
 		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "x509: malformed certificate" {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
 	}
 }
 
@@ -511,19 +511,19 @@ func TestPluginSigner_SignEnvelope_CertBasicConstraintCA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer := PluginSigner{
-		Runner: &mockEnvelopePlugin{
+	signer := pluginSigner{
+		runner: &mockEnvelopePlugin{
 			key:       key,
 			certChain: [][]byte{certBytes},
 		},
-		KeyID: "1",
+		keyID: "1",
 	}
 	_, err = signer.Sign(context.Background(), notation.Descriptor{
 		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "signing certificate does not meet the minimum requirements: keyUsage must have the bit positions for digitalSignature set" {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
 	}
 }
 
@@ -532,29 +532,29 @@ func TestPluginSigner_SignEnvelope_SignatureVerifyError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer := PluginSigner{
-		Runner: &mockEnvelopePlugin{key: key},
-		KeyID:  "1",
+	signer := pluginSigner{
+		runner: &mockEnvelopePlugin{key: key},
+		keyID:  "1",
 	}
 	_, err = signer.Sign(context.Background(), notation.Descriptor{
 		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "crypto/rsa: verification error" {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
 	}
 }
 
 func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
-	signer := PluginSigner{
-		Runner: &mockEnvelopePlugin{},
-		KeyID:  "1",
+	signer := pluginSigner{
+		runner: &mockEnvelopePlugin{},
+		keyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
 		MediaType: notation.MediaTypePayload,
 		Size:      1,
 	}, notation.SignOptions{})
 	if err != nil {
-		t.Errorf("PluginSigner.Sign() error = %v, wantErr nil", err)
+		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
 	}
 }
