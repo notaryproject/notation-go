@@ -12,20 +12,31 @@ func ReadCertificateFile(path string) ([]*x509.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseCertificatePEM(data)
+	return parseCertificates(data)
 }
 
-// ParseCertificatePEM parses a certificate PEM.
-func ParseCertificatePEM(data []byte) ([]*x509.Certificate, error) {
+// ParseCertificates parses certificates from either PEM or DER data
+// returns an empty list if no certificates are found
+func parseCertificates(data []byte) ([]*x509.Certificate, error) {
 	var certs []*x509.Certificate
 	block, rest := pem.Decode(data)
-	for block != nil {
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, err
+	if block == nil {
+		// data may be in DER format
+		cert, err := x509.ParseCertificate(data)
+		if err == nil {
+			certs = append(certs, cert)
 		}
-		certs = append(certs, cert)
-		block, rest = pem.Decode(rest)
+	} else {
+		// data is in PEM format
+		for block != nil {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certs = append(certs, cert)
+			block, rest = pem.Decode(rest)
+		}
 	}
+
 	return certs, nil
 }

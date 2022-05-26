@@ -46,7 +46,7 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 		if file.IsDir() || file.Type()&fs.ModeSymlink != 0 {
 			return nil, fmt.Errorf("%q is not a regular file (directories or symlinks are not supported)", joinedPath)
 		}
-		certs, err := cryptoutil.ReadCertificateFile(joinedPath) // TODO support DER formatted files
+		certs, err := cryptoutil.ReadCertificateFile(joinedPath)
 		if err != nil {
 			return nil, err
 		}
