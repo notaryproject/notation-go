@@ -27,7 +27,7 @@ type Verifier struct {
 
 	// ResolveSigningMethod resolves the signing method used to verify the certificate in the
 	// certificate chain.
-	// If not present, `SigningMethodFromKey` will be used to pick up a recommended method.
+	// If not present, `signingMethodFromKey` will be used to pick up a recommended method.
 	ResolveSigningMethod func(interface{}) (jwt.SigningMethod, error)
 
 	// EnforceExpiryValidation enforces the verifier to verify the timestamp signature even if
@@ -135,7 +135,7 @@ func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken 
 	// resolve signing method
 	resolveMethod := v.ResolveSigningMethod
 	if resolveMethod == nil {
-		resolveMethod = SigningMethodFromKey
+		resolveMethod = signingMethodFromKey
 	}
 	method, err := resolveMethod(cert.PublicKey)
 	if err != nil {

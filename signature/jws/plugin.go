@@ -12,18 +12,29 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 )
 
-// PluginSigner signs artifacts and generates JWS signatures
-// by delegating the one or both operations to the named plugin,
+// pluginSigner signs artifacts and generates JWS signatures.
+type pluginSigner struct {
+	runner       plugin.Runner
+	keyID        string
+	pluginConfig map[string]string
+}
+
+// NewSignerPlugin creates a notation.Signer that signs artifacts and generates JWS signatures
+// by delegating the one or more operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-type PluginSigner struct {
-	Runner       plugin.Runner
-	KeyID        string
-	PluginConfig map[string]string
+func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
+	if runner == nil {
+		return nil, errors.New("nil plugin runner")
+	}
+	if keyID == "" {
+		return nil, errors.New("nil signing keyID")
+	}
+	return &pluginSigner{runner, keyID, pluginConfig}, nil
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
 		return nil, err
@@ -36,8 +47,8 @@ func (s *PluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 	return nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *PluginSigner) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
-	out, err := s.Runner.Run(ctx, new(plugin.GetMetadataRequest))
+func (s *pluginSigner) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
+	out, err := s.runner.Run(ctx, new(plugin.GetMetadataRequest))
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
 	}
@@ -51,13 +62,13 @@ func (s *PluginSigner) getMetadata(ctx context.Context) (*plugin.Metadata, error
 	return metadata, nil
 }
 
-func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
+func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
 	req := &plugin.DescribeKeyRequest{
 		ContractVersion: plugin.ContractVersion,
-		KeyID:           s.KeyID,
+		KeyID:           s.keyID,
 		PluginConfig:    config,
 	}
-	out, err := s.Runner.Run(ctx, req)
+	out, err := s.runner.Run(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("describe-key command failed: %w", err)
 	}
@@ -68,7 +79,7 @@ func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string
 	return resp, nil
 }
 
-func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	config := s.mergeConfig(opts.PluginConfig)
 	// Get key info.
 	key, err := s.describeKey(ctx, config)
@@ -77,8 +88,8 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	}
 
 	// Check keyID is honored.
-	if s.KeyID != key.KeyID {
-		return nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.KeyID)
+	if s.keyID != key.KeyID {
+		return nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.keyID)
 	}
 
 	// Get algorithm associated to key.
@@ -103,13 +114,13 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	// Execute plugin sign command.
 	req := &plugin.GenerateSignatureRequest{
 		ContractVersion: plugin.ContractVersion,
-		KeyID:           s.KeyID,
+		KeyID:           s.keyID,
 		KeySpec:         key.KeySpec,
 		Hash:            alg.Hash(),
 		Payload:         []byte(payloadToSign),
 		PluginConfig:    config,
 	}
-	out, err := s.Runner.Run(ctx, req)
+	out, err := s.runner.Run(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate-signature command failed: %w", err)
 	}
@@ -119,8 +130,8 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	}
 
 	// Check keyID is honored.
-	if s.KeyID != resp.KeyID {
-		return nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q", resp.KeyID, s.KeyID)
+	if s.keyID != resp.KeyID {
+		return nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q", resp.KeyID, s.keyID)
 	}
 
 	// Check algorithm is supported.
@@ -158,10 +169,10 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	return jwsEnvelope(ctx, opts, payloadToSign+"."+signed64Url, resp.CertificateChain)
 }
 
-func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {
-	c := make(map[string]string, len(s.PluginConfig)+len(config))
+func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
+	c := make(map[string]string, len(s.pluginConfig)+len(config))
 	// First clone s.PluginConfig.
-	for k, v := range s.PluginConfig {
+	for k, v := range s.pluginConfig {
 		c[k] = v
 	}
 	// Then set or override entries from config.
@@ -171,7 +182,7 @@ func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {
 	return c
 }
 
-func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
+func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	return nil, errors.New("not implemented")
 }
 
