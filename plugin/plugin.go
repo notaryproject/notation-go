@@ -114,7 +114,7 @@ type GenerateEnvelopeRequest struct {
 }
 
 func (GenerateEnvelopeRequest) Command() Command {
-	return CommandGenerateSignature
+	return CommandGenerateEnvelope
 }
 
 // GenerateSignatureResponse is the response of a generate-envelope request.

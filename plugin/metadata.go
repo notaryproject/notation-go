@@ -55,10 +55,10 @@ func (m *Metadata) HasCapability(capability Capability) bool {
 }
 
 // SupportsContract return true if the metadata states that the
-// major contract version is supported.
-func (m *Metadata) SupportsContract(major string) bool {
+// contract version is supported.
+func (m *Metadata) SupportsContract(ver string) bool {
 	for _, v := range m.SupportedContractVersions {
-		if v == major {
+		if v == ver {
 			return true
 		}
 	}
