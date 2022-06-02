@@ -38,7 +38,7 @@ func TestLoadTrustStoreWithDirs(t *testing.T) {
 
 func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
 	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-invalid-certs")
-	if err == nil || err.Error() != "could not parse a certificate from \"testdata/trust-store/trust-store-with-invalid-certs/invalid\", every file in a trust store must have a PEM or DER certificate in it" {
+	if err == nil || err.Error() != "Error while reading certificates from \"testdata/trust-store/trust-store-with-invalid-certs/invalid\". Error : \"x509: malformed certificate\"" {
 		t.Fatalf("invalid certs should return error : %q", err)
 	}
 }

@@ -48,7 +48,7 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 		}
 		certs, err := corex509.ReadCertificateFile(joinedPath)
 		if err != nil {
-			return nil, fmt.Errorf("Error while reading certificates from %q. Error : ", joinedPath, err)
+			return nil, fmt.Errorf("Error while reading certificates from %q. Error : %q", joinedPath, err)
 		}
 
 		// to prevent any trust store misconfigurations, ensure there is at least one certificate from each file
