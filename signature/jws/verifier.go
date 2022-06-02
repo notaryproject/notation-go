@@ -8,11 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 )
 
@@ -27,8 +27,8 @@ type Verifier struct {
 
 	// ResolveSigningMethod resolves the signing method used to verify the certificate in the
 	// certificate chain.
-	// If not present, `SigningMethodFromKey` will be used to pick up a recommended method.
-	ResolveSigningMethod func(interface{}) (jwt.SigningMethod, error)
+	// If not present, the recommended method will be used.
+	ResolveSigningMethod func(alg notation.SignatureAlgorithm) (jwt.SigningMethod, error)
 
 	// EnforceExpiryValidation enforces the verifier to verify the timestamp signature even if
 	// the certificate is valid.
@@ -55,52 +55,48 @@ func NewVerifier() *Verifier {
 
 // Verify verifies the signature and returns the verified descriptor and
 // metadata of the signed artifact.
-func (v *Verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (notation.Descriptor, error) {
+func (v *Verifier) Verify(ctx context.Context, sig []byte, opts notation.VerifyOptions) (notation.Descriptor, error) {
 	// unpack envelope
-	sig, err := openEnvelope(signature)
+	envelope, err := openEnvelope(sig)
 	if err != nil {
 		return notation.Descriptor{}, err
 	}
 
 	// verify signing identity
-	method, key, err := v.verifySigner(&sig.Signature)
+	key, err := v.verifySigner(envelope)
 	if err != nil {
 		return notation.Descriptor{}, err
 	}
 
 	// verify JWT
-	claim, err := v.verifyJWT(method, key, sig.SerializeCompact())
+	compact := strings.Join([]string{envelope.Protected, envelope.Payload, envelope.Signature}, ".")
+	claim, err := v.verifyJWT(key, compact)
 	if err != nil {
 		return notation.Descriptor{}, err
 	}
 
-	return claim.Subject, nil
+	return claim, nil
 }
 
 // verifySigner verifies the signing identity and returns the verification key.
-func (v *Verifier) verifySigner(sig *jwsutil.Signature) (jwt.SigningMethod, crypto.PublicKey, error) {
-	var header unprotectedHeader
-	if err := json.Unmarshal(sig.Unprotected, &header); err != nil {
-		return nil, nil, err
+func (v *Verifier) verifySigner(sig *notation.JWSEnvelope) (crypto.PublicKey, error) {
+	if len(sig.Header.CertChain) == 0 {
+		return nil, errors.New("signer certificates not found")
 	}
-
-	if len(header.CertChain) == 0 {
-		return nil, nil, errors.New("signer certificates not found")
-	}
-	return v.verifySignerFromCertChain(header.CertChain, header.TimeStampToken, sig.Signature)
+	return v.verifySignerFromCertChain(sig.Header.CertChain, sig.Header.TimeStampToken, sig.Signature)
 }
 
 // verifySignerFromCertChain verifies the signing identity from the provided certificate
 // chain and returns the verification key. The first certificate of the certificate chain
 // contains the key, which used to sign the artifact.
 // Reference: RFC 7515 4.1.6 "x5c" (X.509 Certificate Chain) Header Parameter.
-func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken []byte, encodedSig string) (jwt.SigningMethod, crypto.PublicKey, error) {
+func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken []byte, encodedSig string) (crypto.PublicKey, error) {
 	// prepare for certificate verification
 	certs := make([]*x509.Certificate, 0, len(certChain))
 	for _, certBytes := range certChain {
 		cert, err := x509.ParseCertificate(certBytes)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		certs = append(certs, cert)
 	}
@@ -119,7 +115,7 @@ func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken 
 	cert := certs[0]
 	if _, err := cert.Verify(verifyOpts); err != nil {
 		if certErr, ok := err.(x509.CertificateInvalidError); !ok || certErr.Reason != x509.Expired {
-			return nil, nil, err
+			return nil, err
 		}
 
 		// verification failed due to expired certificate
@@ -128,25 +124,14 @@ func (v *Verifier) verifySignerFromCertChain(certChain [][]byte, timeStampToken 
 	if checkTimestamp {
 		stampedTime, err := v.verifyTimestamp(timeStampToken, encodedSig)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		verifyOpts.CurrentTime = stampedTime
 		if _, err := cert.Verify(verifyOpts); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
-
-	// resolve signing method
-	resolveMethod := v.ResolveSigningMethod
-	if resolveMethod == nil {
-		resolveMethod = SigningMethodFromKey
-	}
-	method, err := resolveMethod(cert.PublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return method, cert.PublicKey, nil
+	return cert.PublicKey, nil
 }
 
 // verifyTimestamp verifies the timestamp token and returns stamped time.
@@ -160,12 +145,26 @@ func (v *Verifier) verifyTimestamp(tokenBytes []byte, encodedSig string) (time.T
 
 // verifyJWT verifies the JWT token against the specified verification key, and
 // returns notation claim.
-func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tokenString string) (*notationClaim, error) {
+func (v *Verifier) verifyJWT(key crypto.PublicKey, tokenString string) (notation.Descriptor, error) {
+	keySpec, err := keySpecFromKey(key)
+	if err != nil {
+		return notation.Descriptor{}, err
+	}
+	sigAlg := keySpec.SignatureAlgorithm()
+	var method jwt.SigningMethod
+	if v.ResolveSigningMethod != nil {
+		method, err = v.ResolveSigningMethod(sigAlg)
+		if err != nil {
+			return notation.Descriptor{}, err
+		}
+	} else {
+		method = jwt.GetSigningMethod(sigAlg.JWS())
+	}
 	// parse and verify token
 	parser := &jwt.Parser{
 		ValidMethods: v.ValidMethods,
 	}
-	var claims payload
+	var claims notaryClaim
 	if _, err := parser.ParseWithClaims(tokenString, &claims, func(t *jwt.Token) (interface{}, error) {
 		alg := t.Method.Alg()
 		if expectedAlg := method.Alg(); alg != expectedAlg {
@@ -176,28 +175,24 @@ func (v *Verifier) verifyJWT(method jwt.SigningMethod, key crypto.PublicKey, tok
 		t.Method = method
 		return key, nil
 	}); err != nil {
-		return nil, err
+		return notation.Descriptor{}, err
 	}
 
 	// ensure required claims exist.
 	// Note: the registered claims are already verified by parser.ParseWithClaims().
 	if claims.IssuedAt == nil {
-		return nil, errors.New("missing iat")
+		return notation.Descriptor{}, errors.New("missing iat")
 	}
-	return &claims.Notation, nil
+	return claims.Subject, nil
 }
 
 // openEnvelope opens the signature envelope and get the embedded signature.
-func openEnvelope(signature []byte) (*jwsutil.CompleteSignature, error) {
-	var envelope jwsutil.Envelope
-	if err := json.Unmarshal(signature, &envelope); err != nil {
+func openEnvelope(sig []byte) (*notation.JWSEnvelope, error) {
+	var envelope notation.JWSEnvelope
+	if err := json.Unmarshal(sig, &envelope); err != nil {
 		return nil, err
 	}
-	if len(envelope.Signatures) != 1 {
-		return nil, errors.New("single signature envelope expected")
-	}
-	sig := envelope.Open()
-	return &sig, nil
+	return &envelope, nil
 }
 
 // verifyTimestamp verifies the timestamp token and returns stamped time.

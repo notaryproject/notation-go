@@ -3,16 +3,14 @@ package jws
 import (
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/ed25519"
 	"crypto/rsa"
 	"errors"
+	"fmt"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/notaryproject/notation-go"
 )
 
-// SigningMethodFromKey picks up a recommended algorithm for private and public keys.
-// Reference: RFC 7518 3.1 "alg" (Algorithm) Header Parameter Values for JWS.
-func SigningMethodFromKey(key interface{}) (jwt.SigningMethod, error) {
+func keySpecFromKey(key interface{}) (notation.KeySpec, error) {
 	if k, ok := key.(interface {
 		Public() crypto.PublicKey
 	}); ok {
@@ -21,29 +19,28 @@ func SigningMethodFromKey(key interface{}) (jwt.SigningMethod, error) {
 
 	switch key := key.(type) {
 	case *rsa.PublicKey:
-		switch key.Size() {
+		switch size := key.Size(); size {
 		case 256:
-			return jwt.SigningMethodPS256, nil
+			return notation.RSA_2048, nil
 		case 384:
-			return jwt.SigningMethodPS384, nil
+			return notation.RSA_3072, nil
 		case 512:
-			return jwt.SigningMethodPS512, nil
+			return notation.RSA_4096, nil
 		default:
-			return jwt.SigningMethodPS256, nil
+			return "", fmt.Errorf("RSA key of size %q bits is not supported", key.N.BitLen())
 		}
 	case *ecdsa.PublicKey:
-		switch key.Curve.Params().BitSize {
-		case jwt.SigningMethodES256.CurveBits:
-			return jwt.SigningMethodES256, nil
-		case jwt.SigningMethodES384.CurveBits:
-			return jwt.SigningMethodES384, nil
-		case jwt.SigningMethodES512.CurveBits:
-			return jwt.SigningMethodES512, nil
+		params := key.Curve.Params()
+		switch size := params.N.BitLen(); size {
+		case 256:
+			return notation.EC_256, nil
+		case 384:
+			return notation.EC_384, nil
+		case 521:
+			return notation.EC_512, nil
 		default:
-			return nil, errors.New("ecdsa key not recognized")
+			return "", fmt.Errorf("EC key %q of size %q bits is not supported", params.Name, size)
 		}
-	case *ed25519.PublicKey:
-		return jwt.SigningMethodEdDSA, nil
 	}
-	return nil, errors.New("key not recognized")
+	return "", errors.New("unsupported key type, only RSA and EC keys are supported")
 }

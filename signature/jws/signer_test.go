@@ -2,6 +2,9 @@ package jws
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -16,17 +19,10 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-func TestSignerInterface(t *testing.T) {
-	if _, ok := interface{}(&Signer{}).(notation.Signer); !ok {
-		t.Error("&Signer{} does not conform notation.Signer")
-	}
-}
-
-func TestSignWithCertChain(t *testing.T) {
-	// sign with key
-	key, cert, err := generateKeyCertPair()
+func testSignWithCertChain(t *testing.T, key crypto.PrivateKey) {
+	cert, err := generateCert(key)
 	if err != nil {
-		t.Fatalf("generateKeyCertPair() error = %v", err)
+		t.Fatal(err)
 	}
 	s, err := NewSigner(key, []*x509.Certificate{cert})
 	if err != nil {
@@ -50,6 +46,48 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 }
 
+func TestSignWithCertChain(t *testing.T) {
+	// sign with key
+	tests := []struct {
+		name string
+		fn   func() (crypto.PrivateKey, error)
+	}{
+		{
+			name: string(notation.RSA_2048),
+			fn:   func() (crypto.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 2048) },
+		},
+		{
+			name: string(notation.RSA_3072),
+			fn:   func() (crypto.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 3072) },
+		},
+		{
+			name: string(notation.RSA_4096),
+			fn:   func() (crypto.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 4096) },
+		},
+		{
+			name: string(notation.EC_256),
+			fn:   func() (crypto.PrivateKey, error) { return ecdsa.GenerateKey(elliptic.P256(), rand.Reader) },
+		},
+		{
+			name: string(notation.EC_384),
+			fn:   func() (crypto.PrivateKey, error) { return ecdsa.GenerateKey(elliptic.P384(), rand.Reader) },
+		},
+		{
+			name: string(notation.EC_512),
+			fn:   func() (crypto.PrivateKey, error) { return ecdsa.GenerateKey(elliptic.P521(), rand.Reader) },
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			key, err := test.fn()
+			if err != nil {
+				t.Fatal(err)
+			}
+			testSignWithCertChain(t, key)
+		})
+	}
+}
+
 func TestSignWithTimestamp(t *testing.T) {
 	// prepare signer
 	key, cert, err := generateKeyCertPair()
@@ -66,10 +104,6 @@ func TestSignWithTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("timestamptest.NewTSA() error = %v", err)
 	}
-	s.TSA = tsa
-	tsaRoots := x509.NewCertPool()
-	tsaRoots.AddCert(tsa.Certificate())
-	s.TSARoots = tsaRoots
 
 	// sign content
 	ctx := context.Background()
@@ -143,16 +177,20 @@ func generateSigningContent(tsa *timestamptest.TSA) (notation.Descriptor, notati
 	return desc, sOpts
 }
 
-// generateKeyCertPair generates a test key / certificate pair.
-func generateKeyCertPair() (*rsa.PrivateKey, *x509.Certificate, error) {
+func generateKeyCertPair() (crypto.PrivateKey, *x509.Certificate, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, err
 	}
+	cert, err := generateCert(key)
+	return key, cert, err
+}
 
+// generateKeyCertPair generates a test key / certificate pair.
+func generateCert(key crypto.PrivateKey) (*x509.Certificate, error) {
 	serialNumber, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	now := time.Now()
 	template := x509.Certificate{
@@ -166,13 +204,13 @@ func generateKeyCertPair() (*rsa.PrivateKey, *x509.Certificate, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 		BasicConstraintsValid: true,
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, key.Public(), key)
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, key.(crypto.Signer).Public(), key)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	cert, err := x509.ParseCertificate(certBytes)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return key, cert, nil
+	return cert, nil
 }

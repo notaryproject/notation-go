@@ -52,6 +52,19 @@ func (e RequestError) Unwrap() error {
 	return e.Err
 }
 
+func (e RequestError) Is(target error) bool {
+	if et, ok := target.(RequestError); ok {
+		if e.Code != et.Code {
+			return false
+		}
+		if e.Err == et.Err {
+			return true
+		}
+		return e.Err != nil && et.Err != nil && e.Err.Error() == et.Err.Error()
+	}
+	return false
+}
+
 func (e RequestError) MarshalJSON() ([]byte, error) {
 	var msg string
 	if e.Err != nil {
@@ -69,6 +82,9 @@ func (e *RequestError) UnmarshalJSON(data []byte) error {
 	if tmp.Code == "" && tmp.Message == "" && tmp.Metadata == nil {
 		return errors.New("incomplete json")
 	}
-	*e = RequestError{tmp.Code, errors.New(tmp.Message), tmp.Metadata}
+	*e = RequestError{Code: tmp.Code, Metadata: tmp.Metadata}
+	if tmp.Message != "" {
+		e.Err = errors.New(tmp.Message)
+	}
 	return nil
 }

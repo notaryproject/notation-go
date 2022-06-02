@@ -8,62 +8,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/crypto/jwsutil"
 	"github.com/notaryproject/notation-go/crypto/timestamp"
 	"github.com/notaryproject/notation-go/internal/crypto/pki"
+	"github.com/notaryproject/notation-go/plugin"
 )
-
-// Signer signs artifacts and generates JWS signatures.
-type Signer struct {
-	// method is the method to sign artifacts.
-	method jwt.SigningMethod
-
-	// key is the signing key used to sign artifacts.
-	// The signing key can be either remote or local.
-	key crypto.PrivateKey
-
-	// certChain contains the X.509 public key certificate or certificate chain corresponding
-	// to the key used to generate the signature.
-	certChain [][]byte
-
-	// TSA is the TimeStamp Authority to timestamp the resulted signature if present.
-	TSA timestamp.Timestamper
-
-	// TSARoots is the set of trusted root certificates for verifying the fetched timestamp
-	// signature. If nil, the system roots or the platform verifier are used.
-	TSARoots *x509.CertPool
-}
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
 // with a certificate chain.
 // The relation of the provided siging key and its certificate chain is not verified,
 // and should be verified by the caller.
-func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, error) {
-	method, err := SigningMethodFromKey(key)
-	if err != nil {
-		return nil, err
-	}
-	return NewSignerWithCertificateChain(method, key, certChain)
-}
-
-// NewSignerWithCertificateChain creates a signer with the specified signing method and
-// a signing key bundled with a (partial) certificate chain.
-// Since the provided signing key could potentially be a remote key, the relation of the
-// siging key and its certificate chain is not verified, and should be verified by the caller.
-func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateKey, certChain []*x509.Certificate) (*Signer, error) {
-	if method == nil {
-		return nil, errors.New("nil signing method")
-	}
+func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
 	if key == nil {
 		return nil, errors.New("nil signing key")
 	}
 	if len(certChain) == 0 {
 		return nil, errors.New("missing signer certificate chain")
 	}
-
+	keySpec, err := keySpecFromKey(key)
+	if err != nil {
+		return nil, err
+	}
 	// verify the signing certificate
 	cert := certChain[0]
 	roots := x509.NewCertPool()
@@ -75,70 +43,130 @@ func NewSignerWithCertificateChain(method jwt.SigningMethod, key crypto.PrivateK
 		return nil, err
 	}
 
-	rawCerts := make([][]byte, 0, len(certChain))
-	for _, cert := range certChain {
-		rawCerts = append(rawCerts, cert.Raw)
+	rawCerts := make([][]byte, len(certChain))
+	for i, cert := range certChain {
+		rawCerts[i] = cert.Raw
 	}
-	return &Signer{
-		method:    method,
-		key:       key,
-		certChain: rawCerts,
+	return &pluginSigner{
+		runner: &builtinPlugin{
+			keySpec:   keySpec,
+			key:       key,
+			certChain: rawCerts,
+		},
 	}, nil
 }
 
-// Sign signs the artifact described by its descriptor, and returns the signature.
-func (s *Signer) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	if err := opts.Validate(); err != nil {
-		return nil, err
-	}
+// builtinPlugin is a plugin.Runner implementation which
+// signs supports the generate-signature workflow using
+// the provided key and certificates.
+type builtinPlugin struct {
+	keySpec notation.KeySpec
 
-	// generate JWT
-	payload := packPayload(desc, opts)
-	if err := payload.Valid(); err != nil {
-		return nil, err
+	// key is the signing key used to sign artifacts.
+	key crypto.PrivateKey
+
+	// certChain contains the X.509 public key certificate or certificate chain corresponding
+	// to the key used to generate the signature.
+	certChain [][]byte
+}
+
+func (builtinPlugin) metadata() *plugin.Metadata {
+	// The only properties that are really relevant
+	// are the supported contract version and the capabilities.
+	// All other are just filled with meaningful data.
+	return &plugin.Metadata{
+		SupportedContractVersions: []string{plugin.ContractVersion},
+		Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
+		Name:                      "built-in",
+		Description:               "Notation built-in signer",
+		Version:                   plugin.ContractVersion,
+		URL:                       "https://github.com/notaryproject/notation-go",
 	}
-	token := &jwt.Token{
+}
+
+// Run implement the generate-signature workflow.
+func (r *builtinPlugin) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
+	switch req.Command() {
+	case plugin.CommandGetMetadata:
+		return r.metadata(), nil
+	case plugin.CommandDescribeKey:
+		req1 := req.(*plugin.DescribeKeyRequest)
+		return &plugin.DescribeKeyResponse{
+			KeyID:   req1.KeyID,
+			KeySpec: r.keySpec,
+		}, nil
+	case plugin.CommandGenerateSignature:
+		req1 := req.(*plugin.GenerateSignatureRequest)
+		// TODO: the builtinPlugin should be JWS-agnostic.
+		// Stop using a jwt.MethodSigner and use instead
+		// the hash provided in req1.Hash and a Sign method
+		// which does not hash data itself.
+		sigAlg := r.keySpec.SignatureAlgorithm()
+		method := jwt.GetSigningMethod(sigAlg.JWS())
+		signed, err := method.Sign(string(req1.Payload), r.key)
+		if err != nil {
+			return nil, plugin.RequestError{
+				Code: plugin.ErrorCodeGeneric,
+				Err:  err,
+			}
+		}
+		// jwt.Sign returns a base64url-encoded encoded signature,
+		// but GenerateSignatureResponse.Signature expects it to be decoded.
+		signedDecoded, err := base64.RawURLEncoding.DecodeString(signed)
+		if err != nil {
+			return nil, plugin.RequestError{
+				Code: plugin.ErrorCodeGeneric,
+				Err:  err,
+			}
+		}
+		return &plugin.GenerateSignatureResponse{
+			KeyID:            req1.KeyID,
+			Signature:        signedDecoded,
+			SigningAlgorithm: sigAlg,
+			CertificateChain: r.certChain,
+		}, nil
+	}
+	return nil, plugin.RequestError{
+		Code: plugin.ErrorCodeGeneric,
+		Err:  fmt.Errorf("command %q is not supported", req.Command()),
+	}
+}
+
+func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
+	return &jwt.Token{
 		Header: map[string]interface{}{
-			"alg": s.method.Alg(),
-			"cty": MediaTypeNotationPayload,
-			"crit": []string{
-				"cty",
-			},
+			"alg": alg,
+			"cty": notation.MediaTypePayload,
 		},
-		Claims: payload,
-		Method: s.method,
+		Claims: claims,
 	}
-	compact, err := token.SignedString(s.key)
-	if err != nil {
-		return nil, err
-	}
+}
 
-	// generate unprotected header
-	header := unprotectedHeader{
-		CertChain: s.certChain,
+func jwsEnvelope(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
+	parts := strings.Split(compact, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("invalid compact serialization")
+	}
+	envelope := notation.JWSEnvelope{
+		Protected: parts[0],
+		Payload:   parts[1],
+		Signature: parts[2],
+		Header: notation.JWSUnprotectedHeader{
+			CertChain: certChain,
+		},
 	}
 
 	// timestamp JWT
-	sig, err := jwsutil.ParseCompact(compact)
-	if err != nil {
-		return nil, err
-	}
 	if opts.TSA != nil {
-		token, err := timestampSignature(ctx, sig.Signature.Signature, opts.TSA, opts.TSAVerifyOptions)
+		token, err := timestampSignature(ctx, envelope.Signature, opts.TSA, opts.TSAVerifyOptions)
 		if err != nil {
 			return nil, fmt.Errorf("timestamp failed: %w", err)
 		}
-		header.TimeStampToken = token
-	}
-
-	// finalize unprotected header
-	sig.Unprotected, err = json.Marshal(header)
-	if err != nil {
-		return nil, err
+		envelope.Header.TimeStampToken = token
 	}
 
 	// encode in flatten JWS JSON serialization
-	return json.Marshal(sig)
+	return json.Marshal(envelope)
 }
 
 // timestampSignature sends a request to the TSA for timestamping the signature.
