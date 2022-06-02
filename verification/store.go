@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/notaryproject/notation-go/crypto/cryptoutil"
+	corex509 "github.com/notaryproject/notation-core-go/x509"
 )
 
 // X509TrustStore provide the members and behavior for a named trust store
@@ -46,9 +46,9 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 		if file.IsDir() || file.Type()&fs.ModeSymlink != 0 {
 			return nil, fmt.Errorf("%q is not a regular file (directories or symlinks are not supported)", joinedPath)
 		}
-		certs, err := cryptoutil.ReadCertificateFile(joinedPath)
+		certs, err := corex509.ReadCertificateFile(joinedPath)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Error while reading certificates from %q. Error : ", joinedPath, err)
 		}
 
 		// to prevent any trust store misconfigurations, ensure there is at least one certificate from each file
