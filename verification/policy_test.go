@@ -362,3 +362,47 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 		t.Fatalf("policy statements with same name should return error")
 	}
 }
+
+// TestApplicableTrustPolicy tests filtering policies against registry scopes
+func TestApplicableTrustPolicy(t *testing.T) {
+	policyDoc := dummyPolicyDocument()
+
+	policyStatement := dummyPolicyStatement()
+	policyStatement.Name = "test-statement-name-1"
+	registryScope := "registry.wabbit-networks.io/software/unsigned/net-utils"
+	policyStatement.RegistryScopes = []string{registryScope}
+	policyStatement.SignatureVerification = "strict"
+
+	policyDoc.TrustPolicies = []TrustPolicy{
+		policyStatement,
+	}
+
+	// existing Registry Scope
+	policy, err := GetApplicableTrustPolicy(registryScope, &policyDoc)
+	if policy.Name != policyStatement.Name || err != nil {
+		t.Fatalf("GetApplicableTrustPolicy should return %q for registry scope %q", policyStatement.Name, registryScope)
+	}
+
+	// non-existing Registry Scope
+	policy, err = GetApplicableTrustPolicy("non.existing.scope/repo", &policyDoc)
+	if policy != nil || err == nil || err.Error() != "registry scope \"non.existing.scope/repo\" has no applicable trust policy" {
+		t.Fatalf("GetApplicableTrustPolicy should return nil for non existing registry scope")
+	}
+
+	// wildcard registry scope
+	wildcardStatement := dummyPolicyStatement()
+	wildcardStatement.Name = "test-statement-name-2"
+	wildcardStatement.RegistryScopes = []string{"*"}
+	wildcardStatement.TrustStore = ""
+	wildcardStatement.TrustedIdentities = []string{}
+	wildcardStatement.SignatureVerification = "skip"
+
+	policyDoc.TrustPolicies = []TrustPolicy{
+		policyStatement,
+		wildcardStatement,
+	}
+	policy, err = GetApplicableTrustPolicy("some.registry.that/has.no.policy", &policyDoc)
+	if policy.Name != wildcardStatement.Name || err != nil {
+		t.Fatalf("GetApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
+	}
+}

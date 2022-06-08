@@ -203,3 +203,27 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 	// No errors
 	return nil
 }
+
+// GetApplicableTrustPolicy returns a pointer to the TrustPolicy statement that applies to the given
+// registry scope. If no applicable trust policy is found, returns an error
+func GetApplicableTrustPolicy(registryScope string, policyDoc *PolicyDocument) (*TrustPolicy, error) {
+
+	var wildcardPolicy *TrustPolicy
+	var applicablePolicy *TrustPolicy
+	for _, policyStatement := range policyDoc.TrustPolicies {
+		localCopy := policyStatement
+		if isPresent(wildcard, policyStatement.RegistryScopes) {
+			wildcardPolicy = &localCopy
+		} else if isPresent(registryScope, policyStatement.RegistryScopes) {
+			applicablePolicy = &localCopy
+		}
+	}
+
+	if applicablePolicy != nil {
+		return applicablePolicy, nil
+	} else if wildcardPolicy != nil {
+		return wildcardPolicy, nil
+	} else {
+		return nil, fmt.Errorf("registry scope %q has no applicable trust policy", registryScope)
+	}
+}
