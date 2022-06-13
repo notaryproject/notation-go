@@ -103,11 +103,11 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 			// notation natively supports x509.subject identities only
 			if identityPrefix == x509Subject {
-				validatedDN, err := validateDistinguishedName(identityValue)
+				dn, err := parseDistinguishedName(identityValue)
 				if err != nil {
 					return err
 				}
-				parsedDNs = append(parsedDNs, parsedDN{RawString: identity, ParsedMap: validatedDN})
+				parsedDNs = append(parsedDNs, parsedDN{RawString: identity, ParsedMap: dn})
 			}
 		}
 	}

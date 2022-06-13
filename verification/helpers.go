@@ -40,8 +40,8 @@ func validateRegistryScopeFormat(scope string) error {
 	return nil
 }
 
-// validateDistinguishedName validates if a DN name is parsable and follows Notary V2 rules
-func validateDistinguishedName(name string) (map[string]string, error) {
+// parseDistinguishedName parses a DN name and validates Notary V2 rules
+func parseDistinguishedName(name string) (map[string]string, error) {
 	mandatoryFields := []string{"C", "ST", "O"}
 	attrKeyValue := make(map[string]string)
 	dn, err := ldapv3.ParseDN(name)
