@@ -3,11 +3,11 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: all
-all: check-line-endings test
+all: test
 
 .PHONY: test
-test: ## run unit tests
-	go test ./...
+test: check-line-endings ## run unit tests
+	./scripts/test.sh
 
 .PHONY: clean
 clean:
@@ -16,6 +16,7 @@ clean:
 .PHONY: check-line-endings
 check-line-endings: ## check line endings
 	! find . -name "*.go" -type f -exec file "{}" ";" | grep CRLF
+	! find scripts -name "*.sh" -type f -exec file "{}" ";" | grep CRLF
 
 .PHONY: fix-line-endings
 fix-line-endings: ## fix line endings
