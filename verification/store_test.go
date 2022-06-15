@@ -1,12 +1,15 @@
 package verification
 
 import (
+	"fmt"
+	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 // TestLoadTrustStore tests a valid trust store
 func TestLoadValidTrustStore(t *testing.T) {
-	trustStore, err := LoadX509TrustStore("testdata/trust-store/valid-trust-store")
+	trustStore, err := LoadX509TrustStore(filepath.FromSlash("testdata/trust-store/valid-trust-store"))
 	if err != nil {
 		t.Fatalf("could not load a valid trust store. %q", err)
 	}
@@ -16,36 +19,61 @@ func TestLoadValidTrustStore(t *testing.T) {
 }
 
 func TestLoadSymlinkTrustStore(t *testing.T) {
-	_, err := LoadX509TrustStore("testdata/trust-store/valid-trust-store_SYMLINK")
-	if err == nil || err.Error() != "\"testdata/trust-store/valid-trust-store_SYMLINK\" is not a regular directory (symlinks are not supported)" {
+	// TODO run symlink tests on Windows
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping the symlink test on Windows")
+	}
+	path := filepath.FromSlash("testdata/trust-store/valid-trust-store_SYMLINK")
+	_, err := LoadX509TrustStore(path)
+	fmt.Println(err)
+	if err == nil || err.Error() != fmt.Sprintf("%q is not a regular directory (symlinks are not supported)", path) {
 		t.Fatalf("symlinks should return error : %q", err)
 	}
 }
 
 func TestLoadTrustStoreWithSymlinks(t *testing.T) {
-	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-cert-symlinks")
-	if err == nil || err.Error() != "\"testdata/trust-store/trust-store-with-cert-symlinks/GlobalSignRootCA_SYMLINK.crt\" is not a regular file (directories or symlinks are not supported)" {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping the symlink test on Windows")
+	}
+	path := filepath.FromSlash("testdata/trust-store/trust-store-with-cert-symlinks")
+	failurePath := filepath.FromSlash("testdata/trust-store/trust-store-with-cert-symlinks/GlobalSignRootCA_SYMLINK.crt")
+	_, err := LoadX509TrustStore(path)
+	if err == nil || err.Error() != fmt.Sprintf("%q is not a regular file (directories or symlinks are not supported)", failurePath) {
 		t.Fatalf("symlinks should return error : %q", err)
 	}
 }
 
 func TestLoadTrustStoreWithDirs(t *testing.T) {
-	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-directories")
-	if err == nil || err.Error() != "\"testdata/trust-store/trust-store-with-directories/sub-dir\" is not a regular file (directories or symlinks are not supported)" {
+	path := filepath.FromSlash("testdata/trust-store/trust-store-with-directories")
+	failurePath := filepath.FromSlash("testdata/trust-store/trust-store-with-directories/sub-dir")
+	_, err := LoadX509TrustStore(path)
+	if err == nil || err.Error() != fmt.Sprintf("%q is not a regular file (directories or symlinks are not supported)", failurePath) {
 		t.Fatalf("sub directories should return error : %q", err)
 	}
 }
 
 func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
-	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-invalid-certs")
-	if err == nil || err.Error() != "Error while reading certificates from \"testdata/trust-store/trust-store-with-invalid-certs/invalid\". Error : \"x509: malformed certificate\"" {
+	path := filepath.FromSlash("testdata/trust-store/trust-store-with-invalid-certs")
+	failurePath := filepath.FromSlash("testdata/trust-store/trust-store-with-invalid-certs/invalid")
+	_, err := LoadX509TrustStore(path)
+	if err == nil || err.Error() != fmt.Sprintf("Error while reading certificates from %q. Error : \"x509: malformed certificate\"", failurePath) {
 		t.Fatalf("invalid certs should return error : %q", err)
 	}
 }
 
 func TestLoadTrustStoreWithLeafCerts(t *testing.T) {
-	_, err := LoadX509TrustStore("testdata/trust-store/trust-store-with-leaf-certs")
-	if err == nil || err.Error() != "certificate with subject \"CN=lol,OU=lol,O=lol,L=lol,ST=Some-State,C=AU,1.2.840.113549.1.9.1=#13036c6f6c\" from file \"testdata/trust-store/trust-store-with-leaf-certs/non-ca.crt\" is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed" {
+	path := filepath.FromSlash("testdata/trust-store/trust-store-with-leaf-certs")
+	failurePath := filepath.FromSlash("testdata/trust-store/trust-store-with-leaf-certs/non-ca.crt")
+	_, err := LoadX509TrustStore(path)
+	if err == nil || err.Error() != fmt.Sprintf("certificate with subject \"CN=lol,OU=lol,O=lol,L=lol,ST=Some-State,C=AU,1.2.840.113549.1.9.1=#13036c6f6c\" from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", failurePath) {
 		t.Fatalf("leaf cert in a trust store should return error : %q", err)
+	}
+}
+
+func TestLoadTrustStoreWithEmptyDir(t *testing.T) {
+	path := t.TempDir()
+	_, err := LoadX509TrustStore(path)
+	if err == nil || err.Error() != fmt.Sprintf("trust store %q has no x509 certificates", path) {
+		t.Fatalf("empty trust store should throw an error : %q", err)
 	}
 }

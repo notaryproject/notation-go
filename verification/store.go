@@ -64,6 +64,10 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 		trustStore.Certificates = append(trustStore.Certificates, certs...)
 	}
 
+	if len(trustStore.Certificates) < 1 {
+		return nil, fmt.Errorf("trust store %q has no x509 certificates", path)
+	}
+
 	trustStore.Name = filepath.Base(path)
 	trustStore.Path = path
 
