@@ -78,17 +78,17 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy TrustPol
 		return nil
 	}
 
-	for _, cert := range certs {
-		certDN, err := parseDistinguishedName(cert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
-		if err != nil {
-			return fmt.Errorf("error while parsing the certificate subject from the digital signature. Error : %q", err)
-		}
-		for _, trustedX509Identity := range trustedX509Identities {
-			if isOverlappingDN(trustedX509Identity, certDN) {
-				return nil
-			}
+	leafCert := certs[0]
+
+	leafCertDN, err := parseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
+	if err != nil {
+		return fmt.Errorf("error while parsing the certificate subject from the digital signature. Error : %q", err)
+	}
+	for _, trustedX509Identity := range trustedX509Identities {
+		if isSubsetDN(trustedX509Identity, leafCertDN) {
+			return nil
 		}
 	}
 
-	return fmt.Errorf("certificates from the digital signature do not match the X509 trusted identites %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
+	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
 }

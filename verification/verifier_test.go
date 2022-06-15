@@ -1,6 +1,7 @@
 package verification
 
 import (
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -9,7 +10,7 @@ import (
 
 func TestVerifyX509TrustedIdentities(t *testing.T) {
 
-	certs, _ := corex509.ReadCertificateFile("testdata/verifier/signing-cert.pem")
+	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/signing-cert.pem")) // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
 
 	tests := []struct {
 		x509Identities []string
