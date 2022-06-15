@@ -135,10 +135,10 @@ func validateTrustStore(statement TrustPolicy) error {
 
 // ValidatePolicyDocument validates a policy document according to it's version's rule set.
 // if any rule is violated, returns an error
-func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
+func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 	// Constants
 	supportedPolicyVersions := []string{"1.0"}
-	supportedVerificationPresets := []string{"strict", "permissive", "audit", "skip"}
+	supportedVerificationLevels := []string{"strict", "permissive", "audit", "skip"}
 
 	// Validate Version
 	if !isPresent(policyDoc.Version, supportedPolicyVersions) {
@@ -160,8 +160,8 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 		}
 		policyStatementNameCount[statement.Name]++
 
-		// Verify signature verification preset is valid
-		if !isPresent(statement.SignatureVerification, supportedVerificationPresets) {
+		// Verify signature verification level is valid
+		if !isPresent(statement.SignatureVerification, supportedVerificationLevels) {
 			return fmt.Errorf("trust policy statement %q uses unsupported signatureVerification value %q", statement.Name, statement.SignatureVerification)
 		}
 
@@ -204,26 +204,47 @@ func ValidatePolicyDocument(policyDoc *PolicyDocument) error {
 	return nil
 }
 
-// GetApplicableTrustPolicy returns a pointer to the TrustPolicy statement that applies to the given
-// registry scope. If no applicable trust policy is found, returns an error
-func GetApplicableTrustPolicy(registryScope string, policyDoc *PolicyDocument) (*TrustPolicy, error) {
+// getApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy statement that applies to the given
+// registry URI. If no applicable trust policy is found, returns an error
+// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+func (policyDoc *PolicyDocument) getApplicableTrustPolicy(registryUri string) (*TrustPolicy, error) {
+	i := strings.LastIndex(registryUri, ":")
+	if i < 0 {
+		return nil, fmt.Errorf("registry URI %q could not be parsed, make sure it is the fully qualified registry URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", registryUri)
+	}
+
+	registryScope := registryUri[:i]
+	if err := validateRegistryScopeFormat(registryScope); err != nil {
+		return nil, err
+	}
 
 	var wildcardPolicy *TrustPolicy
 	var applicablePolicy *TrustPolicy
 	for _, policyStatement := range policyDoc.TrustPolicies {
-		localCopy := policyStatement
 		if isPresent(wildcard, policyStatement.RegistryScopes) {
-			wildcardPolicy = &localCopy
+			wildcardPolicy = policyStatement.deepCopy() // we need to deep copy because we can't use the loop variable address. see https://stackoverflow.com/a/45967429
 		} else if isPresent(registryScope, policyStatement.RegistryScopes) {
-			applicablePolicy = &localCopy
+			applicablePolicy = policyStatement.deepCopy()
 		}
 	}
 
 	if applicablePolicy != nil {
+		// a policy with exact match for registry URI takes precedence over a wildcard (*) policy.
 		return applicablePolicy, nil
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
 		return nil, fmt.Errorf("registry scope %q has no applicable trust policy", registryScope)
 	}
+}
+
+// deepCopy returns a pointer to the deeply copied TrustPolicy
+func (t *TrustPolicy) deepCopy() *TrustPolicy {
+	localCopy := t
+	localCopy.RegistryScopes = make([]string, len(t.RegistryScopes))
+	copy(localCopy.RegistryScopes, t.RegistryScopes)
+
+	localCopy.TrustedIdentities = make([]string, len(t.TrustedIdentities))
+	copy(localCopy.TrustedIdentities, t.TrustedIdentities)
+	return localCopy
 }
