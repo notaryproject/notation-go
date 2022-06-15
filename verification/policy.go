@@ -208,13 +208,9 @@ func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 // registry URI. If no applicable trust policy is found, returns an error
 // see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
 func (policyDoc *PolicyDocument) getApplicableTrustPolicy(registryUri string) (*TrustPolicy, error) {
-	i := strings.LastIndex(registryUri, ":")
-	if i < 0 {
-		return nil, fmt.Errorf("registry URI %q could not be parsed, make sure it is the fully qualified registry URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", registryUri)
-	}
 
-	registryScope := registryUri[:i]
-	if err := validateRegistryScopeFormat(registryScope); err != nil {
+	artifactPath, err := getArtifactPathFromUri(registryUri)
+	if err != nil {
 		return nil, err
 	}
 
@@ -223,7 +219,7 @@ func (policyDoc *PolicyDocument) getApplicableTrustPolicy(registryUri string) (*
 	for _, policyStatement := range policyDoc.TrustPolicies {
 		if isPresent(wildcard, policyStatement.RegistryScopes) {
 			wildcardPolicy = policyStatement.deepCopy() // we need to deep copy because we can't use the loop variable address. see https://stackoverflow.com/a/45967429
-		} else if isPresent(registryScope, policyStatement.RegistryScopes) {
+		} else if isPresent(artifactPath, policyStatement.RegistryScopes) {
 			applicablePolicy = policyStatement.deepCopy()
 		}
 	}
@@ -234,7 +230,7 @@ func (policyDoc *PolicyDocument) getApplicableTrustPolicy(registryUri string) (*
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		return nil, fmt.Errorf("registry scope %q has no applicable trust policy", registryScope)
+		return nil, fmt.Errorf("registry scope %q has no applicable trust policy", artifactPath)
 	}
 }
 
