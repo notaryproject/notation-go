@@ -18,14 +18,14 @@ func isPresent(val string, values []string) bool {
 	return false
 }
 
-func getArtifactPathFromUri(registryUri string) (string, error) {
+func getArtifactPathFromUri(artifactUri string) (string, error) {
 	// TODO support more types of URI like "domain.com/repository", "domain.com/repository:tag", "domain.com/repository@sha256:digest"
-	i := strings.LastIndex(registryUri, ":")
+	i := strings.LastIndex(artifactUri, ":")
 	if i < 0 {
-		return "", fmt.Errorf("registry URI %q could not be parsed, make sure it is the fully qualified registry URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", registryUri)
+		return "", fmt.Errorf("registry URI %q could not be parsed, make sure it is the fully qualified registry URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", artifactUri)
 	}
 
-	artifactPath := registryUri[:i]
+	artifactPath := artifactUri[:i]
 	if err := validateRegistryScopeFormat(artifactPath); err != nil {
 		return "", err
 	}
