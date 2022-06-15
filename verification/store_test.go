@@ -25,9 +25,9 @@ func TestLoadSymlinkTrustStore(t *testing.T) {
 	}
 	path := filepath.FromSlash("testdata/trust-store/valid-trust-store_SYMLINK")
 	_, err := LoadX509TrustStore(path)
-	fmt.Println(err)
+
 	if err == nil || err.Error() != fmt.Sprintf("%q is not a regular directory (symlinks are not supported)", path) {
-		t.Fatalf("symlinks should return error : %q", err)
+		t.Fatalf("symlink directories should return error : %q", err)
 	}
 }
 
@@ -39,7 +39,7 @@ func TestLoadTrustStoreWithSymlinks(t *testing.T) {
 	failurePath := filepath.FromSlash("testdata/trust-store/trust-store-with-cert-symlinks/GlobalSignRootCA_SYMLINK.crt")
 	_, err := LoadX509TrustStore(path)
 	if err == nil || err.Error() != fmt.Sprintf("%q is not a regular file (directories or symlinks are not supported)", failurePath) {
-		t.Fatalf("symlinks should return error : %q", err)
+		t.Fatalf("symlink certificates should return error : %q", err)
 	}
 }
 
