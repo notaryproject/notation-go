@@ -19,7 +19,7 @@ func TestLoadValidTrustStore(t *testing.T) {
 }
 
 func TestLoadSymlinkTrustStore(t *testing.T) {
-	// TODO run symlink tests on Windows
+	// TODO run symlink tests on Windows. See https://github.com/notaryproject/notation-go/issues/59
 	if runtime.GOOS == "windows" {
 		t.Skip("skipping the symlink test on Windows")
 	}
