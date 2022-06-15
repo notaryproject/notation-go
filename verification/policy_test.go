@@ -386,7 +386,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 
 	// non-existing Registry Scope
 	policy, err = policyDoc.getApplicableTrustPolicy("non.existing.scope/repo:hash")
-	if policy != nil || err == nil || err.Error() != "registry scope \"non.existing.scope/repo\" has no applicable trust policy" {
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo\" has no applicable trust policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
 
