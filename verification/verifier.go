@@ -18,17 +18,7 @@ func NewVerifier(policyDocument *PolicyDocument, x509TrustStores []*X509TrustSto
 	}
 }
 
-func (v *Verifier) Verify(registryUri string) error {
-	i := strings.LastIndex(registryUri, ":")
-	if i < 0 {
-		return fmt.Errorf("registry URI %q could not be parsed, make sure it is the fully qualified registry URI without the scheme/protocol. e.g domain.com:80/my/repository:mytag", registryUri)
-	}
-
-	registryScope := registryUri[:i]
-	if err := validateRegistryScopeFormat(registryScope); err != nil {
-		return err
-	}
-
+func (v *Verifier) Verify(artifactUri string) error {
 	/*
 		[DONE] Find the applicable trust policy, if none, return error
 		If signatureVerification is skip, then return without an error
