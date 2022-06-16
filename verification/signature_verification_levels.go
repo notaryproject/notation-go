@@ -101,5 +101,5 @@ func FindSignatureVerificationLevel(s string) (*SignatureVerificationLevel, erro
 			return &level, nil
 		}
 	}
-	return nil, fmt.Errorf("invalid SignatureVerification %q", s)
+	return nil, fmt.Errorf("invalid signature verification level %q", s)
 }
