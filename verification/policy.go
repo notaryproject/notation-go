@@ -230,7 +230,7 @@ func (policyDoc *PolicyDocument) getApplicableTrustPolicy(artifactUri string) (*
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactPath)
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactUri)
 	}
 }
 
