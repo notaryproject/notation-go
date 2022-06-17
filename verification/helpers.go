@@ -54,8 +54,8 @@ func validateRegistryScopeFormat(scope string) error {
 	return nil
 }
 
-// validateDistinguishedName validates if a DN name is parsable and follows Notary V2 rules
-func validateDistinguishedName(name string) (map[string]string, error) {
+// parseDistinguishedName parses a DN name and validates Notary V2 rules
+func parseDistinguishedName(name string) (map[string]string, error) {
 	mandatoryFields := []string{"C", "ST", "O"}
 	attrKeyValue := make(map[string]string)
 	dn, err := ldapv3.ParseDN(name)
@@ -92,7 +92,7 @@ func validateDistinguishedName(name string) (map[string]string, error) {
 func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
 	for i, dn1 := range parsedDNs {
 		for j, dn2 := range parsedDNs {
-			if i != j && isOverlappingDN(dn1.ParsedMap, dn2.ParsedMap) {
+			if i != j && isSubsetDN(dn1.ParsedMap, dn2.ParsedMap) {
 				return fmt.Errorf("trust policy statement %q has overlapping x509 trustedIdentities, %q overlaps with %q", policyName, dn1.RawString, dn2.RawString)
 			}
 		}
@@ -101,7 +101,8 @@ func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
 	return nil
 }
 
-func isOverlappingDN(dn1 map[string]string, dn2 map[string]string) bool {
+// isSubsetDN returns true if dn1 is a subset of dn2 i.e. every key/value pair of dn1 has a matching key/value pair in dn2, otherwise returns false
+func isSubsetDN(dn1 map[string]string, dn2 map[string]string) bool {
 	for key := range dn1 {
 		if dn1[key] != dn2[key] {
 			return false
