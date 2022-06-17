@@ -18,6 +18,20 @@ func isPresent(val string, values []string) bool {
 	return false
 }
 
+func getArtifactPathFromUri(artifactUri string) (string, error) {
+	// TODO support more types of URI like "domain.com/repository", "domain.com/repository:tag", "domain.com/repository@sha256:digest"
+	i := strings.LastIndex(artifactUri, ":")
+	if i < 0 {
+		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", artifactUri)
+	}
+
+	artifactPath := artifactUri[:i]
+	if err := validateRegistryScopeFormat(artifactPath); err != nil {
+		return "", err
+	}
+	return artifactPath, nil
+}
+
 // validateRegistryScopeFormat validates if a scope is following the format defined in distribution spec
 func validateRegistryScopeFormat(scope string) error {
 	// Domain and Repository regexes are adapted from distribution implementation
