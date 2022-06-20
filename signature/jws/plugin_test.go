@@ -13,7 +13,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
@@ -128,21 +127,6 @@ func TestSigner_Sign_KeySpecNotSupported(t *testing.T) {
 		keyID:  "1",
 	}
 	testSignerError(t, signer, "keySpec \"custom\" for key \"1\" is not supported")
-}
-
-func TestSigner_Sign_PayloadNotValid(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockRunner{[]interface{}{
-			&validMetadata,
-			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: notation.RSA_2048},
-		}, []error{nil, nil}, 0},
-		keyID: "1",
-	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
-	wantEr := "token is expired"
-	if err == nil || !strings.Contains(err.Error(), wantEr) {
-		t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
-	}
 }
 
 func TestSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
@@ -336,13 +320,13 @@ func TestSigner_Sign_Valid(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := notation.JWSEnvelope{
-		Protected: "eyJhbGciOiJQUzI1NiIsImN0eSI6ImFwcGxpY2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS5wYXlsb2FkLnYxK2pzb24ifQ",
+		Payload: "eyJ0YXJnZXRBcnRpZmFjdCI6eyJtZWRpYVR5cGUiOiIiLCJkaWdlc3QiOiIiLCJzaXplIjowfX0",
 		Header: notation.JWSUnprotectedHeader{
 			CertChain: [][]byte{cert.Raw},
 		},
 	}
-	if got.Protected != want.Protected {
-		t.Errorf("Signer.Sign() Protected %v, want %v", got.Protected, want.Protected)
+	if got.Payload != want.Payload {
+		t.Errorf("Signer.Sign() Payload %v, want %v", got.Payload, want.Payload)
 	}
 	if _, err = base64.RawURLEncoding.DecodeString(got.Signature); err != nil {
 		t.Errorf("Signer.Sign() Signature %v is not encoded as Base64URL", got.Signature)
@@ -390,34 +374,27 @@ func (s *mockEnvelopePlugin) Run(ctx context.Context, req plugin.Request) (inter
 		}
 		alg := keySpec.SignatureAlgorithm().JWS()
 		req1 := req.(*plugin.GenerateEnvelopeRequest)
-		t := &jwt.Token{
-			Method: jwt.GetSigningMethod(alg),
-			Header: map[string]interface{}{
-				"alg": alg,
-				"cty": notation.MediaTypePayload,
-			},
-			Claims: struct {
-				jwt.RegisteredClaims
-				Subject json.RawMessage `json:"subject"`
-			}{
-				RegisteredClaims: jwt.RegisteredClaims{
-					IssuedAt: jwt.NewNumericDate(time.Now()),
-				},
-				Subject: req1.Payload,
-			},
-		}
-		signed, err := t.SignedString(key)
+		var payload notation.Payload
+		err = json.Unmarshal(req1.Payload, &payload)
 		if err != nil {
 			return nil, err
 		}
-		parts := strings.Split(signed, ".")
-		if len(parts) != 3 {
-			return nil, errors.New("invalid compact serialization")
+		payloadToSign, err := signingString(alg, payload.TargetArtifact, notation.SignOptions{})
+		if err != nil {
+			return nil, err
+		}
+		sig, err := jwt.GetSigningMethod(alg).Sign(payloadToSign, key)
+		if err != nil {
+			return "", err
+		}
+		parts := strings.Split(payloadToSign, ".")
+		if len(parts) != 2 {
+			return nil, errors.New("invalid signing string")
 		}
 		envelope := notation.JWSEnvelope{
 			Protected: parts[0],
 			Payload:   parts[1],
-			Signature: parts[2],
+			Signature: sig,
 		}
 		if s.certChain != nil {
 			// Override cert chain.
@@ -520,7 +497,7 @@ func TestPluginSigner_SignEnvelope_CertBasicConstraintCA(t *testing.T) {
 		keyID: "1",
 	}
 	_, err = signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
+		MediaType: "test media type",
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "signing certificate does not meet the minimum requirements: keyUsage must have the bit positions for digitalSignature set" {
@@ -538,7 +515,7 @@ func TestPluginSigner_SignEnvelope_SignatureVerifyError(t *testing.T) {
 		keyID:  "1",
 	}
 	_, err = signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
+		MediaType: "test media type",
 		Size:      1,
 	}, notation.SignOptions{})
 	if err == nil || err.Error() != "crypto/rsa: verification error" {
@@ -552,7 +529,7 @@ func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
 		keyID:  "1",
 	}
 	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
+		MediaType: "test media type",
 		Size:      1,
 	}, notation.SignOptions{})
 	if err != nil {

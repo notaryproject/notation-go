@@ -132,16 +132,6 @@ func (r *builtinPlugin) Run(ctx context.Context, req plugin.Request) (interface{
 	}
 }
 
-func jwtToken(alg string, claims jwt.Claims) *jwt.Token {
-	return &jwt.Token{
-		Header: map[string]interface{}{
-			"alg": alg,
-			"cty": notation.MediaTypePayload,
-		},
-		Claims: claims,
-	}
-}
-
 func jwsEnvelope(ctx context.Context, opts notation.SignOptions, compact string, certChain [][]byte) ([]byte, error) {
 	parts := strings.Split(compact, ".")
 	if len(parts) != 3 {
@@ -162,7 +152,7 @@ func jwsEnvelope(ctx context.Context, opts notation.SignOptions, compact string,
 		if err != nil {
 			return nil, fmt.Errorf("timestamp failed: %w", err)
 		}
-		envelope.Header.TimeStampToken = token
+		envelope.Header.TimestampSignature = token
 	}
 
 	// encode in flatten JWS JSON serialization

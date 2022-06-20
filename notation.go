@@ -13,6 +13,12 @@ import (
 // Media type for Notary payload for OCI artifacts, which contains an artifact descriptor.
 const MediaTypePayload = "application/vnd.cncf.notary.payload.v1+json"
 
+// Payload contains the set of claims used by Notary V2.
+type Payload struct {
+	// The descriptor of the target artifact manifest that is being signed.
+	TargetArtifact Descriptor `json:"targetArtifact"`
+}
+
 // Descriptor describes the content signed or to be signed.
 type Descriptor struct {
 	// The media type of the targeted content.

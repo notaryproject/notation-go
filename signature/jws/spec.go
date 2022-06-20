@@ -9,31 +9,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"time"
-
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/notaryproject/notation-go"
 )
-
-type notaryClaim struct {
-	jwt.RegisteredClaims
-	Subject notation.Descriptor `json:"subject"`
-}
-
-// packPayload generates JWS payload according the signing content and options.
-func packPayload(desc notation.Descriptor, opts notation.SignOptions) jwt.Claims {
-	var expiresAt *jwt.NumericDate
-	if !opts.Expiry.IsZero() {
-		expiresAt = jwt.NewNumericDate(opts.Expiry)
-	}
-	return notaryClaim{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: expiresAt,
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-		Subject: desc,
-	}
-}
 
 var (
 	oidExtensionKeyUsage = []int{2, 5, 29, 15}

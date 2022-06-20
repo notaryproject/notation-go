@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/notaryproject/notation-go"
@@ -105,17 +106,10 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		return nil, fmt.Errorf("keySpec %q for key %q is not supported", key.KeySpec, key.KeyID)
 	}
 
-	// Generate payload to be signed.
-	payload := packPayload(desc, opts)
-	if err := payload.Valid(); err != nil {
-		return nil, err
-	}
-
-	// Generate signing string.
-	token := jwtToken(alg.JWS(), payload)
-	payloadToSign, err := token.SigningString()
+	// Generate JWS signing input.
+	payloadToSign, err := signingString(alg.JWS(), desc, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal signing payload: %v", err)
+		return nil, err
 	}
 
 	// Execute plugin sign command.
@@ -190,7 +184,9 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	rawDesc, err := json.Marshal(desc)
+	rawPayload, err := json.Marshal(notation.Payload{
+		TargetArtifact: desc,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +194,10 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 	req := &plugin.GenerateEnvelopeRequest{
 		ContractVersion:       plugin.ContractVersion,
 		KeyID:                 s.keyID,
-		Payload:               rawDesc,
+		Payload:               rawPayload,
 		SignatureEnvelopeType: notation.MediaTypeJWSEnvelope,
-		// TODO: Update payload type once https://github.com/notaryproject/notaryproject/pull/158 is approved.
-		PayloadType:  notation.MediaTypePayload,
-		PluginConfig: s.mergeConfig(opts.PluginConfig),
+		PayloadType:           notation.MediaTypePayload,
+		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
 	out, err := s.runner.Run(ctx, req)
 	if err != nil {
@@ -242,12 +237,12 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 	}
 
 	// Check descriptor subject is honored.
-	var payload notation.JWSPayload
+	var payload notation.Payload
 	err = decodeBase64URLJSON(envelope.Payload, &payload)
 	if err != nil {
 		return nil, fmt.Errorf("envelope payload can't be decoded: %w", err)
 	}
-	if !descriptorPartialEqual(desc, payload.Subject) {
+	if !descriptorPartialEqual(desc, payload.TargetArtifact) {
 		return nil, errors.New("descriptor subject has changed")
 	}
 
@@ -283,6 +278,15 @@ func descriptorPartialEqual(original, newDesc notation.Descriptor) bool {
 	return true
 }
 
+func encodeBase64URLJSON(v interface{}) (string, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	enc := base64.RawURLEncoding.EncodeToString(data)
+	return enc, nil
+}
+
 func decodeBase64URLJSON(str string, v interface{}) error {
 	dec, err := base64.RawURLEncoding.DecodeString(str)
 	if err != nil {
@@ -307,4 +311,28 @@ func verifyJWT(sigAlg string, payload string, sig string, signingCert *x509.Cert
 	// Verify the hash of req.payload against resp.signature using the public key in the leaf certificate.
 	method := jwt.GetSigningMethod(sigAlg)
 	return method.Verify(payload, sig, signingCert.PublicKey)
+}
+
+func signingString(alg string, desc notation.Descriptor, opts notation.SignOptions) (string, error) {
+	protected := notation.JWSProtectedHeader{
+		Algorithm:   alg,
+		ContentType: notation.MediaTypePayload,
+		SigningTime: time.Now().Truncate(time.Second), // Truncate current time to avoid fractional second.
+		Expiry:      opts.Expiry,
+	}
+	if !protected.Expiry.IsZero() {
+		protected.Critical = []string{"io.cncf.notary.expiry,omitempty"}
+	}
+	protectedRaw, err := encodeBase64URLJSON(&protected)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode protected header: %v", err)
+	}
+	payloadRaw, err := encodeBase64URLJSON(&notation.Payload{
+		TargetArtifact: desc,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to encode payload: %v", err)
+	}
+
+	return protectedRaw + "." + payloadRaw, nil
 }

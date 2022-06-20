@@ -1,21 +1,11 @@
 package notation
 
+import "time"
+
 const (
 	// MediaTypeJWSEnvelope describes the media type of the JWS envelope.
 	MediaTypeJWSEnvelope = "application/vnd.cncf.notary.v2.jws.v1"
 )
-
-// JWSPayload contains the set of claims used by Notary V2.
-type JWSPayload struct {
-	// Private claim.
-	Subject Descriptor `json:"subject"`
-
-	// Identifies the number of seconds since Epoch at which the signature was issued.
-	IssuedAt int64 `json:"iat"`
-
-	// Identifies the number of seconds since Epoch at which the signature must not be considered valid.
-	ExpiresAt int64 `json:"exp,omitempty"`
-}
 
 // JWSProtectedHeader contains the set of protected headers.
 type JWSProtectedHeader struct {
@@ -24,16 +14,28 @@ type JWSProtectedHeader struct {
 
 	// Media type of the secured content (the payload).
 	ContentType string `json:"cty"`
+
+	// Lists the headers that implementation MUST understand and process.
+	Critical []string `json:"crit"`
+
+	// The time at which the signature was generated.
+	SigningTime time.Time `json:"io.cncf.notary.signingTime"`
+
+	// The "best by use" time for the artifact, as defined by the signer.
+	Expiry time.Time `json:"io.cncf.notary.expiry,omitempty"`
 }
 
 // JWSUnprotectedHeader contains the set of unprotected headers.
 type JWSUnprotectedHeader struct {
 	// RFC3161 time stamp token Base64-encoded.
-	TimeStampToken []byte `json:"timestamp,omitempty"`
+	TimestampSignature []byte `json:"io.cncf.notary.timestampSignature,omitempty"`
 
 	// List of X.509 Base64-DER-encoded certificates
 	// as defined at https://datatracker.ietf.org/doc/html/rfc7515#section-4.1.6.
 	CertChain [][]byte `json:"x5c"`
+
+	// The identifier of a client that produced the signature.
+	SigningAgent string `json:"io.cncf.notary.signingAgent,omitempty"`
 }
 
 // JWSEnvelope is the final signature envelope.

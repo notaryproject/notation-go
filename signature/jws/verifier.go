@@ -83,7 +83,7 @@ func (v *Verifier) verifySigner(sig *notation.JWSEnvelope) (crypto.PublicKey, er
 	if len(sig.Header.CertChain) == 0 {
 		return nil, errors.New("signer certificates not found")
 	}
-	return v.verifySignerFromCertChain(sig.Header.CertChain, sig.Header.TimeStampToken, sig.Signature)
+	return v.verifySignerFromCertChain(sig.Header.CertChain, sig.Header.TimestampSignature, sig.Signature)
 }
 
 // verifySignerFromCertChain verifies the signing identity from the provided certificate
@@ -143,6 +143,13 @@ func (v *Verifier) verifyTimestamp(tokenBytes []byte, encodedSig string) (time.T
 	return verifyTimestamp(sig, tokenBytes, v.TSARoots)
 }
 
+// payloadClaims just exists to fulfill the jwt.Claims interface.
+type payloadClaims notation.Payload
+
+func (payloadClaims) Valid() error {
+	return nil
+}
+
 // verifyJWT verifies the JWT token against the specified verification key, and
 // returns notation claim.
 func (v *Verifier) verifyJWT(key crypto.PublicKey, tokenString string) (notation.Descriptor, error) {
@@ -164,8 +171,8 @@ func (v *Verifier) verifyJWT(key crypto.PublicKey, tokenString string) (notation
 	parser := &jwt.Parser{
 		ValidMethods: v.ValidMethods,
 	}
-	var claims notaryClaim
-	if _, err := parser.ParseWithClaims(tokenString, &claims, func(t *jwt.Token) (interface{}, error) {
+	var claims payloadClaims
+	token, err := parser.ParseWithClaims(tokenString, &claims, func(t *jwt.Token) (interface{}, error) {
 		alg := t.Method.Alg()
 		if expectedAlg := method.Alg(); alg != expectedAlg {
 			return nil, fmt.Errorf("unexpected signing method: %v: require %v", alg, expectedAlg)
@@ -174,16 +181,16 @@ func (v *Verifier) verifyJWT(key crypto.PublicKey, tokenString string) (notation
 		// override default signing method with key-specific method
 		t.Method = method
 		return key, nil
-	}); err != nil {
+	})
+	if err != nil {
 		return notation.Descriptor{}, err
 	}
-
-	// ensure required claims exist.
-	// Note: the registered claims are already verified by parser.ParseWithClaims().
-	if claims.IssuedAt == nil {
-		return notation.Descriptor{}, errors.New("missing iat")
+	signingTime := token.Header["io.cncf.notary.signingTime"]
+	if signingTime == nil {
+		return notation.Descriptor{}, errors.New("missing signingTime")
 	}
-	return claims.Subject, nil
+
+	return claims.TargetArtifact, nil
 }
 
 // openEnvelope opens the signature envelope and get the embedded signature.
