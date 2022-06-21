@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestFindSignatureVerificationLevel(t *testing.T) {
+func TestFindVerificationLevel(t *testing.T) {
 	tests := []struct {
 		verificationLevel   string
 		wantErr             bool
@@ -20,10 +20,10 @@ func TestFindSignatureVerificationLevel(t *testing.T) {
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 
-			level, err := FindSignatureVerificationLevel(tt.verificationLevel)
+			level, err := FindVerificationLevel(tt.verificationLevel)
 
 			if tt.wantErr != (err != nil) {
-				t.Fatalf("TestFindSignatureVerificationLevel Error: %q WantErr: %v", err, tt.wantErr)
+				t.Fatalf("TestFindVerificationLevel Error: %q WantErr: %v", err, tt.wantErr)
 			} else {
 				for index, action := range tt.verificationActions {
 					if action != level.VerificationMap[VerificationTypes[index]] {

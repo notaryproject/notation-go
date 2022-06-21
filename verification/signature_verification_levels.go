@@ -8,18 +8,18 @@ type VerificationType string
 // VerificationAction is an enum for signature verification actions such as Enforced, Logged, Skipped.
 type VerificationAction string
 
-// SignatureVerificationLevel encapsulates the signature verification preset and it's actions for each verification type
-type SignatureVerificationLevel struct {
+// VerificationLevel encapsulates the signature verification preset and it's actions for each verification type
+type VerificationLevel struct {
 	Name            string
 	VerificationMap map[VerificationType]VerificationAction
 }
 
 const (
-	Integrity             VerificationType = "Integrity"
-	Authenticity          VerificationType = "Authenticity"
-	TrustedTimestampCheck VerificationType = "TrustedTimestampCheck"
-	ExpiryCheck           VerificationType = "ExpiryCheck"
-	RevocationCheck       VerificationType = "RevocationCheck"
+	Integrity          VerificationType = "Integrity"
+	Authenticity       VerificationType = "Authenticity"
+	AuthenticTimestamp VerificationType = "AuthenticTimestamp"
+	Expiry             VerificationType = "Expiry"
+	Revocation         VerificationType = "Revocation"
 
 	Enforced VerificationAction = "Enforced"
 	Logged   VerificationAction = "Logged"
@@ -27,56 +27,56 @@ const (
 )
 
 var (
-	Strict = SignatureVerificationLevel{
+	Strict = &VerificationLevel{
 		"strict",
 		map[VerificationType]VerificationAction{
-			Integrity:             Enforced,
-			Authenticity:          Enforced,
-			TrustedTimestampCheck: Enforced,
-			ExpiryCheck:           Enforced,
-			RevocationCheck:       Enforced,
+			Integrity:          Enforced,
+			Authenticity:       Enforced,
+			AuthenticTimestamp: Enforced,
+			Expiry:             Enforced,
+			Revocation:         Enforced,
 		},
 	}
 
-	Permissive = SignatureVerificationLevel{
+	Permissive = &VerificationLevel{
 		"permissive",
 		map[VerificationType]VerificationAction{
-			Integrity:             Enforced,
-			Authenticity:          Enforced,
-			TrustedTimestampCheck: Logged,
-			ExpiryCheck:           Logged,
-			RevocationCheck:       Logged,
+			Integrity:          Enforced,
+			Authenticity:       Enforced,
+			AuthenticTimestamp: Logged,
+			Expiry:             Logged,
+			Revocation:         Logged,
 		},
 	}
 
-	Audit = SignatureVerificationLevel{
+	Audit = &VerificationLevel{
 		"audit",
 		map[VerificationType]VerificationAction{
-			Integrity:             Enforced,
-			Authenticity:          Logged,
-			TrustedTimestampCheck: Logged,
-			ExpiryCheck:           Logged,
-			RevocationCheck:       Logged,
+			Integrity:          Enforced,
+			Authenticity:       Logged,
+			AuthenticTimestamp: Logged,
+			Expiry:             Logged,
+			Revocation:         Logged,
 		},
 	}
 
-	Skip = SignatureVerificationLevel{
+	Skip = &VerificationLevel{
 		"skip",
 		map[VerificationType]VerificationAction{
-			Integrity:             Skipped,
-			Authenticity:          Skipped,
-			TrustedTimestampCheck: Skipped,
-			ExpiryCheck:           Skipped,
-			RevocationCheck:       Skipped,
+			Integrity:          Skipped,
+			Authenticity:       Skipped,
+			AuthenticTimestamp: Skipped,
+			Expiry:             Skipped,
+			Revocation:         Skipped,
 		},
 	}
 
 	VerificationTypes = []VerificationType{
 		Integrity,
 		Authenticity,
-		TrustedTimestampCheck,
-		ExpiryCheck,
-		RevocationCheck,
+		AuthenticTimestamp,
+		Expiry,
+		Revocation,
 	}
 
 	VerificationActions = []VerificationAction{
@@ -85,7 +85,7 @@ var (
 		Skipped,
 	}
 
-	SignatureVerificationLevels = []SignatureVerificationLevel{
+	VerificationLevels = []*VerificationLevel{
 		Strict,
 		Permissive,
 		Audit,
@@ -93,12 +93,12 @@ var (
 	}
 )
 
-// FindSignatureVerificationLevel finds if the given string corresponds to a supported SignatureVerificationLevel, otherwise throws an error
-func FindSignatureVerificationLevel(s string) (*SignatureVerificationLevel, error) {
+// FindVerificationLevel finds if the given string corresponds to a supported VerificationLevel, otherwise throws an error
+func FindVerificationLevel(s string) (*VerificationLevel, error) {
 
-	for _, level := range SignatureVerificationLevels {
+	for _, level := range VerificationLevels {
 		if level.Name == s {
-			return &level, nil
+			return level, nil
 		}
 	}
 	return nil, fmt.Errorf("invalid signature verification level %q", s)
