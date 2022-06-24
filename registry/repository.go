@@ -24,6 +24,11 @@ type RepositoryClient struct {
 	remote.Repository
 }
 
+type SignatureManifest struct {
+	Blob        notation.Descriptor
+	Annotations map[string]string
+}
+
 // NewRepositoryClient creates a new registry client.
 func NewRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP bool) *RepositoryClient {
 	return &RepositoryClient{
@@ -35,18 +40,18 @@ func NewRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 	}
 }
 
-// GetManifestDescriptor returns signature manifest information by tag or digest.
-func (c *RepositoryClient) GetManifestDescriptor(ctx context.Context, ref string) (notation.Descriptor, error) {
-	desc, err := c.Repository.Resolve(ctx, ref)
+// Resolve resolves a reference(tag or digest) to a manifest descriptor
+func (c *RepositoryClient) Resolve(ctx context.Context, reference string) (notation.Descriptor, error) {
+	desc, err := c.Repository.Resolve(ctx, reference)
 	if err != nil {
 		return notation.Descriptor{}, err
 	}
 	return notationDescriptorFromOCI(desc), nil
 }
 
-// Lookup finds all signatures for the specified manifest
-func (c *RepositoryClient) Lookup(ctx context.Context, manifestDigest digest.Digest) ([]digest.Digest, error) {
-	var digests []digest.Digest
+// ListSignatureManifests returns all signature manifests given the manifest digest
+func (c *RepositoryClient) ListSignatureManifests(ctx context.Context, manifestDigest digest.Digest) ([]SignatureManifest, error) {
+	var signatureManifests []SignatureManifest
 	// TODO(shizhMSFT): filter artifact type at the server side
 	if err := c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: manifestDigest,
@@ -59,20 +64,24 @@ func (c *RepositoryClient) Lookup(ctx context.Context, manifestDigest digest.Dig
 			if err != nil {
 				return fmt.Errorf("failed to fetch manifest: %v: %v", desc.Digest, err)
 			}
-			for _, blob := range artifact.Blobs {
-				digests = append(digests, blob.Digest)
+			if len(artifact.Blobs) == 0 {
+				continue
 			}
+			signatureManifests = append(signatureManifests, SignatureManifest{
+				Blob:        notationDescriptorFromArtifact(artifact.Blobs[0]),
+				Annotations: artifact.Annotations,
+			})
 		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return digests, nil
+	return signatureManifests, nil
 }
 
-// Get downloads the signature by the specified digest
-func (c *RepositoryClient) Get(ctx context.Context, signatureDigest digest.Digest) ([]byte, error) {
-	desc, err := c.Repository.Resolve(ctx, signatureDigest.String())
+// Get downloads the content by the specified digest
+func (c *RepositoryClient) Get(ctx context.Context, digest digest.Digest) ([]byte, error) {
+	desc, err := c.Repository.Resolve(ctx, digest.String())
 	if err != nil {
 		return nil, err
 	}
@@ -82,45 +91,32 @@ func (c *RepositoryClient) Get(ctx context.Context, signatureDigest digest.Diges
 	return content.FetchAll(ctx, c.Repository.Blobs(), desc)
 }
 
-// Put uploads the signature to the registry
-func (c *RepositoryClient) Put(ctx context.Context, signature []byte) (notation.Descriptor, error) {
-	desc := ocispec.Descriptor{
-		MediaType: MediaTypeNotationSignature,
-		Digest:    digest.FromBytes(signature),
-		Size:      int64(len(signature)),
+// PutSignatureManifest creates and uploads an signature artifact linking the manifest and the signature
+func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature []byte, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, SignatureManifest, error) {
+	signatureDesc, err := c.uploadSignature(ctx, signature)
+	if err != nil {
+		return notation.Descriptor{}, SignatureManifest{}, err
 	}
-	if err := c.Repository.Blobs().Push(ctx, desc, bytes.NewReader(signature)); err != nil {
-		return notation.Descriptor{}, err
-	}
-	return notationDescriptorFromOCI(desc), nil
-}
 
-// Link creates an signature artifact linking the manifest and the signature
-func (c *RepositoryClient) Link(ctx context.Context, manifest, signature notation.Descriptor) (notation.Descriptor, error) {
 	// generate artifact manifest
-	artifact := artifactspec.Manifest{
+	artifactManifest := artifactspec.Manifest{
 		MediaType:    artifactspec.MediaTypeArtifactManifest,
 		ArtifactType: ArtifactTypeNotation,
-		Blobs: []artifactspec.Descriptor{
-			artifactDescriptorFromNotation(signature),
-		},
-		Subject: artifactDescriptorFromNotation(manifest),
+		Blobs:        []artifactspec.Descriptor{signatureDesc},
+		Subject:      artifactDescriptorFromNotation(manifest),
+		Annotations:  annotaions,
 	}
-	artifactJSON, err := json.Marshal(artifact)
-	if err != nil {
-		return notation.Descriptor{}, err
+	signatureManifest := SignatureManifest{
+		Blob:        notationDescriptorFromArtifact(signatureDesc),
+		Annotations: annotaions,
 	}
 
-	// upload manifest
-	desc := ocispec.Descriptor{
-		MediaType: artifactspec.MediaTypeArtifactManifest,
-		Digest:    digest.FromBytes(artifactJSON),
-		Size:      int64(len(artifactJSON)),
+	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactManifest)
+	if err != nil {
+		return notation.Descriptor{}, SignatureManifest{}, err
 	}
-	if err := c.Repository.Manifests().Push(ctx, desc, bytes.NewReader(artifactJSON)); err != nil {
-		return notation.Descriptor{}, err
-	}
-	return notationDescriptorFromOCI(desc), nil
+
+	return manifestDesc, signatureManifest, nil
 }
 
 func (c *RepositoryClient) getArtifactManifest(ctx context.Context, manifestDigest digest.Digest) (artifactspec.Manifest, error) {
@@ -149,7 +145,53 @@ func (c *RepositoryClient) getArtifactManifest(ctx context.Context, manifestDige
 	return manifest, nil
 }
 
+// uploadSignature uploads the signature to the registry
+func (c *RepositoryClient) uploadSignature(ctx context.Context, signature []byte) (artifactspec.Descriptor, error) {
+	desc := ocispec.Descriptor{
+		MediaType: MediaTypeNotationSignature,
+		Digest:    digest.FromBytes(signature),
+		Size:      int64(len(signature)),
+	}
+	if err := c.Repository.Blobs().Push(ctx, desc, bytes.NewReader(signature)); err != nil {
+		return artifactspec.Descriptor{}, err
+	}
+	return artifactDescriptorFromOCI(desc), nil
+}
+
+// uploadSignatureManifest uploads the signature manifest to the registry
+func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, manifest artifactspec.Manifest) (notation.Descriptor, error) {
+	artifactJSON, err := json.Marshal(manifest)
+	if err != nil {
+		return notation.Descriptor{}, err
+	}
+	desc := ocispec.Descriptor{
+		MediaType: artifactspec.MediaTypeArtifactManifest,
+		Digest:    digest.FromBytes(artifactJSON),
+		Size:      int64(len(artifactJSON)),
+	}
+	if err := c.Repository.Manifests().Push(ctx, desc, bytes.NewReader(artifactJSON)); err != nil {
+		return notation.Descriptor{}, err
+	}
+	return notationDescriptorFromOCI(desc), nil
+}
+
 func artifactDescriptorFromNotation(desc notation.Descriptor) artifactspec.Descriptor {
+	return artifactspec.Descriptor{
+		MediaType: desc.MediaType,
+		Digest:    desc.Digest,
+		Size:      desc.Size,
+	}
+}
+
+func notationDescriptorFromArtifact(desc artifactspec.Descriptor) notation.Descriptor {
+	return notation.Descriptor{
+		MediaType: desc.MediaType,
+		Digest:    desc.Digest,
+		Size:      desc.Size,
+	}
+}
+
+func artifactDescriptorFromOCI(desc ocispec.Descriptor) artifactspec.Descriptor {
 	return artifactspec.Descriptor{
 		MediaType: desc.MediaType,
 		Digest:    desc.Digest,

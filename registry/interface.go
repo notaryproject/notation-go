@@ -9,15 +9,20 @@ import (
 
 // SignatureRepository provides a storage for signatures
 type SignatureRepository interface {
-	// Lookup finds all signatures for the specified manifest
-	Lookup(ctx context.Context, manifestDigest digest.Digest) ([]digest.Digest, error)
+	// ListSignatureManifests returns all signature manifests given the manifest digest
+	ListSignatureManifests(ctx context.Context, manifestDigest digest.Digest) ([]SignatureManifest, error)
 
-	// Get downloads the signature by the specified digest
-	Get(ctx context.Context, signatureDigest digest.Digest) ([]byte, error)
+	// Get downloads the content by the specified digest
+	Get(ctx context.Context, digest digest.Digest) ([]byte, error)
 
-	// Put uploads the signature to the registry
-	Put(ctx context.Context, signature []byte) (notation.Descriptor, error)
+	// PutSignatureManifest creates and uploads an signature artifact linking the manifest and the signature
+	PutSignatureManifest(ctx context.Context, signature []byte, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, SignatureManifest, error)
+}
 
-	// Link creates an signature artifact linking the manifest and the signature
-	Link(ctx context.Context, manifest, signature notation.Descriptor) (notation.Descriptor, error)
+// Repository provides functions for verification and signing workflows
+type Repository interface {
+	SignatureRepository
+
+	// Resolve resolves a reference(tag or digest) to a manifest descriptor
+	Resolve(ctx context.Context, reference string) (notation.Descriptor, error)
 }
