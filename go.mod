@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.3
-	github.com/golang-jwt/jwt/v4 v4.4.1
+	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/notaryproject/notation-core-go v0.0.0-20220602183001-a7b72555a44b
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
