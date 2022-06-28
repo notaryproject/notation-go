@@ -5,13 +5,24 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
 
+	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/plugin"
 )
+
+type smartTestCommander struct {
+	commanderMap map[string]testCommander
+}
+
+func (t smartTestCommander) Output(ctx context.Context, path string, command string, req []byte) (out []byte, success bool, err error) {
+	path = filepath.ToSlash(path)
+	return t.commanderMap[path].Output(ctx, path, command, req)
+}
 
 type testCommander struct {
 	output  []byte
@@ -25,6 +36,11 @@ func (t testCommander) Output(ctx context.Context, path string, command string, 
 
 var validMetadata = plugin.Metadata{
 	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
+	SupportedContractVersions: []string{"1"}, Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator},
+}
+
+var validMetadataBar = plugin.Metadata{
+	Name: "bar", Description: "friendly", Version: "1", URL: "example.com",
 	SupportedContractVersions: []string{"1"}, Capabilities: []plugin.Capability{plugin.CapabilitySignatureGenerator},
 }
 
@@ -200,6 +216,28 @@ func TestManager_List(t *testing.T) {
 					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
 				}, testCommander{metadataJSON(validMetadata), true, nil}},
 			[]*Plugin{{Metadata: validMetadata}},
+		},
+		{
+			"unionDirFS with plugins", &Manager{
+				dir.UnionDirFS{
+					Dirs: []dir.RootedFS{
+						{FS: fstest.MapFS{
+							"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+							addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+						}, Root: "user/plugin"},
+						{FS: fstest.MapFS{
+							"bar":                            &fstest.MapFile{Mode: fs.ModeDir},
+							addExeSuffix("bar/notation-bar"): new(fstest.MapFile),
+						}, Root: "system/plugin"},
+					},
+				}, smartTestCommander{commanderMap: map[string]testCommander{
+					"user/plugin/" + addExeSuffix("foo/notation-foo"):   {metadataJSON(validMetadata), true, nil},
+					"system/plugin/" + addExeSuffix("bar/notation-bar"): {metadataJSON(validMetadataBar), true, nil},
+				}}},
+			[]*Plugin{
+				{Metadata: validMetadata},
+				{Metadata: validMetadataBar},
+			},
 		},
 	}
 	for _, tt := range tests {
