@@ -9,12 +9,15 @@ import (
 
 // TestLoadTrustStore tests a valid trust store
 func TestLoadValidTrustStore(t *testing.T) {
-	trustStore, err := LoadX509TrustStore(filepath.FromSlash("testdata/trust-store/valid-trust-store"))
+	trustStore, err := LoadX509TrustStore(filepath.FromSlash("testdata/trust-store/ca/valid-trust-store"))
 	if err != nil {
 		t.Fatalf("could not load a valid trust store. %q", err)
 	}
 	if len(trustStore.Certificates) != 2 {
 		t.Fatalf("valid trust store should have two certificates in it")
+	}
+	if trustStore.Type != "ca" {
+		t.Fatalf("trust store type should be \"ca\"")
 	}
 }
 

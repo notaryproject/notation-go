@@ -1,12 +1,50 @@
 package verification
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	ldapv3 "github.com/go-ldap/ldap/v3"
 )
+
+func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
+	var policyDocument *PolicyDocument = &PolicyDocument{}
+	jsonFile, err := os.Open(policyDocumentPath)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+	err = json.NewDecoder(jsonFile).Decode(policyDocument)
+	if err != nil {
+		return nil, err
+	}
+	return policyDocument, nil
+}
+
+func loadX509TrustStores(policyDocument *PolicyDocument, trustStoreBasePath string) (map[string]*X509TrustStore, error) {
+	var result = make(map[string]*X509TrustStore)
+	for _, trustPolicy := range policyDocument.TrustPolicies {
+		for _, trustStore := range trustPolicy.TrustStores {
+			if result[trustStore] != nil {
+				// we loaded this trust store already
+				continue
+			}
+			i := strings.Index(trustStore, ":")
+			prefix := trustStore[:i]
+			name := trustStore[i+1:]
+			x509TrustStore, err := LoadX509TrustStore(filepath.Join(trustStoreBasePath, prefix, name))
+			if err != nil {
+				return nil, err
+			}
+			result[trustStore] = x509TrustStore
+		}
+	}
+	return result, nil
+}
 
 // isPresent is a utility function to check if a string exists in an array
 func isPresent(val string, values []string) bool {
@@ -30,6 +68,19 @@ func getArtifactPathFromUri(artifactUri string) (string, error) {
 		return "", err
 	}
 	return artifactPath, nil
+}
+
+func getArtifactDigestFromUri(artifactUri string) (string, error) {
+	i := strings.LastIndex(artifactUri, ":")
+	if i < 0 {
+		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", artifactUri)
+	}
+
+	artifactDigest := artifactUri[i+1:]
+	if artifactDigest == "" {
+		return "", fmt.Errorf("artifact URI %q has an invalid digest %q, make sure the URI is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", artifactUri, artifactDigest)
+	}
+	return artifactDigest, nil
 }
 
 // validateRegistryScopeFormat validates if a scope is following the format defined in distribution spec

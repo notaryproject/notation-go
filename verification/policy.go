@@ -32,8 +32,8 @@ type TrustPolicy struct {
 	RegistryScopes []string `json:"registryScopes"`
 	// SignatureVerification setting for this policy statement
 	SignatureVerification string `json:"signatureVerification"`
-	// TrustStore this policy statement uses
-	TrustStore string `json:"trustStore,omitempty"`
+	// TrustStores this policy statement uses
+	TrustStores []string `json:"trustStores,omitempty"`
 	// TrustedIdentities this policy statement pins
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 }
@@ -123,11 +123,13 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 // validateTrustStore validates if the policy statement is following the Notary V2 spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
-	supportedTrustStorePrefixes := []string{"ca"}
+	supportedTrustStorePrefixes := []string{"ca", "signingAuthority"}
 
-	i := strings.Index(statement.TrustStore, ":")
-	if i < 0 || !isPresent(statement.TrustStore[:i], supportedTrustStorePrefixes) {
-		return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, statement.TrustStore[:i], statement.TrustStore)
+	for _, trustStore := range statement.TrustStores {
+		i := strings.Index(trustStore, ":")
+		if i < 0 || !isPresent(trustStore[:i], supportedTrustStorePrefixes) {
+			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, trustStore[:i], trustStore)
+		}
 	}
 
 	return nil
@@ -138,7 +140,6 @@ func validateTrustStore(statement TrustPolicy) error {
 func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 	// Constants
 	supportedPolicyVersions := []string{"1.0"}
-	supportedVerificationLevels := []string{"strict", "permissive", "audit", "skip"}
 
 	// Validate Version
 	if !isPresent(policyDoc.Version, supportedPolicyVersions) {
@@ -161,18 +162,18 @@ func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 		policyStatementNameCount[statement.Name]++
 
 		// Verify signature verification level is valid
-		if !isPresent(statement.SignatureVerification, supportedVerificationLevels) {
+		if _, err := FindVerificationLevel(statement.SignatureVerification); err != nil {
 			return fmt.Errorf("trust policy statement %q uses unsupported signatureVerification value %q", statement.Name, statement.SignatureVerification)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and trusted identities
 		if statement.SignatureVerification == "skip" {
-			if statement.TrustStore != "" || len(statement.TrustedIdentities) > 0 {
-				return fmt.Errorf("trust policy statement %q is set to skip signature verification but configured with a trust store or trusted identities, remove them if signature verification needs to be skipped", statement.Name)
+			if len(statement.TrustStores) > 0 || len(statement.TrustedIdentities) > 0 {
+				return fmt.Errorf("trust policy statement %q is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped", statement.Name)
 			}
 		} else {
-			if statement.TrustStore == "" || len(statement.TrustedIdentities) == 0 {
-				return fmt.Errorf("trust policy statement %q is either missing a trust store or trusted identities, both must be specified", statement.Name)
+			if len(statement.TrustStores) == 0 || len(statement.TrustedIdentities) == 0 {
+				return fmt.Errorf("trust policy statement %q is either missing trust stores or trusted identities, both must be specified", statement.Name)
 			}
 
 			// Verify Trust Store is valid

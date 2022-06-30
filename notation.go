@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 	"time"
 
 	"github.com/notaryproject/notation-go/crypto/timestamp"
@@ -13,7 +14,7 @@ import (
 // Media type for Notary payload for OCI artifacts, which contains an artifact descriptor.
 const MediaTypePayload = "application/vnd.cncf.notary.payload.v1+json"
 
-// Descriptor describes the content signed or to be signed.
+// Descriptor describes the artifact that needs to be signed.
 type Descriptor struct {
 	// The media type of the targeted content.
 	MediaType string `json:"mediaType"`
@@ -31,6 +32,11 @@ type Descriptor struct {
 // Equal reports whether d and t points to the same content.
 func (d Descriptor) Equal(t Descriptor) bool {
 	return d.MediaType == t.MediaType && d.Digest == t.Digest && d.Size == t.Size
+}
+
+// Payload describes the content that gets signed.
+type Payload struct {
+	TargetPayload artifactspec.Descriptor `json:"targetArtifact"`
 }
 
 // SignOptions contains parameters for Signer.Sign.
