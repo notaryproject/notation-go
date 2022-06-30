@@ -241,7 +241,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 		t.Fatalf("policy statement with no name should return an error")
 	}
 
-	// No Repository Scopes
+	// No Registry Scopes
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
 	policyStatement.RegistryScopes = nil
@@ -262,7 +262,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 		t.Fatalf("Policy statements with same registry scope should return error %q", err)
 	}
 
-	// Repository scopes with a wildcard
+	// Registry scopes with a wildcard
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
 	policyStatement.RegistryScopes = []string{"*", "registry.acme-rockets.io/software/net-monitor"}
@@ -379,13 +379,13 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement,
 	}
-	// existing Repository Scope
+	// existing Registry Scope
 	policy, err := policyDoc.getApplicableTrustPolicy(registryUri)
 	if policy.Name != policyStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return %q for registry scope %q", policyStatement.Name, registryScope)
 	}
 
-	// non-existing Repository Scope
+	// non-existing Registry Scope
 	policy, err = policyDoc.getApplicableTrustPolicy("non.existing.scope/repo:hash")
 	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo:hash\" has no applicable trust policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
