@@ -36,7 +36,7 @@ func (d Descriptor) Equal(t Descriptor) bool {
 
 // Payload describes the content that gets signed.
 type Payload struct {
-	TargetPayload artifactspec.Descriptor `json:"targetArtifact"`
+	TargetArtifact artifactspec.Descriptor `json:"targetArtifact"`
 }
 
 // SignOptions contains parameters for Signer.Sign.

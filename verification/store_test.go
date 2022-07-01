@@ -16,8 +16,8 @@ func TestLoadValidTrustStore(t *testing.T) {
 	if len(trustStore.Certificates) != 2 {
 		t.Fatalf("valid trust store should have two certificates in it")
 	}
-	if trustStore.Type != "ca" {
-		t.Fatalf("trust store type should be \"ca\"")
+	if trustStore.Prefix != "ca" {
+		t.Fatalf("trust store prefix should be \"ca\"")
 	}
 }
 

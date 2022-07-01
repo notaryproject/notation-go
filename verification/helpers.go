@@ -12,7 +12,7 @@ import (
 )
 
 func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
-	var policyDocument *PolicyDocument = &PolicyDocument{}
+	policyDocument := &PolicyDocument{}
 	jsonFile, err := os.Open(policyDocumentPath)
 	if err != nil {
 		return nil, err
@@ -33,9 +33,7 @@ func loadX509TrustStores(policyDocument *PolicyDocument, trustStoreBasePath stri
 				// we loaded this trust store already
 				continue
 			}
-			i := strings.Index(trustStore, ":")
-			prefix := trustStore[:i]
-			name := trustStore[i+1:]
+			prefix, name, _ := strings.Cut(trustStore, ":")
 			x509TrustStore, err := LoadX509TrustStore(filepath.Join(trustStoreBasePath, prefix, name))
 			if err != nil {
 				return nil, err

@@ -13,7 +13,7 @@ import (
 // X509TrustStore provide the members and behavior for a named trust store
 type X509TrustStore struct {
 	Name         string
-	Type         string
+	Prefix       string
 	Path         string
 	Certificates []*x509.Certificate
 }
@@ -70,7 +70,7 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 	}
 
 	trustStore.Name = filepath.Base(path)
-	trustStore.Type = filepath.Base(filepath.Dir(path))
+	trustStore.Prefix = filepath.Base(filepath.Dir(path))
 	trustStore.Path = path
 
 	return &trustStore, nil
