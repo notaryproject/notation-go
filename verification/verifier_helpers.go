@@ -19,7 +19,10 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 
 	var trustedX509Identities []map[string]string
 	for _, identity := range trustPolicy.TrustedIdentities {
-		identityPrefix, identityValue, _ := strings.Cut(identity, ":")
+		i := strings.Index(identity, ":")
+
+		identityPrefix := identity[:i]
+		identityValue := identity[i+1:]
 
 		if identityPrefix == x509Subject {
 			parsedSubject, err := parseDistinguishedName(identityValue)

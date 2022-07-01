@@ -33,7 +33,9 @@ func loadX509TrustStores(policyDocument *PolicyDocument, trustStoreBasePath stri
 				// we loaded this trust store already
 				continue
 			}
-			prefix, name, _ := strings.Cut(trustStore, ":")
+			i := strings.Index(trustStore, ":")
+			prefix := trustStore[:i]
+			name := trustStore[i+1:]
 			x509TrustStore, err := LoadX509TrustStore(filepath.Join(trustStoreBasePath, prefix, name))
 			if err != nil {
 				return nil, err

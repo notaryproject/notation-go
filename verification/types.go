@@ -14,19 +14,27 @@ type VerificationAction string
 // VerificationResult encapsulates the verification result (passed or failed) for a verification type, including the
 // desired verification action as specified in the trust policy
 type VerificationResult struct {
+	// FailedToVerify is set to true if the verification is inconclusive due to a run time error
 	FailedToVerify bool
-	Success        bool
-	Type           VerificationType
-	Action         VerificationAction
-	Error          error
+	// 	Success is set to true if the verification was successful
+	Success bool
+	// Type of verification that is performed
+	Type VerificationType
+	// Action is the intended action for the given verification type as defined in the trust policy
+	Action VerificationAction
+	// Err is set if there are any errors during the verification process
+	Error error
 }
 
 // SignatureVerificationOutcome encapsulates the SignerInfo (that includes the details of the digital signature)
 // and results for each verification type that was performed
 type SignatureVerificationOutcome struct {
-	SignerInfo          *nsigner.SignerInfo
+	// SignerInfo contains the details of the digital signature and associated metadata
+	SignerInfo *nsigner.SignerInfo
+	// VerificationResults contains the verifications performed on the signature and their results
 	VerificationResults []VerificationResult
-	SignedAnnotations   map[string]string
+	// SignedAnnotations contains arbitrary metadata relating to the target artifact that was signed
+	SignedAnnotations map[string]string
 }
 
 // VerificationLevel encapsulates the signature verification preset and it's actions for each verification type
