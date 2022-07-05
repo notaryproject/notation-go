@@ -14,15 +14,12 @@ func TestIsFailureResult(t *testing.T) {
 		isFailureResult bool
 	}{
 		{VerificationResult{Action: Enforced, Success: false}, true},
-		{VerificationResult{Action: Enforced, FailedToVerify: true}, true},
 		{VerificationResult{Action: Logged, Success: false}, false},
-		{VerificationResult{Action: Logged, FailedToVerify: true}, false},
 		{VerificationResult{Action: Skipped, Success: false}, false},
-		{VerificationResult{Action: Skipped, FailedToVerify: true}, false},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			endResult := isFailureResult(tt.result)
+			endResult := isCriticalFailure(tt.result)
 
 			if endResult != tt.isFailureResult {
 				t.Fatalf("TestIsEndResult Expected: %v Got: %v", tt.isFailureResult, endResult)

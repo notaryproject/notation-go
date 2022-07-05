@@ -65,9 +65,9 @@ func TestLoadX509TrustStore(t *testing.T) {
 	// load "ca" and "signingAuthority" trust store
 	caStore := "ca:valid-trust-store"
 	signingAuthorityStore := "signingAuthority:valid-trust-store"
-	policyDoc1 := dummyPolicyDocument()
-	policyDoc1.TrustPolicies[0].TrustStores = []string{caStore, signingAuthorityStore}
-	trustStores, err := loadX509TrustStores(&policyDoc1, filepath.FromSlash("testdata/trust-store/"))
+	dummyPolicy := dummyPolicyStatement()
+	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
+	trustStores, err := loadX509TrustStores(&dummyPolicy, filepath.FromSlash("testdata/trust-store/"))
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}

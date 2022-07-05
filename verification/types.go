@@ -14,8 +14,6 @@ type VerificationAction string
 // VerificationResult encapsulates the verification result (passed or failed) for a verification type, including the
 // desired verification action as specified in the trust policy
 type VerificationResult struct {
-	// FailedToVerify is set to true if the verification is inconclusive due to a run time error
-	FailedToVerify bool
 	// 	Success is set to true if the verification was successful
 	Success bool
 	// Type of verification that is performed

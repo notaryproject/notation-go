@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
-	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 	"time"
 
 	"github.com/notaryproject/notation-go/crypto/timestamp"
@@ -36,7 +35,7 @@ func (d Descriptor) Equal(t Descriptor) bool {
 
 // Payload describes the content that gets signed.
 type Payload struct {
-	TargetArtifact artifactspec.Descriptor `json:"targetArtifact"`
+	TargetArtifact Descriptor `json:"targetArtifact"`
 }
 
 // SignOptions contains parameters for Signer.Sign.

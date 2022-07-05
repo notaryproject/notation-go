@@ -1,15 +1,15 @@
 package verification
 
-// ErrorVerificationSkipped is used when signature verification was not performed due to "SignatureVerification" being set to "skip" in the trust policy
-type ErrorVerificationSkipped struct {
+// ErrorVerificationInconclusive is used when signature verification fails due to a runtime error (e.g. a network error)
+type ErrorVerificationInconclusive struct {
 	msg string
 }
 
-func (e ErrorVerificationSkipped) Error() string {
+func (e ErrorVerificationInconclusive) Error() string {
 	if e.msg != "" {
 		return e.msg
 	}
-	return "signature verification was skipped as specified in the trust policy"
+	return "signature verification was inclusive due to an unexpected error"
 }
 
 // ErrorNoApplicableTrustPolicy is used when there is no trust policy that applies to the given artifact

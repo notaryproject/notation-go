@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// isFailureResult checks whether a VerificationResult fails the entire signature verification workflow.
-// signature verification workflow is considered failed if there is a VerificationResult with "Enforced" as the action but the result was inconclusive (failed to verify) or unsuccessful
-func isFailureResult(result VerificationResult) bool {
-	return result.Action == Enforced && (result.FailedToVerify || !result.Success)
+// isCriticalFailure checks whether a VerificationResult fails the entire signature verification workflow.
+// signature verification workflow is considered failed if there is a VerificationResult with "Enforced" as the action but the result was unsuccessful
+func isCriticalFailure(result VerificationResult) bool {
+	return result.Action == Enforced && !result.Success
 }
 
 func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPolicy) error {

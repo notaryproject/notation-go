@@ -25,23 +25,21 @@ func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-func loadX509TrustStores(policyDocument *PolicyDocument, trustStoreBasePath string) (map[string]*X509TrustStore, error) {
+func loadX509TrustStores(policy *TrustPolicy, trustStoreBasePath string) (map[string]*X509TrustStore, error) {
 	var result = make(map[string]*X509TrustStore)
-	for _, trustPolicy := range policyDocument.TrustPolicies {
-		for _, trustStore := range trustPolicy.TrustStores {
-			if result[trustStore] != nil {
-				// we loaded this trust store already
-				continue
-			}
-			i := strings.Index(trustStore, ":")
-			prefix := trustStore[:i]
-			name := trustStore[i+1:]
-			x509TrustStore, err := LoadX509TrustStore(filepath.Join(trustStoreBasePath, prefix, name))
-			if err != nil {
-				return nil, err
-			}
-			result[trustStore] = x509TrustStore
+	for _, trustStore := range policy.TrustStores {
+		if result[trustStore] != nil {
+			// we loaded this trust store already
+			continue
 		}
+		i := strings.Index(trustStore, ":")
+		prefix := trustStore[:i]
+		name := trustStore[i+1:]
+		x509TrustStore, err := LoadX509TrustStore(filepath.Join(trustStoreBasePath, prefix, name))
+		if err != nil {
+			return nil, err
+		}
+		result[trustStore] = x509TrustStore
 	}
 	return result, nil
 }
