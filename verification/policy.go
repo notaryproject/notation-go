@@ -123,7 +123,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 // validateTrustStore validates if the policy statement is following the Notary V2 spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
-	supportedTrustStorePrefixes := []string{"ca", "signingAuthority"}
+	supportedTrustStorePrefixes := []string{"ca"}
 
 	for _, trustStore := range statement.TrustStores {
 		i := strings.Index(trustStore, ":")

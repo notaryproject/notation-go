@@ -44,7 +44,7 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 
 	policyStatement4 := dummyPolicyStatement()
 	policyStatement4.Name = "test-statement-name-4"
-	policyStatement4.TrustStores = []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store-2"}
+	policyStatement4.TrustStores = []string{"ca:valid-trust-store", "ca:valid-trust-store-2"}
 	policyStatement4.RegistryScopes = []string{"*"}
 	policyStatement4.SignatureVerification = "audit"
 
