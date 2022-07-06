@@ -15,8 +15,8 @@ func TestGetArtifactDigestFromUri(t *testing.T) {
 		digest      string
 		wantErr     bool
 	}{
-		{"domain.com:80/repository:digest", "digest", false},
 		{"domain.com/repository@sha256:digest", "digest", false},
+		{"domain.com:80/repository:digest", "", true},
 		{"domain.com/repository", "", true},
 		{"domain.com/repository@sha256", "", true},
 		{"domain.com/repository@sha256:", "", true},

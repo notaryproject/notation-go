@@ -69,14 +69,21 @@ func getArtifactPathFromUri(artifactUri string) (string, error) {
 }
 
 func getArtifactDigestFromUri(artifactUri string) (string, error) {
-	i := strings.LastIndex(artifactUri, ":")
+	invalidUriErr := fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactUri)
+	i := strings.LastIndex(artifactUri, "@")
 	if i < 0 {
-		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", artifactUri)
+		return "", invalidUriErr
 	}
 
-	artifactDigest := artifactUri[i+1:]
+	j := strings.LastIndex(artifactUri[i+1:], ":")
+	if j < 0 {
+		return "", invalidUriErr
+	}
+
+	artifactDigest := artifactUri[i+1:][j+1:]
+	fmt.Println(artifactDigest)
 	if artifactDigest == "" {
-		return "", fmt.Errorf("artifact URI %q has an invalid digest %q, make sure the URI is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", artifactUri, artifactDigest)
+		return "", invalidUriErr
 	}
 	return artifactDigest, nil
 }
