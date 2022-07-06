@@ -8,10 +8,10 @@ import (
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 )
 
-func TestIsFailureResult(t *testing.T) {
+func TestIsCriticalFailure(t *testing.T) {
 	tests := []struct {
 		result          VerificationResult
-		isFailureResult bool
+		criticalFailure bool
 	}{
 		{VerificationResult{Action: Enforced, Success: false}, true},
 		{VerificationResult{Action: Logged, Success: false}, false},
@@ -19,14 +19,13 @@ func TestIsFailureResult(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			endResult := isCriticalFailure(tt.result)
+			endResult := isCriticalFailure(&tt.result)
 
-			if endResult != tt.isFailureResult {
-				t.Fatalf("TestIsEndResult Expected: %v Got: %v", tt.isFailureResult, endResult)
+			if endResult != tt.criticalFailure {
+				t.Fatalf("TestIsCriticalFailure Expected: %v Got: %v", tt.criticalFailure, endResult)
 			}
 		})
 	}
-
 }
 
 func TestVerifyX509TrustedIdentities(t *testing.T) {

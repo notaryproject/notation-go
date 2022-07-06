@@ -11,7 +11,7 @@ func dummyPolicyStatement() (policyStatement TrustPolicy) {
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 		SignatureVerification: "strict",
 		TrustStores:           []string{"ca:valid-trust-store"},
-		TrustedIdentities:     []string{"x509.subject:C=US, ST=WA, O=wabbit-network.io, OU=org1"},
+		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Leaf Cert,O=Notary,L=Seattle,ST=WA,C=US"},
 	}
 	return
 }
@@ -372,7 +372,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	policyStatement := dummyPolicyStatement()
 	policyStatement.Name = "test-statement-name-1"
 	registryScope := "registry.wabbit-networks.io/software/unsigned/net-utils"
-	registryUri := fmt.Sprintf("%s:hash", registryScope)
+	registryUri := fmt.Sprintf("%s@sha256:hash", registryScope)
 	policyStatement.RegistryScopes = []string{registryScope}
 	policyStatement.SignatureVerification = "strict"
 
@@ -386,8 +386,8 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	}
 
 	// non-existing Registry Scope
-	policy, err = policyDoc.getApplicableTrustPolicy("non.existing.scope/repo:hash")
-	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo:hash\" has no applicable trust policy" {
+	policy, err = policyDoc.getApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
 
@@ -403,7 +403,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		policyStatement,
 		wildcardStatement,
 	}
-	policy, err = policyDoc.getApplicableTrustPolicy("some.registry.that/has.no.policy:hash")
+	policy, err = policyDoc.getApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash")
 	if policy.Name != wildcardStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
 	}
