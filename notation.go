@@ -2,7 +2,6 @@ package notation
 
 import (
 	"context"
-	"crypto"
 	"crypto/x509"
 	"time"
 
@@ -84,84 +83,4 @@ type Verifier interface {
 type Service interface {
 	Signer
 	Verifier
-}
-
-// KeySpec defines a key type and size.
-type KeySpec string
-
-// One of following supported specs
-// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-const (
-	RSA_2048 KeySpec = "RSA_2048"
-	RSA_3072 KeySpec = "RSA_3072"
-	RSA_4096 KeySpec = "RSA_4096"
-	EC_256   KeySpec = "EC_256"
-	EC_384   KeySpec = "EC_384"
-	EC_512   KeySpec = "EC_512"
-)
-
-// SignatureAlgorithm returns the signing algorithm associated with KeyType k.
-func (k KeySpec) SignatureAlgorithm() SignatureAlgorithm {
-	switch k {
-	case RSA_2048:
-		return RSASSA_PSS_SHA_256
-	case RSA_3072:
-		return RSASSA_PSS_SHA_384
-	case RSA_4096:
-		return RSASSA_PSS_SHA_512
-	case EC_256:
-		return ECDSA_SHA_256
-	case EC_384:
-		return ECDSA_SHA_384
-	case EC_512:
-		return ECDSA_SHA_512
-	}
-	return ""
-}
-
-// HashAlgorithm algorithm associated with the key spec.
-type HashAlgorithm string
-
-const (
-	SHA256 HashAlgorithm = "SHA_256"
-	SHA384 HashAlgorithm = "SHA_384"
-	SHA512 HashAlgorithm = "SHA_512"
-)
-
-// HashFunc returns the Hash associated k.
-func (h HashAlgorithm) HashFunc() crypto.Hash {
-	switch h {
-	case SHA256:
-		return crypto.SHA256
-	case SHA384:
-		return crypto.SHA384
-	case SHA512:
-		return crypto.SHA512
-	}
-	return 0
-}
-
-// SignatureAlgorithm defines the supported signature algorithms.
-type SignatureAlgorithm string
-
-const (
-	RSASSA_PSS_SHA_256 SignatureAlgorithm = "RSASSA_PSS_SHA_256"
-	RSASSA_PSS_SHA_384 SignatureAlgorithm = "RSASSA_PSS_SHA_384"
-	RSASSA_PSS_SHA_512 SignatureAlgorithm = "RSASSA_PSS_SHA_512"
-	ECDSA_SHA_256      SignatureAlgorithm = "ECDSA_SHA_256"
-	ECDSA_SHA_384      SignatureAlgorithm = "ECDSA_SHA_384"
-	ECDSA_SHA_512      SignatureAlgorithm = "ECDSA_SHA_512"
-)
-
-// Hash returns the Hash associated s.
-func (s SignatureAlgorithm) Hash() HashAlgorithm {
-	switch s {
-	case RSASSA_PSS_SHA_256, ECDSA_SHA_256:
-		return SHA256
-	case RSASSA_PSS_SHA_384, ECDSA_SHA_384:
-		return SHA384
-	case RSASSA_PSS_SHA_512, ECDSA_SHA_512:
-		return SHA512
-	}
-	return ""
 }

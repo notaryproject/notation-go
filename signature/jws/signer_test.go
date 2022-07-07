@@ -8,93 +8,52 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"math"
-	"math/big"
+	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/notaryproject/notation-core-go/signer"
+	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp/timestamptest"
 	"github.com/opencontainers/go-digest"
 )
 
-func testSignWithCertChain(t *testing.T, key crypto.PrivateKey) {
-	cert, err := generateCert(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := NewSigner(key, []*x509.Certificate{cert})
-	if err != nil {
-		t.Fatalf("NewSigner() error = %v", err)
-	}
-
-	ctx := context.Background()
-	desc, sOpts := generateSigningContent(nil)
-	sig, err := s.Sign(ctx, desc, sOpts)
-	if err != nil {
-		t.Fatalf("Sign() error = %v", err)
-	}
-
-	// basic verification
-	v := NewVerifier()
-	roots := x509.NewCertPool()
-	roots.AddCert(cert)
-	v.VerifyOptions.Roots = roots
-	if _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
-		t.Fatalf("Verify() error = %v", err)
-	}
+func TestNewSignerFromFiles(t *testing.T) {
+	t.Skip("Please implement TestNewSignerFromFiles test")
 }
 
 func TestSignWithCertChain(t *testing.T) {
 	// sign with key
-	tests := []struct {
-		name string
-		fn   func() (crypto.PrivateKey, error)
-	}{
-		{
-			name: string(notation.RSA_2048),
-			fn:   func() (crypto.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 2048) },
-		},
-		{
-			name: string(notation.RSA_3072),
-			fn:   func() (crypto.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 3072) },
-		},
-		{
-			name: string(notation.RSA_4096),
-			fn:   func() (crypto.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 4096) },
-		},
-		{
-			name: string(notation.EC_256),
-			fn:   func() (crypto.PrivateKey, error) { return ecdsa.GenerateKey(elliptic.P256(), rand.Reader) },
-		},
-		{
-			name: string(notation.EC_384),
-			fn:   func() (crypto.PrivateKey, error) { return ecdsa.GenerateKey(elliptic.P384(), rand.Reader) },
-		},
-		{
-			name: string(notation.EC_512),
-			fn:   func() (crypto.PrivateKey, error) { return ecdsa.GenerateKey(elliptic.P521(), rand.Reader) },
-		},
+	rsaRoot := testhelper.GetRSARootCertificate()
+	for _, k := range []int{2048, 3072, 4096} {
+		pk, _ := rsa.GenerateKey(rand.Reader, k)
+		certTuple := testhelper.GetRSACertTupleWithPK(pk, "TestSignWithCertChain_"+strconv.Itoa(pk.Size()), &rsaRoot)
+		t.Run(fmt.Sprintf("RSA certificates of size %d", pk.Size()), func(t *testing.T) {
+			validateSignWithCerts(t, pk, []*x509.Certificate{certTuple.Cert, rsaRoot.Cert})
+		})
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			key, err := test.fn()
-			if err != nil {
-				t.Fatal(err)
-			}
-			testSignWithCertChain(t, key)
+
+	ecRoot := testhelper.GetECRootCertificate()
+	for _, v := range []elliptic.Curve{elliptic.P256(), elliptic.P384(), elliptic.P521()} {
+		pk, _ := ecdsa.GenerateKey(v, rand.Reader)
+		certTuple := testhelper.GetECDSACertTupleWithPK(pk, "TestSignWithCertChain_"+strconv.Itoa(pk.Params().BitSize), &ecRoot)
+		t.Run(fmt.Sprintf("EC certificates of size %d", pk.Params().BitSize), func(t *testing.T) {
+			validateSignWithCerts(t, pk, []*x509.Certificate{certTuple.Cert, ecRoot.Cert})
 		})
 	}
 }
 
+// TODO: Enable once we have timestamping inplace
 func TestSignWithTimestamp(t *testing.T) {
+	t.Skip("Skipping testing as we dont have timestamping hooked up")
 	// prepare signer
-	key, cert, err := generateKeyCertPair()
+	key, certs, err := generateKeyCertPair()
 	if err != nil {
 		t.Fatalf("generateKeyCertPair() error = %v", err)
 	}
-	s, err := NewSigner(key, []*x509.Certificate{cert})
+	s, err := NewSigner(key, certs)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}
@@ -114,22 +73,16 @@ func TestSignWithTimestamp(t *testing.T) {
 	}
 
 	// basic verification
-	v := NewVerifier()
-	roots := x509.NewCertPool()
-	roots.AddCert(cert)
-	v.VerifyOptions.Roots = roots
-	if _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
-		t.Fatalf("Verify() error = %v", err)
-	}
+	basicVerification(sig, certs[len(certs)-1], t)
 }
 
 func TestSignWithoutExpiry(t *testing.T) {
 	// sign with key
-	key, cert, err := generateKeyCertPair()
+	key, certs, err := generateKeyCertPair()
 	if err != nil {
 		t.Fatalf("generateKeyCertPair() error = %v", err)
 	}
-	s, err := NewSigner(key, []*x509.Certificate{cert})
+	s, err := NewSigner(key, certs)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}
@@ -143,13 +96,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 	}
 
 	// basic verification
-	v := NewVerifier()
-	roots := x509.NewCertPool()
-	roots.AddCert(cert)
-	v.VerifyOptions.Roots = roots
-	if _, err := v.Verify(ctx, sig, notation.VerifyOptions{}); err != nil {
-		t.Fatalf("Verify() error = %v", err)
-	}
+	basicVerification(sig, certs[len(certs)-1], t)
 }
 
 // generateSigningContent generates common signing content with options for testing.
@@ -164,9 +111,8 @@ func generateSigningContent(tsa *timestamptest.TSA) (notation.Descriptor, notati
 			"foo":      "bar",
 		},
 	}
-	now := time.Now().UTC()
 	sOpts := notation.SignOptions{
-		Expiry: now.Add(time.Hour),
+		Expiry: time.Now().UTC().Add(time.Hour),
 	}
 	if tsa != nil {
 		sOpts.TSA = tsa
@@ -177,40 +123,48 @@ func generateSigningContent(tsa *timestamptest.TSA) (notation.Descriptor, notati
 	return desc, sOpts
 }
 
-func generateKeyCertPair() (crypto.PrivateKey, *x509.Certificate, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+func generateKeyCertPair() (crypto.PrivateKey, []*x509.Certificate, error) {
+	rsaRoot := testhelper.GetRSARootCertificate()
+	pk, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, err
 	}
-	cert, err := generateCert(key)
-	return key, cert, err
+	certTuple := testhelper.GetRSACertTupleWithPK(pk, "tempCert", &rsaRoot)
+	return pk, []*x509.Certificate{certTuple.Cert, rsaRoot.Cert}, nil
 }
 
-// generateKeyCertPair generates a test key / certificate pair.
-func generateCert(key crypto.PrivateKey) (*x509.Certificate, error) {
-	serialNumber, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+func basicVerification(sig []byte, trust *x509.Certificate, t *testing.T) {
+	// basic verification
+	sigEnv, err := signer.NewSignatureEnvelopeFromBytes(sig, signer.MediaTypeJWSJson)
 	if err != nil {
-		return nil, err
+		t.Fatalf("verification failed. error = %v", err)
 	}
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			CommonName: "test",
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		BasicConstraintsValid: true,
+
+	sigInfo, vErr := sigEnv.Verify()
+	if vErr != nil {
+		t.Fatalf("verification failed. error = %v", err)
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, key.(crypto.Signer).Public(), key)
+
+	trustedCert, err := signer.VerifyAuthenticity(sigInfo, []*x509.Certificate{trust})
+
+	if err !=nil || !trustedCert.Equal(trust) {
+		t.Fatalf("VerifyAuthenticity failed. error = %v", err)
+	}
+}
+
+func validateSignWithCerts(t *testing.T, key crypto.PrivateKey, certs []*x509.Certificate) {
+	s, err := NewSigner(key, certs)
 	if err != nil {
-		return nil, err
+		t.Fatalf("NewSigner() error = %v", err)
 	}
-	cert, err := x509.ParseCertificate(certBytes)
+
+	ctx := context.Background()
+	desc, sOpts := generateSigningContent(nil)
+	sig, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
-		return nil, err
+		t.Fatalf("Sign() error = %v", err)
 	}
-	return cert, nil
+
+	// basic verification
+	basicVerification(sig, certs[len(certs)-1], t)
 }
