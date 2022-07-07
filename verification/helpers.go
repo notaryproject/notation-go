@@ -71,21 +71,16 @@ func getArtifactPathFromUri(artifactUri string) (string, error) {
 func getArtifactDigestFromUri(artifactUri string) (string, error) {
 	invalidUriErr := fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactUri)
 	i := strings.LastIndex(artifactUri, "@")
-	if i < 0 {
+	if i < 0 || i+1 == len(artifactUri) {
 		return "", invalidUriErr
 	}
 
 	j := strings.LastIndex(artifactUri[i+1:], ":")
-	if j < 0 {
+	if j < 0 || j+1 == len(artifactUri[i+1:]) {
 		return "", invalidUriErr
 	}
 
-	artifactDigest := artifactUri[i+1:][j+1:]
-	fmt.Println(artifactDigest)
-	if artifactDigest == "" {
-		return "", invalidUriErr
-	}
-	return artifactDigest, nil
+	return artifactUri[i+1:], nil
 }
 
 // validateRegistryScopeFormat validates if a scope is following the format defined in distribution spec
