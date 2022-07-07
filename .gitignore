@@ -1,5 +1,8 @@
-# VS Code
+# Code Editors
 .vscode
+.idea
+*.sublime-project
+*.sublime-workspace
 
 # Custom
 .cover/
