@@ -62,10 +62,11 @@ func TestLoadPolicyDocument(t *testing.T) {
 }
 
 func TestLoadX509TrustStore(t *testing.T) {
+	// load "ca" and "signingAuthority" trust store
 	caStore := "ca:valid-trust-store"
-	anotherStore := "ca:valid-trust-store-2"
+	signingAuthorityStore := "signingAuthority:valid-trust-store"
 	dummyPolicy := dummyPolicyStatement()
-	dummyPolicy.TrustStores = []string{caStore, anotherStore}
+	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
 	trustStores, err := loadX509TrustStores(&dummyPolicy, filepath.FromSlash("testdata/trust-store/"))
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
@@ -73,7 +74,7 @@ func TestLoadX509TrustStore(t *testing.T) {
 	if (len(trustStores)) != 2 {
 		t.Fatalf("TestLoadX509TrustStore must load two trust stores")
 	}
-	if trustStores[caStore] == nil || trustStores[anotherStore] == nil {
-		t.Fatalf("TestLoadX509TrustStore must load trust stores")
+	if trustStores[caStore] == nil || trustStores[signingAuthorityStore] == nil {
+		t.Fatalf("TestLoadX509TrustStore must load trust store associated with \"ca\" and \"signingAuthority\"")
 	}
 }
