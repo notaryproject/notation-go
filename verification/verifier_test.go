@@ -309,7 +309,7 @@ func TestVerificationCombinations(t *testing.T) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository() // repository returns an expired signature by default
-		expectedErr := fmt.Errorf("digital signature has expired on \"2022-06-25 10:56:22 -0700 PDT\"")
+		expectedErr := fmt.Errorf("digital signature has expired on \"Sat, 25 Jun 2022 10:56:22 PDT\"")
 		testCases = append(testCases, testCase{
 			verificationType:  Expiry,
 			verificationLevel: level,

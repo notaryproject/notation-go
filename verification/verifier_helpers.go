@@ -103,7 +103,7 @@ func (v *Verifier) verifyExpiry(outcome *SignatureVerificationOutcome) *Verifica
 	if !outcome.SignerInfo.SignedAttributes.Expiry.IsZero() && !time.Now().Before(outcome.SignerInfo.SignedAttributes.Expiry) {
 		return &VerificationResult{
 			Success: false,
-			Error:   fmt.Errorf("digital signature has expired on %q", outcome.SignerInfo.SignedAttributes.Expiry),
+			Error:   fmt.Errorf("digital signature has expired on %q", outcome.SignerInfo.SignedAttributes.Expiry.Format(time.RFC1123)),
 			Type:    Expiry,
 			Action:  outcome.VerificationLevel.VerificationMap[Expiry],
 		}
