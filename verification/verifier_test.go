@@ -123,7 +123,7 @@ func TestRegistryListSignatureManifestsError(t *testing.T) {
 		Repository:     &repo,
 		PluginManager:  mock.NewPluginManager(),
 	}
-	errorMessage := fmt.Sprintf("unable to retrieve digital signature/s associated with %q from the registry, error : network error", mock.SampleArtifactUri)
+	errorMessage := fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : network error", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{msg: errorMessage}
 
 	// mock the repository
@@ -163,7 +163,7 @@ func TestRegistryGetBlobError(t *testing.T) {
 		Repository:     &repo,
 		PluginManager:  mock.NewPluginManager(),
 	}
-	errorMessage := fmt.Sprintf("unable to retrieve digital signature/s associated with %q from the registry, error : network error", mock.SampleArtifactUri)
+	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{msg: errorMessage}
 
 	// mock the repository

@@ -39,7 +39,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA"}, false},
 		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA", "nonX509Prefix:my-custom-identity"}, false},
 		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA", "x509.subject:C=IND,O=SomeOrg,ST=TS"}, false},
-		{[]string{"nonX509Prefix:my-custom-identity"}, false},
+		{[]string{"nonX509Prefix:my-custom-identity"}, true},
 		{[]string{"*"}, false},
 		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS"}, true},
 		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "nonX509Prefix:my-custom-identity"}, true},

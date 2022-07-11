@@ -56,7 +56,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 
 	verificationLevel, _ := FindVerificationLevel(trustPolicy.SignatureVerification)
 
-	if verificationLevel.Name == "skip" {
+	if verificationLevel.Name == Skip.Name {
 		verificationOutcomes = append(verificationOutcomes, &SignatureVerificationOutcome{VerificationLevel: verificationLevel})
 		return verificationOutcomes, nil
 	}
@@ -71,7 +71,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 	// get signature manifests
 	sigManifests, err := v.Repository.ListSignatureManifests(ctx, artifactDescriptor.Digest)
 	if err != nil {
-		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature/s associated with %q from the registry, error : %s", artifactUri, err.Error())}
+		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : %s", artifactUri, err.Error())}
 	}
 	if len(sigManifests) < 1 {
 		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactUri)}
@@ -82,7 +82,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 		// get signature envelope
 		sigBlob, err := v.Repository.Get(ctx, sigManifest.Blob.Digest)
 		if err != nil {
-			return verificationOutcomes, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature/s associated with %q from the registry, error : %s", artifactUri, err.Error())}
+			return verificationOutcomes, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigManifest.Blob.Digest, artifactUri, err.Error())}
 		}
 		outcome := &SignatureVerificationOutcome{
 			VerificationResults: []*VerificationResult{},
@@ -106,7 +106,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 		// artifact digest must match the digest from the signature payload
 		payload := &notation.Payload{}
 		err := json.Unmarshal(outcome.SignerInfo.Payload, payload)
-		if err != nil || artifactDigest != payload.TargetArtifact.Digest.String() {
+		if err != nil || artifactDescriptor.Equal(payload.TargetArtifact) {
 			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
 			continue
 		}
@@ -139,10 +139,8 @@ func (v *Verifier) processSignature(sigBlob []byte, sigManifest registry.Signatu
 
 // defaultVerification performs verification for the default singing scheme `notary.default.x509`
 func (v *Verifier) defaultVerification(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
-	trustStorePrefix := "ca"
-
 	// verify x509 and trust identity based authenticity
-	result := v.verifyAuthenticity(trustStorePrefix, trustPolicy, outcome)
+	result := v.verifyAuthenticity(TrustStorePrefixCA, trustPolicy, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, result)
 	if isCriticalFailure(result) {
 		return result.Error

@@ -64,14 +64,14 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 	return signerInfo, result
 }
 
-func (v *Verifier) verifyAuthenticity(trustStorePrefix string, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
+func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
 	// verify authenticity
 	trustStores, err := loadX509TrustStores(trustPolicy, "testdata/trust-store") // TODO get trust store path from dir structure PR
 
 	// filter trust certificates based on trust store prefix
 	var trustCerts []*x509.Certificate
 	for _, v := range trustStores {
-		if v.Prefix == trustStorePrefix {
+		if v.Prefix == string(trustStorePrefix) {
 			trustCerts = append(trustCerts, v.Certificates...)
 		}
 	}
@@ -157,7 +157,7 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 	}
 
 	if len(trustedX509Identities) == 0 {
-		return nil
+		return fmt.Errorf("no x509 trusted identities are configured in the trust policy %q", trustPolicy.Name)
 	}
 
 	leafCert := certs[0] // trusted identities only supported on the leaf cert

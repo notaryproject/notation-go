@@ -123,11 +123,9 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 // validateTrustStore validates if the policy statement is following the Notary V2 spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
-	supportedTrustStorePrefixes := []string{"ca", "signingAuthority"}
-
 	for _, trustStore := range statement.TrustStores {
 		i := strings.Index(trustStore, ":")
-		if i < 0 || !isPresent(trustStore[:i], supportedTrustStorePrefixes) {
+		if i < 0 || !IsValidTrustStorePrefix(trustStore[:i]) {
 			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, trustStore[:i], trustStore)
 		}
 	}
