@@ -1,4 +1,4 @@
-package jws
+package signature
 
 import (
 	"context"
@@ -190,10 +190,10 @@ func TestSigner_Sign_SignatureVerifyError(t *testing.T) {
 	}
 	signer := pluginSigner{
 		runner: &mockSignerPlugin{
-			KeyID:      "1",
-			KeySpec:    signer.RSA_2048,
-			Sign:       func(payload []byte) []byte { return []byte("r a w") },
-			Certs:      getBytes(cert),
+			KeyID:   "1",
+			KeySpec: signer.RSA_2048,
+			Sign:    func(payload []byte) []byte { return []byte("r a w") },
+			Certs:   getBytes(cert),
 		},
 		keyID: "1",
 	}
@@ -222,10 +222,10 @@ func TestSigner_Sign_Valid(t *testing.T) {
 	}
 	pluginSigner := pluginSigner{
 		runner: &mockSignerPlugin{
-			KeyID:      "1",
-			KeySpec:    signer.RSA_2048,
-			Sign:       validSign(t, key),
-			Certs:      getBytes(cert),
+			KeyID:   "1",
+			KeySpec: signer.RSA_2048,
+			Sign:    validSign(t, key),
+			Certs:   getBytes(cert),
 		},
 		keyID: "1",
 	}

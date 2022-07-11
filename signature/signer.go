@@ -1,4 +1,4 @@
-package jws
+package signature
 
 import (
 	"context"
