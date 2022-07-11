@@ -3,6 +3,7 @@ package verification
 import (
 	"fmt"
 	nsigner "github.com/notaryproject/notation-core-go/signer"
+	"strings"
 )
 
 // VerificationType is an enum for signature verification types such as Integrity, Authenticity, etc.
@@ -41,6 +42,12 @@ type VerificationLevel struct {
 	VerificationMap map[VerificationType]VerificationAction
 }
 
+// CustomerVerificationLevel encapsulates the custom verification settings configured by a user in their trust policy
+type CustomerVerificationLevel struct {
+	Level    string            `json:"level"`
+	Override map[string]string `json:"override"`
+}
+
 const (
 	Integrity          VerificationType = "Integrity"
 	Authenticity       VerificationType = "Authenticity"
@@ -48,9 +55,9 @@ const (
 	Expiry             VerificationType = "Expiry"
 	Revocation         VerificationType = "Revocation"
 
-	Enforced VerificationAction = "Enforced"
-	Logged   VerificationAction = "Logged"
-	Skipped  VerificationAction = "Skipped"
+	Enforced VerificationAction = "Enforce"
+	Logged   VerificationAction = "Log"
+	Skipped  VerificationAction = "Skip"
 )
 
 var (
@@ -120,13 +127,84 @@ var (
 	}
 )
 
-// FindVerificationLevel finds if the given string corresponds to a supported VerificationLevel, otherwise throws an error
-func FindVerificationLevel(s string) (*VerificationLevel, error) {
+// GetVerificationLevel finds if the given input corresponds to a valid VerificationLevel, otherwise throws an error
+func GetVerificationLevel(input interface{}) (*VerificationLevel, error) {
+	switch input.(type) {
+	case string:
+		for _, l := range VerificationLevels {
+			if l.Name == input {
+				return l, nil
+			}
+		}
+		return nil, fmt.Errorf("invalid signature verification %q", input)
+	case map[string]interface{}:
+		return parseCustomVerification(input)
+	}
+	return nil, fmt.Errorf("invalid signature verification %q", input)
+}
 
-	for _, level := range VerificationLevels {
-		if level.Name == s {
-			return level, nil
+func parseCustomVerification(input interface{}) (*VerificationLevel, error) {
+	cvl, ok := input.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid custom signature verification")
+	}
+
+	var baseLevel *VerificationLevel
+	for _, l := range VerificationLevels {
+		if l.Name == cvl["level"] {
+			baseLevel = l
 		}
 	}
-	return nil, fmt.Errorf("invalid signature verification level %q", s)
+	if baseLevel == nil {
+		return nil, fmt.Errorf("invalid custom signature verification %q", cvl)
+	}
+	if baseLevel == Skip {
+		return nil, fmt.Errorf("signature verification %q can't be used in custom signature verification", baseLevel.Name)
+	}
+
+	verificationLevel := &VerificationLevel{
+		Name:            "custom",
+		VerificationMap: make(map[VerificationType]VerificationAction),
+	}
+
+	// populate the custom verification level with the base verification settings
+	for k, v := range baseLevel.VerificationMap {
+		verificationLevel.VerificationMap[k] = v
+	}
+
+	// override the verification actions with the user configured settings
+	var overrideMap map[string]interface{}
+	if overrideMap, ok = cvl["override"].(map[string]interface{}); !ok {
+		return nil, fmt.Errorf("invalid custom signature verification %q", cvl)
+	}
+	for key, value := range overrideMap {
+		var verificationType VerificationType
+		for _, t := range VerificationTypes {
+			if strings.EqualFold(string(t), key) {
+				verificationType = t
+			}
+		}
+		if verificationType == "" {
+			return nil, fmt.Errorf("verification type %q in custom signature verification is not supported", verificationType)
+		}
+
+		var verificationAction VerificationAction
+		for _, action := range VerificationActions {
+			if strings.EqualFold(string(action), value.(string)) {
+				verificationAction = action
+			}
+		}
+		if verificationAction == "" {
+			return nil, fmt.Errorf("verification action %q in custom signature verification is not supported", verificationAction)
+		}
+
+		if verificationType == Integrity {
+			return nil, fmt.Errorf("%q verification can not be overridden in custom signature verification", key)
+		} else if verificationType != Revocation && verificationAction == Skipped {
+			return nil, fmt.Errorf("%q verification can not be skipped in custom signature verification", key)
+		}
+
+		verificationLevel.VerificationMap[verificationType] = verificationAction
+	}
+	return verificationLevel, nil
 }

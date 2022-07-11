@@ -31,7 +31,7 @@ type TrustPolicy struct {
 	// RegistryScopes that this policy statement affects
 	RegistryScopes []string `json:"registryScopes"`
 	// SignatureVerification setting for this policy statement
-	SignatureVerification string `json:"signatureVerification"`
+	SignatureVerification interface{} `json:"signatureVerification"`
 	// TrustStores this policy statement uses
 	TrustStores []string `json:"trustStores,omitempty"`
 	// TrustedIdentities this policy statement pins
@@ -162,8 +162,8 @@ func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 		policyStatementNameCount[statement.Name]++
 
 		// Verify signature verification level is valid
-		if _, err := FindVerificationLevel(statement.SignatureVerification); err != nil {
-			return fmt.Errorf("trust policy statement %q uses unsupported signatureVerification value %q", statement.Name, statement.SignatureVerification)
+		if _, err := GetVerificationLevel(statement.SignatureVerification); err != nil {
+			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and trusted identities
