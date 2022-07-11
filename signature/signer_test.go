@@ -45,7 +45,7 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 }
 
-// TODO: Enable once we have timestamping inplace
+// TODO: Enable once we have timestamping inplace https://github.com/notaryproject/notation-go/issues/78
 func TestSignWithTimestamp(t *testing.T) {
 	t.Skip("Skipping testing as we dont have timestamping hooked up")
 	// prepare signer

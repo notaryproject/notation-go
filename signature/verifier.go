@@ -57,7 +57,7 @@ func (v *Verifier) Verify(_ context.Context, sig []byte, opts notation.VerifyOpt
 		return notation.Descriptor{}, authErr
 	}
 
-	// TODO: validate expiry and timestamp
+	// TODO: validate expiry and timestamp https://github.com/notaryproject/notation-go/issues/78
 	var payload notation.Payload
 	if err = json.Unmarshal(sigInfo.Payload, &payload); err != nil {
 		return notation.Descriptor{}, fmt.Errorf("envelope payload can't be decoded: %w", err)

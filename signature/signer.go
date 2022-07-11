@@ -14,7 +14,7 @@ import (
 )
 
 // NewSignerFromFiles creates a signer from key, certificate files
-// TODO: Add tests for this method.
+// TODO: Add tests for this method. https://github.com/notaryproject/notation-go/issues/80
 func NewSignerFromFiles(keyPath, certPath string) (notation.Signer, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
