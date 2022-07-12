@@ -128,19 +128,8 @@ func (v *Verifier) processSignature(sigBlob []byte, sigManifest registry.Signatu
 		return result.Error
 	}
 
-	// perform remaining validations based on the signing scheme
-	if err := v.defaultVerification(trustPolicy, outcome); err != nil {
-		return err
-	}
-
-	// no error
-	return nil
-}
-
-// defaultVerification performs verification for the default singing scheme `notary.default.x509`
-func (v *Verifier) defaultVerification(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
 	// verify x509 and trust identity based authenticity
-	result := v.verifyAuthenticity(TrustStorePrefixCA, trustPolicy, outcome)
+	result = v.verifyAuthenticity(TrustStorePrefixCA, trustPolicy, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, result)
 	if isCriticalFailure(result) {
 		return result.Error
@@ -153,7 +142,6 @@ func (v *Verifier) defaultVerification(trustPolicy *TrustPolicy, outcome *Signat
 		return result.Error
 	}
 
-	// TODO verify timestamping signature if present - NOT in RC1
-	// TODO verify certificate revocation - NOT in RC1
+	// no error
 	return nil
 }
