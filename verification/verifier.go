@@ -142,6 +142,8 @@ func (v *Verifier) processSignature(sigBlob []byte, sigManifest registry.Signatu
 		return result.Error
 	}
 
+	// Verify timestamping signature if present - Not in RC1
+	// Verify revocation - Not in RC1
 	// no error
 	return nil
 }
