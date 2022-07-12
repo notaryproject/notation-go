@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 
-	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-core-go/signer"
 )
 
 // Prefix is the prefix required on all plugin binary names.
@@ -68,22 +68,22 @@ func (DescribeKeyRequest) Command() Command {
 	return CommandDescribeKey
 }
 
-// GenerateSignatureResponse is the response of a describe-key request.
+// DescribeKeyResponse is the response of a describe-key request.
 type DescribeKeyResponse struct {
 	// The same key id as passed in the request.
 	KeyID string `json:"keyId"`
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec notation.KeySpec `json:"keySpec"`
+	KeySpec signer.KeySpec `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 type GenerateSignatureRequest struct {
 	ContractVersion string                 `json:"contractVersion"`
 	KeyID           string                 `json:"keyId"`
-	KeySpec         notation.KeySpec       `json:"keySpec"`
-	Hash            notation.HashAlgorithm `json:"hashAlgorithm"`
+	KeySpec         signer.KeySpec         `json:"keySpec"`
+	Hash            string                 `json:"hashAlgorithm"`
 	Payload         []byte                 `json:"payload"`
 	PluginConfig    map[string]string      `json:"pluginConfig,omitempty"`
 }
@@ -96,7 +96,7 @@ func (GenerateSignatureRequest) Command() Command {
 type GenerateSignatureResponse struct {
 	KeyID            string                      `json:"keyId"`
 	Signature        []byte                      `json:"signature"`
-	SigningAlgorithm notation.SignatureAlgorithm `json:"signingAlgorithm"`
+	SigningAlgorithm signer.SignatureAlgorithm   `json:"signingAlgorithm"`
 
 	// Ordered list of certificates starting with leaf certificate
 	// and ending with root certificate.
@@ -117,7 +117,7 @@ func (GenerateEnvelopeRequest) Command() Command {
 	return CommandGenerateEnvelope
 }
 
-// GenerateSignatureResponse is the response of a generate-envelope request.
+// GenerateEnvelopeResponse is the response of a generate-envelope request.
 type GenerateEnvelopeResponse struct {
 	SignatureEnvelope     []byte            `json:"signatureEnvelope"`
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`

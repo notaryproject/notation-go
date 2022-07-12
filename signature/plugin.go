@@ -1,19 +1,19 @@
-package jws
+package signature
 
 import (
 	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/notaryproject/notation-core-go/signer"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
 )
 
-// pluginSigner signs artifacts and generates JWS signatures.
+// pluginSigner signs artifacts and generates signatures.
 type pluginSigner struct {
 	runner       plugin.Runner
 	keyID        string
@@ -99,81 +99,50 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		return nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.keyID)
 	}
 
-	// Get algorithm associated to key.
-	alg := key.KeySpec.SignatureAlgorithm()
-	if alg == "" {
-		return nil, fmt.Errorf("keySpec %q for key %q is not supported", key.KeySpec, key.KeyID)
-	}
-
 	// Generate payload to be signed.
-	payload := packPayload(desc, opts)
-	if err := payload.Valid(); err != nil {
-		return nil, err
-	}
-
-	// Generate signing string.
-	token := jwtToken(alg.JWS(), payload)
-	payloadToSign, err := token.SigningString()
+	payload := notation.Payload{TargetArtifact: desc}
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal signing payload: %v", err)
+		return nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
 	}
 
-	// Execute plugin sign command.
-	req := &plugin.GenerateSignatureRequest{
-		ContractVersion: plugin.ContractVersion,
-		KeyID:           s.keyID,
-		KeySpec:         key.KeySpec,
-		Hash:            alg.Hash(),
-		Payload:         []byte(payloadToSign),
-		PluginConfig:    config,
+	// Create plugin signature provider
+	psp := pluginSigProvider{
+		runner:  s.runner,
+		ctx:     ctx,
+		keyID:   s.keyID,
+		keySpec: key.KeySpec,
 	}
-	out, err := s.runner.Run(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("generate-signature command failed: %w", err)
+	signReq := signer.SignRequest{
+		Payload:             payloadBytes,
+		PayloadContentType:  signer.PayloadContentTypeV1,
+		SignatureProvider:   psp,
+		SigningTime:         time.Now(),
+		ExtendedSignedAttrs: nil,
+		SigningAgent:        "Notation/1.0.0",  // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
 	}
-	resp, ok := out.(*plugin.GenerateSignatureResponse)
-	if !ok {
-		return nil, fmt.Errorf("plugin runner returned incorrect generate-signature response type '%T'", out)
-	}
-
-	// Check keyID is honored.
-	if s.keyID != resp.KeyID {
-		return nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q", resp.KeyID, s.keyID)
+	if !opts.Expiry.IsZero() {
+		signReq.Expiry = opts.Expiry
 	}
 
-	// Check algorithm is supported.
-	jwsAlg := resp.SigningAlgorithm.JWS()
-	if jwsAlg == "" {
-		return nil, fmt.Errorf("signing algorithm %q in generateSignature response is not supported", resp.SigningAlgorithm)
-	}
-
-	// Check certificate chain is not empty.
-	if len(resp.CertificateChain) == 0 {
-		return nil, errors.New("generateSignature response has empty certificate chain")
-	}
-
-	certs, err := parseCertChain(resp.CertificateChain)
+	// perform signing using pluginSigProvider
+	sigEnv, err := signer.NewSignatureEnvelope(signer.MediaTypeJWSJson)
 	if err != nil {
 		return nil, err
 	}
 
-	// Verify the hash of the request payload against the response signature
-	// using the public key of the signing certificate.
-	// At this point, resp.Signature is not base64-encoded,
-	// but verifyJWT expects a base64URL encoded string.
-	signed64Url := base64.RawURLEncoding.EncodeToString(resp.Signature)
-	err = verifyJWT(jwsAlg, payloadToSign, signed64Url, certs[0])
+	sig, err := sigEnv.Sign(signReq)
 	if err != nil {
+		return nil, err
+	}
+
+	_, verErr := sigEnv.Verify()
+	if verErr != nil {
 		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", err)
 	}
 
-	// Check the the certificate chain conforms to the spec.
-	if err := verifyCertExtKeyUsage(certs[0], x509.ExtKeyUsageCodeSigning); err != nil {
-		return nil, fmt.Errorf("signing certificate in generateSignature response.CertificateChain does not meet the minimum requirements: %w", err)
-	}
-
-	// Assemble the JWS signature envelope.
-	return jwsEnvelope(ctx, opts, payloadToSign+"."+signed64Url, resp.CertificateChain)
+	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
+	return sig, nil
 }
 
 func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
@@ -190,19 +159,19 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	rawDesc, err := json.Marshal(desc)
+	payload := notation.Payload{TargetArtifact: desc}
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
 	}
 	// Execute plugin sign command.
 	req := &plugin.GenerateEnvelopeRequest{
 		ContractVersion:       plugin.ContractVersion,
 		KeyID:                 s.keyID,
-		Payload:               rawDesc,
-		SignatureEnvelopeType: notation.MediaTypeJWSEnvelope,
-		// TODO: Update payload type once https://github.com/notaryproject/notaryproject/pull/158 is approved.
-		PayloadType:  notation.MediaTypePayload,
-		PluginConfig: s.mergeConfig(opts.PluginConfig),
+		Payload:               payloadBytes,
+		SignatureEnvelopeType: string(signer.MediaTypeJWSJson),
+		PayloadType:           notation.MediaTypePayload,
+		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
 	out, err := s.runner.Run(ctx, req)
 	if err != nil {
@@ -221,50 +190,26 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		)
 	}
 
-	// Check signatureEnvelope contains a valid JWSEnvelope.
-	var envelope notation.JWSEnvelope
-	if err = json.Unmarshal(resp.SignatureEnvelope, &envelope); err != nil ||
-		len(envelope.Payload) == 0 ||
-		len(envelope.Protected) == 0 ||
-		len(envelope.Signature) == 0 ||
-		len(envelope.Header.CertChain) == 0 {
-
-		return nil, errors.New("envelope content does not match envelope format")
-	}
-
-	// Check algorithm is supported.
-	var protected notation.JWSProtectedHeader
-	if err = decodeBase64URLJSON(envelope.Protected, &protected); err != nil {
-		return nil, fmt.Errorf("envelope protected header can't be decoded: %w", err)
-	}
-	if notation.NewSignatureAlgorithmJWS(protected.Algorithm) == "" {
-		return nil, fmt.Errorf("signing algorithm %q not supported", protected.Algorithm)
-	}
-
-	// Check descriptor subject is honored.
-	var payload notation.JWSPayload
-	err = decodeBase64URLJSON(envelope.Payload, &payload)
+	sigEnv, err := signer.NewSignatureEnvelopeFromBytes(resp.SignatureEnvelope, signer.MediaTypeJWSJson)
 	if err != nil {
-		return nil, fmt.Errorf("envelope payload can't be decoded: %w", err)
+		return nil, err
 	}
-	if !descriptorPartialEqual(desc, payload.Subject) {
+
+	sigInfo, err := sigEnv.Verify()
+	if err != nil {
+		return nil, err
+	}
+
+	var signedPayload notation.Payload
+	if err = json.Unmarshal(sigInfo.Payload, &signedPayload); err != nil {
+		return nil, fmt.Errorf("signed envelope payload can't be unmarshaled: %w", err)
+	}
+
+	// TODO: Verify plugin didnot add any additional top level payload attributes. https://github.com/notaryproject/notation-go/issues/80
+	if !descriptorPartialEqual(desc, signedPayload.TargetArtifact) {
 		return nil, errors.New("descriptor subject has changed")
 	}
 
-	// Check signatureEnvelope can be verified against signing certificate.
-	certs, err := parseCertChain(envelope.Header.CertChain)
-	if err != nil {
-		return nil, err
-	}
-	err = verifyJWT(protected.Algorithm, envelope.Protected+"."+envelope.Payload, envelope.Signature, certs[0])
-	if err != nil {
-		return nil, err
-	}
-
-	// Check the the certificate chain conforms to the spec.
-	if err := verifyCertExtKeyUsage(certs[0], x509.ExtKeyUsageCodeSigning); err != nil {
-		return nil, fmt.Errorf("signing certificate does not meet the minimum requirements: %w", err)
-	}
 	return resp.SignatureEnvelope, nil
 }
 
@@ -283,14 +228,6 @@ func descriptorPartialEqual(original, newDesc notation.Descriptor) bool {
 	return true
 }
 
-func decodeBase64URLJSON(str string, v interface{}) error {
-	dec, err := base64.RawURLEncoding.DecodeString(str)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(dec, v)
-}
-
 func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 	certs := make([]*x509.Certificate, len(certChain))
 	for i, cert := range certChain {
@@ -303,8 +240,48 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func verifyJWT(sigAlg string, payload string, sig string, signingCert *x509.Certificate) error {
-	// Verify the hash of req.payload against resp.signature using the public key in the leaf certificate.
-	method := jwt.GetSigningMethod(sigAlg)
-	return method.Verify(payload, sig, signingCert.PublicKey)
+type pluginSigProvider struct {
+	runner  plugin.Runner
+	ctx     context.Context
+	keyID   string
+	keySpec signer.KeySpec
+	config  map[string]string
+}
+
+func (psp pluginSigProvider) Sign(bytes []byte) ([]byte, []*x509.Certificate, error) {
+	// Execute plugin sign command.
+	req := &plugin.GenerateSignatureRequest{
+		ContractVersion: plugin.ContractVersion,
+		KeyID:           psp.keyID,
+		KeySpec:         psp.keySpec,
+		Hash:            psp.keySpec.SignatureAlgorithm().Hash().String(),
+		Payload:         bytes,
+		PluginConfig:    psp.config,
+	}
+
+	out, err := psp.runner.Run(psp.ctx, req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate-signature command failed: %w", err)
+	}
+
+	resp, ok := out.(*plugin.GenerateSignatureResponse)
+	if !ok {
+		return nil, nil, fmt.Errorf("plugin runner returned incorrect generate-signature response type '%T'", out)
+	}
+
+	// Check keyID is honored.
+	if req.KeyID != resp.KeyID {
+		return nil, nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q", resp.KeyID, req.KeyID)
+	}
+
+	certs, err := parseCertChain(resp.CertificateChain)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return resp.Signature, certs, nil
+}
+
+func (psp pluginSigProvider) KeySpec() (signer.KeySpec, error) {
+	return psp.keySpec, nil
 }
