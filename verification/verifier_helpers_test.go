@@ -8,6 +8,27 @@ import (
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 )
 
+func TestIsFailureResult(t *testing.T) {
+	tests := []struct {
+		result          VerificationResult
+		isFailureResult bool
+	}{
+		{VerificationResult{Action: Enforced, Success: false}, true},
+		{VerificationResult{Action: Logged, Success: false}, false},
+		{VerificationResult{Action: Skipped, Success: false}, false},
+	}
+	for i, tt := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			endResult := isCriticalFailure(tt.result)
+
+			if endResult != tt.isFailureResult {
+				t.Fatalf("TestIsEndResult Expected: %v Got: %v", tt.isFailureResult, endResult)
+			}
+		})
+	}
+
+}
+
 func TestVerifyX509TrustedIdentities(t *testing.T) {
 
 	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/signing-cert.pem")) // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
@@ -31,10 +52,10 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 				SignatureVerification: "strict",
-				TrustStore:            "ca:test-store",
+				TrustStores:           []string{"ca:test-store"},
 				TrustedIdentities:     tt.x509Identities,
 			}
-			err := verifyX509TrustedIdentities(certs, trustPolicy)
+			err := verifyX509TrustedIdentities(certs, &trustPolicy)
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestVerifyX509TrustedIdentities Error: %q WantErr: %v", err, tt.wantErr)

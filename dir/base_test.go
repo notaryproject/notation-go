@@ -83,7 +83,7 @@ func TestLoadPath(t *testing.T) {
 			userConfigDir = tt.userConfigDir
 			userCacheDir = tt.userCacheDir
 			getenv = tt.getenv
-			LoadPath()
+			loadPath()
 			assertPathEqual(t, tt.wantSystemConfig, systemConfig, "systemConfig error.")
 			assertPathEqual(t, tt.wantSystemLibexec, systemLibexec, "systemLibexec error.")
 			assertPathEqual(t, tt.wantUserConfig, userConfig, "userConfig error.")
@@ -151,7 +151,7 @@ func TestLoadPathError(t *testing.T) {
 					t.Fatal("error")
 				}
 			}()
-			LoadPath()
+			loadPath()
 		})
 	}
 }
