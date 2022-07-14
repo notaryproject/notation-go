@@ -298,7 +298,7 @@ func (s *mockEnvelopePlugin) Run(_ context.Context, req plugin.Request) (interfa
 		} else {
 			resolvedCertChain = certs
 		}
-		lsp, err := signer.GetLocalSignatureProvider(resolvedCertChain, key)
+		lsp, err := signer.NewLocalSignatureProvider(resolvedCertChain, key)
 		if err != nil {
 			return nil, err
 		}
@@ -312,6 +312,7 @@ func (s *mockEnvelopePlugin) Run(_ context.Context, req plugin.Request) (interfa
 			SignatureProvider:   lsp,
 			SigningTime:         time.Now(),
 			Expiry:              time.Now().AddDate(2,0,0),
+			SigningScheme:       signer.SigningSchemeX509SigningAuthority,
 			SigningAgent:        "",
 		})
 		if err != nil {
