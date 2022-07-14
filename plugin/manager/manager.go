@@ -192,6 +192,8 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 		resp = new(plugin.GenerateEnvelopeResponse)
 	case plugin.CommandDescribeKey:
 		resp = new(plugin.DescribeKeyResponse)
+	case plugin.CommandVerifySignature:
+		resp = new(plugin.VerifySignatureResponse)
 	default:
 		return nil, fmt.Errorf("unsupported command: %s", cmd)
 	}
