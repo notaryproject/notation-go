@@ -61,7 +61,7 @@ func (c execCommander) Output(ctx context.Context, name string, command string, 
 
 // Manager manages plugins installed on the system.
 type Manager struct {
-	fsys  fs.FS
+	fsys  dir.UnionDirFS
 	cmder commander
 }
 
@@ -221,12 +221,10 @@ func binName(name string) string {
 	return addExeSuffix(plugin.Prefix + name)
 }
 
-func binPath(fsys fs.FS, name string) string {
+func binPath(fsys dir.UnionDirFS, name string) string {
 	base := binName(name)
-	if fsys, ok := fsys.(dir.UnionDirFS); ok {
-		if path, err := fsys.GetPath(name, base); err == nil {
-			return path
-		}
+	if path, err := fsys.GetPath(name, base); err == nil {
+		return path
 	}
 	return filepath.Join(name, base)
 }

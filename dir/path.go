@@ -9,16 +9,6 @@ const (
 	SignatureExtension = ".sig"
 )
 
-// PathIFace is a notation path interface
-type PathIFace interface {
-	Config() (string, error)
-	Localkey(keyName string) (string, error)
-	SigningKeyConfig() (string, error)
-	TrustPolicy() (string, error)
-	X509TrustStore(prefix, storeName string) (string, error)
-	CachedSignature(manifestDigest, blobDigest digest.Digest) (string, error)
-}
-
 // PathManager contains the union directory file system and methods
 // to access paths of notation
 type PathManager struct {

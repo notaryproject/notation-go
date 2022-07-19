@@ -1,6 +1,7 @@
 package dir
 
 import (
+	"errors"
 	"io/fs"
 	"testing"
 	"testing/fstest"
@@ -46,12 +47,10 @@ func TestReadDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			unionDirFS := UnionDirFS{
-				Dirs: []RootedFS{
-					{tt.usrFS, "user"},
-					{tt.sysFS, "system"},
-				},
-			}
+			unionDirFS := NewUnionDirFS(
+				NewRootedFS("user", tt.usrFS),
+				NewRootedFS("system", tt.sysFS),
+			)
 			dirs := []string{}
 			err := fs.WalkDir(unionDirFS, "plugin", func(path string, d fs.DirEntry, err error) error {
 				if path == "plugin" {
@@ -121,12 +120,10 @@ func TestOpen(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			unionDirFS := UnionDirFS{
-				Dirs: []RootedFS{
-					{tt.usrFS, "user"},
-					{tt.sysFS, "system"},
-				},
-			}
+			unionDirFS := NewUnionDirFS(
+				NewRootedFS("user", tt.usrFS),
+				NewRootedFS("system", tt.sysFS),
+			)
 			file, err := unionDirFS.Open(tt.path)
 			if err != nil {
 				t.Fatalf("open error.")
@@ -183,18 +180,22 @@ func TestPath(t *testing.T) {
 			sysFS: fstest.MapFS{"plugin/a/b.exe": {Data: []byte("system b")}},
 			path:  []string{"plugin/a/a.exe"},
 		},
+		{name: "Path does not exist",
+			want:  "system/plugin/c/c.exe",
+			usrFS: fstest.MapFS{"plugin/a/a.exe": {Data: []byte("user a")}},
+			sysFS: fstest.MapFS{"plugin/a/b.exe": {Data: []byte("system b")}},
+			path:  []string{"plugin/c/c.exe"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			unionDirFS := UnionDirFS{
-				Dirs: []RootedFS{
-					{tt.usrFS, "user"},
-					{tt.sysFS, "system"},
-				},
-			}
+			unionDirFS := NewUnionDirFS(
+				NewRootedFS("user", tt.usrFS),
+				NewRootedFS("system", tt.sysFS),
+			)
 			path, err := unionDirFS.GetPath(tt.path...)
-			if err != nil {
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				t.Fatal(err)
 			}
 			assertPathEqual(t, tt.want, path, "UnionDirFS Path test failed.")
@@ -225,12 +226,10 @@ func TestPathTrustStore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			unionDirFS := UnionDirFS{
-				Dirs: []RootedFS{
-					{tt.usrFS, "/home/exampleuser/.config/notation"},
-					{tt.sysFS, "/etc/notation"},
-				},
-			}
+			unionDirFS := NewUnionDirFS(
+				NewRootedFS("/home/exampleuser/.config/notation", tt.usrFS),
+				NewRootedFS("/etc/notation", tt.sysFS),
+			)
 			path, err := unionDirFS.GetPath(tt.path...)
 			if err != nil {
 				t.Fatal(err)

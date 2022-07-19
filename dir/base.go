@@ -30,7 +30,8 @@ var (
 	// userCache for user-specific cache
 	userCache string
 
-	notationPath PathManager
+	// Path is a PathManager pointer
+	Path *PathManager
 )
 
 func init() {
@@ -81,17 +82,20 @@ func loadPath() {
 	}
 	userCache = filepath.Join(userCache, notation)
 
-	// set unionDirFS
+	// set PathManager
 	// TODO(JeyJeyGao): The user/system directory priority may change later
 	// (https://github.com/notaryproject/notation/issues/203)
-	notationPath = PathManager{
-		ConfigFS:  NewUnionDirFS(userConfig, systemConfig),
-		CacheFS:   NewUnionDirFS(userCache),
-		LibexecFS: NewUnionDirFS(userLibexec, systemLibexec),
+	Path = &PathManager{
+		ConfigFS: NewUnionDirFS(
+			NewRootedFS(userConfig, nil),
+			NewRootedFS(systemConfig, nil),
+		),
+		CacheFS: NewUnionDirFS(
+			NewRootedFS(userCache, nil),
+		),
+		LibexecFS: NewUnionDirFS(
+			NewRootedFS(userLibexec, nil),
+			NewRootedFS(systemLibexec, nil),
+		),
 	}
-}
-
-// Paths returns the PathManager to access the notation paths
-func Path() *PathManager {
-	return &notationPath
 }

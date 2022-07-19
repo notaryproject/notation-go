@@ -8,43 +8,57 @@ import (
 	"path/filepath"
 )
 
-// UnionDirFsIFace is a simple union directory file system interface
-type UnionDirFsIFace interface {
+// RootedFS is a file system interface supporting for getting root path.
+type RootedFS interface {
+	fs.FS
+	// Root returns the root path of the RootedFS
+	Root() string
+}
+
+type rootedFS struct {
+	fs.FS
+	root string
+}
+
+// Root returns the root path of the rootedFS
+func (r *rootedFS) Root() string {
+	return r.root
+}
+
+// NewRootedFS create a rootedFS
+//
+// if fsys is nil, uses os.DirFS
+func NewRootedFS(root string, fsys fs.FS) RootedFS {
+	if fsys == nil {
+		return &rootedFS{FS: os.DirFS(root), root: root}
+	}
+	return &rootedFS{FS: fsys, root: root}
+}
+
+// UnionDirFS is a simple union directory file system interface
+type UnionDirFS interface {
 	fs.ReadDirFS
+	// GetPath returns the path of the named file or directory under the FS
 	GetPath(elem ...string) (string, error)
 }
 
-// NewUnionDirFS is a virtual file system for merging multiple directories
-// with priority
-//
-// dirs contains the union directories and the previous one has higher priority
-func NewUnionDirFS(dirs ...string) UnionDirFS {
-	rootedDirs := []RootedFS{}
-	for _, dir := range dirs {
-		rootedDirs = append(rootedDirs, RootedFS{os.DirFS(dir), dir})
-	}
-	return UnionDirFS{Dirs: rootedDirs}
+// NewUnionDirFS create an unionDirFS by rootedFS
+func NewUnionDirFS(rootedFsys ...RootedFS) UnionDirFS {
+	return unionDirFS{Dirs: rootedFsys}
 }
 
-// RootedFS is io.FS implementation used in New.
-// root is the root of the file system tree passed to os.DirFS.
-type RootedFS struct {
-	fs.FS
-	Root string
-}
-
-// UnionDirFS is a simple union directory file system
+// unionDirFS is a simple union directory file system
 //
 // it unions multiple directory to be one directory with priority based on the
 // order of Dirs
-type UnionDirFS struct {
+type unionDirFS struct {
 	Dirs []RootedFS
 }
 
 // Open implements fs.FS interface
 //
 // traverse all union directories and return the first existing file
-func (u UnionDirFS) Open(name string) (fs.File, error) {
+func (u unionDirFS) Open(name string) (fs.File, error) {
 	for _, dir := range u.Dirs {
 		f, err := dir.Open(name)
 		if err != nil {
@@ -59,16 +73,16 @@ func (u UnionDirFS) Open(name string) (fs.File, error) {
 	return nil, &fs.PathError{Op: "open", Err: fs.ErrNotExist, Path: name}
 }
 
-// Path returns the path of the named file or directory under the FS
+// GetPath returns the path of the named file or directory under the FS
 //
 // if path exists, it returns the first existing path in union directories (dirs)
 // if path doesn't exist, it returns fs.ErrNotExist error
-func (u UnionDirFS) GetPath(elem ...string) (string, error) {
+func (u unionDirFS) GetPath(elem ...string) (string, error) {
 	var targetPath string
 	pathSuffix := path.Join(elem...)
 	for _, dir := range u.Dirs {
-		targetPath = filepath.Join(dir.Root, pathSuffix)
-		file, err := dir.Open(pathSuffix)
+		targetPath = filepath.Join(dir.Root(), pathSuffix)
+		_, err := fs.Stat(dir, pathSuffix)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
@@ -76,24 +90,27 @@ func (u UnionDirFS) GetPath(elem ...string) (string, error) {
 				return "", err
 			}
 		}
-		defer file.Close()
 		// got the first existing file path and break
 		// return the path with current OS separator
 		return targetPath, nil
 	}
 	// return the last possible path for creating new file
-	return targetPath, fs.ErrNotExist
+	return targetPath, &fs.PathError{
+		Op:   "getpath",
+		Err:  fs.ErrNotExist,
+		Path: pathSuffix,
+	}
 }
 
 // ReadDir implements the ReadDirFS interface
 //
 // traverse all union directories and return all existing DirEntries
-func (u UnionDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (u unionDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	isVisited := make(map[string]struct{})
 	var newEntries []fs.DirEntry
 	// traverse multiple union directories
 	for _, dir := range u.Dirs {
-		f, err := dir.Open(name)
+		entries, err := fs.ReadDir(dir, name)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
@@ -101,18 +118,6 @@ func (u UnionDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
 				return nil, err
 			}
 		}
-		defer f.Close()
-
-		// try to get entries
-		file, ok := f.(fs.ReadDirFile)
-		if !ok {
-			return nil, &fs.PathError{Op: "readdir", Err: errors.New("not implemented")}
-		}
-		entries, err := file.ReadDir(-1)
-		if err != nil {
-			return nil, err
-		}
-
 		// skip repeated entry name
 		// it is possible that multiple union directories have the entries
 		// with the same name
@@ -128,7 +133,11 @@ func (u UnionDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
 
 // PluginFS returns the UnionDirFS for notation plugins
 func PluginFS(dirs ...string) UnionDirFS {
+	var rootedFsys []RootedFS
 	dirs = append(dirs, filepath.Join(userLibexec, "plugins"))
 	dirs = append(dirs, filepath.Join(systemLibexec, "plugins"))
-	return NewUnionDirFS(dirs...)
+	for _, dir := range dirs {
+		rootedFsys = append(rootedFsys, NewRootedFS(dir, nil))
+	}
+	return NewUnionDirFS(rootedFsys...)
 }

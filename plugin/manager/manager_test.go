@@ -45,7 +45,9 @@ var validMetadataBar = plugin.Metadata{
 }
 
 func TestManager_Get_Empty(t *testing.T) {
-	mgr := &Manager{fstest.MapFS{}, nil}
+	mgr := &Manager{dir.NewUnionDirFS(
+		dir.NewRootedFS("", fstest.MapFS{}),
+	), nil}
 	got, err := mgr.Get(context.Background(), "foo")
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("Manager.Get() error = %v, want %v", got, ErrNotFound)
@@ -68,27 +70,39 @@ func TestManager_Get_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// empty fsys.
-	mgr := Manager{fstest.MapFS{}, nil}
+	mgr := Manager{dir.NewUnionDirFS(
+		dir.NewRootedFS("", fstest.MapFS{}),
+	), nil}
 	check(mgr.Get(ctx, "foo"))
 
 	// plugin directory exists without executable.
-	mgr = Manager{fstest.MapFS{
-		"foo": &fstest.MapFile{Mode: fs.ModeDir},
-	}, nil}
+	mgr = Manager{dir.NewUnionDirFS(
+		dir.NewRootedFS("",
+			fstest.MapFS{
+				"foo": &fstest.MapFile{Mode: fs.ModeDir},
+			},
+		),
+	), nil}
 	check(mgr.Get(ctx, "foo"))
 
 	// plugin directory exists with symlinked executable.
-	mgr = Manager{fstest.MapFS{
-		"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-		addExeSuffix("foo/notation-foo"): &fstest.MapFile{Mode: fs.ModeSymlink},
-	}, nil}
+	mgr = Manager{dir.NewUnionDirFS(
+		dir.NewRootedFS("",
+			fstest.MapFS{
+				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+				addExeSuffix("foo/notation-foo"): &fstest.MapFile{Mode: fs.ModeSymlink},
+			}),
+	), nil}
 	check(mgr.Get(ctx, "foo"))
 
 	// valid plugin exists but is not the target.
-	mgr = Manager{fstest.MapFS{
-		"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-		addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-	}, testCommander{metadataJSON(validMetadata), true, nil}}
+	mgr = Manager{dir.NewUnionDirFS(
+		dir.NewRootedFS("",
+			fstest.MapFS{
+				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+			}),
+	), testCommander{metadataJSON(validMetadata), true, nil}}
 	check(mgr.Get(ctx, "baz"))
 }
 
@@ -105,50 +119,65 @@ func TestManager_Get(t *testing.T) {
 	}{
 		{
 			"command error",
-			&Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{nil, false, errors.New("failed")}},
+			&Manager{dir.NewUnionDirFS(
+				dir.NewRootedFS("",
+					fstest.MapFS{
+						"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+						addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+					}),
+			), testCommander{nil, false, errors.New("failed")}},
 			args{"foo"},
 			&Plugin{Path: addExeSuffix("foo/notation-foo")},
 			"failed to fetch metadata",
 		},
 		{
 			"invalid json",
-			&Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{[]byte("content"), true, nil}},
+			&Manager{dir.NewUnionDirFS(
+				dir.NewRootedFS("",
+					fstest.MapFS{
+						"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+						addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+					}),
+			), testCommander{[]byte("content"), true, nil}},
 			args{"foo"},
 			&Plugin{Path: addExeSuffix("foo/notation-foo")},
 			"failed to fetch metadata",
 		},
 		{
 			"invalid metadata name",
-			&Manager{fstest.MapFS{
-				"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("baz/notation-baz"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), true, nil}},
+			&Manager{dir.NewUnionDirFS(
+				dir.NewRootedFS("",
+					fstest.MapFS{
+						"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
+						addExeSuffix("baz/notation-baz"): new(fstest.MapFile),
+					}),
+			), testCommander{metadataJSON(validMetadata), true, nil}},
 			args{"baz"},
 			&Plugin{Metadata: validMetadata, Path: addExeSuffix("baz/notation-baz")},
 			"executable name must be",
 		},
 		{
 			"invalid metadata content",
-			&Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(plugin.Metadata{Name: "foo"}), true, nil}},
+			&Manager{dir.NewUnionDirFS(
+				dir.NewRootedFS("",
+					fstest.MapFS{
+						"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+						addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+					}),
+			), testCommander{metadataJSON(plugin.Metadata{Name: "foo"}), true, nil}},
 			args{"foo"},
 			&Plugin{Metadata: plugin.Metadata{Name: "foo"}, Path: addExeSuffix("foo/notation-foo")},
 			"invalid metadata",
 		},
 		{
 			"valid",
-			&Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), true, nil}},
+			&Manager{dir.NewUnionDirFS(
+				dir.NewRootedFS("",
+					fstest.MapFS{
+						"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+						addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+					}),
+			), testCommander{metadataJSON(validMetadata), true, nil}},
 			args{"foo"},
 			&Plugin{Metadata: validMetadata, Path: addExeSuffix("foo/notation-foo")}, "",
 		},
@@ -189,48 +218,56 @@ func TestManager_List(t *testing.T) {
 		mgr  *Manager
 		want []*Plugin
 	}{
-		{"empty fsys", &Manager{fstest.MapFS{}, nil}, nil},
-		{"fsys without plugins", &Manager{fstest.MapFS{"a.go": &fstest.MapFile{}}, nil}, nil},
-		{
-			"fsys with plugins but symlinked", &Manager{
+		{"empty fsys", &Manager{dir.NewUnionDirFS(
+			dir.NewRootedFS("", fstest.MapFS{}),
+		), nil}, nil},
+		{"fsys without plugins", &Manager{dir.NewUnionDirFS(
+			dir.NewRootedFS("", fstest.MapFS{"a.go": &fstest.MapFile{}}),
+		), nil}, nil},
+		{"fsys with plugins but symlinked", &Manager{dir.NewUnionDirFS(
+			dir.NewRootedFS("",
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir | fs.ModeSymlink},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
-				}, testCommander{metadataJSON(validMetadata), true, nil}},
-			nil,
-		},
+				}),
+		), testCommander{metadataJSON(validMetadata), true, nil}}, nil},
 		{
 			"fsys with some invalid plugins", &Manager{
-				fstest.MapFS{
-					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-				}, testCommander{metadataJSON(validMetadata), true, nil}},
+				dir.NewUnionDirFS(
+					dir.NewRootedFS("",
+						fstest.MapFS{
+							"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+							addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+						}),
+				),
+				testCommander{metadataJSON(validMetadata), true, nil}},
 			[]*Plugin{{Metadata: validMetadata}},
 		},
 		{
 			"fsys with plugins", &Manager{
-				fstest.MapFS{
-					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
-				}, testCommander{metadataJSON(validMetadata), true, nil}},
+				dir.NewUnionDirFS(
+					dir.NewRootedFS("",
+						fstest.MapFS{
+							"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+							addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+							"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
+						}),
+				), testCommander{metadataJSON(validMetadata), true, nil}},
 			[]*Plugin{{Metadata: validMetadata}},
 		},
 		{
 			"unionDirFS with plugins", &Manager{
-				dir.UnionDirFS{
-					Dirs: []dir.RootedFS{
-						{FS: fstest.MapFS{
-							"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-							addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-						}, Root: "user/plugin"},
-						{FS: fstest.MapFS{
-							"bar":                            &fstest.MapFile{Mode: fs.ModeDir},
-							addExeSuffix("bar/notation-bar"): new(fstest.MapFile),
-						}, Root: "system/plugin"},
-					},
-				}, smartTestCommander{commanderMap: map[string]testCommander{
+				dir.NewUnionDirFS(
+					dir.NewRootedFS("user/plugin", fstest.MapFS{
+						"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+						addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+					}),
+					dir.NewRootedFS("system/plugin", fstest.MapFS{
+						"bar":                            &fstest.MapFile{Mode: fs.ModeDir},
+						addExeSuffix("bar/notation-bar"): new(fstest.MapFile),
+					}),
+				), smartTestCommander{commanderMap: map[string]testCommander{
 					"user/plugin/" + addExeSuffix("foo/notation-foo"):   {metadataJSON(validMetadata), true, nil},
 					"system/plugin/" + addExeSuffix("bar/notation-bar"): {metadataJSON(validMetadataBar), true, nil},
 				}}},
@@ -256,7 +293,8 @@ func TestManager_List(t *testing.T) {
 }
 
 func TestManager_Runner_Run_NotFound(t *testing.T) {
-	mgr := &Manager{fstest.MapFS{}, nil}
+	mgr := &Manager{dir.NewUnionDirFS(
+		dir.NewRootedFS("", fstest.MapFS{})), nil}
 	_, err := mgr.Runner("foo")
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Manager.Runner() error = %v, want %v", err, ErrNotFound)
@@ -275,25 +313,31 @@ func TestManager_Runner_Run(t *testing.T) {
 		args args
 		err  error
 	}{
-		{
-			"exec error", &Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, &testCommander{nil, false, errExec}},
+		{"exec error", &Manager{dir.NewUnionDirFS(
+			dir.NewRootedFS("",
+				fstest.MapFS{
+					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+				}),
+		), &testCommander{nil, false, errExec}},
 			args{"foo", plugin.CommandGenerateSignature}, errExec,
 		},
-		{
-			"request error", &Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, &testCommander{[]byte("{\"errorCode\": \"ERROR\"}"), false, nil}},
+		{"request error", &Manager{dir.NewUnionDirFS(
+			dir.NewRootedFS("",
+				fstest.MapFS{
+					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+				}),
+		), &testCommander{[]byte("{\"errorCode\": \"ERROR\"}"), false, nil}},
 			args{"foo", plugin.CommandGenerateSignature}, plugin.RequestError{Code: plugin.ErrorCodeGeneric},
 		},
-		{
-			"valid", &Manager{fstest.MapFS{
-				"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
-				addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
-			}, testCommander{metadataJSON(validMetadata), true, nil}},
+		{"valid", &Manager{dir.NewUnionDirFS(
+			dir.NewRootedFS("",
+				fstest.MapFS{
+					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
+					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
+				}),
+		), testCommander{metadataJSON(validMetadata), true, nil}},
 			args{"foo", plugin.CommandGenerateSignature}, nil,
 		},
 	}

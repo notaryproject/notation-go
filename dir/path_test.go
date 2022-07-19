@@ -9,12 +9,12 @@ import (
 )
 
 func TestCachedSignature(t *testing.T) {
-	cache := PathManager{CacheFS: UnionDirFS{
+	cache := PathManager{CacheFS: unionDirFS{
 		Dirs: []RootedFS{
-			{
-				FS:   fstest.MapFS{"signatures/sha256/x1/sha256/x2.sig": &fstest.MapFile{}},
-				Root: "/user/exampleuser/.cache/notation",
-			},
+			NewRootedFS(
+				"/user/exampleuser/.cache/notation",
+				fstest.MapFS{"signatures/sha256/x1/sha256/x2.sig": &fstest.MapFile{}},
+			),
 		},
 	}}
 	type args struct {
@@ -47,12 +47,12 @@ func TestCachedSignature(t *testing.T) {
 }
 
 func TestCachedSignatureFailed(t *testing.T) {
-	cache := PathManager{CacheFS: UnionDirFS{
+	cache := PathManager{CacheFS: unionDirFS{
 		Dirs: []RootedFS{
-			{
-				FS:   fstest.MapFS{"signature/sha256/x1/sha256/x2": &fstest.MapFile{}},
-				Root: "/user/exampleuser/.cache/notation",
-			},
+			NewRootedFS(
+				"/user/exampleuser/.cache/notation",
+				fstest.MapFS{"signature/sha256/x1/sha256/x2": &fstest.MapFile{}},
+			),
 		},
 	}}
 	type args struct {
@@ -91,16 +91,16 @@ func TestCachedSignatureFailed(t *testing.T) {
 }
 
 func TestX509TrustStoreCerts(t *testing.T) {
-	config := PathManager{ConfigFS: UnionDirFS{
+	config := PathManager{ConfigFS: unionDirFS{
 		Dirs: []RootedFS{
-			{
-				FS:   fstest.MapFS{"truststore/x509/ca/store1": &fstest.MapFile{Mode: fs.ModeDir}},
-				Root: "/user/exampleuser/.config/notation",
-			},
-			{
-				FS:   fstest.MapFS{"truststore/x509/ca/store1": &fstest.MapFile{Mode: fs.ModeDir}},
-				Root: "/etc/notation",
-			},
+			NewRootedFS(
+				"/user/exampleuser/.config/notation",
+				fstest.MapFS{"truststore/x509/ca/store1": &fstest.MapFile{Mode: fs.ModeDir}},
+			),
+			NewRootedFS(
+				"/etc/notation",
+				fstest.MapFS{"truststore/x509/ca/store1": &fstest.MapFile{Mode: fs.ModeDir}},
+			),
 		},
 	}}
 	type args struct {
