@@ -33,9 +33,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 		signerInfo, err = sigEnv.Verify()
 		if err != nil {
 			switch err.(type) {
-			case nsigner.SignatureNotFoundError:
-			case nsigner.MalformedSignatureError:
-			case nsigner.SignatureIntegrityError:
+			case nsigner.SignatureNotFoundError, nsigner.MalformedSignatureError, nsigner.SignatureIntegrityError:
 				result = &VerificationResult{
 					Success: false,
 					Error:   err,
@@ -68,6 +66,15 @@ func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPo
 	// verify authenticity
 	trustStores, err := loadX509TrustStores(trustPolicy, "testdata/trust-store") // TODO get trust store path from dir structure PR
 
+	if err != nil {
+		return &VerificationResult{
+			Success: false,
+			Error:   ErrorVerificationInconclusive{msg: fmt.Sprintf("error while loading the trust store, %v", err)},
+			Type:    Authenticity,
+			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+		}
+	}
+
 	// filter trust certificates based on trust store prefix
 	var trustCerts []*x509.Certificate
 	for _, v := range trustStores {
@@ -88,7 +95,7 @@ func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPo
 		default:
 			return &VerificationResult{
 				Success: false,
-				Error:   ErrorVerificationInconclusive{msg: err.Error()},
+				Error:   ErrorVerificationInconclusive{msg: "authenticity verification failed with error : " + err.Error()},
 				Type:    Authenticity,
 				Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
 			}

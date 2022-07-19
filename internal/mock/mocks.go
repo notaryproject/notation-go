@@ -197,7 +197,7 @@ func (t Repository) ListSignatureManifests(ctx context.Context, manifestDigest d
 	return t.ListSignatureManifestsResponse, t.ListSignatureManifestsError
 }
 
-func (t Repository) Get(ctx context.Context, digest digest.Digest) ([]byte, error) {
+func (t Repository) GetBlob(ctx context.Context, digest digest.Digest) ([]byte, error) {
 	return t.GetResponse, t.GetError
 }
 

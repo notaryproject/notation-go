@@ -79,9 +79,9 @@ func (c *RepositoryClient) ListSignatureManifests(ctx context.Context, manifestD
 	return signatureManifests, nil
 }
 
-// Get downloads the content by the specified digest
-func (c *RepositoryClient) Get(ctx context.Context, digest digest.Digest) ([]byte, error) {
-	desc, err := c.Repository.Resolve(ctx, digest.String())
+// GetBlob downloads the content of the specified digest's Blob
+func (c *RepositoryClient) GetBlob(ctx context.Context, digest digest.Digest) ([]byte, error) {
+	desc, err := c.Repository.Blobs().Resolve(ctx, digest.String())
 	if err != nil {
 		return nil, err
 	}

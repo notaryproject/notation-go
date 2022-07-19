@@ -80,7 +80,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 	// process signatures
 	for _, sigManifest := range sigManifests {
 		// get signature envelope
-		sigBlob, err := v.Repository.Get(ctx, sigManifest.Blob.Digest)
+		sigBlob, err := v.Repository.GetBlob(ctx, sigManifest.Blob.Digest)
 		if err != nil {
 			return verificationOutcomes, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigManifest.Blob.Digest, artifactUri, err.Error())}
 		}
@@ -106,7 +106,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 		// artifact digest must match the digest from the signature payload
 		payload := &notation.Payload{}
 		err := json.Unmarshal(outcome.SignerInfo.Payload, payload)
-		if err != nil || artifactDescriptor.Equal(payload.TargetArtifact) {
+		if err != nil || !artifactDescriptor.Equal(payload.TargetArtifact) {
 			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
 			continue
 		}
@@ -124,7 +124,7 @@ func (v *Verifier) processSignature(sigBlob []byte, sigManifest registry.Signatu
 	signerInfo, result := v.verifyIntegrity(sigBlob, sigManifest, outcome)
 	outcome.SignerInfo = signerInfo
 	outcome.VerificationResults = append(outcome.VerificationResults, result)
-	if isCriticalFailure(result) {
+	if result.Error != nil {
 		return result.Error
 	}
 
