@@ -22,25 +22,19 @@ func TestCachedSignature(t *testing.T) {
 		blobDigest     digest.Digest
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
+		name string
+		args args
+		want string
 	}{
 		{
-			name:    "test get cache",
-			args:    args{"sha256:x1", "sha256:x2"},
-			want:    "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2.sig",
-			wantErr: false,
+			name: "test get cache",
+			args: args{"sha256:x1", "sha256:x2"},
+			want: "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2.sig",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := cache.CachedSignature(tt.args.manifestDigest, tt.args.blobDigest)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CachedSignature() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := cache.CachedSignature(tt.args.manifestDigest, tt.args.blobDigest)
 			assertPathEqual(t, tt.want, got, "get cache path error")
 		})
 	}
@@ -60,22 +54,19 @@ func TestCachedSignatureFailed(t *testing.T) {
 		blobDigest     digest.Digest
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
+		name string
+		args args
+		want string
 	}{
 		{
-			name:    "test get cache",
-			args:    args{"sha256x1", "sha256:x2"},
-			want:    "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
-			wantErr: true,
+			name: "test get cache",
+			args: args{"sha256x1", "sha256:x2"},
+			want: "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
 		},
 		{
-			name:    "test get cache",
-			args:    args{"sha256:x1", "sha256x2"},
-			want:    "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
-			wantErr: true,
+			name: "test get cache",
+			args: args{"sha256:x1", "sha256x2"},
+			want: "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
 		},
 	}
 	for _, tt := range tests {
@@ -122,11 +113,7 @@ func TestX509TrustStoreCerts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := config.X509TrustStore(tt.args.prefix, tt.args.namedStore)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("X509TrustStoreCerts() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := config.X509TrustStore(tt.args.prefix, tt.args.namedStore)
 			assertPathEqual(t, tt.want, got, "X509TrustStoreCerts path error.")
 		})
 	}

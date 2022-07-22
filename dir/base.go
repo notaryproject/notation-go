@@ -90,6 +90,9 @@ func loadPath() {
 			NewRootedFS(userConfig, nil),
 			NewRootedFS(systemConfig, nil),
 		),
+		UserConfigFS: NewUnionDirFS(
+			NewRootedFS(userConfig, nil),
+		),
 		CacheFS: NewUnionDirFS(
 			NewRootedFS(userCache, nil),
 		),
