@@ -55,11 +55,7 @@ func (c *RepositoryClient) ListSignatureManifests(ctx context.Context, manifestD
 	var signatureManifests []SignatureManifest
 	if err := c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: manifestDigest,
-<<<<<<< HEAD
 	}, ArtifactTypeNotation, func(referrers []artifactspec.Descriptor) error {
-=======
-	}, "", func(referrers []artifactspec.Descriptor) error {
->>>>>>> feat: Use PackArtifact to push signature manifest
 		for _, desc := range referrers {
 			if desc.MediaType != artifactspec.MediaTypeArtifactManifest {
 				continue
@@ -102,22 +98,14 @@ func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature [
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
-<<<<<<< HEAD
 	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactDescriptorFromNotation(subjectManifest), signatureDesc, annotations)
-=======
-	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactDescriptorFromNotation(manifest), signatureDesc, annotaions)
->>>>>>> feat: Use PackArtifact to push signature manifest
 	if err != nil {
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
 	signatureManifest := SignatureManifest{
 		Blob:        notationDescriptorFromArtifact(signatureDesc),
-<<<<<<< HEAD
 		Annotations: annotations,
-=======
-		Annotations: annotaions,
->>>>>>> feat: Use PackArtifact to push signature manifest
 	}
 	return notationDescriptorFromOCI(manifestDesc), signatureManifest, nil
 }
@@ -162,17 +150,10 @@ func (c *RepositoryClient) uploadSignature(ctx context.Context, signature []byte
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-<<<<<<< HEAD
 func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, subjectManifest, signatureDesc artifactspec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
 	opts := oras.PackArtifactOptions{
 		Subject:             &subjectManifest,
 		ManifestAnnotations: annotations,
-=======
-func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, manifest, signatureDesc artifactspec.Descriptor, annotaions map[string]string) (ocispec.Descriptor, error) {
-	opts := oras.PackArtifactOptions{
-		Subject:             &manifest,
-		ManifestAnnotations: annotaions,
->>>>>>> feat: Use PackArtifact to push signature manifest
 	}
 
 	return oras.PackArtifact(
