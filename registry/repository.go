@@ -10,6 +10,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
+	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
@@ -55,7 +56,7 @@ func (c *RepositoryClient) ListSignatureManifests(ctx context.Context, manifestD
 	// TODO(shizhMSFT): filter artifact type at the server side
 	if err := c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: manifestDigest,
-	}, func(referrers []artifactspec.Descriptor) error {
+	}, "", func(referrers []artifactspec.Descriptor) error {
 		for _, desc := range referrers {
 			if desc.ArtifactType != ArtifactTypeNotation || desc.MediaType != artifactspec.MediaTypeArtifactManifest {
 				continue
@@ -98,25 +99,16 @@ func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature [
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
-	// generate artifact manifest
-	artifactManifest := artifactspec.Manifest{
-		MediaType:    artifactspec.MediaTypeArtifactManifest,
-		ArtifactType: ArtifactTypeNotation,
-		Blobs:        []artifactspec.Descriptor{signatureDesc},
-		Subject:      artifactDescriptorFromNotation(manifest),
-		Annotations:  annotaions,
-	}
-	signatureManifest := SignatureManifest{
-		Blob:        notationDescriptorFromArtifact(signatureDesc),
-		Annotations: annotaions,
-	}
-
-	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactManifest)
+	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactDescriptorFromNotation(manifest), signatureDesc, annotaions)
 	if err != nil {
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
-	return manifestDesc, signatureManifest, nil
+	signatureManifest := SignatureManifest{
+		Blob:        notationDescriptorFromArtifact(signatureDesc),
+		Annotations: annotaions,
+	}
+	return notationDescriptorFromOCI(manifestDesc), signatureManifest, nil
 }
 
 func (c *RepositoryClient) getArtifactManifest(ctx context.Context, manifestDigest digest.Digest) (artifactspec.Manifest, error) {
@@ -159,20 +151,19 @@ func (c *RepositoryClient) uploadSignature(ctx context.Context, signature []byte
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, manifest artifactspec.Manifest) (notation.Descriptor, error) {
-	artifactJSON, err := json.Marshal(manifest)
-	if err != nil {
-		return notation.Descriptor{}, err
+func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, manifest, signatureDesc artifactspec.Descriptor, annotaions map[string]string) (ocispec.Descriptor, error) {
+	opts := oras.PackArtifactOptions{
+		Subject:             &manifest,
+		ManifestAnnotations: annotaions,
 	}
-	desc := ocispec.Descriptor{
-		MediaType: artifactspec.MediaTypeArtifactManifest,
-		Digest:    digest.FromBytes(artifactJSON),
-		Size:      int64(len(artifactJSON)),
-	}
-	if err := c.Repository.Manifests().Push(ctx, desc, bytes.NewReader(artifactJSON)); err != nil {
-		return notation.Descriptor{}, err
-	}
-	return notationDescriptorFromOCI(desc), nil
+
+	return oras.PackArtifact(
+		ctx,
+		c.Repository.Manifests(),
+		ArtifactTypeNotation,
+		[]artifactspec.Descriptor{signatureDesc},
+		opts,
+	)
 }
 
 func artifactDescriptorFromNotation(desc notation.Descriptor) artifactspec.Descriptor {
