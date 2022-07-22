@@ -48,9 +48,9 @@ func NewSigningKeys() *SigningKeys {
 	return &SigningKeys{Keys: []KeySuite{}}
 }
 
-// LoadSigningKeys reads the config from file
+// loadSigningKeys reads the config from file
 // or return a default config if not found.
-func LoadSigningKeys() (*SigningKeys, error) {
+func loadSigningKeys() (*SigningKeys, error) {
 	var config SigningKeys
 	err := Load(SigningKeysPath, &config)
 	if err != nil {
@@ -62,14 +62,14 @@ func LoadSigningKeys() (*SigningKeys, error) {
 	return &config, nil
 }
 
-// LoadSigningKeysOnce returns the previously read config file.
-// If previous config file does not exists, it reads the config from file
+// loadSigningKeysOnce returns the previously read config file.
+// If previous config file does not exist, it reads the config from file
 // or return a default config if not found.
 // The returned config is only suitable for read only scenarios for short-lived processes.
-func LoadSigningKeysOnce() (*SigningKeys, error) {
+func loadSigningKeysOnce() (*SigningKeys, error) {
 	var err error
 	signingKeysInfoOnce.Do(func() {
-		signingKeysInfo, err = LoadSigningKeys()
+		signingKeysInfo, err = loadSigningKeys()
 	})
 	return signingKeysInfo, err
 }

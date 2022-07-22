@@ -13,7 +13,7 @@ const (
 	nonexistentPath = "./testdata/nonexistent.json"
 )
 
-var sampleConfig = &ConfigFile{
+var sampleConfig = &Config{
 	VerificationCertificates: VerificationCertificates{
 		Certificates: []CertificateReference{
 			{
@@ -31,7 +31,7 @@ var sampleConfig = &ConfigFile{
 	},
 }
 
-func TestLoadConfig(t *testing.T) {
+func TestLoadFile(t *testing.T) {
 	t.Cleanup(func() {
 		// restore path
 		ConfigPath = dir.Path.Config()
@@ -42,7 +42,7 @@ func TestLoadConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *ConfigFile
+		want    *Config
 		wantErr bool
 	}{
 		{
@@ -61,19 +61,19 @@ func TestLoadConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ConfigPath = tt.args.filePath
-			got, err := LoadConfig()
+			got, err := loadConfig()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("LoadConfig() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("loadFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("LoadConfig() = %v, want %v", got, tt.want)
+				t.Errorf("loadFile() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestSaveConfigFile(t *testing.T) {
+func TestSaveFile(t *testing.T) {
 	t.Cleanup(func() {
 		// restore path
 		ConfigPath = dir.Path.Config()
@@ -81,7 +81,7 @@ func TestSaveConfigFile(t *testing.T) {
 	root := t.TempDir()
 	ConfigPath = filepath.Join(root, "config.json")
 	sampleConfig.Save()
-	config, err := LoadConfig()
+	config, err := loadConfig()
 	if err != nil {
 		t.Fatal("Load config file from temp dir failed")
 	}

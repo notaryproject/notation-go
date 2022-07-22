@@ -16,11 +16,13 @@ func (c CertificateReference) Is(name string) bool {
 	return c.Name == name
 }
 
-// ConfigFile reflects the config file.
+// Config reflects the config file.
 // Specification: https://github.com/notaryproject/notation/pull/76
-type ConfigFile struct {
+type Config struct {
 	VerificationCertificates VerificationCertificates `json:"verificationCerts"`
 	InsecureRegistries       []string                 `json:"insecureRegistries"`
+	CredentialsStore         string                   `json:"credsStore,omitempty"`
+	CredentialHelpers        map[string]string        `json:"credHelpers,omitempty"`
 }
 
 // VerificationCertificates is a collection of public certs used for verification.
@@ -29,20 +31,20 @@ type VerificationCertificates struct {
 }
 
 // NewConfig creates a new config file
-func NewConfig() *ConfigFile {
-	return &ConfigFile{
+func NewConfig() *Config {
+	return &Config{
 		InsecureRegistries: []string{},
 	}
 }
 
 // Save stores the config to file
-func (f *ConfigFile) Save() error {
-	return Save(ConfigPath, f)
+func (c *Config) Save() error {
+	return Save(ConfigPath, c)
 }
 
-// LoadConfig reads the config from file or return a default config if not found.
-func LoadConfig() (*ConfigFile, error) {
-	var config ConfigFile
+// loadConfig reads the config from file or return a default config if not found.
+func loadConfig() (*Config, error) {
+	var config Config
 	err := Load(ConfigPath, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -53,14 +55,14 @@ func LoadConfig() (*ConfigFile, error) {
 	return &config, nil
 }
 
-// LoadConfigOnce returns the previously read config file.
-// If previous config file does not exists, it reads the config from file
+// loadConfigOnce returns the previously read config file.
+// If previous config file does not exist, it reads the config from file
 // or return a default config if not found.
 // The returned config is only suitable for read only scenarios for short-lived processes.
-func LoadConfigOnce() (*ConfigFile, error) {
+func loadConfigOnce() (*Config, error) {
 	var err error
-	configOnce.Do(func() {
-		configInfo, err = LoadConfig()
+	configInfoOnce.Do(func() {
+		configInfo, err = loadConfig()
 	})
 	return configInfo, err
 }

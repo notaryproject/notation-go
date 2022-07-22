@@ -12,7 +12,7 @@ var (
 
 // IsRegistryInsecure checks whether the registry is in the list of insecure registries.
 func IsRegistryInsecure(target string) bool {
-	config, err := LoadConfigOnce()
+	config, err := loadConfigOnce()
 	if err != nil {
 		return false
 	}
@@ -27,7 +27,7 @@ func IsRegistryInsecure(target string) bool {
 // ResolveKey resolves the key by name.
 // The default key is attempted if name is empty.
 func ResolveKey(name string) (KeySuite, error) {
-	config, err := LoadSigningKeysOnce()
+	config, err := loadSigningKeysOnce()
 	if err != nil {
 		return KeySuite{}, err
 	}
