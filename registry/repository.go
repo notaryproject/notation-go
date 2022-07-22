@@ -56,7 +56,7 @@ func (c *RepositoryClient) ListSignatureManifests(ctx context.Context, manifestD
 	// TODO(shizhMSFT): filter artifact type at the server side
 	if err := c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: manifestDigest,
-	}, "", func(referrers []artifactspec.Descriptor) error {
+	}, ArtifactTypeNotation, func(referrers []artifactspec.Descriptor) error {
 		for _, desc := range referrers {
 			if desc.ArtifactType != ArtifactTypeNotation || desc.MediaType != artifactspec.MediaTypeArtifactManifest {
 				continue
