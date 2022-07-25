@@ -53,12 +53,11 @@ func (c *RepositoryClient) Resolve(ctx context.Context, reference string) (notat
 // ListSignatureManifests returns all signature manifests given the manifest digest
 func (c *RepositoryClient) ListSignatureManifests(ctx context.Context, manifestDigest digest.Digest) ([]SignatureManifest, error) {
 	var signatureManifests []SignatureManifest
-	// TODO(shizhMSFT): filter artifact type at the server side
 	if err := c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: manifestDigest,
 	}, ArtifactTypeNotation, func(referrers []artifactspec.Descriptor) error {
 		for _, desc := range referrers {
-			if desc.ArtifactType != ArtifactTypeNotation || desc.MediaType != artifactspec.MediaTypeArtifactManifest {
+			if desc.MediaType != artifactspec.MediaTypeArtifactManifest {
 				continue
 			}
 			artifact, err := c.getArtifactManifest(ctx, desc.Digest)
