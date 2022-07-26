@@ -7,7 +7,7 @@ all: test
 
 .PHONY: test
 test: check-line-endings ## run unit tests
-	./scripts/test.sh
+		go test -race -v -coverprofile=coverage.txt -covermode=atomic ./...
 
 .PHONY: clean
 clean:

@@ -5,5 +5,4 @@
 *.sublime-workspace
 
 # Custom
-.cover/
-.test/
+coverage.txt
