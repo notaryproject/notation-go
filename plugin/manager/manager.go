@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
 
+	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/plugin"
 )
 
@@ -59,25 +59,20 @@ func (c execCommander) Output(ctx context.Context, name string, command string, 
 	return stdout.Bytes(), true, nil
 }
 
-// rootedFS is io.FS implementation used in New.
-// root is the root of the file system tree passed to os.DirFS.
-type rootedFS struct {
-	fs.FS
-	root string
-}
-
 // Manager manages plugins installed on the system.
 type Manager struct {
-	fsys  fs.FS
+	fsys  dir.UnionDirFS
 	cmder commander
 }
 
 // New returns a new manager rooted at root.
 //
-// root is the path of the directory where plugins are stored
+// roots is the path of the directories where plugins are stored
 // following the {root}/{plugin-name}/notation-{plugin-name}[.exe] pattern.
-func New(root string) *Manager {
-	return &Manager{rootedFS{os.DirFS(root), root}, execCommander{}}
+//
+// if roots is not set, it uses the build in directory structure.
+func New(roots ...string) *Manager {
+	return &Manager{dir.PluginFS(roots...), execCommander{}}
 }
 
 // Get returns a plugin on the system by its name.
@@ -192,6 +187,8 @@ func run(ctx context.Context, cmder commander, pluginPath string, cmd plugin.Com
 		resp = new(plugin.GenerateEnvelopeResponse)
 	case plugin.CommandDescribeKey:
 		resp = new(plugin.DescribeKeyResponse)
+	case plugin.CommandVerifySignature:
+		resp = new(plugin.VerifySignatureResponse)
 	default:
 		return nil, fmt.Errorf("unsupported command: %s", cmd)
 	}
@@ -226,12 +223,10 @@ func binName(name string) string {
 	return addExeSuffix(plugin.Prefix + name)
 }
 
-func binPath(fsys fs.FS, name string) string {
+func binPath(fsys dir.UnionDirFS, name string) string {
 	base := binName(name)
-	// New() always instantiate a rootedFS.
-	// Other fs.FS implementations are only supported for testing purposes.
-	if fsys, ok := fsys.(rootedFS); ok {
-		return filepath.Join(fsys.root, name, base)
+	if path, err := fsys.GetPath(name, base); err == nil {
+		return path
 	}
 	return filepath.Join(name, base)
 }
