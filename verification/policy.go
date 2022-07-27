@@ -31,11 +31,17 @@ type TrustPolicy struct {
 	// RegistryScopes that this policy statement affects
 	RegistryScopes []string `json:"registryScopes"`
 	// SignatureVerification setting for this policy statement
-	SignatureVerification interface{} `json:"signatureVerification"`
-	// TrustStores this policy statement uses
+	SignatureVerification SignatureVerification `json:"signatureVerification"`
+	// TrustStores this policy statement usess
 	TrustStores []string `json:"trustStores,omitempty"`
 	// TrustedIdentities this policy statement pins
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
+}
+
+// SignatureVerification represents validations types and their inteded actions
+type SignatureVerification struct {
+	Level    string            `json:"level"`
+	Override map[string]string `json:"override,omitempty"`
 }
 
 // Internal type to hold raw and parsed Distinguished Names
@@ -162,12 +168,13 @@ func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 		policyStatementNameCount[statement.Name]++
 
 		// Verify signature verification level is valid
-		if _, err := GetVerificationLevel(statement.SignatureVerification); err != nil {
-			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification)
+		verificationLevel, err := GetVerificationLevel(statement.SignatureVerification)
+		if err != nil {
+			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification.Level)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and trusted identities
-		if statement.SignatureVerification == "skip" {
+		if verificationLevel.Name == "skip" {
 			if len(statement.TrustStores) > 0 || len(statement.TrustedIdentities) > 0 {
 				return fmt.Errorf("trust policy statement %q is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped", statement.Name)
 			}

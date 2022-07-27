@@ -127,57 +127,40 @@ var (
 	}
 )
 
-// GetVerificationLevel finds if the given input corresponds to a valid VerificationLevel, otherwise throws an error
-func GetVerificationLevel(input interface{}) (*VerificationLevel, error) {
-	switch input.(type) {
-	case string:
-		for _, l := range VerificationLevels {
-			if l.Name == input {
-				return l, nil
-			}
-		}
-		return nil, fmt.Errorf("invalid signature verification %q", input)
-	case map[string]interface{}:
-		return parseCustomVerification(input)
-	}
-	return nil, fmt.Errorf("invalid signature verification %q", input)
-}
-
-func parseCustomVerification(input interface{}) (*VerificationLevel, error) {
-	cvl, ok := input.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid custom signature verification")
-	}
-
+// GetVerificationLevel returns VerificationLevel struct for the given SignatureVerification struct
+// throws error if SignatureVerification is invalid
+func GetVerificationLevel(signatureVerification SignatureVerification) (*VerificationLevel, error) {
 	var baseLevel *VerificationLevel
 	for _, l := range VerificationLevels {
-		if l.Name == cvl["level"] {
+		if l.Name == signatureVerification.Level {
 			baseLevel = l
 		}
 	}
 	if baseLevel == nil {
-		return nil, fmt.Errorf("invalid custom signature verification %q", cvl)
-	}
-	if baseLevel == Skip {
-		return nil, fmt.Errorf("signature verification %q can't be used in custom signature verification", baseLevel.Name)
+		return nil, fmt.Errorf("invalid signature verification %q", signatureVerification.Level)
 	}
 
-	verificationLevel := &VerificationLevel{
+	if len(signatureVerification.Override) == 0 {
+		// nothing to override, return the base verification level
+		return baseLevel, nil
+	}
+
+	if baseLevel == Skip {
+		return nil, fmt.Errorf("signature verification %q can't be used to customize signature verification", baseLevel.Name)
+	}
+
+	customVerificationLevel := &VerificationLevel{
 		Name:            "custom",
 		VerificationMap: make(map[VerificationType]VerificationAction),
 	}
 
 	// populate the custom verification level with the base verification settings
 	for k, v := range baseLevel.VerificationMap {
-		verificationLevel.VerificationMap[k] = v
+		customVerificationLevel.VerificationMap[k] = v
 	}
 
 	// override the verification actions with the user configured settings
-	var overrideMap map[string]interface{}
-	if overrideMap, ok = cvl["override"].(map[string]interface{}); !ok {
-		return nil, fmt.Errorf("invalid custom signature verification %q", cvl)
-	}
-	for key, value := range overrideMap {
+	for key, value := range signatureVerification.Override {
 		var verificationType VerificationType
 		for _, t := range VerificationTypes {
 			if strings.EqualFold(string(t), key) {
@@ -185,17 +168,17 @@ func parseCustomVerification(input interface{}) (*VerificationLevel, error) {
 			}
 		}
 		if verificationType == "" {
-			return nil, fmt.Errorf("verification type %q in custom signature verification is not supported", verificationType)
+			return nil, fmt.Errorf("verification type %q in custom signature verification is not supported", key)
 		}
 
 		var verificationAction VerificationAction
 		for _, action := range VerificationActions {
-			if strings.EqualFold(string(action), value.(string)) {
+			if strings.EqualFold(string(action), value) {
 				verificationAction = action
 			}
 		}
 		if verificationAction == "" {
-			return nil, fmt.Errorf("verification action %q in custom signature verification is not supported", verificationAction)
+			return nil, fmt.Errorf("verification action %q in custom signature verification is not supported", value)
 		}
 
 		if verificationType == Integrity {
@@ -204,7 +187,7 @@ func parseCustomVerification(input interface{}) (*VerificationLevel, error) {
 			return nil, fmt.Errorf("%q verification can not be skipped in custom signature verification", key)
 		}
 
-		verificationLevel.VerificationMap[verificationType] = verificationAction
+		customVerificationLevel.VerificationMap[verificationType] = verificationAction
 	}
-	return verificationLevel, nil
+	return customVerificationLevel, nil
 }

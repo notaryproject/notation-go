@@ -9,7 +9,7 @@ func dummyPolicyStatement() (policyStatement TrustPolicy) {
 	policyStatement = TrustPolicy{
 		Name:                  "test-statement-name",
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-		SignatureVerification: "strict",
+		SignatureVerification: SignatureVerification{Level: "strict"},
 		TrustStores:           []string{"ca:valid-trust-store"},
 		TrustedIdentities:     []string{"x509.subject:C=US, ST=WA, O=wabbit-network.io, OU=org1"},
 	}
@@ -33,26 +33,26 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 	policyStatement2 := dummyPolicyStatement()
 	policyStatement2.Name = "test-statement-name-2"
 	policyStatement2.RegistryScopes = []string{"registry.wabbit-networks.io/software/unsigned/net-utils"}
-	policyStatement2.SignatureVerification = "permissive"
+	policyStatement2.SignatureVerification = SignatureVerification{Level: "permissive"}
 
 	policyStatement3 := dummyPolicyStatement()
 	policyStatement3.Name = "test-statement-name-3"
 	policyStatement3.RegistryScopes = []string{"registry.acme-rockets.io/software/legacy/metrics"}
 	policyStatement3.TrustStores = []string{}
 	policyStatement3.TrustedIdentities = []string{}
-	policyStatement3.SignatureVerification = "skip"
+	policyStatement3.SignatureVerification = SignatureVerification{Level: "skip"}
 
 	policyStatement4 := dummyPolicyStatement()
 	policyStatement4.Name = "test-statement-name-4"
 	policyStatement4.TrustStores = []string{"ca:valid-trust-store", "ca:valid-trust-store-2"}
 	policyStatement4.RegistryScopes = []string{"*"}
-	policyStatement4.SignatureVerification = "audit"
+	policyStatement4.SignatureVerification = SignatureVerification{Level: "audit"}
 
 	policyStatement5 := dummyPolicyStatement()
 	policyStatement5.Name = "test-statement-name-5"
 	policyStatement5.RegistryScopes = []string{"registry.acme-rockets2.io/software"}
 	policyStatement5.TrustedIdentities = []string{"*"}
-	policyStatement5.SignatureVerification = "strict"
+	policyStatement5.SignatureVerification = SignatureVerification{Level: "strict"}
 
 	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement1,
@@ -275,7 +275,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// Invlaid SignatureVerification
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
-	policyStatement.SignatureVerification = "invalid"
+	policyStatement.SignatureVerification = SignatureVerification{Level: "invalid"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.ValidatePolicyDocument()
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses invalid signatureVerification value \"invalid\"" {
@@ -305,7 +305,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// skip SignatureVerification should not have trust store or trusted identities
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
-	policyStatement.SignatureVerification = "skip"
+	policyStatement.SignatureVerification = SignatureVerification{Level: "skip"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.ValidatePolicyDocument()
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped" {
@@ -325,7 +325,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// trust store/trusted identites are optional for skip SignatureVerification
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
-	policyStatement.SignatureVerification = "skip"
+	policyStatement.SignatureVerification = SignatureVerification{Level: "skip"}
 	policyStatement.TrustStores = []string{}
 	policyStatement.TrustedIdentities = []string{}
 	err = policyDoc.ValidatePolicyDocument()
@@ -374,7 +374,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	registryScope := "registry.wabbit-networks.io/software/unsigned/net-utils"
 	registryUri := fmt.Sprintf("%s:hash", registryScope)
 	policyStatement.RegistryScopes = []string{registryScope}
-	policyStatement.SignatureVerification = "strict"
+	policyStatement.SignatureVerification = SignatureVerification{Level: "strict"}
 
 	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement,
@@ -397,7 +397,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	wildcardStatement.RegistryScopes = []string{"*"}
 	wildcardStatement.TrustStores = []string{}
 	wildcardStatement.TrustedIdentities = []string{}
-	wildcardStatement.SignatureVerification = "skip"
+	wildcardStatement.SignatureVerification = SignatureVerification{Level: "skip"}
 
 	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement,
