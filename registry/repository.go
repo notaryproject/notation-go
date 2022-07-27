@@ -92,20 +92,20 @@ func (c *RepositoryClient) Get(ctx context.Context, digest digest.Digest) ([]byt
 }
 
 // PutSignatureManifest creates and uploads an signature artifact linking the manifest and the signature
-func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature []byte, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, SignatureManifest, error) {
+func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature []byte, manifest notation.Descriptor, annotations map[string]string) (notation.Descriptor, SignatureManifest, error) {
 	signatureDesc, err := c.uploadSignature(ctx, signature)
 	if err != nil {
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
-	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactDescriptorFromNotation(manifest), signatureDesc, annotaions)
+	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactDescriptorFromNotation(manifest), signatureDesc, annotations)
 	if err != nil {
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
 	signatureManifest := SignatureManifest{
 		Blob:        notationDescriptorFromArtifact(signatureDesc),
-		Annotations: annotaions,
+		Annotations: annotations,
 	}
 	return notationDescriptorFromOCI(manifestDesc), signatureManifest, nil
 }
@@ -150,10 +150,10 @@ func (c *RepositoryClient) uploadSignature(ctx context.Context, signature []byte
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, manifest, signatureDesc artifactspec.Descriptor, annotaions map[string]string) (ocispec.Descriptor, error) {
+func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, manifest, signatureDesc artifactspec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
 	opts := oras.PackArtifactOptions{
 		Subject:             &manifest,
-		ManifestAnnotations: annotaions,
+		ManifestAnnotations: annotations,
 	}
 
 	return oras.PackArtifact(
