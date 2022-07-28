@@ -32,13 +32,13 @@ type TrustPolicy struct {
 	RegistryScopes []string `json:"registryScopes"`
 	// SignatureVerification setting for this policy statement
 	SignatureVerification SignatureVerification `json:"signatureVerification"`
-	// TrustStores this policy statement usess
+	// TrustStores this policy statement uses
 	TrustStores []string `json:"trustStores,omitempty"`
 	// TrustedIdentities this policy statement pins
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 }
 
-// SignatureVerification represents validations types and their inteded actions
+// SignatureVerification represents verification configuration in a trust policy
 type SignatureVerification struct {
 	Level    string            `json:"level"`
 	Override map[string]string `json:"override,omitempty"`

@@ -42,12 +42,6 @@ type VerificationLevel struct {
 	VerificationMap map[VerificationType]VerificationAction
 }
 
-// CustomerVerificationLevel encapsulates the custom verification settings configured by a user in their trust policy
-type CustomerVerificationLevel struct {
-	Level    string            `json:"level"`
-	Override map[string]string `json:"override"`
-}
-
 const (
 	Integrity          VerificationType = "Integrity"
 	Authenticity       VerificationType = "Authenticity"
