@@ -235,12 +235,11 @@ func (policyDoc *PolicyDocument) getApplicableTrustPolicy(artifactUri string) (*
 
 // deepCopy returns a pointer to the deeply copied TrustPolicy
 func (t *TrustPolicy) deepCopy() *TrustPolicy {
-	localCopy := TrustPolicy{}
-	localCopy.Name = t.Name
-	localCopy.SignatureVerification = t.SignatureVerification
-	localCopy.RegistryScopes = append([]string(nil), t.RegistryScopes...)
-	localCopy.TrustedIdentities = append([]string(nil), t.TrustedIdentities...)
-	localCopy.TrustStores = append([]string(nil), t.TrustStores...)
-
-	return &localCopy
+	return &TrustPolicy{
+		Name:                  t.Name,
+		SignatureVerification: t.SignatureVerification,
+		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
+		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
+		TrustStores:           append([]string(nil), t.TrustStores...),
+	}
 }

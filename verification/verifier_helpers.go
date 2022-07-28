@@ -16,50 +16,45 @@ func isCriticalFailure(result *VerificationResult) bool {
 }
 
 func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.SignatureManifest, outcome *SignatureVerificationOutcome) (*nsigner.SignerInfo, *VerificationResult) {
-	// parse signature
-	var signerInfo *nsigner.SignerInfo
-	var result *VerificationResult
-
+	// parse the signature
 	sigEnv, err := nsigner.NewSignatureEnvelopeFromBytes(sigBlob, nsigner.SignatureMediaType(sigManifest.Blob.MediaType))
 	if err != nil {
-		result = &VerificationResult{
+		return nil, &VerificationResult{
 			Success: false,
 			Error:   fmt.Errorf("unable to parse the digital signature, error : %s", err),
 			Type:    Integrity,
 			Action:  outcome.VerificationLevel.VerificationMap[Integrity],
 		}
-	} else {
-		// verify integrity
-		signerInfo, err = sigEnv.Verify()
-		if err != nil {
-			switch err.(type) {
-			case nsigner.SignatureNotFoundError, nsigner.MalformedSignatureError, nsigner.SignatureIntegrityError:
-				result = &VerificationResult{
-					Success: false,
-					Error:   err,
-					Type:    Integrity,
-					Action:  outcome.VerificationLevel.VerificationMap[Integrity],
-				}
-			default:
-				// unexpected error
-				result = &VerificationResult{
-					Success: false,
-					Error:   ErrorVerificationInconclusive{msg: err.Error()},
-					Type:    Integrity,
-					Action:  outcome.VerificationLevel.VerificationMap[Integrity],
-				}
+	}
+
+	// verify integrity
+	signerInfo, err := sigEnv.Verify()
+	if err != nil {
+		switch err.(type) {
+		case nsigner.SignatureNotFoundError, nsigner.MalformedSignatureError, nsigner.SignatureIntegrityError:
+			return nil, &VerificationResult{
+				Success: false,
+				Error:   err,
+				Type:    Integrity,
+				Action:  outcome.VerificationLevel.VerificationMap[Integrity],
 			}
-		} else {
-			// integrity has been verified successfully
-			result = &VerificationResult{
-				Success: true,
+		default:
+			// unexpected error
+			return nil, &VerificationResult{
+				Success: false,
+				Error:   ErrorVerificationInconclusive{msg: err.Error()},
 				Type:    Integrity,
 				Action:  outcome.VerificationLevel.VerificationMap[Integrity],
 			}
 		}
 	}
 
-	return signerInfo, result
+	// integrity has been verified successfully
+	return signerInfo, &VerificationResult{
+		Success: true,
+		Type:    Integrity,
+		Action:  outcome.VerificationLevel.VerificationMap[Integrity],
+	}
 }
 
 func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {

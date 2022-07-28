@@ -63,6 +63,10 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 
 	// make sure the reference exists in the registry
 	artifactDigest, err := getArtifactDigestFromUri(artifactUri)
+	if err != nil {
+		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
+	}
+
 	artifactDescriptor, err := v.Repository.Resolve(ctx, artifactDigest)
 	if err != nil {
 		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
