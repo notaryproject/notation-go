@@ -1,4 +1,7 @@
 # Notation
+
+[![codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
+
 A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts. Based on Notary V2 standard.
 
 ## Table of Contents
