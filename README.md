@@ -1,6 +1,9 @@
 # Notation
 
+[![Build Status](https://github.com/notaryproject/notation-go/actions/workflows/build.yml/badge.svg?event=push&branch=main)](https://github.com/notaryproject/notation-go/actions/workflows/build.yml?query=workflow%3Abuild+event%3Apush+branch%3Amain)
 [![codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/notaryproject/notation-go)](https://goreportcard.com/report/github.com/notaryproject/notation-go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/notaryproject/notation-go.svg)](https://pkg.go.dev/github.com/notaryproject/notation-go@main)
 
 A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts. Based on Notary V2 standard.
 
