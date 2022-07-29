@@ -70,7 +70,7 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			SigningKeysPath = tt.args.filePath
-			got, err := loadSigningKeys()
+			got, err := LoadSigningKeys()
 			if err != nil {
 				t.Errorf("LoadSigningKeysInfo() error = %v", err)
 				return
@@ -90,7 +90,7 @@ func TestSaveSigningKeys(t *testing.T) {
 	root := t.TempDir()
 	SigningKeysPath = filepath.Join(root, "signingkeys.json")
 	sampleSigningKeysInfo.Save()
-	info, err := loadSigningKeys()
+	info, err := LoadSigningKeys()
 	if err != nil {
 		t.Fatal("Load signingkeys.json from temp dir failed.")
 	}

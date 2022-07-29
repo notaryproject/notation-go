@@ -61,7 +61,7 @@ func TestLoadFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ConfigPath = tt.args.filePath
-			got, err := loadConfig()
+			got, err := LoadConfig()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("loadFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -81,7 +81,7 @@ func TestSaveFile(t *testing.T) {
 	root := t.TempDir()
 	ConfigPath = filepath.Join(root, "config.json")
 	sampleConfig.Save()
-	config, err := loadConfig()
+	config, err := LoadConfig()
 	if err != nil {
 		t.Fatal("Load config file from temp dir failed")
 	}

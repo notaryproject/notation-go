@@ -32,7 +32,7 @@ func (k KeySuite) Is(name string) bool {
 	return k.Name == name
 }
 
-// SigningKeys is a collection of signing keys.
+// SigningKeys reflects the signingkeys.json file.
 type SigningKeys struct {
 	Default string     `json:"default"`
 	Keys    []KeySuite `json:"keys"`
@@ -40,7 +40,7 @@ type SigningKeys struct {
 
 // Save config to file
 func (s *SigningKeys) Save() error {
-	return Save(SigningKeysPath, s)
+	return save(SigningKeysPath, s)
 }
 
 // NewSigningKeys creates a new signingkeys config file
@@ -48,11 +48,11 @@ func NewSigningKeys() *SigningKeys {
 	return &SigningKeys{Keys: []KeySuite{}}
 }
 
-// loadSigningKeys reads the config from file
+// LoadSigningKeys reads the config from file
 // or return a default config if not found.
-func loadSigningKeys() (*SigningKeys, error) {
+func LoadSigningKeys() (*SigningKeys, error) {
 	var config SigningKeys
-	err := Load(SigningKeysPath, &config)
+	err := load(SigningKeysPath, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewSigningKeys(), nil
@@ -60,16 +60,4 @@ func loadSigningKeys() (*SigningKeys, error) {
 		return nil, err
 	}
 	return &config, nil
-}
-
-// loadSigningKeysOnce returns the previously read config file.
-// If previous config file does not exist, it reads the config from file
-// or return a default config if not found.
-// The returned config is only suitable for read only scenarios for short-lived processes.
-func loadSigningKeysOnce() (*SigningKeys, error) {
-	var err error
-	signingKeysInfoOnce.Do(func() {
-		signingKeysInfo, err = loadSigningKeys()
-	})
-	return signingKeysInfo, err
 }

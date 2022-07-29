@@ -16,7 +16,7 @@ func (c CertificateReference) Is(name string) bool {
 	return c.Name == name
 }
 
-// Config reflects the config file.
+// Config reflects the config.json file.
 // Specification: https://github.com/notaryproject/notation/pull/76
 type Config struct {
 	VerificationCertificates VerificationCertificates `json:"verificationCerts"`
@@ -39,13 +39,13 @@ func NewConfig() *Config {
 
 // Save stores the config to file
 func (c *Config) Save() error {
-	return Save(ConfigPath, c)
+	return save(ConfigPath, c)
 }
 
-// loadConfig reads the config from file or return a default config if not found.
-func loadConfig() (*Config, error) {
+// LoadConfig reads the config from file or return a default config if not found.
+func LoadConfig() (*Config, error) {
 	var config Config
-	err := Load(ConfigPath, &config)
+	err := load(ConfigPath, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewConfig(), nil
@@ -53,16 +53,4 @@ func loadConfig() (*Config, error) {
 		return nil, err
 	}
 	return &config, nil
-}
-
-// loadConfigOnce returns the previously read config file.
-// If previous config file does not exist, it reads the config from file
-// or return a default config if not found.
-// The returned config is only suitable for read only scenarios for short-lived processes.
-func loadConfigOnce() (*Config, error) {
-	var err error
-	configInfoOnce.Do(func() {
-		configInfo, err = loadConfig()
-	})
-	return configInfo, err
 }
