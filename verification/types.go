@@ -3,7 +3,6 @@ package verification
 import (
 	"fmt"
 	nsigner "github.com/notaryproject/notation-core-go/signer"
-	"strings"
 )
 
 // VerificationType is an enum for signature verification types such as Integrity, Authenticity, etc.
@@ -43,15 +42,15 @@ type VerificationLevel struct {
 }
 
 const (
-	Integrity          VerificationType = "Integrity"
-	Authenticity       VerificationType = "Authenticity"
-	AuthenticTimestamp VerificationType = "AuthenticTimestamp"
-	Expiry             VerificationType = "Expiry"
-	Revocation         VerificationType = "Revocation"
+	Integrity          VerificationType = "integrity"
+	Authenticity       VerificationType = "authenticity"
+	AuthenticTimestamp VerificationType = "authenticTimestamp"
+	Expiry             VerificationType = "expiry"
+	Revocation         VerificationType = "revocation"
 
-	Enforced VerificationAction = "Enforce"
-	Logged   VerificationAction = "Log"
-	Skipped  VerificationAction = "Skip"
+	Enforced VerificationAction = "enforce"
+	Logged   VerificationAction = "log"
+	Skipped  VerificationAction = "skip"
 )
 
 var (
@@ -157,22 +156,24 @@ func GetVerificationLevel(signatureVerification SignatureVerification) (*Verific
 	for key, value := range signatureVerification.Override {
 		var verificationType VerificationType
 		for _, t := range VerificationTypes {
-			if strings.EqualFold(string(t), key) {
+			if string(t) == key {
 				verificationType = t
+				break
 			}
 		}
 		if verificationType == "" {
-			return nil, fmt.Errorf("verification type %q in custom signature verification is not supported", key)
+			return nil, fmt.Errorf("verification type %q in custom signature verification is not supported, supported values are %q", key, VerificationTypes)
 		}
 
 		var verificationAction VerificationAction
 		for _, action := range VerificationActions {
-			if strings.EqualFold(string(action), value) {
+			if string(action) == value {
 				verificationAction = action
+				break
 			}
 		}
 		if verificationAction == "" {
-			return nil, fmt.Errorf("verification action %q in custom signature verification is not supported", value)
+			return nil, fmt.Errorf("verification action %q in custom signature verification is not supported, supported values are %q", value, VerificationActions)
 		}
 
 		if verificationType == Integrity {
