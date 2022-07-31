@@ -13,8 +13,8 @@ func TestLoadValidTrustStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not load a valid trust store. %q", err)
 	}
-	if len(trustStore.Certificates) != 3 {
-		t.Fatalf("valid trust store should have 3 certificates in it")
+	if len(trustStore.Certificates) != 4 {
+		t.Fatalf("unexpected number of certificates in the trust store, expected: %d, got: %d", 4, len(trustStore.Certificates))
 	}
 	if trustStore.Prefix != "ca" {
 		t.Fatalf("trust store prefix should be \"ca\"")

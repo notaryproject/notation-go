@@ -12,7 +12,6 @@ import (
 )
 
 func verifyResult(outcome *SignatureVerificationOutcome, expectedResult VerificationResult, expectedErr error, t *testing.T) {
-
 	var actualResult *VerificationResult
 	for _, r := range outcome.VerificationResults {
 		if r.Type == expectedResult.Type {
@@ -227,8 +226,8 @@ func TestVerificationCombinations(t *testing.T) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository()
-		repo.GetResponse = []byte(mock.CorruptedSigEnv)
-		expectedErr := fmt.Errorf("signature is invalid. Error: illegal base64 data at input byte 299")
+		repo.GetResponse = mock.MockCaInvalidSigEnv
+		expectedErr := fmt.Errorf("signature is invalid. Error: illegal base64 data at input byte 242")
 		testCases = append(testCases, testCase{
 			verificationType:  Integrity,
 			verificationLevel: level,
@@ -267,7 +266,7 @@ func TestVerificationCombinations(t *testing.T) {
 
 	// TrustedIdentity Success
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument() // policy is configured to trust "CN=Notation Test Leaf Cert,O=Notary,L=Seattle,ST=WA,C=US" which is the subject of the signature's signing certificate
+		policyDocument := dummyPolicyDocument() // policy is configured to trust "CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US" which is the subject of the signature's signing certificate
 		repo := mock.NewRepository()
 		testCases = append(testCases, testCase{
 			verificationType:  Authenticity,
@@ -293,23 +292,23 @@ func TestVerificationCombinations(t *testing.T) {
 	}
 
 	// Expiry Success
-	// TODO: generate a signature envelope with 100 years expiry first
-	//for _, level := range verificationLevels {
-	//	policyDocument := dummyPolicyDocument()
-	//	repo := mock.NewRepository()
-	//	testCases = append(testCases, testCase{
-	//		verificationType:  Expiry,
-	//		verificationLevel: level,
-	//		policyDocument:    policyDocument,
-	//		repository:        repo,
-	//	})
-	//}
+	for _, level := range verificationLevels {
+		policyDocument := dummyPolicyDocument()
+		repo := mock.NewRepository()
+		testCases = append(testCases, testCase{
+			verificationType:  Expiry,
+			verificationLevel: level,
+			policyDocument:    policyDocument,
+			repository:        repo,
+		})
+	}
 
 	// Expiry Failure
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
-		repo := mock.NewRepository() // repository returns an expired signature by default
-		expectedErr := fmt.Errorf("digital signature has expired on \"Sat, 25 Jun 2022 10:56:22 -0700\"")
+		repo := mock.NewRepository()
+		repo.GetResponse = mock.MockCaExpiredSigEnv
+		expectedErr := fmt.Errorf("digital signature has expired on \"Fri, 29 Jul 2022 23:59:00 +0000\"")
 		testCases = append(testCases, testCase{
 			verificationType:  Expiry,
 			verificationLevel: level,

@@ -11,7 +11,7 @@ func dummyPolicyStatement() (policyStatement TrustPolicy) {
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 		SignatureVerification: "strict",
 		TrustStores:           []string{"ca:valid-trust-store"},
-		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Leaf Cert,O=Notary,L=Seattle,ST=WA,C=US"},
+		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
 	}
 	return
 }
