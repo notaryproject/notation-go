@@ -54,7 +54,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 		return nil, ErrorNoApplicableTrustPolicy{msg: err.Error()}
 	}
 
-	verificationLevel, _ := FindVerificationLevel(trustPolicy.SignatureVerification)
+	verificationLevel, _ := FindVerificationLevel(trustPolicy.SignatureVerification) // ignore the error since we already validated the policy document
 
 	if verificationLevel.Name == Skip.Name {
 		verificationOutcomes = append(verificationOutcomes, &SignatureVerificationOutcome{VerificationLevel: verificationLevel})
