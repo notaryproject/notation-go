@@ -5,6 +5,9 @@ import (
 	nsigner "github.com/notaryproject/notation-core-go/signer"
 )
 
+// TrustStorePrefix is an enum for trust store prefixes supported such as "ca", "signingAuthority"
+type TrustStorePrefix string
+
 // VerificationType is an enum for signature verification types such as Integrity, Authenticity, etc.
 type VerificationType string
 
@@ -29,10 +32,14 @@ type VerificationResult struct {
 type SignatureVerificationOutcome struct {
 	// SignerInfo contains the details of the digital signature and associated metadata
 	SignerInfo *nsigner.SignerInfo
+	// VerificationLevel describes what verification level was used for performing signature verification
+	VerificationLevel *VerificationLevel
 	// VerificationResults contains the verifications performed on the signature and their results
-	VerificationResults []VerificationResult
+	VerificationResults []*VerificationResult
 	// SignedAnnotations contains arbitrary metadata relating to the target artifact that was signed
 	SignedAnnotations map[string]string
+	// Error that caused the verification to fail (if it fails)
+	Error error
 }
 
 // VerificationLevel encapsulates the signature verification preset and it's actions for each verification type
@@ -51,6 +58,9 @@ const (
 	Enforced VerificationAction = "Enforced"
 	Logged   VerificationAction = "Logged"
 	Skipped  VerificationAction = "Skipped"
+
+	TrustStorePrefixCA               TrustStorePrefix = "ca"
+	TrustStorePrefixSigningAuthority TrustStorePrefix = "signingAuthority"
 )
 
 var (
@@ -118,7 +128,22 @@ var (
 		Audit,
 		Skip,
 	}
+
+	TrustStorePrefixes = []TrustStorePrefix{
+		TrustStorePrefixCA,
+		TrustStorePrefixSigningAuthority,
+	}
 )
+
+// IsValidTrustStorePrefix returns true if the given string is a valid TrustStorePrefix, otherwise false.
+func IsValidTrustStorePrefix(s string) bool {
+	for _, p := range TrustStorePrefixes {
+		if s == string(p) {
+			return true
+		}
+	}
+	return false
+}
 
 // FindVerificationLevel finds if the given string corresponds to a supported VerificationLevel, otherwise throws an error
 func FindVerificationLevel(s string) (*VerificationLevel, error) {

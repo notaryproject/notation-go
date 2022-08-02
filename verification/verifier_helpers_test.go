@@ -8,10 +8,10 @@ import (
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 )
 
-func TestIsFailureResult(t *testing.T) {
+func TestIsCriticalFailure(t *testing.T) {
 	tests := []struct {
 		result          VerificationResult
-		isFailureResult bool
+		criticalFailure bool
 	}{
 		{VerificationResult{Action: Enforced, Success: false}, true},
 		{VerificationResult{Action: Logged, Success: false}, false},
@@ -19,14 +19,13 @@ func TestIsFailureResult(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			endResult := isCriticalFailure(tt.result)
+			endResult := isCriticalFailure(&tt.result)
 
-			if endResult != tt.isFailureResult {
-				t.Fatalf("TestIsEndResult Expected: %v Got: %v", tt.isFailureResult, endResult)
+			if endResult != tt.criticalFailure {
+				t.Fatalf("TestIsCriticalFailure Expected: %v Got: %v", tt.criticalFailure, endResult)
 			}
 		})
 	}
-
 }
 
 func TestVerifyX509TrustedIdentities(t *testing.T) {
@@ -40,7 +39,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA"}, false},
 		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA", "nonX509Prefix:my-custom-identity"}, false},
 		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA", "x509.subject:C=IND,O=SomeOrg,ST=TS"}, false},
-		{[]string{"nonX509Prefix:my-custom-identity"}, false},
+		{[]string{"nonX509Prefix:my-custom-identity"}, true},
 		{[]string{"*"}, false},
 		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS"}, true},
 		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "nonX509Prefix:my-custom-identity"}, true},

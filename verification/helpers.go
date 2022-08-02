@@ -55,10 +55,10 @@ func isPresent(val string, values []string) bool {
 }
 
 func getArtifactPathFromUri(artifactUri string) (string, error) {
-	// TODO support more types of URI like "domain.com/repository", "domain.com/repository:tag", "domain.com/repository@sha256:digest"
-	i := strings.LastIndex(artifactUri, ":")
+	// TODO support more types of URI like "domain.com/repository", "domain.com/repository:tag"
+	i := strings.LastIndex(artifactUri, "@")
 	if i < 0 {
-		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository:digest", artifactUri)
+		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactUri)
 	}
 
 	artifactPath := artifactUri[:i]
