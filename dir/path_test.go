@@ -22,25 +22,19 @@ func TestCachedSignature(t *testing.T) {
 		blobDigest     digest.Digest
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
+		name string
+		args args
+		want string
 	}{
 		{
-			name:    "test get cache",
-			args:    args{"sha256:x1", "sha256:x2"},
-			want:    "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2.sig",
-			wantErr: false,
+			name: "test get cache",
+			args: args{"sha256:x1", "sha256:x2"},
+			want: "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2.sig",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := cache.CachedSignature(tt.args.manifestDigest, tt.args.blobDigest)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CachedSignature() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := cache.CachedSignature(tt.args.manifestDigest, tt.args.blobDigest)
 			assertPathEqual(t, tt.want, got, "get cache path error")
 		})
 	}
@@ -60,22 +54,19 @@ func TestCachedSignatureFailed(t *testing.T) {
 		blobDigest     digest.Digest
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
+		name string
+		args args
+		want string
 	}{
 		{
-			name:    "test get cache",
-			args:    args{"sha256x1", "sha256:x2"},
-			want:    "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
-			wantErr: true,
+			name: "test get cache",
+			args: args{"sha256x1", "sha256:x2"},
+			want: "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
 		},
 		{
-			name:    "test get cache",
-			args:    args{"sha256:x1", "sha256x2"},
-			want:    "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
-			wantErr: true,
+			name: "test get cache",
+			args: args{"sha256:x1", "sha256x2"},
+			want: "/user/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2",
 		},
 	}
 	for _, tt := range tests {
@@ -122,12 +113,118 @@ func TestX509TrustStoreCerts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := config.X509TrustStore(tt.args.prefix, tt.args.namedStore)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("X509TrustStoreCerts() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := config.X509TrustStore(tt.args.prefix, tt.args.namedStore)
 			assertPathEqual(t, tt.want, got, "X509TrustStoreCerts path error.")
 		})
+	}
+}
+
+func TestPathManager_Config(t *testing.T) {
+	path := &PathManager{
+		ConfigFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.config/notation/", nil),
+		),
+	}
+	configPath := path.Config()
+	if configPath != "/home/exampleuser/.config/notation/"+ConfigFile {
+		t.Fatal("get Config() failed.")
+	}
+}
+
+func TestPathManager_LocalKey(t *testing.T) {
+	path := &PathManager{
+		UserConfigFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.config/notation/", nil),
+		),
+	}
+	localkeyPath := path.Localkey("key1", KeyExtension)
+	if localkeyPath != "/home/exampleuser/.config/notation/localkeys/key1"+KeyExtension {
+		t.Fatal("get Localkey() failed.")
+	}
+}
+
+func TestPathManager_LocalKeyFailed(t *testing.T) {
+	path := &PathManager{
+		UserConfigFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.config/notation/", nil),
+		),
+	}
+	defer func() {
+		if d := recover(); d == nil {
+			t.Fatal("get Localkey() extension check failed.")
+		}
+	}()
+	path.Localkey("key1", ".acr")
+}
+
+func TestPathManager_SigningKeyConfig(t *testing.T) {
+	path := &PathManager{
+		UserConfigFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.config/notation/", nil),
+		),
+	}
+	signingKeyPath := path.SigningKeyConfig()
+	if signingKeyPath != "/home/exampleuser/.config/notation/"+SigningKeysFile {
+		t.Fatal("get SigningKeyConfig() failed.")
+	}
+}
+
+func TestPathManager_TrustPolicy(t *testing.T) {
+	path := &PathManager{
+		ConfigFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.config/notation/", nil),
+		),
+	}
+	policyPath := path.TrustPolicy()
+	if policyPath != "/home/exampleuser/.config/notation/"+TrustPolicyFile {
+		t.Fatal("get TrustPolicy() failed.")
+	}
+}
+
+func TestPathManager_X509TrustStore(t *testing.T) {
+	path := &PathManager{
+		ConfigFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.config/notation/", nil),
+		),
+	}
+	storePath := path.X509TrustStore("ca", "store")
+	if storePath != "/home/exampleuser/.config/notation/truststore/x509/ca/store" {
+		t.Fatal("get X509TrustStore() failed.")
+	}
+}
+
+func TestPathManager_CachedSignature(t *testing.T) {
+	path := &PathManager{
+		CacheFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.cache/notation/", nil),
+		),
+	}
+	signaturePath := path.CachedSignature("sha256:x1", "sha256:x2")
+	if signaturePath != "/home/exampleuser/.cache/notation/signatures/sha256/x1/sha256/x2.sig" {
+		t.Fatal("get CachedSignature() failed.")
+	}
+}
+
+func TestPathManager_CachedSignatureRoot(t *testing.T) {
+	path := &PathManager{
+		CacheFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.cache/notation/", nil),
+		),
+	}
+	signaturePath := path.CachedSignatureRoot("sha256:x1")
+	if signaturePath != "/home/exampleuser/.cache/notation/signatures/sha256/x1" {
+		t.Fatal("get CachedSignatureRoot() failed.")
+	}
+}
+
+func TestPathManager_CachedSignatureStoreDirPath(t *testing.T) {
+	path := &PathManager{
+		CacheFS: NewUnionDirFS(
+			NewRootedFS("/home/exampleuser/.cache/notation/", nil),
+		),
+	}
+	signatureDirPath := path.CachedSignatureStoreDirPath()
+	if signatureDirPath != "/home/exampleuser/.cache/notation/signatures" {
+		t.Fatal("get CachedSignatureStoreDir() failed.")
 	}
 }
