@@ -3,6 +3,8 @@ package dir
 import (
 	"errors"
 	"io/fs"
+	"path/filepath"
+	"reflect"
 	"testing"
 	"testing/fstest"
 )
@@ -235,6 +237,40 @@ func TestPathTrustStore(t *testing.T) {
 				t.Fatal(err)
 			}
 			assertPathEqual(t, tt.want, path, "UnionDirFS truststore test failed.")
+		})
+	}
+}
+
+func TestPluginFS(t *testing.T) {
+	type args struct {
+		dirs []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want UnionDirFS
+	}{
+		{
+			name: "default PluginFS",
+			args: args{dirs: []string{}},
+			want: NewUnionDirFS(
+				NewRootedFS(filepath.Join(userLibexec, "plugins"), nil),
+				NewRootedFS(filepath.Join(systemLibexec, "plugins"), nil),
+			),
+		},
+		{
+			name: "custom PluginFS",
+			args: args{dirs: []string{"/home/user/plugins"}},
+			want: NewUnionDirFS(
+				NewRootedFS("/home/user/plugins", nil),
+			),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := PluginFS(tt.args.dirs...); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PluginFS() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

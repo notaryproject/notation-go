@@ -13,8 +13,8 @@ func TestLoadValidTrustStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not load a valid trust store. %q", err)
 	}
-	if len(trustStore.Certificates) != 2 {
-		t.Fatalf("valid trust store should have two certificates in it")
+	if len(trustStore.Certificates) != 4 {
+		t.Fatalf("unexpected number of certificates in the trust store, expected: %d, got: %d", 4, len(trustStore.Certificates))
 	}
 	if trustStore.Prefix != "ca" {
 		t.Fatalf("trust store prefix should be \"ca\"")
@@ -59,7 +59,7 @@ func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
 	path := filepath.FromSlash("testdata/trust-store/trust-store-with-invalid-certs")
 	failurePath := filepath.FromSlash("testdata/trust-store/trust-store-with-invalid-certs/invalid")
 	_, err := LoadX509TrustStore(path)
-	if err == nil || err.Error() != fmt.Sprintf("Error while reading certificates from %q. Error : \"x509: malformed certificate\"", failurePath) {
+	if err == nil || err.Error() != fmt.Sprintf("error while reading certificates from %q: x509: malformed certificate", failurePath) {
 		t.Fatalf("invalid certs should return error : %q", err)
 	}
 }

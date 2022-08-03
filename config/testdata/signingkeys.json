@@ -1,0 +1,23 @@
+{
+    "default": "wabbit-networks",
+    "keys": [
+        {
+            "name": "wabbit-networks",
+            "keyPath": "/home/demo/.config/notation/localkeys/wabbit-networks.key",
+            "certPath": "/home/demo/.config/notation/localkeys/wabbit-networks.crt"
+        },
+        {
+            "name": "import.acme-rockets",
+            "keyPath": "/home/demo/.config/notation/localkeys/import.acme-rockets.key",
+            "certPath": "/home/demo/.config/notation/localkeys/import.acme-rockets.crt"
+        },
+        {
+            "name": "external-key",
+            "id": "id1",
+            "pluginName": "pluginX",
+            "pluginConfig": {
+                "key": "value"
+            }
+        }
+    ]
+}
