@@ -80,7 +80,7 @@ func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 
 func TestSkippedSignatureVerification(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
-	policyDocument.TrustPolicies[0].SignatureVerification = "skip"
+	policyDocument.TrustPolicies[0].SignatureVerification.Level = "skip"
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     mock.NewRepository(),
@@ -320,7 +320,7 @@ func TestVerificationCombinations(t *testing.T) {
 
 	for i, tt := range testCases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			tt.policyDocument.TrustPolicies[0].SignatureVerification = tt.verificationLevel.Name
+			tt.policyDocument.TrustPolicies[0].SignatureVerification.Level = tt.verificationLevel.Name
 
 			expectedResult := VerificationResult{
 				Type:    tt.verificationType,
