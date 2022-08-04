@@ -2,6 +2,7 @@ package verification
 
 import (
 	"encoding/json"
+	"github.com/notaryproject/notation-go/dir"
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
@@ -67,7 +68,12 @@ func TestLoadX509TrustStore(t *testing.T) {
 	signingAuthorityStore := "signingAuthority:valid-trust-store"
 	dummyPolicy := dummyPolicyStatement()
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
-	trustStores, err := loadX509TrustStores(&dummyPolicy, filepath.FromSlash("testdata/trust-store/"))
+	path := &dir.PathManager{
+		ConfigFS: dir.NewUnionDirFS(
+			dir.NewRootedFS("testdata", nil),
+		),
+	}
+	trustStores, err := loadX509TrustStores(&dummyPolicy, path)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}

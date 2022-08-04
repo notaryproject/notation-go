@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/registry"
@@ -13,6 +14,7 @@ import (
 type Verifier struct {
 	PolicyDocument *PolicyDocument
 	Repository     registry.Repository
+	PathManager    *dir.PathManager
 	PluginManager  pluginManager
 }
 
@@ -24,7 +26,7 @@ type pluginManager interface {
 
 func NewVerifier(repository registry.Repository) (*Verifier, error) {
 	// load trust policy
-	policyDocument, err := loadPolicyDocument("") // TODO get the policy path from Dir Structure functionality
+	policyDocument, err := loadPolicyDocument(dir.Path.TrustPolicy())
 	if err != nil {
 		return nil, err
 	}
@@ -32,13 +34,11 @@ func NewVerifier(repository registry.Repository) (*Verifier, error) {
 		return nil, err
 	}
 
-	// load plugins
-	pluginManager := manager.New("") // TODO get the plugins base path from Dir Structure functionality
-
 	return &Verifier{
 		PolicyDocument: policyDocument,
 		Repository:     repository,
-		PluginManager:  pluginManager,
+		PathManager:    dir.Path,
+		PluginManager:  manager.New(),
 	}, nil
 }
 
@@ -92,7 +92,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 			VerificationResults: []*VerificationResult{},
 			VerificationLevel:   verificationLevel,
 		}
-		err = v.processSignature(sigBlob, sigManifest, trustPolicy, outcome)
+		err = v.processSignature(ctx, sigBlob, sigManifest, trustPolicy, outcome)
 		if err != nil {
 			outcome.Error = err
 		}
@@ -123,7 +123,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 	return verificationOutcomes, ErrorVerificationFailed{}
 }
 
-func (v *Verifier) processSignature(sigBlob []byte, sigManifest registry.SignatureManifest, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
+func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigManifest registry.SignatureManifest, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
 	signerInfo, result := v.verifyIntegrity(sigBlob, sigManifest, outcome)
 	outcome.SignerInfo = signerInfo
