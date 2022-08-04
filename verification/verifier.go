@@ -9,6 +9,8 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/registry"
+	"reflect"
+	"time"
 )
 
 type Verifier struct {
@@ -124,30 +126,138 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 }
 
 func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigManifest registry.SignatureManifest, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
+
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
-	signerInfo, result := v.verifyIntegrity(sigBlob, sigManifest, outcome)
+	signerInfo, integrityResult := v.verifyIntegrity(sigBlob, sigManifest, outcome)
 	outcome.SignerInfo = signerInfo
-	outcome.VerificationResults = append(outcome.VerificationResults, result)
-	if result.Error != nil {
-		return result.Error
+	outcome.VerificationResults = append(outcome.VerificationResults, integrityResult)
+	if integrityResult.Error != nil {
+		return integrityResult.Error
 	}
 
-	// verify x509 and trust identity based authenticity
-	result = v.verifyAuthenticity(TrustStorePrefixCA, trustPolicy, outcome)
-	outcome.VerificationResults = append(outcome.VerificationResults, result)
-	if isCriticalFailure(result) {
-		return result.Error
+	// check if we need to verify using a plugin
+	var pluginCapabilities []plugin.Capability
+	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
+	if verificationPluginName != "" {
+		installedPlugin, err := v.PluginManager.Get(ctx, verificationPluginName)
+		if err != nil {
+			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while loading the verification plugin %q: %s", verificationPluginName, err)}
+		}
+
+		// TODO verify the plugin version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
+
+		// filter the verification capabilities supported by the installed plugin
+		for _, capability := range installedPlugin.Capabilities {
+			if capability.IsVerificationCapability() {
+				pluginCapabilities = append(pluginCapabilities, capability)
+			}
+		}
+
+		if len(pluginCapabilities) == 0 {
+			return ErrorVerificationInconclusive{msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities installed", verificationPluginName)}
+		}
+	}
+
+	// verify x509 trust store based authenticity
+	authenticityResult := v.verifyAuthenticity(TrustStorePrefixCA, trustPolicy, outcome)
+	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
+	if isCriticalFailure(authenticityResult) {
+		return authenticityResult.Error
+	}
+
+	// verify x509 trusted identity based authenticity (if notation needs to perform this verification rather than a plugin)
+	if !plugin.CapabilityTrustedIdentityVerifier.In(pluginCapabilities) {
+		v.verifyX509TrustedIdentities(trustPolicy, outcome, authenticityResult)
+		if isCriticalFailure(authenticityResult) {
+			return authenticityResult.Error
+		}
 	}
 
 	// verify expiry
-	result = v.verifyExpiry(outcome)
-	outcome.VerificationResults = append(outcome.VerificationResults, result)
-	if isCriticalFailure(result) {
-		return result.Error
+	expiryResult := v.verifyExpiry(outcome)
+	outcome.VerificationResults = append(outcome.VerificationResults, expiryResult)
+	if isCriticalFailure(expiryResult) {
+		return expiryResult.Error
 	}
 
-	// Verify timestamping signature if present - Not in RC1
-	// Verify revocation - Not in RC1
-	// no error
+	// verify authentic timestamp
+	authenticTimestampResult := v.verifyAuthenticTimestamp(outcome)
+	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
+	if isCriticalFailure(authenticTimestampResult) {
+		return authenticTimestampResult.Error
+	}
+
+	// verify revocation
+	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may perform the check
+	if outcome.VerificationLevel.VerificationMap[Revocation] != Skipped && !plugin.CapabilityRevocationCheckVerifier.In(pluginCapabilities) {
+		// TODO perform X509 revocation check (not in RC1)
+	}
+
+	// perform extended verification using verification plugin if present
+	if len(pluginCapabilities) != 0 {
+		var capabilitiesToVerify []plugin.VerificationCapability
+		for _, pc := range pluginCapabilities {
+			// skip the revocation capability if the trust policy is configured to skip it
+			if outcome.VerificationLevel.VerificationMap[Revocation] == Skipped && pc == plugin.CapabilityRevocationCheckVerifier {
+				continue
+			}
+			capabilitiesToVerify = append(capabilitiesToVerify, plugin.VerificationCapability(pc))
+		}
+
+		response, err := v.invokePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome)
+		if err != nil {
+			return err
+		}
+		return v.processPluginResponse(capabilitiesToVerify, response, outcome)
+	}
+
+	return nil
+}
+
+func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.VerificationCapability, response *plugin.VerifySignatureResponse, outcome *SignatureVerificationOutcome) error {
+	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
+	for _, capability := range capabilitiesToVerify {
+		pluginResult := response.VerificationResults[capability]
+		if reflect.DeepEqual(pluginResult, plugin.VerificationResult{}) {
+			// verification result it empty for this capability
+			return ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
+		}
+		if capability == plugin.VerificationCapabilityTrustedIdentity {
+			// find the Authenticity VerificationResult that we already created during x509 trust store verification
+			var authenticityResult *VerificationResult
+			for _, r := range outcome.VerificationResults {
+				if r.Type == Authenticity {
+					authenticityResult = r
+					break
+				}
+			}
+			if !pluginResult.Success {
+				authenticityResult.Error = fmt.Errorf("trusted identify verification by plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason)
+			}
+			if isCriticalFailure(authenticityResult) {
+				return authenticityResult.Error
+			}
+		} else if capability == plugin.VerificationCapabilityRevocationCheck {
+			var revocationResult *VerificationResult
+			if !pluginResult.Success {
+				revocationResult = &VerificationResult{
+					Success: false,
+					Error:   fmt.Errorf("digital signature has expired on %q", outcome.SignerInfo.SignedAttributes.Expiry.Format(time.RFC1123Z)),
+					Type:    Expiry,
+					Action:  outcome.VerificationLevel.VerificationMap[Expiry],
+				}
+			} else {
+				revocationResult = &VerificationResult{
+					Success: true,
+					Type:    Expiry,
+					Action:  outcome.VerificationLevel.VerificationMap[Expiry],
+				}
+			}
+			outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
+			if isCriticalFailure(revocationResult) {
+				return revocationResult.Error
+			}
+		}
+	}
 	return nil
 }

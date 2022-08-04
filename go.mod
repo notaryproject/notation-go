@@ -2,6 +2,8 @@ module github.com/notaryproject/notation-go
 
 go 1.17
 
+replace github.com/notaryproject/notation-core-go => /home/ANT.AMAZON.COM/garigant/GitHub/priteshbandi/notation-core-go
+
 require (
 	github.com/go-ldap/ldap/v3 v3.4.3
 	github.com/golang-jwt/jwt/v4 v4.4.2

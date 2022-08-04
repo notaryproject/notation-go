@@ -1,9 +1,11 @@
 package verification
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	nsigner "github.com/notaryproject/notation-core-go/signer"
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/registry"
 	"strings"
 	"time"
@@ -77,6 +79,16 @@ func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPo
 			trustCerts = append(trustCerts, v.Certificates...)
 		}
 	}
+
+	if len(trustCerts) < 1 {
+		return &VerificationResult{
+			Success: false,
+			Error:   ErrorVerificationInconclusive{msg: "no trusted certificates are found to verify authenticity"},
+			Type:    Authenticity,
+			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+		}
+	}
+
 	_, err = nsigner.VerifyAuthenticity(outcome.SignerInfo, trustCerts)
 	if err != nil {
 		switch err.(type) {
@@ -96,8 +108,11 @@ func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPo
 			}
 		}
 	} else {
-		// if X509 authenticity passes, then perform Trusted Identity based authenticity
-		return v.verifyTrustedIdentities(trustPolicy, outcome)
+		return &VerificationResult{
+			Success: true,
+			Type:    Authenticity,
+			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+		}
 	}
 }
 
@@ -118,22 +133,62 @@ func (v *Verifier) verifyExpiry(outcome *SignatureVerificationOutcome) *Verifica
 	}
 }
 
-func (v *Verifier) verifyTrustedIdentities(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
-	// verify trusted identities
-	err := verifyX509TrustedIdentities(outcome.SignerInfo.CertificateChain, trustPolicy)
-	if err != nil {
+func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcome) *VerificationResult {
+	invalidTimestamp := false
+	var err error
+
+	if outcome.SignerInfo.SigningScheme == nsigner.SigningSchemeX509Default {
+		// TODO verify RFC3161 TSA signature (not in RC1)
+		if len(outcome.SignerInfo.TimestampSignature) == 0 {
+			// if there is no TSA signature, then every certificate should be valid at the time of verification
+			now := time.Now()
+			for _, cert := range outcome.SignerInfo.CertificateChain {
+				if now.Before(cert.NotBefore) {
+					invalidTimestamp = true
+					err = fmt.Errorf("certificate %q is not valid yet, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
+					break
+				}
+				if now.After(cert.NotAfter) {
+					invalidTimestamp = true
+					err = fmt.Errorf("certificate %q is not valid anymore, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
+					break
+				}
+			}
+		}
+	} else if outcome.SignerInfo.SigningScheme == nsigner.SigningSchemeX509SigningAuthority {
+		signingTime := outcome.SignerInfo.SignedAttributes.SigningTime
+		for _, cert := range outcome.SignerInfo.CertificateChain {
+			if signingTime.Before(cert.NotBefore) || signingTime.After(cert.NotAfter) {
+				invalidTimestamp = true
+				err = fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, signingTime.Format(time.RFC1123Z))
+				break
+			}
+		}
+	}
+
+	if invalidTimestamp {
 		return &VerificationResult{
 			Success: false,
 			Error:   err,
-			Type:    Authenticity,
-			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+			Type:    AuthenticTimestamp,
+			Action:  outcome.VerificationLevel.VerificationMap[AuthenticTimestamp],
 		}
 	} else {
 		return &VerificationResult{
 			Success: true,
-			Type:    Authenticity,
-			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+			Type:    AuthenticTimestamp,
+			Action:  outcome.VerificationLevel.VerificationMap[AuthenticTimestamp],
 		}
+	}
+}
+
+// verifyX509TrustedIdentities verified x509 trusted identities. This functions uses the VerificationResult from x509 trust store verification and modifies it
+func (v *Verifier) verifyX509TrustedIdentities(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome, authenticityResult *VerificationResult) {
+	// verify trusted identities
+	err := verifyX509TrustedIdentities(outcome.SignerInfo.CertificateChain, trustPolicy)
+	if err != nil {
+		authenticityResult.Success = false
+		authenticityResult.Error = err
 	}
 }
 
@@ -175,4 +230,72 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 	}
 
 	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
+}
+
+func (v *Verifier) invokePlugin(ctx context.Context, trustPolicy *TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, outcome *SignatureVerificationOutcome) (*plugin.VerifySignatureResponse, error) {
+	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
+	var attributesToProcess []string
+	extendedAttributes := make(map[string]interface{})
+
+	for _, attr := range outcome.SignerInfo.SignedAttributes.ExtendedAttributes {
+		extendedAttributes[attr.Key] = attr.Value
+		if attr.Critical {
+			attributesToProcess = append(attributesToProcess, attr.Key)
+		}
+	}
+
+	var certChain [][]byte
+	for _, cert := range outcome.SignerInfo.CertificateChain {
+		certChain = append(certChain, cert.Raw)
+	}
+
+	signature := plugin.Signature{
+		CriticalAttributes: plugin.CriticalAttributes{
+			ContentType:        string(outcome.SignerInfo.PayloadContentType),
+			SigningScheme:      string(outcome.SignerInfo.SigningScheme),
+			Expiry:             &outcome.SignerInfo.SignedAttributes.Expiry,
+			ExtendedAttributes: extendedAttributes,
+		},
+		UnprocessedAttributes: attributesToProcess,
+		CertificateChain:      certChain,
+	}
+
+	policy := plugin.TrustPolicy{
+		TrustedIdentities:     trustPolicy.TrustedIdentities,
+		SignatureVerification: capabilitiesToVerify,
+	}
+
+	request := &plugin.VerifySignatureRequest{
+		ContractVersion: plugin.ContractVersion,
+		Signature:       signature,
+		TrustPolicy:     policy,
+		PluginConfig:    nil, // TODO update plugin config
+	}
+	pluginRunner, err := v.PluginManager.Runner(verificationPluginName)
+	if err != nil {
+		return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("error while loading the verification plugin %q: %s", verificationPluginName, err)}
+	}
+	out, err := pluginRunner.Run(ctx, request)
+	if err != nil {
+		return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("error while running the verification plugin %q: %s", verificationPluginName, err)}
+	}
+
+	response, ok := out.(*plugin.VerifySignatureResponse)
+	if !ok {
+		return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q returned unexpected response : %q", verificationPluginName, out)}
+	}
+
+	for _, attr1 := range attributesToProcess {
+		attrProcessed := false
+		for _, attr2 := range response.ProcessedAttributes {
+			if attr1 == attr2 {
+				attrProcessed = true
+			}
+		}
+		if !attrProcessed {
+			return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("extended critical attribute %q was not processed by the verification plugin %q", attr1, verificationPluginName)}
+		}
+	}
+
+	return response, nil
 }

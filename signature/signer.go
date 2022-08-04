@@ -50,13 +50,13 @@ func NewSignerFromFiles(keyPath, certPath string) (notation.Signer, error) {
 // The relation of the provided signing key and its certificate chain is not verified,
 // and should be verified by the caller.
 func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
-	lsp, err := signer.GetLocalSignatureProvider(certChain, key)
+	lsp, err := signer.NewLocalSignatureProvider(certChain, key)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pluginSigner{
-		runner: &builtinPlugin{ localSignatureProvider: lsp },
+		runner: &builtinPlugin{localSignatureProvider: lsp},
 	}, nil
 }
 

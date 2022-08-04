@@ -37,11 +37,11 @@ func (r *mockRunner) Run(_ context.Context, _ plugin.Request) (interface{}, erro
 }
 
 type mockSignerPlugin struct {
-	KeyID      string
-	KeySpec    signer.KeySpec
-	Sign       func(payload []byte) []byte
-	Certs      [][]byte
-	n          int
+	KeyID   string
+	KeySpec signer.KeySpec
+	Sign    func(payload []byte) []byte
+	Certs   [][]byte
+	n       int
 }
 
 func (s *mockSignerPlugin) Run(_ context.Context, req plugin.Request) (interface{}, error) {
@@ -163,8 +163,8 @@ func TestSigner_Sign_UnsuportedKeySpec(t *testing.T) {
 func TestSigner_Sign_NoCertChain(t *testing.T) {
 	signer := pluginSigner{
 		runner: &mockSignerPlugin{
-			KeyID:      "1",
-			KeySpec:    signer.RSA_2048,
+			KeyID:   "1",
+			KeySpec: signer.RSA_2048,
 		},
 		keyID: "1",
 	}
@@ -174,9 +174,9 @@ func TestSigner_Sign_NoCertChain(t *testing.T) {
 func TestSigner_Sign_MalformedCert(t *testing.T) {
 	signer := pluginSigner{
 		runner: &mockSignerPlugin{
-			KeyID:      "1",
-			KeySpec:    signer.RSA_2048,
-			Certs:      [][]byte{[]byte("mocked")},
+			KeyID:   "1",
+			KeySpec: signer.RSA_2048,
+			Certs:   [][]byte{[]byte("mocked")},
 		},
 		keyID: "1",
 	}
@@ -255,7 +255,6 @@ func TestSigner_Sign_Valid(t *testing.T) {
 		t.Errorf("Signer.Sign() payload changed")
 	}
 
-
 	if !reflect.DeepEqual(sigInfo.CertificateChain, cert) {
 		t.Errorf("Signer.Sign() cert chain changed")
 	}
@@ -298,7 +297,7 @@ func (s *mockEnvelopePlugin) Run(_ context.Context, req plugin.Request) (interfa
 		} else {
 			resolvedCertChain = certs
 		}
-		lsp, err := signer.GetLocalSignatureProvider(resolvedCertChain, key)
+		lsp, err := signer.NewLocalSignatureProvider(resolvedCertChain, key)
 		if err != nil {
 			return nil, err
 		}
@@ -307,12 +306,12 @@ func (s *mockEnvelopePlugin) Run(_ context.Context, req plugin.Request) (interfa
 		req1 := req.(*plugin.GenerateEnvelopeRequest)
 
 		data, err := env.Sign(signer.SignRequest{
-			Payload:             req1.Payload,
-			PayloadContentType:  signer.PayloadContentType(req1.PayloadType),
-			SignatureProvider:   lsp,
-			SigningTime:         time.Now(),
-			Expiry:              time.Now().AddDate(2,0,0),
-			SigningAgent:        "",
+			Payload:            req1.Payload,
+			PayloadContentType: signer.PayloadContentType(req1.PayloadType),
+			SignatureProvider:  lsp,
+			SigningTime:        time.Now(),
+			Expiry:             time.Now().AddDate(2, 0, 0),
+			SigningAgent:       "",
 		})
 		if err != nil {
 			return nil, err
