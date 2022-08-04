@@ -59,7 +59,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 
 func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
 	// verify authenticity
-	trustStores, err := loadX509TrustStores(trustPolicy, "testdata/trust-store") // TODO get trust store path from dir structure PR
+	trustStores, err := loadX509TrustStores(trustPolicy, v.PathManager)
 
 	if err != nil {
 		return &VerificationResult{
