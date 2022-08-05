@@ -136,7 +136,7 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 	var err error
 
 	if outcome.SignerInfo.SigningScheme == nsigner.SigningSchemeX509Default {
-		// TODO verify RFC3161 TSA signature (not in RC1)
+		// TODO verify RFC3161 TSA signature if present (not in RC1)
 		if len(outcome.SignerInfo.TimestampSignature) == 0 {
 			// if there is no TSA signature, then every certificate should be valid at the time of verification
 			now := time.Now()
@@ -281,18 +281,6 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	response, ok := out.(*plugin.VerifySignatureResponse)
 	if !ok {
 		return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q returned unexpected response : %q", verificationPluginName, out)}
-	}
-
-	for _, attr1 := range attributesToProcess {
-		attrProcessed := false
-		for _, attr2 := range response.ProcessedAttributes {
-			if attr1 == attr2 {
-				attrProcessed = true
-			}
-		}
-		if !attrProcessed {
-			return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("extended critical attribute %q was not processed by the verification plugin %q", attr1, verificationPluginName)}
-		}
 	}
 
 	return response, nil

@@ -214,10 +214,20 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 
 func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.VerificationCapability, response *plugin.VerifySignatureResponse, outcome *SignatureVerificationOutcome) error {
 	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
+
+	// verify all extended critical attributes are processed by the plugin
+	for _, attr := range outcome.SignerInfo.SignedAttributes.ExtendedAttributes {
+		if attr.Critical {
+			if !isPresent(attr.Key, response.ProcessedAttributes) {
+				return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
+			}
+		}
+	}
+
 	for _, capability := range capabilitiesToVerify {
 		pluginResult := response.VerificationResults[capability]
 		if pluginResult == nil {
-			// verification result it empty for this capability
+			// verification result is empty for this capability
 			return ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
 		}
 		if capability == plugin.VerificationCapabilityTrustedIdentity {
@@ -255,15 +265,6 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 			outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
 			if isCriticalFailure(revocationResult) {
 				return revocationResult.Error
-			}
-		}
-	}
-
-	// verify all extended critical attributes are processed by the plugin
-	for _, attr := range outcome.SignerInfo.SignedAttributes.ExtendedAttributes {
-		if attr.Critical {
-			if !isPresent(attr.Key, response.ProcessedAttributes) {
-				return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
 			}
 		}
 	}

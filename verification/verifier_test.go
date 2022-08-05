@@ -17,8 +17,11 @@ func verifyResult(outcome *SignatureVerificationOutcome, expectedResult Verifica
 	var actualResult *VerificationResult
 	for _, r := range outcome.VerificationResults {
 		if r.Type == expectedResult.Type {
-			actualResult = r
-			break
+			if actualResult == nil {
+				actualResult = r
+			} else {
+				t.Fatalf("expected only one VerificatiionResult for %q but found one more. first: %+v second: %+v", r.Type, actualResult, r)
+			}
 		}
 	}
 
@@ -357,10 +360,14 @@ func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
 				),
 			}
 
+			pluginManager := mock.NewPluginManager()
+			pluginManager.GetError = errors.New("plugin should not be invoked when verification plugin is not specified")
+			pluginManager.RunnerError = errors.New("plugin should not be invoked when verification plugin is not specified")
+
 			verifier := Verifier{
 				PolicyDocument: &tt.policyDocument,
 				Repository:     &tt.repository,
-				PluginManager:  mock.NewPluginManager(),
+				PluginManager:  pluginManager,
 				PathManager:    path,
 			}
 			outcomes, _ := verifier.Verify(context.Background(), mock.SampleArtifactUri)
@@ -373,5 +380,23 @@ func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
 }
 
 func TestVerificationPlugin(t *testing.T) {
+
+	// no plugin installed
+
+	// plugin without verification capabilities
+
+	// plugin interactions with trusted identity verification (success/failure)
+	// plugin interactions with revocation verification (success/failure)
+	// plugin interactions with both trusted identity & revocation verification
+	// plugin interactions with skipped revocation
+
+	// plugin unexpected response
+
+	// plugin did not process all extended critical attributes
+
+	// plugin returned empty result for a capability
+
+	// CA sig env with verification plugin that passes all notation verification (valid, unexpired, trusted, cert validity 100 years)
+	// SA sig env with verification plugin that passes all notation verification (valid, unexpired, trusted, cert validity 100 years)
 
 }

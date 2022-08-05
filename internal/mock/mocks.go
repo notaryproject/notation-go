@@ -77,15 +77,20 @@ func (t Repository) PutSignatureManifest(ctx context.Context, signature []byte, 
 	return notation.Descriptor{}, registry.SignatureManifest{}, nil
 }
 
-type PluginManager struct{}
+type PluginManager struct {
+	GetResponse    *manager.Plugin
+	GetError       error
+	RunnerResponse plugin.Runner
+	RunnerError    error
+}
 
 func NewPluginManager() PluginManager {
 	return PluginManager{}
 }
 
 func (t PluginManager) Get(ctx context.Context, name string) (*manager.Plugin, error) {
-	return nil, nil
+	return t.GetResponse, t.GetError
 }
 func (t PluginManager) Runner(name string) (plugin.Runner, error) {
-	return nil, nil
+	return t.RunnerResponse, t.RunnerError
 }
