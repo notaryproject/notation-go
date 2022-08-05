@@ -217,8 +217,8 @@ func (VerifySignatureRequest) Command() Command {
 
 // VerifySignatureResponse is the response of a generate-envelope request.
 type VerifySignatureResponse struct {
-	VerificationResults map[VerificationCapability]VerificationResult `json:"verificationResults"`
-	ProcessedAttributes []string                                      `json:"processedAttributes"`
+	VerificationResults map[VerificationCapability]*VerificationResult `json:"verificationResults"`
+	ProcessedAttributes []string                                       `json:"processedAttributes"`
 }
 
 // VerificationResult is the result of a verification performed by the plugin

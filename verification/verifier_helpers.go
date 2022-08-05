@@ -59,9 +59,9 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 	}
 }
 
-func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
+func (v *Verifier) verifyAuthenticity(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
 	// verify authenticity
-	trustStores, err := loadX509TrustStores(trustPolicy, v.PathManager)
+	trustStores, err := loadX509TrustStores(outcome.SignerInfo.SigningScheme, trustPolicy, v.PathManager)
 
 	if err != nil {
 		return &VerificationResult{
@@ -75,9 +75,7 @@ func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPo
 	// filter trust certificates based on trust store prefix
 	var trustCerts []*x509.Certificate
 	for _, v := range trustStores {
-		if v.Prefix == string(trustStorePrefix) {
-			trustCerts = append(trustCerts, v.Certificates...)
-		}
+		trustCerts = append(trustCerts, v.Certificates...)
 	}
 
 	if len(trustCerts) < 1 {
@@ -232,12 +230,12 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
 }
 
-func (v *Verifier) invokePlugin(ctx context.Context, trustPolicy *TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, outcome *SignatureVerificationOutcome) (*plugin.VerifySignatureResponse, error) {
-	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
+func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, signerInfo *nsigner.SignerInfo) (*plugin.VerifySignatureResponse, error) {
+	verificationPluginName := signerInfo.SignedAttributes.VerificationPlugin
 	var attributesToProcess []string
 	extendedAttributes := make(map[string]interface{})
 
-	for _, attr := range outcome.SignerInfo.SignedAttributes.ExtendedAttributes {
+	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
 		extendedAttributes[attr.Key] = attr.Value
 		if attr.Critical {
 			attributesToProcess = append(attributesToProcess, attr.Key)
@@ -245,15 +243,15 @@ func (v *Verifier) invokePlugin(ctx context.Context, trustPolicy *TrustPolicy, c
 	}
 
 	var certChain [][]byte
-	for _, cert := range outcome.SignerInfo.CertificateChain {
+	for _, cert := range signerInfo.CertificateChain {
 		certChain = append(certChain, cert.Raw)
 	}
 
 	signature := plugin.Signature{
 		CriticalAttributes: plugin.CriticalAttributes{
-			ContentType:        string(outcome.SignerInfo.PayloadContentType),
-			SigningScheme:      string(outcome.SignerInfo.SigningScheme),
-			Expiry:             &outcome.SignerInfo.SignedAttributes.Expiry,
+			ContentType:        string(signerInfo.PayloadContentType),
+			SigningScheme:      string(signerInfo.SigningScheme),
+			Expiry:             &signerInfo.SignedAttributes.Expiry,
 			ExtendedAttributes: extendedAttributes,
 		},
 		UnprocessedAttributes: attributesToProcess,

@@ -9,8 +9,6 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/registry"
-	"reflect"
-	"time"
 )
 
 type Verifier struct {
@@ -141,12 +139,12 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 	if verificationPluginName != "" {
 		installedPlugin, err := v.PluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
-			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while loading the verification plugin %q: %s", verificationPluginName, err)}
+			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verying the signature. error: %s", verificationPluginName, err)}
 		}
 
-		// TODO verify the plugin version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
+		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
 
-		// filter the verification capabilities supported by the installed plugin
+		// filter the "verification" capabilities supported by the installed plugin
 		for _, capability := range installedPlugin.Capabilities {
 			if capability.IsVerificationCapability() {
 				pluginCapabilities = append(pluginCapabilities, capability)
@@ -159,13 +157,13 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 	}
 
 	// verify x509 trust store based authenticity
-	authenticityResult := v.verifyAuthenticity(TrustStorePrefixCA, trustPolicy, outcome)
+	authenticityResult := v.verifyAuthenticity(trustPolicy, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
 	if isCriticalFailure(authenticityResult) {
 		return authenticityResult.Error
 	}
 
-	// verify x509 trusted identity based authenticity (if notation needs to perform this verification rather than a plugin)
+	// verify x509 trusted identity based authenticity (only if notation needs to perform this verification rather than a plugin)
 	if !plugin.CapabilityTrustedIdentityVerifier.In(pluginCapabilities) {
 		v.verifyX509TrustedIdentities(trustPolicy, outcome, authenticityResult)
 		if isCriticalFailure(authenticityResult) {
@@ -188,13 +186,13 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 	}
 
 	// verify revocation
-	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may perform the check
+	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.VerificationMap[Revocation] != Skipped && !plugin.CapabilityRevocationCheckVerifier.In(pluginCapabilities) {
 		// TODO perform X509 revocation check (not in RC1)
 	}
 
 	// perform extended verification using verification plugin if present
-	if len(pluginCapabilities) != 0 {
+	if verificationPluginName != "" {
 		var capabilitiesToVerify []plugin.VerificationCapability
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured to skip it
@@ -204,7 +202,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 			capabilitiesToVerify = append(capabilitiesToVerify, plugin.VerificationCapability(pc))
 		}
 
-		response, err := v.invokePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome)
+		response, err := v.executePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome.SignerInfo)
 		if err != nil {
 			return err
 		}
@@ -218,7 +216,7 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
 	for _, capability := range capabilitiesToVerify {
 		pluginResult := response.VerificationResults[capability]
-		if reflect.DeepEqual(pluginResult, plugin.VerificationResult{}) {
+		if pluginResult == nil {
 			// verification result it empty for this capability
 			return ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
 		}
@@ -232,6 +230,7 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 				}
 			}
 			if !pluginResult.Success {
+				authenticityResult.Success = false
 				authenticityResult.Error = fmt.Errorf("trusted identify verification by plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason)
 			}
 			if isCriticalFailure(authenticityResult) {
@@ -242,15 +241,15 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 			if !pluginResult.Success {
 				revocationResult = &VerificationResult{
 					Success: false,
-					Error:   fmt.Errorf("digital signature has expired on %q", outcome.SignerInfo.SignedAttributes.Expiry.Format(time.RFC1123Z)),
-					Type:    Expiry,
-					Action:  outcome.VerificationLevel.VerificationMap[Expiry],
+					Error:   fmt.Errorf("revocation check by verification plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason),
+					Type:    Revocation,
+					Action:  outcome.VerificationLevel.VerificationMap[Revocation],
 				}
 			} else {
 				revocationResult = &VerificationResult{
 					Success: true,
-					Type:    Expiry,
-					Action:  outcome.VerificationLevel.VerificationMap[Expiry],
+					Type:    Revocation,
+					Action:  outcome.VerificationLevel.VerificationMap[Revocation],
 				}
 			}
 			outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
@@ -259,5 +258,15 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 			}
 		}
 	}
+
+	// verify all extended critical attributes are processed by the plugin
+	for _, attr := range outcome.SignerInfo.SignedAttributes.ExtendedAttributes {
+		if attr.Critical {
+			if !isPresent(attr.Key, response.ProcessedAttributes) {
+				return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
+			}
+		}
+	}
+
 	return nil
 }

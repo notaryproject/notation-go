@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	nsigner "github.com/notaryproject/notation-core-go/signer"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
@@ -175,7 +176,26 @@ func TestRegistryGetBlobError(t *testing.T) {
 	}
 }
 
-func TestVerificationCombinations(t *testing.T) {
+func TestNotationVerificationCombinations(t *testing.T) {
+	assertNotationVerification(t, nsigner.SigningSchemeX509Default)
+	assertNotationVerification(t, nsigner.SigningSchemeX509SigningAuthority)
+}
+
+func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
+	var validSigEnv []byte
+	var invalidSigEnv []byte
+	var expiredSigEnv []byte
+
+	if scheme == nsigner.SigningSchemeX509Default {
+		validSigEnv = mock.MockCaValidSigEnv
+		invalidSigEnv = mock.MockCaInvalidSigEnv
+		expiredSigEnv = mock.MockCaExpiredSigEnv
+	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
+		validSigEnv = mock.MockSaValidSigEnv
+		invalidSigEnv = mock.MockSaInvalidSigEnv
+		expiredSigEnv = mock.MockSaExpiredSigEnv
+	}
+
 	type testCase struct {
 		verificationType  VerificationType
 		verificationLevel *VerificationLevel
@@ -214,7 +234,8 @@ func TestVerificationCombinations(t *testing.T) {
 	// Integrity Success
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
-		repo := mock.NewRepository() // repository returns a valid signature by default
+		repo := mock.NewRepository()
+		repo.GetResponse = validSigEnv
 		testCases = append(testCases, testCase{
 			verificationType:  Integrity,
 			verificationLevel: level,
@@ -227,7 +248,7 @@ func TestVerificationCombinations(t *testing.T) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository()
-		repo.GetResponse = mock.MockCaInvalidSigEnv
+		repo.GetResponse = invalidSigEnv
 		expectedErr := fmt.Errorf("signature is invalid. Error: illegal base64 data at input byte 242")
 		testCases = append(testCases, testCase{
 			verificationType:  Integrity,
@@ -308,7 +329,7 @@ func TestVerificationCombinations(t *testing.T) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository()
-		repo.GetResponse = mock.MockCaExpiredSigEnv
+		repo.GetResponse = expiredSigEnv
 		expectedErr := fmt.Errorf("digital signature has expired on \"Fri, 29 Jul 2022 23:59:00 +0000\"")
 		testCases = append(testCases, testCase{
 			verificationType:  Expiry,
@@ -349,4 +370,8 @@ func TestVerificationCombinations(t *testing.T) {
 			verifyResult(outcomes[0], expectedResult, tt.expectedErr, t)
 		})
 	}
+}
+
+func TestVerificationPlugin(t *testing.T) {
+
 }
