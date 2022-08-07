@@ -66,7 +66,6 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 	if err != nil {
 		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
 	}
-
 	artifactDescriptor, err := v.Repository.Resolve(ctx, artifactDigest)
 	if err != nil {
 		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
@@ -139,7 +138,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 	if verificationPluginName != "" {
 		installedPlugin, err := v.PluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
-			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verying the signature. error: %s", verificationPluginName, err)}
+			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}
 
 		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
@@ -202,11 +201,13 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 			capabilitiesToVerify = append(capabilitiesToVerify, plugin.VerificationCapability(pc))
 		}
 
-		response, err := v.executePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome.SignerInfo)
-		if err != nil {
-			return err
+		if len(capabilitiesToVerify) > 0 {
+			response, err := v.executePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome.SignerInfo)
+			if err != nil {
+				return err
+			}
+			return v.processPluginResponse(capabilitiesToVerify, response, outcome)
 		}
-		return v.processPluginResponse(capabilitiesToVerify, response, outcome)
 	}
 
 	return nil

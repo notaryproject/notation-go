@@ -8,6 +8,8 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/registry"
 	"strconv"
 	"testing"
@@ -42,7 +44,7 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     mock.NewRepository(),
-		PluginManager:  mock.NewPluginManager(),
+		PluginManager:  mock.PluginManager{},
 	}
 
 	tests := []struct {
@@ -74,7 +76,7 @@ func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     mock.NewRepository(),
-		PluginManager:  mock.NewPluginManager(),
+		PluginManager:  mock.PluginManager{},
 	}
 
 	_, err := verifier.Verify(context.Background(), "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333")
@@ -89,7 +91,7 @@ func TestSkippedSignatureVerification(t *testing.T) {
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     mock.NewRepository(),
-		PluginManager:  mock.NewPluginManager(),
+		PluginManager:  mock.PluginManager{},
 	}
 
 	outcomes, err := verifier.Verify(context.Background(), mock.SampleArtifactUri)
@@ -105,7 +107,7 @@ func TestRegistryResolveError(t *testing.T) {
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     &repo,
-		PluginManager:  mock.NewPluginManager(),
+		PluginManager:  mock.PluginManager{},
 	}
 	errorMessage := "network error"
 	expectedErr := ErrorSignatureRetrievalFailed{msg: errorMessage}
@@ -125,7 +127,7 @@ func TestRegistryListSignatureManifestsError(t *testing.T) {
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     &repo,
-		PluginManager:  mock.NewPluginManager(),
+		PluginManager:  mock.PluginManager{},
 	}
 	errorMessage := fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : network error", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{msg: errorMessage}
@@ -145,7 +147,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     &repo,
-		PluginManager:  mock.NewPluginManager(),
+		PluginManager:  mock.PluginManager{},
 	}
 	errorMessage := fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{msg: errorMessage}
@@ -165,7 +167,7 @@ func TestRegistryGetBlobError(t *testing.T) {
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     &repo,
-		PluginManager:  mock.NewPluginManager(),
+		PluginManager:  mock.PluginManager{},
 	}
 	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{msg: errorMessage}
@@ -360,9 +362,9 @@ func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
 				),
 			}
 
-			pluginManager := mock.NewPluginManager()
-			pluginManager.GetError = errors.New("plugin should not be invoked when verification plugin is not specified")
-			pluginManager.RunnerError = errors.New("plugin should not be invoked when verification plugin is not specified")
+			pluginManager := mock.PluginManager{}
+			pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
+			pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 
 			verifier := Verifier{
 				PolicyDocument: &tt.policyDocument,
@@ -379,24 +381,251 @@ func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
 	}
 }
 
-func TestVerificationPlugin(t *testing.T) {
+func TestVerificationPluginInteractions(t *testing.T) {
+	assertPluginVerification(nsigner.SigningSchemeX509Default, t)
+	assertPluginVerification(nsigner.SigningSchemeX509SigningAuthority, t)
+}
 
-	// no plugin installed
+func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
+	var pluginSigEnv []byte
+	if scheme == nsigner.SigningSchemeX509Default {
+		pluginSigEnv = mock.MockCaPlugnSigEnv
+	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
+		pluginSigEnv = mock.MockSaPlugnSigEnv
+	}
 
-	// plugin without verification capabilities
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	repo.GetResponse = pluginSigEnv
+	path := &dir.PathManager{
+		ConfigFS: dir.NewUnionDirFS(
+			dir.NewRootedFS("testdata", nil),
+		),
+	}
 
-	// plugin interactions with trusted identity verification (success/failure)
-	// plugin interactions with revocation verification (success/failure)
+	// verification plugin is not installed
+	pluginManager := mock.PluginManager{}
+	pluginManager.GetPluginError = manager.ErrNotFound
+
+	verifier := Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err := verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "error while locating the verification plugin \"plugin-name\", make sure the plugin is installed successfully before verifying the signature. error: plugin not found" {
+		t.Fatalf("verification should fail if the verification plugin is not found")
+	}
+
+	// plugin is installed but without verification capabilities
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilitySignatureGenerator}
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "digital signature requires plugin \"plugin-name\" with signature verification capabilities installed" {
+		t.Fatalf("verification should fail if the verification plugin is not found")
+	}
+
+	// plugin interactions with trusted identity verification success
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
+			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+				Success: true,
+			},
+		},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+	}
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err != nil || outcomes[0].Error != nil {
+		t.Fatalf("verification should succeed when the verification plugin succeeds for trusted identity verification. error : %v", outcomes[0].Error)
+	}
+
+	// plugin interactions with trusted identity verification failure
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
+			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+				Success: false,
+				Reason:  "i feel like failing today",
+			},
+		},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+	}
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "trusted identify verification by plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
+		t.Fatalf("verification should fail when the verification plugin fails for trusted identity verification. error : %v", outcomes[0].Error)
+	}
+
+	// plugin interactions with revocation verification success
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
+			plugin.VerificationCapabilityRevocationCheck: &plugin.VerificationResult{
+				Success: true,
+			},
+		},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+	}
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err != nil || outcomes[0].Error != nil {
+		t.Fatalf("verification should succeed when the verification plugin succeeds for revocation verification. error : %v", outcomes[0].Error)
+	}
+
+	// plugin interactions with trusted revocation failure
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
+			plugin.VerificationCapabilityRevocationCheck: &plugin.VerificationResult{
+				Success: false,
+				Reason:  "i feel like failing today",
+			},
+		},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+	}
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "revocation check by verification plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
+		t.Fatalf("verification should fail when the verification plugin fails for revocation check verification. error : %v", outcomes[0].Error)
+	}
+
 	// plugin interactions with both trusted identity & revocation verification
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier, plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
+			plugin.VerificationCapabilityRevocationCheck: &plugin.VerificationResult{
+				Success: true,
+			},
+			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+				Success: true,
+			},
+		},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+	}
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err != nil || outcomes[0].Error != nil {
+		t.Fatalf("verification should succeed when the verification plugin succeeds for both trusted identity and revocation check verifications. error : %v", outcomes[0].Error)
+	}
+
 	// plugin interactions with skipped revocation
+	policyDocument.TrustPolicies[0].SignatureVerification.Override = map[string]string{"revocation": "skip"}
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
+	pluginManager.PluginRunnerExecuteError = errors.New("revocation plugin should not be invoked when the trust policy skips revocation check")
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err != nil || outcomes[0].Error != nil {
+		t.Fatalf("revocation plugin should not be invoked when the trust policy skips the revocation check. error : %v", outcomes[0].Error)
+	}
 
 	// plugin unexpected response
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = "invalid plugin response"
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "verification plugin \"plugin-name\" returned unexpected response : \"invalid plugin response\"" {
+		t.Fatalf("verification should fail when the verification plugin returns unexpected response. error : %v", outcomes[0].Error)
+	}
 
 	// plugin did not process all extended critical attributes
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
+			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+				Success: true,
+			},
+		},
+		ProcessedAttributes: []string{}, // exclude the critical attribute
+	}
+
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "extended critical attribute \"SomeKey\" was not processed by the verification plugin \"plugin-name\" (all extended critical attributes must be processed by the verification plugin)" {
+		t.Fatalf("verification should fail when the verification plugin fails to process an extended critical attribute. error : %v", outcomes[0].Error)
+	}
 
 	// plugin returned empty result for a capability
+	pluginManager = mock.PluginManager{}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+	}
 
-	// CA sig env with verification plugin that passes all notation verification (valid, unexpired, trusted, cert validity 100 years)
-	// SA sig env with verification plugin that passes all notation verification (valid, unexpired, trusted, cert validity 100 years)
-
+	verifier = Verifier{
+		PolicyDocument: &policyDocument,
+		Repository:     repo,
+		PluginManager:  pluginManager,
+		PathManager:    path,
+	}
+	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "verification plugin \"plugin-name\" failed to verify \"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\"" {
+		t.Fatalf("verification should fail when the verification plugin does not return response for a capability. error : %v", outcomes[0].Error)
+	}
 }
