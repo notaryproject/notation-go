@@ -267,7 +267,7 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 		ContractVersion: plugin.ContractVersion,
 		Signature:       signature,
 		TrustPolicy:     policy,
-		PluginConfig:    nil, // TODO update plugin config
+		PluginConfig:    ctx.Value("plugin-config").(map[string]string),
 	}
 	pluginRunner, err := v.PluginManager.Runner(verificationPluginName)
 	if err != nil {

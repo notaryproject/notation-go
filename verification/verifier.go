@@ -43,8 +43,23 @@ func NewVerifier(repository registry.Repository) (*Verifier, error) {
 }
 
 /*
-Verify performs verification for each of the verification types supported in notation
-See https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
+Verify performs signature verification on each of the notation supported verification types (like integrity, authenticity, etc.) and return the verification outcomes.
+
+Given an artifact URI, Verify will retrieve all the signatures associated with the URI and perform signature verification.
+A signature is considered not valid if verification fails due to any one of the following reasons
+
+1. Artifact URI is not associated with a signature i.e. unsigned
+2. Registry is unavailable to retrieve the signature
+3. Signature does not satisfy the verification rules configured in the trust policy
+4. Signature specifies a plugin for extended verification and that throws an error
+5. Digest in the signature does not match the digest present in the URI
+
+If each and every signature associated with the URI fail the verification, then Verify will return `ErrorVerificationFailed` error
+along with an array of `SignatureVerificationOutcome`.
+
+Callers can pass the verification plugin config using "plugin-context" key in context.Context
+
+For more details on signature verification, see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
 */
 func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*SignatureVerificationOutcome, error) {
 	var verificationOutcomes []*SignatureVerificationOutcome
