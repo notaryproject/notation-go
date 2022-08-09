@@ -57,7 +57,7 @@ A signature is considered not valid if verification fails due to any one of the 
 If each and every signature associated with the URI fail the verification, then Verify will return `ErrorVerificationFailed` error
 along with an array of `SignatureVerificationOutcome`.
 
-Callers can pass the verification plugin config using "plugin-context" key in context.Context
+Callers can pass the verification plugin config in context.Context using "verification.WithPluginConfig()"
 
 For more details on signature verification, see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
 */
@@ -160,7 +160,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 
 		// filter the "verification" capabilities supported by the installed plugin
 		for _, capability := range installedPlugin.Capabilities {
-			if capability.IsVerificationCapability() {
+			if capability == plugin.CapabilityRevocationCheckVerifier || capability == plugin.CapabilityTrustedIdentityVerifier {
 				pluginCapabilities = append(pluginCapabilities, capability)
 			}
 		}
@@ -201,7 +201,8 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 
 	// verify revocation
 	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may override the check
-	if outcome.VerificationLevel.VerificationMap[Revocation] != Skipped && !plugin.CapabilityRevocationCheckVerifier.In(pluginCapabilities) {
+	if outcome.VerificationLevel.VerificationMap[Revocation] != Skipped &&
+		!plugin.CapabilityRevocationCheckVerifier.In(pluginCapabilities) {
 		// TODO perform X509 revocation check (not in RC1)
 	}
 
@@ -246,7 +247,8 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 			// verification result is empty for this capability
 			return ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
 		}
-		if capability == plugin.VerificationCapabilityTrustedIdentity {
+		switch capability {
+		case plugin.VerificationCapabilityTrustedIdentity:
 			// find the Authenticity VerificationResult that we already created during x509 trust store verification
 			var authenticityResult *VerificationResult
 			for _, r := range outcome.VerificationResults {
@@ -262,7 +264,7 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 			if isCriticalFailure(authenticityResult) {
 				return authenticityResult.Error
 			}
-		} else if capability == plugin.VerificationCapabilityRevocationCheck {
+		case plugin.VerificationCapabilityRevocationCheck:
 			var revocationResult *VerificationResult
 			if !pluginResult.Success {
 				revocationResult = &VerificationResult{

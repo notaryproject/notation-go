@@ -46,11 +46,6 @@ const (
 // Capability is a feature available in the plugin contract.
 type Capability string
 
-// IsVerificationCapability returns true if the Capability is a signature verification Capability
-func (c Capability) IsVerificationCapability() bool {
-	return c == CapabilityRevocationCheckVerifier || c == CapabilityTrustedIdentityVerifier
-}
-
 // In returns true if the Capability is present in the given array of capabilities
 func (c Capability) In(capabilities []Capability) bool {
 	for _, capability := range capabilities {

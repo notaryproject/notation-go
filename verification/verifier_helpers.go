@@ -263,11 +263,12 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 		SignatureVerification: capabilitiesToVerify,
 	}
 
+	pluginConfig := map[string]string{}
 	request := &plugin.VerifySignatureRequest{
 		ContractVersion: plugin.ContractVersion,
 		Signature:       signature,
 		TrustPolicy:     policy,
-		PluginConfig:    ctx.Value("plugin-config").(map[string]string),
+		PluginConfig:    getPluginConfig(ctx, pluginConfig),
 	}
 	pluginRunner, err := v.PluginManager.Runner(verificationPluginName)
 	if err != nil {
