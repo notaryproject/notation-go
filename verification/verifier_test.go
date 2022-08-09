@@ -389,9 +389,9 @@ func TestVerificationPluginInteractions(t *testing.T) {
 func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	var pluginSigEnv []byte
 	if scheme == nsigner.SigningSchemeX509 {
-		pluginSigEnv = mock.MockCaPlugnSigEnv
+		pluginSigEnv = mock.MockCaPluginSigEnv
 	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
-		pluginSigEnv = mock.MockSaPlugnSigEnv
+		pluginSigEnv = mock.MockSaPluginSigEnv
 	}
 
 	policyDocument := dummyPolicyDocument()
@@ -438,7 +438,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
-			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+			plugin.VerificationCapabilityTrustedIdentity: {
 				Success: true,
 			},
 		},
@@ -461,7 +461,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
-			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+			plugin.VerificationCapabilityTrustedIdentity: {
 				Success: false,
 				Reason:  "i feel like failing today",
 			},
@@ -485,7 +485,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
-			plugin.VerificationCapabilityRevocationCheck: &plugin.VerificationResult{
+			plugin.VerificationCapabilityRevocationCheck: {
 				Success: true,
 			},
 		},
@@ -508,7 +508,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
-			plugin.VerificationCapabilityRevocationCheck: &plugin.VerificationResult{
+			plugin.VerificationCapabilityRevocationCheck: {
 				Success: false,
 				Reason:  "i feel like failing today",
 			},
@@ -532,10 +532,10 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier, plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
-			plugin.VerificationCapabilityRevocationCheck: &plugin.VerificationResult{
+			plugin.VerificationCapabilityRevocationCheck: {
 				Success: true,
 			},
-			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+			plugin.VerificationCapabilityTrustedIdentity: {
 				Success: true,
 			},
 		},
@@ -592,7 +592,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{
-			plugin.VerificationCapabilityTrustedIdentity: &plugin.VerificationResult{
+			plugin.VerificationCapabilityTrustedIdentity: {
 				Success: true,
 			},
 		},

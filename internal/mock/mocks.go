@@ -24,7 +24,7 @@ var MockCaInvalidSigEnv []byte
 var MockSaValidSigEnv []byte
 
 //go:embed testdata/ca_plugin_sig_env.json
-var MockCaPlugnSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
+var MockCaPluginSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
 
 //go:embed testdata/sa_invalid_sig_env.json
 var MockSaInvalidSigEnv []byte
@@ -36,7 +36,7 @@ var MockCaExpiredSigEnv []byte
 var MockSaExpiredSigEnv []byte //
 
 //go:embed testdata/sa_plugin_sig_env.json
-var MockSaPlugnSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
+var MockSaPluginSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
 
 var (
 	SampleArtifactUri = "registry.acme-rockets.io/software/net-monitor@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
