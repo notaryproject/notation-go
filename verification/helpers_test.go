@@ -74,7 +74,7 @@ func TestLoadX509TrustStore(t *testing.T) {
 			dir.NewRootedFS("testdata", nil),
 		),
 	}
-	caTrustStores, err := loadX509TrustStores(nsigner.SigningSchemeX509Default, &dummyPolicy, path)
+	caTrustStores, err := loadX509TrustStores(nsigner.SigningSchemeX509, &dummyPolicy, path)
 	saTrustStores, err := loadX509TrustStores(nsigner.SigningSchemeX509SigningAuthority, &dummyPolicy, path)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)

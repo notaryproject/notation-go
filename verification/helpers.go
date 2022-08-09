@@ -28,7 +28,7 @@ func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
 
 func loadX509TrustStores(scheme nsigner.SigningScheme, policy *TrustPolicy, pathManager *dir.PathManager) (map[string]*X509TrustStore, error) {
 	var prefixToLoad TrustStorePrefix
-	if scheme == nsigner.SigningSchemeX509Default {
+	if scheme == nsigner.SigningSchemeX509 {
 		prefixToLoad = TrustStorePrefixCA
 	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
 		prefixToLoad = TrustStorePrefixSigningAuthority

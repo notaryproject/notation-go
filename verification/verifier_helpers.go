@@ -135,7 +135,7 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 	invalidTimestamp := false
 	var err error
 
-	if outcome.SignerInfo.SigningScheme == nsigner.SigningSchemeX509Default {
+	if outcome.SignerInfo.SigningScheme == nsigner.SigningSchemeX509 {
 		// TODO verify RFC3161 TSA signature if present (not in RC1)
 		if len(outcome.SignerInfo.TimestampSignature) == 0 {
 			// if there is no TSA signature, then every certificate should be valid at the time of verification

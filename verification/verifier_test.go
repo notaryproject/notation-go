@@ -182,7 +182,7 @@ func TestRegistryGetBlobError(t *testing.T) {
 }
 
 func TestNotationVerificationCombinations(t *testing.T) {
-	assertNotationVerification(t, nsigner.SigningSchemeX509Default)
+	assertNotationVerification(t, nsigner.SigningSchemeX509)
 	assertNotationVerification(t, nsigner.SigningSchemeX509SigningAuthority)
 }
 
@@ -191,7 +191,7 @@ func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
 	var invalidSigEnv []byte
 	var expiredSigEnv []byte
 
-	if scheme == nsigner.SigningSchemeX509Default {
+	if scheme == nsigner.SigningSchemeX509 {
 		validSigEnv = mock.MockCaValidSigEnv
 		invalidSigEnv = mock.MockCaInvalidSigEnv
 		expiredSigEnv = mock.MockCaExpiredSigEnv
@@ -382,13 +382,13 @@ func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
 }
 
 func TestVerificationPluginInteractions(t *testing.T) {
-	assertPluginVerification(nsigner.SigningSchemeX509Default, t)
+	assertPluginVerification(nsigner.SigningSchemeX509, t)
 	assertPluginVerification(nsigner.SigningSchemeX509SigningAuthority, t)
 }
 
 func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	var pluginSigEnv []byte
-	if scheme == nsigner.SigningSchemeX509Default {
+	if scheme == nsigner.SigningSchemeX509 {
 		pluginSigEnv = mock.MockCaPlugnSigEnv
 	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
 		pluginSigEnv = mock.MockSaPlugnSigEnv

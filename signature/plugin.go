@@ -120,7 +120,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		SigningTime:         time.Now(),
 		ExtendedSignedAttrs: nil,
 		SigningScheme:       signer.SigningSchemeX509,
-		SigningAgent:        "Notation/1.0.0",  // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
+		SigningAgent:        "Notation/1.0.0", // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
 	}
 	if !opts.Expiry.IsZero() {
 		signReq.Expiry = opts.Expiry
@@ -255,7 +255,7 @@ func (psp pluginSigProvider) Sign(bytes []byte) ([]byte, []*x509.Certificate, er
 		ContractVersion: plugin.ContractVersion,
 		KeyID:           psp.keyID,
 		KeySpec:         psp.keySpec,
-		Hash:            psp.keySpec.SignatureAlgorithm().Hash().String(),
+		Hash:            psp.keySpec.SignatureAlgorithm().Hash(),
 		Payload:         bytes,
 		PluginConfig:    psp.config,
 	}
