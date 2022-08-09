@@ -132,12 +132,12 @@ type DescribeKeyResponse struct {
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
 type GenerateSignatureRequest struct {
-	ContractVersion string            `json:"contractVersion"`
-	KeyID           string            `json:"keyId"`
-	KeySpec         signer.KeySpec    `json:"keySpec"`
-	Hash            string            `json:"hashAlgorithm"`
-	Payload         []byte            `json:"payload"`
-	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
+	ContractVersion string               `json:"contractVersion"`
+	KeyID           string               `json:"keyId"`
+	KeySpec         signer.KeySpec       `json:"keySpec"`
+	Hash            signer.HashAlgorithm `json:"hashAlgorithm"`
+	Payload         []byte               `json:"payload"`
+	PluginConfig    map[string]string    `json:"pluginConfig,omitempty"`
 }
 
 func (GenerateSignatureRequest) Command() Command {
