@@ -76,12 +76,12 @@ func (u unionDirFS) Open(name string) (fs.File, error) {
 // GetPath returns the path of the named file or directory under the FS
 //
 // if path exists, it returns the first existing path in union directories (dirs)
-// if path doesn't exist, it returns fs.ErrNotExist error
+//
+// if path doesn't exist, it returns the first possible path in the union directories
+// for creating new file and a fs.ErrNotExist error.
 func (u unionDirFS) GetPath(elem ...string) (string, error) {
-	var targetPath string
 	pathSuffix := path.Join(elem...)
 	for _, dir := range u.Dirs {
-		targetPath = filepath.Join(dir.Root(), pathSuffix)
 		_, err := fs.Stat(dir, pathSuffix)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
@@ -92,10 +92,19 @@ func (u unionDirFS) GetPath(elem ...string) (string, error) {
 		}
 		// got the first existing file path and break
 		// return the path with current OS separator
-		return targetPath, nil
+		return filepath.Join(dir.Root(), pathSuffix), nil
 	}
-	// return the last possible path for creating new file
-	return targetPath, &fs.PathError{
+	// if the given path does not exist, return the first possible path in the
+	// union directories for creating new file.
+	var fallbackPath string
+	if len(u.Dirs) == 0 {
+		return "", &fs.PathError{
+			Op:  "getpath",
+			Err: errors.New("the union directory is empty"),
+		}
+	}
+	fallbackPath = filepath.Join(u.Dirs[0].Root(), pathSuffix)
+	return fallbackPath, &fs.PathError{
 		Op:   "getpath",
 		Err:  fs.ErrNotExist,
 		Path: pathSuffix,
