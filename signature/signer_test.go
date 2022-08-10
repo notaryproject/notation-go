@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/signer"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
@@ -53,7 +54,7 @@ func TestSignWithTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generateKeyCertPair() error = %v", err)
 	}
-	s, err := NewSigner(key, certs)
+	s, err := NewSigner(key, certs, jws.MediaTypeEnvelope)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}
@@ -82,7 +83,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generateKeyCertPair() error = %v", err)
 	}
-	s, err := NewSigner(key, certs)
+	s, err := NewSigner(key, certs, jws.MediaTypeEnvelope)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}
@@ -147,13 +148,13 @@ func basicVerification(sig []byte, trust *x509.Certificate, t *testing.T) {
 
 	trustedCert, err := signer.VerifyAuthenticity(sigInfo, []*x509.Certificate{trust})
 
-	if err !=nil || !trustedCert.Equal(trust) {
+	if err != nil || !trustedCert.Equal(trust) {
 		t.Fatalf("VerifyAuthenticity failed. error = %v", err)
 	}
 }
 
 func validateSignWithCerts(t *testing.T, key crypto.PrivateKey, certs []*x509.Certificate) {
-	s, err := NewSigner(key, certs)
+	s, err := NewSigner(key, certs, jws.MediaTypeEnvelope)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}

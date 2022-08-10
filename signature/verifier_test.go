@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
 )
 
@@ -21,7 +22,7 @@ func TestVerifyWithCertChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generateKeyCertPair() error = %v", err)
 	}
-	s, err := NewSigner(key, cert)
+	s, err := NewSigner(key, cert, jws.MediaTypeEnvelope)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}
