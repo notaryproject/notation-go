@@ -92,8 +92,8 @@ func (c *RepositoryClient) GetBlob(ctx context.Context, digest digest.Digest) ([
 }
 
 // PutSignatureManifest creates and uploads an signature artifact linking the manifest and the signature
-func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature []byte, subjectManifest notation.Descriptor, annotations map[string]string) (notation.Descriptor, SignatureManifest, error) {
-	signatureDesc, err := c.uploadSignature(ctx, signature)
+func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature []byte, signatureMediaType string, subjectManifest notation.Descriptor, annotations map[string]string) (notation.Descriptor, SignatureManifest, error) {
+	signatureDesc, err := c.uploadSignature(ctx, signature, signatureMediaType)
 	if err != nil {
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
@@ -137,9 +137,9 @@ func (c *RepositoryClient) getArtifactManifest(ctx context.Context, manifestDige
 }
 
 // uploadSignature uploads the signature to the registry
-func (c *RepositoryClient) uploadSignature(ctx context.Context, signature []byte) (artifactspec.Descriptor, error) {
+func (c *RepositoryClient) uploadSignature(ctx context.Context, signature []byte, signatureMediaType string) (artifactspec.Descriptor, error) {
 	desc := ocispec.Descriptor{
-		MediaType: MediaTypeNotationSignature,
+		MediaType: signatureMediaType,
 		Digest:    digest.FromBytes(signature),
 		Size:      int64(len(signature)),
 	}

@@ -65,7 +65,9 @@ type Signer interface {
 }
 
 // VerifyOptions contains parameters for Verifier.Verify.
-type VerifyOptions struct{}
+type VerifyOptions struct {
+	SignatureMediaType string
+}
 
 // Validate does basic validation on VerifyOptions.
 func (opts VerifyOptions) Validate() error {
