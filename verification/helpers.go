@@ -3,8 +3,8 @@ package verification
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/notaryproject/notation-go/dir"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -25,7 +25,7 @@ func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-func loadX509TrustStores(policy *TrustPolicy, trustStoreBasePath string) (map[string]*X509TrustStore, error) {
+func loadX509TrustStores(policy *TrustPolicy, pathManager *dir.PathManager) (map[string]*X509TrustStore, error) {
 	var result = make(map[string]*X509TrustStore)
 	for _, trustStore := range policy.TrustStores {
 		if result[trustStore] != nil {
@@ -35,7 +35,7 @@ func loadX509TrustStores(policy *TrustPolicy, trustStoreBasePath string) (map[st
 		i := strings.Index(trustStore, ":")
 		prefix := trustStore[:i]
 		name := trustStore[i+1:]
-		x509TrustStore, err := LoadX509TrustStore(filepath.Join(trustStoreBasePath, prefix, name))
+		x509TrustStore, err := LoadX509TrustStore(pathManager.X509TrustStore(prefix, name))
 		if err != nil {
 			return nil, err
 		}
