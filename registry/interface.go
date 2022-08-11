@@ -16,7 +16,7 @@ type SignatureRepository interface {
 	GetBlob(ctx context.Context, digest digest.Digest) ([]byte, error)
 
 	// PutSignatureManifest creates and uploads an signature artifact linking the manifest and the signature
-	PutSignatureManifest(ctx context.Context, signature []byte, manifest notation.Descriptor, annotations map[string]string) (notation.Descriptor, SignatureManifest, error)
+	PutSignatureManifest(ctx context.Context, signature []byte, signatureMediaType string, manifest notation.Descriptor, annotations map[string]string) (notation.Descriptor, SignatureManifest, error)
 }
 
 // Repository provides functions for verification and signing workflows

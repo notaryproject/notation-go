@@ -21,7 +21,7 @@ type provider interface {
 // It only support describe key and metadata command
 // It wraps signature.Signature to support builtin signing method
 type builtinProvider struct {
-	signature.Signer
+	signature.LocalSigner
 }
 
 func newBuiltinProvider(key crypto.PrivateKey, certChain []*x509.Certificate) (provider, error) {
