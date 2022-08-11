@@ -49,15 +49,15 @@ type VerificationLevel struct {
 }
 
 const (
-	Integrity          VerificationType = "Integrity"
-	Authenticity       VerificationType = "Authenticity"
-	AuthenticTimestamp VerificationType = "AuthenticTimestamp"
-	Expiry             VerificationType = "Expiry"
-	Revocation         VerificationType = "Revocation"
+	Integrity          VerificationType = "integrity"
+	Authenticity       VerificationType = "authenticity"
+	AuthenticTimestamp VerificationType = "authenticTimestamp"
+	Expiry             VerificationType = "expiry"
+	Revocation         VerificationType = "revocation"
 
-	Enforced VerificationAction = "Enforced"
-	Logged   VerificationAction = "Logged"
-	Skipped  VerificationAction = "Skipped"
+	Enforced VerificationAction = "enforce"
+	Logged   VerificationAction = "log"
+	Skipped  VerificationAction = "skip"
 
 	TrustStorePrefixCA               TrustStorePrefix = "ca"
 	TrustStorePrefixSigningAuthority TrustStorePrefix = "signingAuthority"
@@ -145,13 +145,69 @@ func IsValidTrustStorePrefix(s string) bool {
 	return false
 }
 
-// FindVerificationLevel finds if the given string corresponds to a supported VerificationLevel, otherwise throws an error
-func FindVerificationLevel(s string) (*VerificationLevel, error) {
-
-	for _, level := range VerificationLevels {
-		if level.Name == s {
-			return level, nil
+// GetVerificationLevel returns VerificationLevel struct for the given SignatureVerification struct
+// throws error if SignatureVerification is invalid
+func GetVerificationLevel(signatureVerification SignatureVerification) (*VerificationLevel, error) {
+	var baseLevel *VerificationLevel
+	for _, l := range VerificationLevels {
+		if l.Name == signatureVerification.Level {
+			baseLevel = l
 		}
 	}
-	return nil, fmt.Errorf("invalid signature verification level %q", s)
+	if baseLevel == nil {
+		return nil, fmt.Errorf("invalid signature verification %q", signatureVerification.Level)
+	}
+
+	if len(signatureVerification.Override) == 0 {
+		// nothing to override, return the base verification level
+		return baseLevel, nil
+	}
+
+	if baseLevel == Skip {
+		return nil, fmt.Errorf("signature verification %q can't be used to customize signature verification", baseLevel.Name)
+	}
+
+	customVerificationLevel := &VerificationLevel{
+		Name:            "custom",
+		VerificationMap: make(map[VerificationType]VerificationAction),
+	}
+
+	// populate the custom verification level with the base verification settings
+	for k, v := range baseLevel.VerificationMap {
+		customVerificationLevel.VerificationMap[k] = v
+	}
+
+	// override the verification actions with the user configured settings
+	for key, value := range signatureVerification.Override {
+		var verificationType VerificationType
+		for _, t := range VerificationTypes {
+			if string(t) == key {
+				verificationType = t
+				break
+			}
+		}
+		if verificationType == "" {
+			return nil, fmt.Errorf("verification type %q in custom signature verification is not supported, supported values are %q", key, VerificationTypes)
+		}
+
+		var verificationAction VerificationAction
+		for _, action := range VerificationActions {
+			if string(action) == value {
+				verificationAction = action
+				break
+			}
+		}
+		if verificationAction == "" {
+			return nil, fmt.Errorf("verification action %q in custom signature verification is not supported, supported values are %q", value, VerificationActions)
+		}
+
+		if verificationType == Integrity {
+			return nil, fmt.Errorf("%q verification can not be overridden in custom signature verification", key)
+		} else if verificationType != Revocation && verificationAction == Skipped {
+			return nil, fmt.Errorf("%q verification can not be skipped in custom signature verification", key)
+		}
+
+		customVerificationLevel.VerificationMap[verificationType] = verificationAction
+	}
+	return customVerificationLevel, nil
 }

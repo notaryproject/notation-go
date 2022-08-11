@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/registry"
 	"strconv"
@@ -80,7 +81,7 @@ func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 
 func TestSkippedSignatureVerification(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
-	policyDocument.TrustPolicies[0].SignatureVerification = "skip"
+	policyDocument.TrustPolicies[0].SignatureVerification.Level = "skip"
 	verifier := Verifier{
 		PolicyDocument: &policyDocument,
 		Repository:     mock.NewRepository(),
@@ -320,7 +321,7 @@ func TestVerificationCombinations(t *testing.T) {
 
 	for i, tt := range testCases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			tt.policyDocument.TrustPolicies[0].SignatureVerification = tt.verificationLevel.Name
+			tt.policyDocument.TrustPolicies[0].SignatureVerification.Level = tt.verificationLevel.Name
 
 			expectedResult := VerificationResult{
 				Type:    tt.verificationType,
@@ -329,10 +330,17 @@ func TestVerificationCombinations(t *testing.T) {
 				Error:   tt.expectedErr,
 			}
 
+			path := &dir.PathManager{
+				ConfigFS: dir.NewUnionDirFS(
+					dir.NewRootedFS("testdata", nil),
+				),
+			}
+
 			verifier := Verifier{
 				PolicyDocument: &tt.policyDocument,
 				Repository:     &tt.repository,
 				PluginManager:  mock.NewPluginManager(),
+				PathManager:    path,
 			}
 			outcomes, _ := verifier.Verify(context.Background(), mock.SampleArtifactUri)
 			if len(outcomes) != 1 {

@@ -50,7 +50,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 			trustPolicy := TrustPolicy{
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-				SignatureVerification: "strict",
+				SignatureVerification: SignatureVerification{Level: "strict"},
 				TrustStores:           []string{"ca:test-store"},
 				TrustedIdentities:     tt.x509Identities,
 			}
