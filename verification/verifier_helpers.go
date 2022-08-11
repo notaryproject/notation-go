@@ -72,7 +72,6 @@ func (v *Verifier) verifyAuthenticity(trustPolicy *TrustPolicy, outcome *Signatu
 		}
 	}
 
-	// filter trust certificates based on trust store prefix
 	var trustCerts []*x509.Certificate
 	for _, v := range trustStores {
 		trustCerts = append(trustCerts, v.Certificates...)
@@ -137,6 +136,7 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 
 	if outcome.SignerInfo.SigningScheme == nsigner.SigningSchemeX509 {
 		// TODO verify RFC3161 TSA signature if present (not in RC1)
+		// https://github.com/notaryproject/notation-go/issues/78
 		if len(outcome.SignerInfo.TimestampSignature) == 0 {
 			// if there is no TSA signature, then every certificate should be valid at the time of verification
 			now := time.Now()
@@ -235,9 +235,10 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	var attributesToProcess []string
 	extendedAttributes := make(map[string]interface{})
 
+	// pass extended critical attributes to the plugin's verify-signature command
 	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
-		extendedAttributes[attr.Key] = attr.Value
 		if attr.Critical {
+			extendedAttributes[attr.Key] = attr.Value
 			attributesToProcess = append(attributesToProcess, attr.Key)
 		}
 	}
@@ -246,13 +247,20 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	for _, cert := range signerInfo.CertificateChain {
 		certChain = append(certChain, cert.Raw)
 	}
+	var authenticSigningTime *time.Time
+	if signerInfo.SigningScheme == nsigner.SigningSchemeX509SigningAuthority {
+		authenticSigningTime = &signerInfo.SignedAttributes.SigningTime
+	}
 
 	signature := plugin.Signature{
 		CriticalAttributes: plugin.CriticalAttributes{
-			ContentType:        string(signerInfo.PayloadContentType),
-			SigningScheme:      string(signerInfo.SigningScheme),
-			Expiry:             &signerInfo.SignedAttributes.Expiry,
-			ExtendedAttributes: extendedAttributes,
+			ContentType:                  string(signerInfo.PayloadContentType),
+			SigningScheme:                string(signerInfo.SigningScheme),
+			Expiry:                       &signerInfo.SignedAttributes.Expiry,
+			AuthenticSigningTime:         authenticSigningTime,
+			VerificationPlugin:           signerInfo.SignedAttributes.VerificationPlugin,
+			VerificationPluginMinVersion: signerInfo.SignedAttributes.VerificationPluginMinVersion,
+			ExtendedAttributes:           extendedAttributes,
 		},
 		UnprocessedAttributes: attributesToProcess,
 		CertificateChain:      certChain,

@@ -157,6 +157,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 		}
 
 		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
+		// https://github.com/notaryproject/notation-go/issues/102
 
 		// filter the "verification" capabilities supported by the installed plugin
 		for _, capability := range installedPlugin.Capabilities {
@@ -166,7 +167,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 		}
 
 		if len(pluginCapabilities) == 0 {
-			return ErrorVerificationInconclusive{msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities installed", verificationPluginName)}
+			return ErrorVerificationInconclusive{msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, plugin.CapabilityTrustedIdentityVerifier, plugin.CapabilityRevocationCheckVerifier)}
 		}
 	}
 
@@ -204,6 +205,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 	if outcome.VerificationLevel.VerificationMap[Revocation] != Skipped &&
 		!plugin.CapabilityRevocationCheckVerifier.In(pluginCapabilities) {
 		// TODO perform X509 revocation check (not in RC1)
+		// https://github.com/notaryproject/notation-go/issues/110
 	}
 
 	// perform extended verification using verification plugin if present
@@ -249,20 +251,22 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 		}
 		switch capability {
 		case plugin.VerificationCapabilityTrustedIdentity:
-			// find the Authenticity VerificationResult that we already created during x509 trust store verification
-			var authenticityResult *VerificationResult
-			for _, r := range outcome.VerificationResults {
-				if r.Type == Authenticity {
-					authenticityResult = r
-					break
-				}
-			}
 			if !pluginResult.Success {
+				// find the Authenticity VerificationResult that we already created during x509 trust store verification
+				var authenticityResult *VerificationResult
+				for _, r := range outcome.VerificationResults {
+					if r.Type == Authenticity {
+						authenticityResult = r
+						break
+					}
+				}
+
 				authenticityResult.Success = false
 				authenticityResult.Error = fmt.Errorf("trusted identify verification by plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason)
-			}
-			if isCriticalFailure(authenticityResult) {
-				return authenticityResult.Error
+
+				if isCriticalFailure(authenticityResult) {
+					return authenticityResult.Error
+				}
 			}
 		case plugin.VerificationCapabilityRevocationCheck:
 			var revocationResult *VerificationResult

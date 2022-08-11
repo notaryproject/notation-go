@@ -429,7 +429,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
-	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "digital signature requires plugin \"plugin-name\" with signature verification capabilities installed" {
+	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "digital signature requires plugin \"plugin-name\" with signature verification capabilities (\"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\" and/or \"SIGNATURE_VERIFIER.REVOCATION_CHECK\") installed" {
 		t.Fatalf("verification should fail if the verification plugin is not found")
 	}
 

@@ -33,7 +33,7 @@ var MockSaInvalidSigEnv []byte
 var MockCaExpiredSigEnv []byte
 
 //go:embed testdata/sa_expired_sig_env.json
-var MockSaExpiredSigEnv []byte //
+var MockSaExpiredSigEnv []byte
 
 //go:embed testdata/sa_plugin_sig_env.json
 var MockSaPluginSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
