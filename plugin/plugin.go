@@ -197,6 +197,7 @@ type CriticalAttributes struct {
 	ContentType                  string                 `json:"contentType"`
 	SigningScheme                string                 `json:"signingScheme"`
 	Expiry                       *time.Time             `json:"expiry,omitempty"`
+	SigningTime                  *time.Time             `json:"signingTime,omitempty"`
 	AuthenticSigningTime         *time.Time             `json:"authenticSigningTime,omitempty"`
 	VerificationPlugin           string                 `json:"verificationPlugin,omitempty"`
 	VerificationPluginMinVersion string                 `json:"verificationPluginMinVersion,omitempty"`

@@ -247,9 +247,14 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	for _, cert := range signerInfo.CertificateChain {
 		certChain = append(certChain, cert.Raw)
 	}
+	var signingTime *time.Time
 	var authenticSigningTime *time.Time
 	if signerInfo.SigningScheme == nsigner.SigningSchemeX509SigningAuthority {
-		authenticSigningTime = &signerInfo.SignedAttributes.SigningTime
+		// authenticSigningTime = &signerInfo.SignedAttributes.AuthenticSigningTime
+		// TODO use authenticSigningTime from signerInfo
+		// https://github.com/notaryproject/notation-core-go/issues/38
+	} else if signerInfo.SigningScheme == nsigner.SigningSchemeX509 {
+		signingTime = &signerInfo.SignedAttributes.SigningTime
 	}
 
 	signature := plugin.Signature{
@@ -257,6 +262,7 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 			ContentType:                  string(signerInfo.PayloadContentType),
 			SigningScheme:                string(signerInfo.SigningScheme),
 			Expiry:                       &signerInfo.SignedAttributes.Expiry,
+			SigningTime:                  signingTime,
 			AuthenticSigningTime:         authenticSigningTime,
 			VerificationPlugin:           signerInfo.SignedAttributes.VerificationPlugin,
 			VerificationPluginMinVersion: signerInfo.SignedAttributes.VerificationPluginMinVersion,
