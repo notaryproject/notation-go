@@ -154,11 +154,13 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 			}
 		}
 	} else if outcome.SignerInfo.SigningScheme == nsigner.SigningSchemeX509SigningAuthority {
-		signingTime := outcome.SignerInfo.SignedAttributes.SigningTime
+		authenticSigningTime := outcome.SignerInfo.SignedAttributes.SigningTime
+		// TODO use authenticSigningTime from signerInfo
+		// https://github.com/notaryproject/notation-core-go/issues/38
 		for _, cert := range outcome.SignerInfo.CertificateChain {
-			if signingTime.Before(cert.NotBefore) || signingTime.After(cert.NotAfter) {
+			if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
 				invalidTimestamp = true
-				err = fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, signingTime.Format(time.RFC1123Z))
+				err = fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z))
 				break
 			}
 		}
@@ -247,14 +249,11 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	for _, cert := range signerInfo.CertificateChain {
 		certChain = append(certChain, cert.Raw)
 	}
-	var signingTime *time.Time
 	var authenticSigningTime *time.Time
 	if signerInfo.SigningScheme == nsigner.SigningSchemeX509SigningAuthority {
-		// authenticSigningTime = &signerInfo.SignedAttributes.AuthenticSigningTime
+		authenticSigningTime = &signerInfo.SignedAttributes.SigningTime
 		// TODO use authenticSigningTime from signerInfo
 		// https://github.com/notaryproject/notation-core-go/issues/38
-	} else if signerInfo.SigningScheme == nsigner.SigningSchemeX509 {
-		signingTime = &signerInfo.SignedAttributes.SigningTime
 	}
 
 	signature := plugin.Signature{
@@ -262,7 +261,6 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 			ContentType:                  string(signerInfo.PayloadContentType),
 			SigningScheme:                string(signerInfo.SigningScheme),
 			Expiry:                       &signerInfo.SignedAttributes.Expiry,
-			SigningTime:                  signingTime,
 			AuthenticSigningTime:         authenticSigningTime,
 			VerificationPlugin:           signerInfo.SignedAttributes.VerificationPlugin,
 			VerificationPluginMinVersion: signerInfo.SignedAttributes.VerificationPluginMinVersion,
