@@ -5,11 +5,11 @@ go 1.17
 require (
 	github.com/go-ldap/ldap/v3 v3.4.4
 	github.com/golang-jwt/jwt/v4 v4.4.2
-	github.com/notaryproject/notation-core-go v0.0.0-20220809210532-f0a54093ba32
+	github.com/notaryproject/notation-core-go v0.1.0-alpha.3
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/oras-project/artifacts-spec v1.0.0-rc.2
-	oras.land/oras-go/v2 v2.0.0-rc.1.0.20220727034506-eb13fdfeefa6
+	oras.land/oras-go/v2 v2.0.0-rc.2
 )
 
 require (
