@@ -137,24 +137,13 @@ func TestPathManager_LocalKey(t *testing.T) {
 			NewRootedFS("/home/exampleuser/.config/notation/", nil),
 		),
 	}
-	localkeyPath := path.Localkey("key1", KeyExtension)
-	if localkeyPath != "/home/exampleuser/.config/notation/localkeys/key1"+KeyExtension {
+	keyPath, certPath := path.Localkey("key1")
+	if keyPath != "/home/exampleuser/.config/notation/localkeys/key1"+LocalKeyExtension {
 		t.Fatal("get Localkey() failed.")
 	}
-}
-
-func TestPathManager_LocalKeyFailed(t *testing.T) {
-	path := &PathManager{
-		UserConfigFS: NewUnionDirFS(
-			NewRootedFS("/home/exampleuser/.config/notation/", nil),
-		),
+	if certPath != "/home/exampleuser/.config/notation/localkeys/key1"+LocalCertificateExtension {
+		t.Fatal("get Localkey() failed.")
 	}
-	defer func() {
-		if d := recover(); d == nil {
-			t.Fatal("get Localkey() extension check failed.")
-		}
-	}()
-	path.Localkey("key1", ".acr")
 }
 
 func TestPathManager_SigningKeyConfig(t *testing.T) {
