@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/plugin"
@@ -109,7 +110,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 
 		// artifact digest must match the digest from the signature payload
 		payload := &notation.Payload{}
-		err := json.Unmarshal(outcome.SignerInfo.Payload, payload)
+		err := json.Unmarshal(outcome.SignaturePayload.Content, payload)
 		if err != nil || !artifactDescriptor.Equal(payload.TargetArtifact) {
 			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
 			continue
@@ -125,8 +126,9 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 
 func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigManifest registry.SignatureManifest, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
-	signerInfo, result := v.verifyIntegrity(sigBlob, sigManifest, outcome)
+	sigPayload, signerInfo, result := v.verifyIntegrity(sigBlob, sigManifest, outcome)
 	outcome.SignerInfo = signerInfo
+	outcome.SignaturePayload = sigPayload
 	outcome.VerificationResults = append(outcome.VerificationResults, result)
 	if result.Error != nil {
 		return result.Error

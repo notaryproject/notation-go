@@ -2,7 +2,8 @@ package verification
 
 import (
 	"fmt"
-	nsigner "github.com/notaryproject/notation-core-go/signer"
+
+	"github.com/notaryproject/notation-core-go/signature"
 )
 
 // TrustStorePrefix is an enum for trust store prefixes supported such as "ca", "signingAuthority"
@@ -31,7 +32,9 @@ type VerificationResult struct {
 // and results for each verification type that was performed
 type SignatureVerificationOutcome struct {
 	// SignerInfo contains the details of the digital signature and associated metadata
-	SignerInfo *nsigner.SignerInfo
+	SignerInfo *signature.SignerInfo
+	// Signature payload contains the payload of an envelope
+	SignaturePayload *signature.Payload
 	// VerificationLevel describes what verification level was used for performing signature verification
 	VerificationLevel *VerificationLevel
 	// VerificationResults contains the verifications performed on the signature and their results
