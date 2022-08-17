@@ -73,26 +73,37 @@ func (p *builtinProvider) Run(_ context.Context, req plugin.Request) (interface{
 	}
 }
 
-// builtinPlugin is a external provider implementation, which will interact with plugin
+// externalProvider is a external provider implementation, which will interact with plugin
 // It supports all plugin commands
 // The detail implementation depends on the real plugin
 // It wraps a signature.Signature to support external signing
 type externalProvider struct {
 	plugin.Runner
-	keyID  string
-	config map[string]string
+	keyID   string
+	config  map[string]string
+	keySpec signature.KeySpec
+	certs   []*x509.Certificate
+}
+
+// newExternalProvider create a external provider
+// It will call describe key command and save keySpec and certs to the provider
+func newExternalProvider(runner plugin.Runner, keyID string) (provider, error) {
+	p := &externalProvider{
+		Runner: runner,
+		keyID:  keyID,
+	}
+	keySpec, certs, err := p.keyInfo()
+	if err != nil {
+		return nil, err
+	}
+	p.keySpec = keySpec
+	p.certs = certs
+	return p, nil
 }
 
 // SetConfig setup config used by signing
 func (p *externalProvider) SetConfig(cfg map[string]string) {
 	p.config = cfg
-}
-
-func newExternalProvider(runner plugin.Runner, keyID string) provider {
-	return &externalProvider{
-		Runner: runner,
-		keyID:  keyID,
-	}
 }
 
 func (p *externalProvider) describeKey(ctx context.Context) (*plugin.DescribeKeyResponse, error) {
@@ -117,7 +128,7 @@ func (p *externalProvider) Sign(digest []byte) ([]byte, error) {
 	// Execute plugin sign command.
 	// TODO: do we still need keyspec and hash in request?
 	keySpec, err := p.KeySpec()
-	if err == nil {
+	if err != nil {
 		return nil, err
 	}
 	req := &plugin.GenerateSignatureRequest{
@@ -169,18 +180,12 @@ func (p *externalProvider) keyInfo() (signature.KeySpec, []*x509.Certificate, er
 	return ParseKeySpecFromName(keyResp.KeySpec), certs, nil
 }
 
+// CertificateChain returns cert chain of a keyID
 func (p *externalProvider) CertificateChain() ([]*x509.Certificate, error) {
-	_, certs, err := p.keyInfo()
-	if err != nil {
-		return nil, err
-	}
-	return certs, nil
+	return p.certs, nil
 }
 
+// KeySpec return s keyspec of a keyID
 func (p *externalProvider) KeySpec() (signature.KeySpec, error) {
-	keySpec, _, err := p.keyInfo()
-	if err != nil {
-		return signature.KeySpec{}, err
-	}
-	return keySpec, nil
+	return p.keySpec, nil
 }

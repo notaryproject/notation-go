@@ -12,7 +12,7 @@ import (
 
 // NewSignerFromFiles creates a signer from key, certificate files
 // TODO: Add tests for this method. https://github.com/notaryproject/notation-go/issues/80
-func NewSignerFromFiles(keyPath, certPath string, mediaTypeEnvelope string) (notation.Signer, error) {
+func NewSignerFromFiles(keyPath, certPath, envelopeMediaType string) (notation.Signer, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
 	}
@@ -39,21 +39,24 @@ func NewSignerFromFiles(keyPath, certPath string, mediaTypeEnvelope string) (not
 	}
 
 	// create signer
-	return NewSigner(cert.PrivateKey, certs, mediaTypeEnvelope)
+	return NewSigner(cert.PrivateKey, certs, envelopeMediaType)
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
 // with a certificate chain.
 // The relation of the provided signing key and its certificate chain is not verified,
 // and should be verified by the caller.
-// TODO add comment
-func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate, mediaTypeEnvelope string) (notation.Signer, error) {
+func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate, envelopeMediaType string) (notation.Signer, error) {
 	builtinProvider, err := newBuiltinProvider(key, certChain)
 	if err != nil {
 		return nil, err
 	}
-	return &pluginSigner{
+	signer := &pluginSigner{
 		sigProvider:       builtinProvider,
-		mediaTypeEnvelope: mediaTypeEnvelope,
-	}, nil
+		envelopeMediaType: envelopeMediaType,
+	}
+	if err := signer.validate(); err != nil {
+		return nil, err
+	}
+	return signer, nil
 }

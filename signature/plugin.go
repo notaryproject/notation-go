@@ -16,7 +16,7 @@ import (
 // pluginSigner signs artifacts and generates signatures.
 type pluginSigner struct {
 	sigProvider       provider
-	mediaTypeEnvelope string
+	envelopeMediaType string
 	keyID             string
 	pluginConfig      map[string]string
 }
@@ -25,22 +25,38 @@ type pluginSigner struct {
 // by delegating the one or more operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-func NewSignerPlugin(runner plugin.Runner, keyID string, mediaTypeEnvelope string, pluginConfig map[string]string) (notation.Signer, error) {
+func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string, envelopeMediaType string) (notation.Signer, error) {
 	if runner == nil {
 		return nil, errors.New("nil plugin runner")
 	}
 	if keyID == "" {
 		return nil, errors.New("nil signing keyID")
 	}
-	if mediaTypeEnvelope == "" {
-		return nil, errors.New("nil signing mediaTypeEnvelope")
+
+	extProvider, err := newExternalProvider(runner, keyID)
+	if err != nil {
+		return nil, err
 	}
-	return &pluginSigner{
-		sigProvider:       newExternalProvider(runner, keyID),
-		mediaTypeEnvelope: mediaTypeEnvelope,
+	signer := &pluginSigner{
+		sigProvider:       extProvider,
+		envelopeMediaType: envelopeMediaType,
 		keyID:             keyID,
 		pluginConfig:      pluginConfig,
-	}, nil
+	}
+	if err := signer.validate(); err != nil {
+		return nil, err
+	}
+	return signer, nil
+}
+
+// validate validate envelopeMediaType
+func (s *pluginSigner) validate() error {
+	for _, types := range signature.RegisteredEnvelopeTypes() {
+		if s.envelopeMediaType == types {
+			return nil
+		}
+	}
+	return errors.New("nil signing mediaTypeEnvelope")
 }
 
 // Sign signs the artifact described by its descriptor, and returns the signature.
@@ -92,6 +108,7 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 	if !ok {
 		return nil, fmt.Errorf("plugin runner returned incorrect describe-key response type '%T'", out)
 	}
+	// TODO: validate cert chain here?
 	return resp, nil
 }
 
@@ -126,6 +143,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		SigningTime:              time.Now(),
 		ExtendedSignedAttributes: nil,
 		SigningAgent:             notation.SigningAgent,
+		SigningScheme:            signature.SigningSchemeX509,
 	}
 
 	if !opts.Expiry.IsZero() {
@@ -133,7 +151,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	}
 
 	// perform signing using pluginSigProvider
-	sigEnv, err := signature.NewEnvelope(s.mediaTypeEnvelope)
+	sigEnv, err := signature.NewEnvelope(s.envelopeMediaType)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +163,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 
 	_, _, verErr := sigEnv.Verify()
 	if verErr != nil {
-		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", err)
+		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", verErr)
 	}
 
 	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
@@ -176,7 +194,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		ContractVersion:       plugin.ContractVersion,
 		KeyID:                 s.keyID,
 		Payload:               payloadBytes,
-		SignatureEnvelopeType: s.mediaTypeEnvelope,
+		SignatureEnvelopeType: s.envelopeMediaType,
 		PayloadType:           signature.MediaTypePayloadV1,
 		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
@@ -197,7 +215,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		)
 	}
 
-	sigEnv, err := signature.ParseEnvelope(s.mediaTypeEnvelope, resp.SignatureEnvelope)
+	sigEnv, err := signature.ParseEnvelope(s.envelopeMediaType, resp.SignatureEnvelope)
 	if err != nil {
 		return nil, err
 	}
