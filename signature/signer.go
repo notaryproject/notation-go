@@ -56,7 +56,7 @@ func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.S
 	}
 
 	return &pluginSigner{
-		runner: &builtinPlugin{ localSignatureProvider: lsp },
+		runner: &builtinPlugin{localSignatureProvider: lsp},
 	}, nil
 }
 

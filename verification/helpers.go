@@ -3,6 +3,7 @@ package verification
 import (
 	"encoding/json"
 	"fmt"
+	nsigner "github.com/notaryproject/notation-core-go/signer"
 	"github.com/notaryproject/notation-go/dir"
 	"os"
 	"regexp"
@@ -25,7 +26,16 @@ func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-func loadX509TrustStores(policy *TrustPolicy, pathManager *dir.PathManager) (map[string]*X509TrustStore, error) {
+func loadX509TrustStores(scheme nsigner.SigningScheme, policy *TrustPolicy, pathManager *dir.PathManager) (map[string]*X509TrustStore, error) {
+	var prefixToLoad TrustStorePrefix
+	if scheme == nsigner.SigningSchemeX509 {
+		prefixToLoad = TrustStorePrefixCA
+	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
+		prefixToLoad = TrustStorePrefixSigningAuthority
+	} else {
+		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)
+	}
+
 	var result = make(map[string]*X509TrustStore)
 	for _, trustStore := range policy.TrustStores {
 		if result[trustStore] != nil {
@@ -34,6 +44,10 @@ func loadX509TrustStores(policy *TrustPolicy, pathManager *dir.PathManager) (map
 		}
 		i := strings.Index(trustStore, ":")
 		prefix := trustStore[:i]
+		if prefixToLoad != TrustStorePrefix(prefix) {
+			continue
+		}
+
 		name := trustStore[i+1:]
 		x509TrustStore, err := LoadX509TrustStore(pathManager.X509TrustStore(prefix, name))
 		if err != nil {
