@@ -2,21 +2,20 @@ package dir
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 
 	"github.com/opencontainers/go-digest"
 )
 
 const (
-	// CertificateExtension defines the extension of the certificate files
-	CertificateExtension = ".crt"
-
 	// ConfigFile is the name of config file
 	ConfigFile = "config.json"
 
-	// KeyExtension defines the extension of the key files
-	KeyExtension = ".key"
+	// LocalCertificateExtension defines the extension of the certificate files
+	LocalCertificateExtension = ".crt"
+
+	// LocalKeyExtension defines the extension of the key files
+	LocalKeyExtension = ".key"
 
 	// LocalKeysDir is the directory name for local key store
 	LocalKeysDir = "localkeys"
@@ -60,17 +59,14 @@ func (p *PathManager) Config() string {
 	return path
 }
 
-// LocalKey returns path of the local private keys or certificate
+// LocalKey returns path of the local private key and it's certificate
 // in the localkeys directory
-//
-// extension: support .crt|.key
-func (p *PathManager) Localkey(name string, extension string) string {
-	if extension != KeyExtension && extension != CertificateExtension {
-		panic(fmt.Sprintf("doesn't support the extension `%s`", extension))
-	}
-	path, err := p.UserConfigFS.GetPath(LocalKeysDir, name+extension)
+func (p *PathManager) Localkey(name string) (keyPath, certPath string) {
+	keyPath, err := p.UserConfigFS.GetPath(LocalKeysDir, name+LocalKeyExtension)
 	checkError(err)
-	return path
+	certPath, err = p.UserConfigFS.GetPath(LocalKeysDir, name+LocalCertificateExtension)
+	checkError(err)
+	return keyPath, certPath
 }
 
 // SigningKeyConfig return the path of signingkeys.json files
