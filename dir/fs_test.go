@@ -183,7 +183,7 @@ func TestPath(t *testing.T) {
 			path:  []string{"plugin/a/a.exe"},
 		},
 		{name: "Path does not exist",
-			want:  "system/plugin/c/c.exe",
+			want:  "user/plugin/c/c.exe",
 			usrFS: fstest.MapFS{"plugin/a/a.exe": {Data: []byte("user a")}},
 			sysFS: fstest.MapFS{"plugin/a/b.exe": {Data: []byte("system b")}},
 			path:  []string{"plugin/c/c.exe"},
