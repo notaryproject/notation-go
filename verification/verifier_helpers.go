@@ -3,10 +3,11 @@ package verification
 import (
 	"crypto/x509"
 	"fmt"
-	nsigner "github.com/notaryproject/notation-core-go/signer"
-	"github.com/notaryproject/notation-go/registry"
 	"strings"
 	"time"
+
+	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/registry"
 )
 
 // isCriticalFailure checks whether a VerificationResult fails the entire signature verification workflow.
@@ -15,11 +16,13 @@ func isCriticalFailure(result *VerificationResult) bool {
 	return result.Action == Enforced && !result.Success
 }
 
-func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.SignatureManifest, outcome *SignatureVerificationOutcome) (*nsigner.SignerInfo, *VerificationResult) {
+func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.SignatureManifest, outcome *SignatureVerificationOutcome) (*signature.Payload, *signature.SignerInfo, *VerificationResult) {
 	// parse the signature
-	sigEnv, err := nsigner.NewSignatureEnvelopeFromBytes(sigBlob, nsigner.SignatureMediaType(sigManifest.Blob.MediaType))
+	// TODO: this media type is pulled from registry
+	// Do we need to check the media type?
+	sigEnv, err := signature.ParseEnvelope(sigManifest.Blob.MediaType, sigBlob)
 	if err != nil {
-		return nil, &VerificationResult{
+		return nil, nil, &VerificationResult{
 			Success: false,
 			Error:   fmt.Errorf("unable to parse the digital signature, error : %s", err),
 			Type:    Integrity,
@@ -28,11 +31,11 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 	}
 
 	// verify integrity
-	signerInfo, err := sigEnv.Verify()
+	sigPayload, signerInfo, err := sigEnv.Verify()
 	if err != nil {
 		switch err.(type) {
-		case nsigner.SignatureNotFoundError, nsigner.MalformedSignatureError, nsigner.SignatureIntegrityError:
-			return nil, &VerificationResult{
+		case *signature.SignatureNotFoundError, *signature.MalformedSignatureError, *signature.SignatureIntegrityError:
+			return nil, nil, &VerificationResult{
 				Success: false,
 				Error:   err,
 				Type:    Integrity,
@@ -40,7 +43,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 			}
 		default:
 			// unexpected error
-			return nil, &VerificationResult{
+			return nil, nil, &VerificationResult{
 				Success: false,
 				Error:   ErrorVerificationInconclusive{msg: err.Error()},
 				Type:    Integrity,
@@ -50,7 +53,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 	}
 
 	// integrity has been verified successfully
-	return signerInfo, &VerificationResult{
+	return sigPayload, signerInfo, &VerificationResult{
 		Success: true,
 		Type:    Integrity,
 		Action:  outcome.VerificationLevel.VerificationMap[Integrity],
@@ -77,10 +80,10 @@ func (v *Verifier) verifyAuthenticity(trustStorePrefix TrustStorePrefix, trustPo
 			trustCerts = append(trustCerts, v.Certificates...)
 		}
 	}
-	_, err = nsigner.VerifyAuthenticity(outcome.SignerInfo, trustCerts)
+	_, err = signature.VerifyAuthenticity(outcome.SignerInfo, trustCerts)
 	if err != nil {
 		switch err.(type) {
-		case nsigner.SignatureAuthenticityError:
+		case *signature.SignatureAuthenticityError:
 			return &VerificationResult{
 				Success: false,
 				Error:   err,
