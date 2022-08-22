@@ -2,11 +2,13 @@ package verification
 
 import (
 	"encoding/json"
-	"github.com/notaryproject/notation-go/dir"
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/dir"
 )
 
 func TestGetArtifactDigestFromUri(t *testing.T) {
@@ -73,14 +75,12 @@ func TestLoadX509TrustStore(t *testing.T) {
 			dir.NewRootedFS("testdata", nil),
 		),
 	}
-	trustStores, err := loadX509TrustStores(&dummyPolicy, path)
+	caTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509, &dummyPolicy, path)
+	saTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509SigningAuthority, &dummyPolicy, path)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
-	if (len(trustStores)) != 2 {
-		t.Fatalf("TestLoadX509TrustStore must load two trust stores")
-	}
-	if trustStores[caStore] == nil || trustStores[signingAuthorityStore] == nil {
-		t.Fatalf("TestLoadX509TrustStore must load trust store associated with \"ca\" and \"signingAuthority\"")
+	if len(caTrustStores) != 1 || len(saTrustStores) != 1 {
+		t.Fatalf("TestLoadX509TrustStore must load one trust store of each 'ca' and 'signingAuthority' prefixes")
 	}
 }

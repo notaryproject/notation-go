@@ -1,6 +1,7 @@
 package verification
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -214,3 +215,27 @@ func GetVerificationLevel(signatureVerification SignatureVerification) (*Verific
 	}
 	return customVerificationLevel, nil
 }
+
+type pluginConfigCtxKey struct{}
+
+// WithPluginConfig is used by callers to set the plugin config in the context.
+func WithPluginConfig(ctx context.Context, config map[string]string) context.Context {
+	return context.WithValue(ctx, pluginConfigCtxKey{}, config)
+}
+
+// getPluginConfig used to retrieve the config from the context.
+func getPluginConfig(ctx context.Context, config map[string]string) map[string]string {
+	config, ok := ctx.Value(pluginConfigCtxKey{}).(map[string]string)
+	if !ok {
+		return nil
+	}
+	return config
+}
+
+const (
+	// VerificationPlugin specifies the name of the verification plugin that should be used to verify the signature.
+	VerificationPlugin = "io.cncf.notary.verificationPlugin"
+
+	// VerificationPluginMinVersion specifies the minimum version of the verification plugin that should be used to verify the signature.
+	VerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
+)
