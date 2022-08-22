@@ -32,5 +32,5 @@ func ValidateEnvelopeMediaType(mediaType string) error {
 			return nil
 		}
 	}
-	return errors.New("nil signing mediaTypeEnvelope")
+	return errors.New("signing mediaTypeEnvelope invalid")
 }

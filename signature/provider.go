@@ -10,6 +10,15 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 )
 
+var builtInPluginMetaData = plugin.Metadata{
+	SupportedContractVersions: []string{plugin.ContractVersion},
+	Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
+	Name:                      "built-in",
+	Description:               "Notation built-in signer",
+	Version:                   plugin.ContractVersion,
+	URL:                       "https://github.com/notaryproject/notation-go",
+}
+
 // provider wraps a runner and a signature.Signer
 type provider interface {
 	plugin.Runner
@@ -38,14 +47,7 @@ func (*builtinProvider) metadata() *plugin.Metadata {
 	// The only properties that are really relevant
 	// are the supported contract version and the capabilities.
 	// All other are just filled with meaningful data.
-	return &plugin.Metadata{
-		SupportedContractVersions: []string{plugin.ContractVersion},
-		Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
-		Name:                      "built-in",
-		Description:               "Notation built-in signer",
-		Version:                   plugin.ContractVersion,
-		URL:                       "https://github.com/notaryproject/notation-go",
-	}
+	return &builtInPluginMetaData
 }
 
 // SetConfig set config when signing
@@ -124,6 +126,7 @@ func (p *externalProvider) describeKey(ctx context.Context) (*plugin.DescribeKey
 }
 
 // Sign sign the digest by calling the real plugin
+// TODO: new sign spec accept payload, not hashed digest, need changed after notation-core-go and spec updated
 func (p *externalProvider) Sign(digest []byte) ([]byte, error) {
 	// Execute plugin sign command.
 	// TODO: do we still need keyspec and hash in request?
