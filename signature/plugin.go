@@ -49,7 +49,7 @@ func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string
 	return signer, nil
 }
 
-// Sign signs the artifact described by its descriptor, and returns the signature.
+// Sign signs the artifact described by its descriptor and returns the marshalled envelope
 func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
