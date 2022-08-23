@@ -19,7 +19,7 @@ var builtInPluginMetaData = plugin.Metadata{
 	URL:                       "https://github.com/notaryproject/notation-go",
 }
 
-// provider wraps a runner and a signature.Signer
+// provider wraps a plugin.Runner and a signature.Signer
 type provider interface {
 	plugin.Runner
 	signature.Signer
@@ -27,7 +27,7 @@ type provider interface {
 }
 
 // builtinPlugin is a builtin provider implementation
-// It only support describe key and metadata command
+// It only supports describe key and metadata command
 // It wraps signature.Signature to support builtin signing method
 type builtinProvider struct {
 	signature.LocalSigner

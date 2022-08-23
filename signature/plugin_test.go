@@ -2,79 +2,280 @@ package signature
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/notaryproject/notation-core-go/signer"
+	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/signature/cose"
+	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
+	gcose "github.com/veraison/go-cose"
 )
 
-var validMetadata = plugin.Metadata{
-	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
-	SupportedContractVersions: []string{plugin.ContractVersion},
-	Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
-}
+const unsupported = "unsupported"
 
-type mockRunner struct {
-	resp []interface{}
-	err  []error
-	n    int
-}
-
-func (r *mockRunner) Run(_ context.Context, _ plugin.Request) (interface{}, error) {
-	defer func() { r.n++ }()
-	return r.resp[r.n], r.err[r.n]
-}
-
-type mockSignerPlugin struct {
-	KeyID   string
-	KeySpec signer.KeySpec
-	Sign    func(payload []byte) []byte
-	Certs   [][]byte
-	n       int
-}
-
-func (s *mockSignerPlugin) Run(_ context.Context, req plugin.Request) (interface{}, error) {
-	if req != nil {
-		// Test json roundtrip.
-		jsonReq, err := json.Marshal(req)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(jsonReq, req)
-		if err != nil {
-			return nil, err
-		}
+var (
+	validMetadata = plugin.Metadata{
+		Name:        "testPlugin",
+		Description: "plugin for test",
+		Version:     "1", URL: "test.com",
+		SupportedContractVersions: []string{plugin.ContractVersion},
+		Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
 	}
-	defer func() { s.n++ }()
-	switch s.n {
-	case 0:
+	validSignDescriptor, validSignOpts = generateSigningContent(nil)
+	invalidJwsEnvelope, _              = json.Marshal(struct{}{})
+	invalidCoseEnvelope, _             = gcose.NewSign1Message().MarshalCBOR()
+	envelopeTypeToData                 = map[string][]byte{
+		jws.MediaTypeEnvelope:  invalidJwsEnvelope,
+		cose.MediaTypeEnvelope: invalidCoseEnvelope,
+	}
+)
+
+var (
+	validMetaDataWithSigningCapabilityFunc = func(ctx context.Context, req plugin.Request) (interface{}, error) {
 		return &validMetadata, nil
-	case 1:
-		return &plugin.DescribeKeyResponse{KeyID: s.KeyID, KeySpec: s.KeySpec}, nil
-	case 2:
-		var signed []byte
-		if s.Sign != nil {
-			signed = s.Sign(req.(*plugin.GenerateSignatureRequest).Payload)
-		}
-		return &plugin.GenerateSignatureResponse{
-			KeyID:            s.KeyID,
-			SigningAlgorithm: s.KeySpec.SignatureAlgorithm(),
-			Signature:        signed,
-			CertificateChain: s.Certs,
-		}, nil
 	}
-	panic("too many calls")
+	validMetaDataWithEnvelopeGeneratorCapabilityFunc = func(ctx context.Context, req plugin.Request) (interface{}, error) {
+		metaData := validMetadata
+		metaData.Capabilities = []plugin.Capability{plugin.CapabilityEnvelopeGenerator}
+		return &metaData, nil
+	}
+)
+
+type options struct {
+	signFunc
+	certChainFunc
+	keySpecFunc
+	runner *mockRunner
+}
+
+type optionFunc func(*options)
+
+type signFunc func([]byte) ([]byte, error)
+
+func withSignFunc(f signFunc) optionFunc {
+	return func(o *options) {
+		o.signFunc = f
+	}
+}
+
+type certChainFunc func() ([]*x509.Certificate, error)
+
+func withCertChainFunc(f certChainFunc) optionFunc {
+	return func(o *options) {
+		o.certChainFunc = f
+	}
+}
+
+type keySpecFunc func() (signature.KeySpec, error)
+
+func withKeySpecFunc(f keySpecFunc) optionFunc {
+	return func(o *options) {
+		o.keySpecFunc = f
+	}
+}
+
+func withRunner(r *mockRunner) optionFunc {
+	return func(o *options) {
+		o.runner = r
+	}
+}
+
+type runFunc func(context.Context, plugin.Request) (interface{}, error)
+
+func withRunnerMetaData(f runFunc) optionFunc {
+	return func(o *options) {
+		mockRunnerWithMetaData(f)(o.runner)
+	}
+}
+
+func withRunnerDescribeKey(f runFunc) optionFunc {
+	return func(o *options) {
+		mockRunnerWithDescribeKey(f)(o.runner)
+	}
+}
+
+func withRunnerGenerateSignature(f runFunc) optionFunc {
+	return func(o *options) {
+		mockRunnerWithGenerateSignature(f)(o.runner)
+	}
+}
+
+func withRunnerGenerateEnvelope(f runFunc) optionFunc {
+	return func(o *options) {
+		mockRunnerWithGenerateEnvelope(f)(o.runner)
+	}
+}
+
+// mockProvider implements provider
+// mockProvider will call function in options first
+// If function not exist, it will call function inherited from the provider
+type mockProvider struct {
+	provider
+	options
+}
+
+// apply applyes opts to the options field
+func (p *mockProvider) apply(opts ...optionFunc) *mockProvider {
+	for _, opt := range opts {
+		opt(&p.options)
+	}
+	return p
+}
+
+func (p *mockProvider) Sign(digest []byte) ([]byte, error) {
+	if p.options.signFunc != nil {
+		return p.options.signFunc(digest)
+	}
+	return p.provider.Sign(digest)
+}
+
+func (p *mockProvider) CertificateChain() ([]*x509.Certificate, error) {
+	if p.options.certChainFunc != nil {
+		return p.options.certChainFunc()
+	}
+	return p.provider.CertificateChain()
+}
+
+func (p *mockProvider) KeySpec() (signature.KeySpec, error) {
+	if p.options.keySpecFunc != nil {
+		return p.options.keySpecFunc()
+	}
+	return p.provider.KeySpec()
+}
+
+func (p *mockProvider) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
+	if p.options.runner != nil {
+		return p.options.runner.Run(ctx, req)
+	}
+	return p.provider.Run(ctx, req)
+}
+
+// newMockProvider creates a defaultMockProvider with options
+// options wiil override options fields
+func newMockProvider(opts ...optionFunc) *mockProvider {
+	p := newDefaultMockProvider()
+	return p.apply(opts...)
+}
+
+// newMockProviderFrom creates a mockProvider from a base provider
+// and override some options
+func newMockProviderFrom(base *mockProvider, opts ...optionFunc) *mockProvider {
+	if base == nil {
+		return newMockProvider(opts...)
+	}
+	return base.apply(opts...)
+}
+
+// buildDefaultMockProvider create a mockProvider
+// It uses builtin provider as provider
+// It uses a mockRunner as runner's option
+// All other options are left to nil
+func newDefaultMockProvider() *mockProvider {
+	return &mockProvider{
+		provider: newTestBuiltInProvider(nil),
+		options: options{
+			runner: newMockRunner(),
+		},
+	}
+}
+
+// newTestBuiltInProvider creates a provider interface with a builtin provider
+// if keyCertPair not provided, use a rsa-2048 keySpec
+func newTestBuiltInProvider(keyCertPair *keyCertPair) provider {
+	if keyCertPair == nil {
+		keyCertPair = keyCertPairCollections[0]
+	}
+	p, err := newBuiltinProvider(keyCertPair.key, keyCertPair.certs)
+	if err != nil {
+		panic(fmt.Sprintf("create builtin provider failed: %v", err))
+	}
+	return p
+}
+
+type runnerOptions func(*mockRunner)
+
+// mockRunner is a ruuner
+// it seperate run function into 4 commands
+// by default, all four commands are not implemented and will return an error
+type mockRunner struct {
+	metaData          runFunc
+	describeKey       runFunc
+	generateSignature runFunc
+	generateEnvelope  runFunc
+}
+
+func (m *mockRunner) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
+	switch req.Command() {
+	case plugin.CommandGetMetadata:
+		if m.metaData != nil {
+			return m.metaData(ctx, req)
+		}
+		return nil, fmt.Errorf("command %q is not supported", req.Command())
+	case plugin.CommandDescribeKey:
+		if m.describeKey != nil {
+			return m.describeKey(ctx, req)
+		}
+		return nil, fmt.Errorf("command %q is not supported", req.Command())
+	case plugin.CommandGenerateSignature:
+		if m.generateSignature != nil {
+			return m.generateSignature(ctx, req)
+		}
+		return nil, fmt.Errorf("command %q is not supported", req.Command())
+	case plugin.CommandGenerateEnvelope:
+		if m.generateEnvelope != nil {
+			return m.generateEnvelope(ctx, req)
+		}
+		return nil, fmt.Errorf("command %q is not supported", req.Command())
+	}
+	return nil, plugin.RequestError{
+		Code: plugin.ErrorCodeGeneric,
+		Err:  fmt.Errorf("command %q is not supported", req.Command()),
+	}
+}
+
+func (m *mockRunner) apply(opts ...runnerOptions) *mockRunner {
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+func newMockRunner(opts ...runnerOptions) *mockRunner {
+	runner := &mockRunner{}
+	runner = runner.apply(opts...)
+	return runner
+}
+
+func mockRunnerWithMetaData(f runFunc) runnerOptions {
+	return func(mr *mockRunner) {
+		mr.metaData = f
+	}
+}
+
+func mockRunnerWithDescribeKey(f runFunc) runnerOptions {
+	return func(mr *mockRunner) {
+		mr.describeKey = f
+	}
+}
+
+func mockRunnerWithGenerateSignature(f runFunc) runnerOptions {
+	return func(mr *mockRunner) {
+		mr.generateSignature = f
+	}
+}
+
+func mockRunnerWithGenerateEnvelope(f runFunc) runnerOptions {
+	return func(mr *mockRunner) {
+		mr.generateEnvelope = f
+	}
 }
 
 func testSignerError(t *testing.T, signer pluginSigner, wantEr string) {
@@ -86,341 +287,547 @@ func testSignerError(t *testing.T, signer pluginSigner, wantEr string) {
 }
 
 func TestSigner_Sign_RunMetadataFails(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockRunner{[]interface{}{nil}, []error{errors.New("failed")}, 0},
-	}
-	testSignerError(t, signer, "metadata command failed")
-}
+	t.Run("run metadata command failed", func(t *testing.T) {
+		p := newMockProvider(
+			withRunnerMetaData(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+				return nil, errors.New("metadata command fail")
+			}),
+		)
+		signer := pluginSigner{
+			sigProvider: p,
+		}
+		testSignerError(t, signer, "metadata command failed")
+	})
 
-func TestSigner_Sign_NoCapability(t *testing.T) {
-	m := validMetadata
-	m.Capabilities = []plugin.Capability{""}
-	signer := pluginSigner{
-		runner: &mockRunner{[]interface{}{&m}, []error{nil}, 0},
-	}
-	testSignerError(t, signer, "does not have signing capabilities")
+	t.Run("no capability", func(t *testing.T) {
+		m := validMetadata
+		m.Capabilities = []plugin.Capability{""}
+		p := newMockProvider(
+			withRunnerMetaData(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+				return &m, nil
+			}),
+		)
+		signer := pluginSigner{
+			sigProvider: p,
+		}
+		testSignerError(t, signer, "does not have signing capabilities")
+	})
+
+	t.Run("metadata response type error", func(t *testing.T) {
+		p := newMockProvider(
+			withRunnerMetaData(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+				return struct{}{}, nil
+			}),
+		)
+		signer := pluginSigner{
+			sigProvider: p,
+		}
+		testSignerError(t, signer, "plugin runner returned incorrect get-plugin-metadata response type")
+	})
+
+	t.Run("invalid metadata", func(t *testing.T) {
+		p := newMockProvider(
+			withRunnerMetaData(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+				return &plugin.Metadata{}, nil
+			}),
+		)
+		signer := pluginSigner{
+			sigProvider: p,
+		}
+		testSignerError(t, signer, "invalid plugin metadata")
+	})
+
+	t.Run("plugin contract not supported", func(t *testing.T) {
+		p := newMockProvider(
+			withRunnerMetaData(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+				metaData := validMetadata
+				metaData.SupportedContractVersions = []string{unsupported}
+				return &metaData, nil
+			}),
+		)
+		signer := pluginSigner{
+			sigProvider: p,
+		}
+		testSignerError(t, signer, fmt.Sprintf("contract version %q is not in the list of the plugin supported versions %v", plugin.ContractVersion, []string{unsupported}))
+	})
 }
 
 func TestSigner_Sign_DescribeKeyFailed(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockRunner{[]interface{}{&validMetadata, nil}, []error{nil, errors.New("failed")}, 0},
-	}
-	testSignerError(t, signer, "describe-key command failed")
+	t.Run("run describe-key command failed", func(t *testing.T) {
+		p := newMockProvider(
+			withRunnerMetaData(validMetaDataWithSigningCapabilityFunc),
+			withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+				return nil, errors.New("describle-key command failed")
+			}),
+		)
+		signer := pluginSigner{
+			sigProvider: p,
+		}
+		testSignerError(t, signer, "describe-key command failed")
+	})
+
+	t.Run("describe-key response type error", func(t *testing.T) {
+		p := newMockProvider(
+			withRunnerMetaData(validMetaDataWithSigningCapabilityFunc),
+			withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+				return struct{}{}, nil
+			}),
+		)
+		signer := pluginSigner{
+			sigProvider: p,
+		}
+		testSignerError(t, signer, "plugin runner returned incorrect describe-key response type")
+	})
 }
 
 func TestSigner_Sign_DescribeKeyKeyIDMismatch(t *testing.T) {
+	reqKeyID, respKeyID := "1", "2"
+	p := newMockProvider(
+		withRunnerMetaData(validMetaDataWithSigningCapabilityFunc),
+		withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+			return &plugin.DescribeKeyResponse{
+				KeyID: respKeyID,
+			}, nil
+		}),
+	)
 	signer := pluginSigner{
-		runner: &mockSignerPlugin{KeyID: "2", KeySpec: signer.RSA_2048},
-		keyID:  "1",
+		sigProvider: p,
+		keyID:       reqKeyID,
 	}
-	testSignerError(t, signer, "keyID in describeKey response \"2\" does not match request \"1\"")
+	testSignerError(t, signer, fmt.Sprintf("keyID in describeKey response %q does not match request %q", respKeyID, reqKeyID))
 }
 
-func TestSigner_Sign_KeySpecNotSupported(t *testing.T) {
+func TestSigner_Sign_EnvelopeNotSupported(t *testing.T) {
+	p := newMockProvider(
+		withRunnerMetaData(validMetaDataWithSigningCapabilityFunc),
+		withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+			return &plugin.DescribeKeyResponse{
+				KeyID: r.(*plugin.DescribeKeyRequest).KeyID,
+			}, nil
+		}),
+	)
 	signer := pluginSigner{
-		runner: &mockSignerPlugin{KeyID: "1", KeySpec: "custom"},
-		keyID:  "1",
+		sigProvider:       p,
+		envelopeMediaType: unsupported,
 	}
-	testSignerError(t, signer, "signature algorithm \"\" is not supported")
+	testSignerError(t, signer, fmt.Sprintf("signature envelope format with media type %q is not supported", signer.envelopeMediaType))
 }
 
-func TestSigner_Sign_PayloadNotValid(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockRunner{[]interface{}{
-			&validMetadata,
-			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: signer.RSA_2048},
-		}, []error{nil, nil}, 0},
-		keyID: "1",
+func TestSigner_Sign_KeySpecMisMatchCertChain(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunner(nil),
+				withKeySpecFunc(func() (signature.KeySpec, error) {
+					return signature.KeySpec{}, nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, "mismatch between signature algorithm")
+		})
 	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
-	wantEr := "expiry cannot be equal or before the signing time"
-	if err == nil || !strings.Contains(err.Error(), wantEr) {
-		t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
+}
+
+func TestSigner_Sign_ExpiryInValid(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunner(nil),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
+			wantEr := "expiry cannot be equal or before the signing time"
+			if err == nil || !strings.Contains(err.Error(), wantEr) {
+				t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
+			}
+		})
 	}
 }
 
 func TestSigner_Sign_GenerateSignatureKeyIDMismatch(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockRunner{[]interface{}{
-			&validMetadata,
-			&plugin.DescribeKeyResponse{KeyID: "1", KeySpec: signer.RSA_2048},
-			&plugin.GenerateSignatureResponse{KeyID: "2"},
-		}, []error{nil, nil, nil}, 0},
-		keyID: "1",
+	reqKeyID, respKeyID := "1", "2"
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			extRunner := newMockRunner(
+				mockRunnerWithMetaData(validMetaDataWithSigningCapabilityFunc),
+				mockRunnerWithDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					_, certs, err := generateKeyCertPair()
+					if err != nil {
+						return nil, fmt.Errorf("create key-cert pair for mockRunner failed: %v", err)
+					}
+					keySpec, err := signature.ExtractKeySpec(certs[0])
+					if err != nil {
+						return nil, fmt.Errorf("extract keySpec for mockRunner failed: %v", err)
+					}
+					var rawCerts [][]byte
+					for _, cert := range certs {
+						rawCerts = append(rawCerts, cert.Raw)
+					}
+					return &plugin.DescribeKeyResponse{
+						KeyID:            reqKeyID,
+						KeySpec:          KeySpecName(keySpec),
+						CertificateChain: rawCerts,
+					}, nil
+				}),
+				mockRunnerWithGenerateSignature(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.GenerateSignatureResponse{
+						KeyID: respKeyID,
+					}, nil
+				}),
+			)
+			p, err := newExternalProvider(extRunner, reqKeyID)
+			if err != nil {
+				t.Fatalf("create external provider failed: %v", err)
+			}
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+				keyID:             reqKeyID,
+			}
+			testSignerError(t, signer, fmt.Sprintf("keyID in generateSignature response %q does not match request %q", respKeyID, reqKeyID))
+		})
 	}
-	testSignerError(t, signer, "keyID in generateSignature response \"2\" does not match request \"1\"")
-}
-
-func TestSigner_Sign_UnsuportedKeySpec(t *testing.T) {
-	_, cert, _ := generateKeyCertPair()
-	signer := pluginSigner{
-		runner: &mockSignerPlugin{KeyID: "1", KeySpec: "", Certs: getBytes(cert)},
-		keyID:  "1",
-	}
-	testSignerError(t, signer, "signature algorithm \"\" is not supported")
 }
 
 func TestSigner_Sign_NoCertChain(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockSignerPlugin{
-			KeyID:   "1",
-			KeySpec: signer.RSA_2048,
-		},
-		keyID: "1",
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunner(nil),
+				withCertChainFunc(func() ([]*x509.Certificate, error) {
+					return nil, nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, "certificate-chain not present or is empty")
+		})
 	}
-	testSignerError(t, signer, "certificate-chain not present or is empty")
 }
 
-func TestSigner_Sign_MalformedCert(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockSignerPlugin{
-			KeyID:   "1",
-			KeySpec: signer.RSA_2048,
-			Certs:   [][]byte{[]byte("mocked")},
-		},
-		keyID: "1",
+func TestSigner_Sign_InvalidCertChain(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunner(nil),
+				withCertChainFunc(func() ([]*x509.Certificate, error) {
+					return []*x509.Certificate{{}, {}}, nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, "certificate-chain is invalid")
+		})
 	}
-	testSignerError(t, signer, "x509: malformed certificate")
 }
 
 func TestSigner_Sign_SignatureVerifyError(t *testing.T) {
-	_, cert, err := generateKeyCertPair()
-	if err != nil {
-		t.Fatalf("generateKeyCertPair() error = %v", err)
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunner(nil),
+				withSignFunc(func(b []byte) ([]byte, error) {
+					return []byte(unsupported), nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, "signature returned by generateSignature cannot be verified")
+
+		})
 	}
-	signer := pluginSigner{
-		runner: &mockSignerPlugin{
-			KeyID:   "1",
-			KeySpec: signer.RSA_2048,
-			Sign:    func(payload []byte) []byte { return []byte("r a w") },
-			Certs:   getBytes(cert),
-		},
-		keyID: "1",
-	}
-	testSignerError(t, signer, "signature returned by generateSignature cannot be verified")
 }
 
-func validSign(t *testing.T, key interface{}) func([]byte) []byte {
-	t.Helper()
-	return func(payload []byte) []byte {
-		signed, err := jwt.SigningMethodPS256.Sign(string(payload), key)
-		if err != nil {
-			t.Fatal(err)
-		}
-		encSigned, err := base64.RawURLEncoding.DecodeString(signed)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return encSigned
+func basicSignTest(t *testing.T, pluginSigner *pluginSigner) {
+	data, err := pluginSigner.Sign(context.Background(), validSignDescriptor, validSignOpts)
+	if err != nil {
+		t.Fatalf("Signer.Sign() error = %v, wantErr nil", err)
 	}
+	env, err := signature.ParseEnvelope(pluginSigner.envelopeMediaType, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, signerInfo, err := env.Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload.ContentType != signature.MediaTypePayloadV1 {
+		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, signature.MediaTypePayloadV1)
+	}
+	var gotPayload notation.Payload
+	if err := json.Unmarshal(payload.Content, &gotPayload); err != nil {
+		t.Fatalf("Signer.Sign() Unmarshal payload failed: %v", err)
+	}
+	expectedPayload := notation.Payload{
+		TargetArtifact: validSignDescriptor,
+	}
+	if !reflect.DeepEqual(expectedPayload, gotPayload) {
+		t.Fatalf("Signer.Sign() descriptor subject changed, expect: %v, got: %v", expectedPayload, *payload)
+	}
+	if signerInfo.SignedAttributes.SigningScheme != signature.SigningSchemeX509 {
+		t.Fatalf("Signer.Sign() signing scheme changed, expect: %v, got: %v", signerInfo.SignedAttributes.SigningScheme, signature.SigningSchemeX509)
+	}
+	keySpec, err := pluginSigner.sigProvider.KeySpec()
+	if err != nil {
+		t.Fatalf("Signer.Sign() get signer keySpec failed: %v", err)
+	}
+	if keySpec.SignatureAlgorithm() != signerInfo.SignatureAlgorithm {
+		t.Fatalf("Signer.Sign() signing algorithm changed")
+	}
+	if validSignOpts.Expiry.Unix() != signerInfo.SignedAttributes.Expiry.Unix() {
+		t.Fatalf("Signer.Sign() expiry changed")
+	}
+	certChain, err := pluginSigner.sigProvider.CertificateChain()
+	if err != nil {
+		t.Fatalf("Signer.Sign() get signer cert failed: %v", err)
+	}
+	if !reflect.DeepEqual(certChain, signerInfo.CertificateChain) {
+		t.Fatalf(" Signer.Sign() cert chain changed")
+	}
+	basicVerification(t, data, pluginSigner.envelopeMediaType, certChain[len(certChain)-1])
 }
 
 func TestSigner_Sign_Valid(t *testing.T) {
-	key, cert, err := generateKeyCertPair()
-	if err != nil {
-		t.Fatal(err)
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType:%v, keySpec: %v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				pluginSigner := pluginSigner{
+					sigProvider:       newTestBuiltInProvider(keyCert),
+					envelopeMediaType: envelopeType,
+				}
+				basicSignTest(t, &pluginSigner)
+			})
+		}
 	}
-	pluginSigner := pluginSigner{
-		runner: &mockSignerPlugin{
-			KeyID:   "1",
-			KeySpec: signer.RSA_2048,
-			Sign:    validSign(t, key),
-			Certs:   getBytes(cert),
-		},
-		keyID: "1",
-	}
-	data, err := pluginSigner.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
-	if err != nil {
-		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
-	}
-
-	env, err := signer.NewSignatureEnvelopeFromBytes(data, signer.MediaTypeJWSJson)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sigInfo, err := env.Verify()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedPayload := notation.Payload{
-		TargetArtifact: notation.Descriptor{},
-	}
-	expectPayloadBytes, err := json.Marshal(expectedPayload)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(sigInfo.Payload, expectPayloadBytes) {
-		t.Errorf("Signer.Sign() payload changed")
-	}
-
-	if !reflect.DeepEqual(sigInfo.CertificateChain, cert) {
-		t.Errorf("Signer.Sign() cert chain changed")
-	}
-
-	basicVerification(data, cert[len(cert)-1], t)
 }
 
-type mockEnvelopePlugin struct {
-	err          error
-	envelopeType string
-	certChain    [][]byte
-	key          interface{}
-}
-
-func (s *mockEnvelopePlugin) Run(_ context.Context, req plugin.Request) (interface{}, error) {
-	switch req.Command() {
-	case plugin.CommandGetMetadata:
-		m := validMetadata
-		m.Capabilities[0] = plugin.CapabilityEnvelopeGenerator
-		return &m, nil
-	case plugin.CommandGenerateEnvelope:
-		if s.err != nil {
-			return nil, s.err
-		}
-		key, certs, err := generateKeyCertPair()
-		if err != nil {
-			return nil, err
-		}
-		if s.key != nil {
-			key = s.key
-		}
-
-		var resolvedCertChain []*x509.Certificate
-		if s.certChain != nil {
-			// Override cert chain.
-			resolvedCertChain, err = parseCertChain(s.certChain)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			resolvedCertChain = certs
-		}
-		lsp, err := signer.NewLocalSignatureProvider(resolvedCertChain, key)
-		if err != nil {
-			return nil, err
-		}
-		env, _ := signer.NewSignatureEnvelope(signer.MediaTypeJWSJson)
-
-		req1 := req.(*plugin.GenerateEnvelopeRequest)
-
-		data, err := env.Sign(signer.SignRequest{
-			Payload:            req1.Payload,
-			PayloadContentType: signer.PayloadContentType(req1.PayloadType),
-			SignatureProvider:  lsp,
-			SigningTime:        time.Now(),
-			Expiry:             time.Now().AddDate(2, 0, 0),
-			SigningScheme:      signer.SigningSchemeX509SigningAuthority,
-			SigningAgent:       "",
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		envType := s.envelopeType
-		if envType == "" {
-			envType = req1.SignatureEnvelopeType
-		}
-		return &plugin.GenerateEnvelopeResponse{
-			SignatureEnvelope:     data,
-			SignatureEnvelopeType: envType,
-		}, nil
-	}
-	panic("too many calls")
-}
 func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockEnvelopePlugin{err: errors.New("failed")},
-		keyID:  "1",
-	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
-		Size:      1,
-	}, notation.SignOptions{})
-	if err == nil || err.Error() != "generate-envelope command failed: failed" {
-		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunnerMetaData(validMetaDataWithEnvelopeGeneratorCapabilityFunc),
+				withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.DescribeKeyResponse{
+						KeyID: r.(*plugin.DescribeKeyRequest).KeyID,
+					}, nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, fmt.Sprintf("generate-envelope command failed: command %q is not supported", plugin.CommandGenerateEnvelope))
+		})
 	}
 }
 
 func TestPluginSigner_SignEnvelope_InvalidEnvelopeType(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockEnvelopePlugin{envelopeType: "other"},
-		keyID:  "1",
-	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
-		Size:      1,
-	}, notation.SignOptions{})
-	if err == nil || err.Error() != "signatureEnvelopeType in generateEnvelope response \"other\" does not match request \"application/jose+json\"" {
-		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunnerMetaData(validMetaDataWithEnvelopeGeneratorCapabilityFunc),
+				withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.DescribeKeyResponse{
+						KeyID: r.(*plugin.DescribeKeyRequest).KeyID,
+					}, nil
+				}),
+				withRunnerGenerateEnvelope(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.GenerateEnvelopeResponse{
+						SignatureEnvelopeType: unsupported,
+					}, nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, fmt.Sprintf("signatureEnvelopeType in generateEnvelope response %q does not match request %q", unsupported, envelopeType))
+		})
 	}
 }
 
-func TestPluginSigner_SignEnvelope_EmptyCert(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockEnvelopePlugin{certChain: [][]byte{}},
-		keyID:  "1",
+// newMockEnvelopeProvider creates a mock envelope provider.
+// The provider's runner implements metadata, describe-key and generate-envelope commands by default
+// Opts controll how the envelope is created.
+// If no opts are provided, it will use a builtin provider to generate a valid signature envelope
+// otherwise, it will use a mock provider with options to sign
+// opts can be used to inject error for run command
+// It will always sign validDesc with validOpts
+func newMockEnvelopeProvider(keyCertPair *keyCertPair, opts ...optionFunc) *mockProvider {
+	var internalProvider provider
+	if len(opts) == 0 {
+		internalProvider = newTestBuiltInProvider(keyCertPair)
+	} else {
+		internalProvider = newMockProvider(append(opts, withRunner(nil))...)
 	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
-		Size:      1,
-	}, notation.SignOptions{})
-	if err == nil || err.Error() != "generate-envelope command failed: \"certs\" param is malformed" {
-		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
+	return newMockProvider(
+		withRunnerMetaData(validMetaDataWithEnvelopeGeneratorCapabilityFunc),
+		withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+			var rawCerts [][]byte
+			for _, cert := range keyCertPair.certs {
+				rawCerts = append(rawCerts, cert.Raw)
+			}
+			return &plugin.DescribeKeyResponse{
+				KeyID:            r.(*plugin.DescribeKeyRequest).KeyID,
+				KeySpec:          keyCertPair.keySpecName,
+				CertificateChain: rawCerts,
+			}, nil
+		}),
+		withRunnerGenerateEnvelope(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+			sigGenerator := pluginSigner{
+				sigProvider:       internalProvider,
+				envelopeMediaType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
+			}
+			// var payload notation.Payload
+			// if err := json.Unmarshal(r.(*plugin.GenerateEnvelopeRequest).Payload, &payload); err != nil {
+			// 	return nil, err
+			// }
+			data, err := sigGenerator.Sign(
+				context.Background(),
+				validSignDescriptor,
+				validSignOpts)
+			if err != nil {
+				return nil, err
+			}
+			return &plugin.GenerateEnvelopeResponse{
+				SignatureEnvelope:     data,
+				SignatureEnvelopeType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
+			}, nil
+		}),
+		withCertChainFunc(internalProvider.CertificateChain),
+		withKeySpecFunc(internalProvider.KeySpec),
+		withSignFunc(internalProvider.Sign),
+	)
+}
+
+func TestPluginSigner_SignEnvelope_EmptyCert(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			signer := pluginSigner{
+				sigProvider: newMockEnvelopeProvider(
+					nil,
+					withCertChainFunc(func() ([]*x509.Certificate, error) {
+						return nil, nil
+					})),
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, "generate-envelope command failed: certificate-chain not present or is empty")
+		})
 	}
 }
 
 func TestPluginSigner_SignEnvelope_MalformedCertChain(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockEnvelopePlugin{certChain: [][]byte{make([]byte, 0)}},
-		keyID:  "1",
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			signer := pluginSigner{
+				sigProvider: newMockEnvelopeProvider(
+					nil,
+					withCertChainFunc(func() ([]*x509.Certificate, error) {
+						return []*x509.Certificate{{}, {}}, nil
+					}),
+				),
+				envelopeMediaType: envelopeType,
+			}
+			testSignerError(t, signer, "generate-envelope command failed: certificate-chain is invalid")
+		})
 	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
-		Size:      1,
-	}, notation.SignOptions{})
-	if err == nil || err.Error() != "generate-envelope command failed: x509: malformed certificate" {
-		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
+}
+
+func TestPluginSigner_SignEnvelope_MalFormedEnvelope(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunnerMetaData(validMetaDataWithEnvelopeGeneratorCapabilityFunc),
+				withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.DescribeKeyResponse{
+						KeyID: r.(*plugin.DescribeKeyRequest).KeyID,
+					}, nil
+				}),
+				withRunnerGenerateEnvelope(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.GenerateEnvelopeResponse{
+						SignatureEnvelope:     []byte(unsupported),
+						SignatureEnvelopeType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
+					}, nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			var expectedErr *signature.MalformedSignatureError
+			if _, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{}); err == nil || !errors.As(err, &expectedErr) {
+				t.Fatalf("Signer.Sign() error = %v, want MalformedSignatureError", err)
+			}
+		})
+	}
+}
+
+func TestPluginSigner_SignEnvelope_DescriptorChanged(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			signer := pluginSigner{
+				sigProvider:       newMockEnvelopeProvider(nil),
+				envelopeMediaType: envelopeType,
+			}
+			_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
+			if err == nil || err.Error() != "descriptor subject has changed" {
+				t.Fatalf("Signer.Sign() error = %v, wnatErr descriptor subject has changed", err)
+			}
+		})
 	}
 }
 
 func TestPluginSigner_SignEnvelope_SignatureVerifyError(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	signer := pluginSigner{
-		runner: &mockEnvelopePlugin{key: key},
-		keyID:  "1",
-	}
-	_, err = signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
-		Size:      1,
-	}, notation.SignOptions{})
-	if err == nil || err.Error() != "signature is invalid. Error: crypto/rsa: verification error" {
-		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		t.Run(fmt.Sprintf("envelopeType:%v", envelopeType), func(t *testing.T) {
+			p := newMockProvider(
+				withRunnerMetaData(validMetaDataWithEnvelopeGeneratorCapabilityFunc),
+				withRunnerDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.DescribeKeyResponse{
+						KeyID: r.(*plugin.DescribeKeyRequest).KeyID,
+					}, nil
+				}),
+				withRunnerGenerateEnvelope(func(ctx context.Context, r plugin.Request) (interface{}, error) {
+					return &plugin.GenerateEnvelopeResponse{
+						SignatureEnvelope:     envelopeTypeToData[envelopeType],
+						SignatureEnvelopeType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
+					}, nil
+				}),
+			)
+			signer := pluginSigner{
+				sigProvider:       p,
+				envelopeMediaType: envelopeType,
+			}
+			_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
+			if err == nil {
+				t.Fatalf("Signer.Sign() error = %v", err)
+			}
+		})
 	}
 }
 
 func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
-	signer := pluginSigner{
-		runner: &mockEnvelopePlugin{},
-		keyID:  "1",
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType:%v, keySpec: %v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				signer := pluginSigner{
+					sigProvider:       newMockEnvelopeProvider(keyCert),
+					envelopeMediaType: envelopeType,
+				}
+				basicSignTest(t, &signer)
+			})
+		}
 	}
-	_, err := signer.Sign(context.Background(), notation.Descriptor{
-		MediaType: notation.MediaTypePayload,
-		Size:      1,
-	}, notation.SignOptions{})
-	if err != nil {
-		t.Errorf("Signer.Sign() error = %v, wantErr nil", err)
-	}
-}
-
-func getBytes(certs []*x509.Certificate) [][]byte {
-	var chain [][]byte
-	for _, cert := range certs {
-		chain = append(chain, cert.Raw)
-	}
-	return chain
 }
