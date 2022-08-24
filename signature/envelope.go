@@ -9,6 +9,7 @@ import (
 	gcose "github.com/veraison/go-cose"
 )
 
+// GuessSignatureEnvelopeFormat guesses envelope format by looping all builtin envelope format
 // TODO: need inspect
 // don't know how to get envelope format if passed a local signature file
 // or verify with local signature
