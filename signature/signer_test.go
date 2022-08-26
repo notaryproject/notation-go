@@ -20,12 +20,10 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp/timestamptest"
-	"github.com/notaryproject/notation-go/plugin"
 	"github.com/opencontainers/go-digest"
 )
 
 type keyCertPair struct {
-	// keySpec name
 	keySpecName string
 	key         crypto.PrivateKey
 	certs       []*x509.Certificate
@@ -36,8 +34,9 @@ var keyCertPairCollections []*keyCertPair
 const testKeyID = "testKeyID"
 
 // setUpKeyCertPairCollections setups all combinations of private key and certificates
-func setUpKeyCertPairCollections() {
+func setUpKeyCertPairCollections() []*keyCertPair {
 	// rsa
+	var keyCertPairs []*keyCertPair
 	for _, k := range []int{2048, 3072, 4096} {
 		rsaRoot := testhelper.GetRSARootCertificate()
 		certTuple := testhelper.GetRSACertTuple(k)
@@ -45,7 +44,7 @@ func setUpKeyCertPairCollections() {
 		if err != nil {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
-		keyCertPairCollections = append(keyCertPairCollections, &keyCertPair{
+		keyCertPairs = append(keyCertPairs, &keyCertPair{
 			keySpecName: KeySpecName(keySpec),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, rsaRoot.Cert},
@@ -60,16 +59,17 @@ func setUpKeyCertPairCollections() {
 		if err != nil {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
-		keyCertPairCollections = append(keyCertPairCollections, &keyCertPair{
+		keyCertPairs = append(keyCertPairs, &keyCertPair{
 			keySpecName: KeySpecName(keySpec),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, ecdsaRoot.Cert},
 		})
 	}
+	return keyCertPairs
 }
 
 func init() {
-	setUpKeyCertPairCollections()
+	keyCertPairCollections = setUpKeyCertPairCollections()
 }
 
 func generateCertPem(cert *x509.Certificate) []byte {
@@ -135,7 +135,7 @@ func TestNewSignerFromFiles(t *testing.T) {
 	dir := t.TempDir()
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				testSignerFromFile(t, keyCert, envelopeType, dir)
 			})
 		}
@@ -146,7 +146,7 @@ func TestSignWithCertChain(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs)
 			})
 		}
@@ -159,7 +159,7 @@ func TestSignWithTimestamp(t *testing.T) {
 	// prepare signer
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
@@ -190,7 +190,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
@@ -227,7 +227,10 @@ func signECDSA(digest []byte, hash crypto.Hash, pk *ecdsa.PrivateKey) ([]byte, e
 	return sig, nil
 }
 
-func localSign(digest []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, error) {
+func localSign(payload []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, error) {
+	h := hash.New()
+	h.Write(payload)
+	digest := h.Sum(nil)
 	switch key := pk.(type) {
 	case *rsa.PrivateKey:
 		return signRSA(digest, hash, key)
@@ -241,34 +244,7 @@ func localSign(digest []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, e
 func TestExternalSigner_Sign(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			var rawCerts [][]byte
-			for _, cert := range keyCert.certs {
-				rawCerts = append(rawCerts, cert.Raw)
-			}
-			externalRunner := newMockRunner(
-				mockRunnerWithMetaData(validMetaDataWithSigningCapabilityFunc),
-				mockRunnerWithDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
-					return &plugin.DescribeKeyResponse{
-						KeyID:            r.(*plugin.DescribeKeyRequest).KeyID,
-						KeySpec:          keyCert.keySpecName,
-						CertificateChain: rawCerts,
-					}, nil
-				}),
-				mockRunnerWithGenerateSignature(func(ctx context.Context, r plugin.Request) (interface{}, error) {
-					req := r.(*plugin.GenerateSignatureRequest)
-					keySpec := ParseKeySpecFromName(req.KeySpec)
-					sig, err := localSign(req.Payload, keySpec.SignatureAlgorithm().Hash(), keyCert.key)
-					if err != nil {
-						return nil, fmt.Errorf("mock local sign failed: %v", err)
-					}
-					return &plugin.GenerateSignatureResponse{
-						KeyID:            req.KeyID,
-						Signature:        sig,
-						SigningAlgorithm: SigningAlgorithmName(keySpec.SignatureAlgorithm()),
-						CertificateChain: rawCerts,
-					}, nil
-				}),
-			)
+			externalRunner := newMockProvider(keyCert.key, keyCert.certs, testKeyID)
 			s, err := NewSignerPlugin(externalRunner, testKeyID, nil, envelopeType)
 			if err != nil {
 				t.Fatalf("NewSigner() error = %v", err)
@@ -286,11 +262,9 @@ func TestExternalSigner_Sign(t *testing.T) {
 func TestExternalSigner_SignEnvelope(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				p, err := newExternalProvider(newMockEnvelopeProvider(keyCert), testKeyID)
-				if err != nil {
-					t.Fatalf("newExternalProvider() create runner for external signer failed: %v", err)
-				}
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				externalRunner := newMockEnvelopeProvider(keyCert.key, keyCert.certs, testKeyID)
+				p := newExternalProvider(externalRunner, testKeyID)
 				s, err := NewSignerPlugin(p, testKeyID, nil, envelopeType)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)

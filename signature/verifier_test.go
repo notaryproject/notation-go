@@ -55,7 +55,7 @@ func TestNewVerifierFromFile(t *testing.T) {
 	dir := t.TempDir()
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				testVerifierFromFile(t, keyCert, envelopeType, dir)
 			})
 		}
@@ -66,7 +66,7 @@ func TestVerifyWithCertChain(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)

@@ -6,7 +6,6 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 )
 
-// TODO: keySpec may change, need to check new spec
 func TestKeySpecName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -80,7 +79,6 @@ func TestKeySpecName(t *testing.T) {
 	}
 }
 
-// TODO: hash name may change, need to check new spec
 func TestKeySpecHashName(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -130,7 +130,7 @@ func TestProvider_Builtin_Signer(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expect newBuiltInProvider ok, got: %v", err)
 			}
-			gotCert, err := p.CertificateChain()
+			gotCert, err := p.(*builtinProvider).CertificateChain()
 			if err != nil {
 				t.Fatalf("expect CertificateChain() ok, got: %v", err)
 			}
@@ -142,7 +142,7 @@ func TestProvider_Builtin_Signer(t *testing.T) {
 				t.Fatalf("PrivateKey() key changed")
 			}
 
-			if _, err := p.Sign(nil); err == nil {
+			if _, _, err = p.Sign(nil); err == nil {
 				t.Fatalf("Sign() expect buitin sign method not implemented")
 			}
 
