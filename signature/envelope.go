@@ -9,10 +9,9 @@ import (
 	gcose "github.com/veraison/go-cose"
 )
 
-// TODO: need inspect
-// don't know how to get envelope format if passed a local signature file
-// or verify with local signature
-// need a better way to inspect
+// GuessSignatureEnvelopeFormat guesses envelope format by looping all builtin envelope format.
+//
+// TODO: need a better way to inspect the type of envelope.
 func GuessSignatureEnvelopeFormat(raw []byte) (string, error) {
 	var msg gcose.Sign1Message
 	if err := msg.UnmarshalCBOR(raw); err == nil {
@@ -25,7 +24,7 @@ func GuessSignatureEnvelopeFormat(raw []byte) (string, error) {
 	return jws.MediaTypeEnvelope, nil
 }
 
-// ValidateEnvelopeMediaType validetes envelope media type is supported by notation-core-go
+// ValidateEnvelopeMediaType validetes envelope media type is supported by notation-core-go.
 func ValidateEnvelopeMediaType(mediaType string) error {
 	for _, types := range signature.RegisteredEnvelopeTypes() {
 		if mediaType == types {

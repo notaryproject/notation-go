@@ -17,11 +17,56 @@ func TestVerifierInterface(t *testing.T) {
 	}
 }
 
+func testVerifierFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir string) {
+	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, envelopeType, dir)
+	if err != nil {
+		t.Fatalf("prepare key cert file failed: %v", err)
+	}
+	s, err := NewSignerFromFiles(keyPath, certPath, envelopeType)
+	if err != nil {
+		t.Fatalf("NewSignerFromFiles() failed: %v", err)
+	}
+	desc, opts := generateSigningContent(nil)
+	sig, err := s.Sign(context.Background(), desc, opts)
+	if err != nil {
+		t.Fatalf("Sign() failed: %v", err)
+	}
+	// verify signature
+	v, err := NewVerifierFromFiles([]string{certPath})
+	if err != nil {
+		t.Fatalf("NewVerifierFromFiles() failed: %v", err)
+	}
+	vOpts := notation.VerifyOptions{
+		SignatureMediaType: envelopeType,
+	}
+	got, err := v.Verify(context.Background(), sig, vOpts)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if !got.Equal(desc) {
+		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
+	}
+	if !reflect.DeepEqual(got, desc) {
+		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
+	}
+}
+
+func TestNewVerifierFromFile(t *testing.T) {
+	dir := t.TempDir()
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				testVerifierFromFile(t, keyCert, envelopeType, dir)
+			})
+		}
+	}
+}
+
 func TestVerifyWithCertChain(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType:%v,keySpec:%v", envelopeType, keyCert.name), func(t *testing.T) {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)

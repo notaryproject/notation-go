@@ -32,21 +32,15 @@ func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string
 	if keyID == "" {
 		return nil, errors.New("nil signing keyID")
 	}
-
-	extProvider, err := newExternalProvider(runner, keyID)
-	if err != nil {
-		return nil, err
-	}
 	if err := ValidateEnvelopeMediaType(envelopeMediaType); err != nil {
 		return nil, err
 	}
-	signer := &pluginSigner{
-		sigProvider:       extProvider,
+	return &pluginSigner{
+		sigProvider:       newExternalProvider(runner, keyID),
 		envelopeMediaType: envelopeMediaType,
 		keyID:             keyID,
 		pluginConfig:      pluginConfig,
-	}
-	return signer, nil
+	}, nil
 }
 
 // Sign signs the artifact described by its descriptor and returns the marshalled envelope
@@ -98,7 +92,6 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 	if !ok {
 		return nil, fmt.Errorf("plugin runner returned incorrect describe-key response type '%T'", out)
 	}
-	// TODO: validate cert chain here?
 	return resp, nil
 }
 

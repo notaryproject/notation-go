@@ -6,7 +6,6 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 )
 
-// TODO: keySpec may change, need to check new spec
 func TestKeySpecName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -74,13 +73,12 @@ func TestKeySpecName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if name := KeySpecName(tt.keySpec); name != tt.expected {
-				t.Errorf("unexpected keySpec name, expect: %v, got: %v", tt.expected, name)
+				t.Fatalf("unexpected keySpec name, expect: %v, got: %v", tt.expected, name)
 			}
 		})
 	}
 }
 
-// TODO: hash name may change, need to check new spec
 func TestKeySpecHashName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -148,7 +146,7 @@ func TestKeySpecHashName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if name := KeySpecHashName(tt.keySpec); name != tt.expected {
-				t.Errorf("unexpected keySpec hash function name, expect: %v, got: %v", tt.expected, name)
+				t.Fatalf("unexpected keySpec hash function name, expect: %v, got: %v", tt.expected, name)
 			}
 		})
 	}
@@ -156,9 +154,10 @@ func TestKeySpecHashName(t *testing.T) {
 
 func TestParseKeySpecFromName(t *testing.T) {
 	tests := []struct {
-		name     string
-		expected signature.KeySpec
-		raw      string
+		name      string
+		raw       string
+		expected  signature.KeySpec
+		expectErr bool
 	}{
 		{
 			name: "EC 256",
@@ -167,6 +166,7 @@ func TestParseKeySpecFromName(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 256,
 			},
+			expectErr: false,
 		},
 		{
 			name: "EC 384",
@@ -175,6 +175,7 @@ func TestParseKeySpecFromName(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 384,
 			},
+			expectErr: false,
 		},
 		{
 			name: "EC 521",
@@ -183,6 +184,7 @@ func TestParseKeySpecFromName(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 521,
 			},
+			expectErr: false,
 		},
 		{
 			name: "RSA 2048",
@@ -191,6 +193,7 @@ func TestParseKeySpecFromName(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 2048,
 			},
+			expectErr: false,
 		},
 		{
 			name: "RSA 3072",
@@ -199,6 +202,7 @@ func TestParseKeySpecFromName(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 3072,
 			},
+			expectErr: false,
 		},
 		{
 			name: "RSA 4096",
@@ -207,21 +211,138 @@ func TestParseKeySpecFromName(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 4096,
 			},
+			expectErr: false,
 		},
 		{
-			name: "Unsupported key spec",
-			raw:  "unsuppored",
-			expected: signature.KeySpec{
-				Type: 0,
-				Size: 0,
-			},
+			name:      "Unsupported key spec",
+			raw:       "unsuppored",
+			expected:  InvalidKeySpec,
+			expectErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if keySpec := ParseKeySpecFromName(tt.raw); keySpec != tt.expected {
-				t.Errorf("unexpected pared keySpec name, expect: %v, got: %v", tt.expected, keySpec)
+			keySpec, err := ParseKeySpecFromName(tt.raw)
+			if keySpec != tt.expected {
+				t.Fatalf("unexpected parsed keySpec name, expect: %v, got: %v", tt.expected, keySpec)
+			}
+			if (err != nil) != tt.expectErr {
+				t.Fatalf("expect ParseKeySpec error: %v, got: %v", tt.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestSigningAlgorithmName(t *testing.T) {
+	tests := []struct {
+		name     string
+		alg      signature.Algorithm
+		expected string
+	}{
+		{
+			name:     "RSASSA-PSS with SHA-256",
+			alg:      signature.AlgorithmPS256,
+			expected: RSASSA_PSS_SHA_256,
+		},
+		{
+			name:     "RSASSA-PSS with SHA-384",
+			alg:      signature.AlgorithmPS384,
+			expected: RSASSA_PSS_SHA_384,
+		},
+		{
+			name:     "RSASSA-PSS with SHA-512",
+			alg:      signature.AlgorithmPS512,
+			expected: RSASSA_PSS_SHA_512,
+		},
+		{
+			name:     "ECDSA on secp256r1 with SHA-256",
+			alg:      signature.AlgorithmES256,
+			expected: ECDSA_SHA_256,
+		},
+		{
+			name:     "ECDSA on secp384r1 with SHA-384",
+			alg:      signature.AlgorithmES384,
+			expected: ECDSA_SHA_384,
+		},
+		{
+			name:     "ECDSA on secp521r1 with SHA-512",
+			alg:      signature.AlgorithmES512,
+			expected: ECDSA_SHA_512,
+		},
+		{
+			name:     "unsupported algorithm",
+			alg:      0,
+			expected: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if name := SigningAlgorithmName(tt.alg); name != tt.expected {
+				t.Fatalf("unexpected signing algorithm name, expect: %v, got: %v", tt.expected, name)
+			}
+		})
+	}
+}
+
+func TestParseSigningAlgorithFromName(t *testing.T) {
+	tests := []struct {
+		name      string
+		raw       string
+		expected  signature.Algorithm
+		expectErr bool
+	}{
+		{
+			name:      "RSASSA-PSS with SHA-256",
+			raw:       RSASSA_PSS_SHA_256,
+			expected:  signature.AlgorithmPS256,
+			expectErr: false,
+		},
+		{
+			name:      "RSASSA-PSS with SHA-384",
+			raw:       RSASSA_PSS_SHA_384,
+			expected:  signature.AlgorithmPS384,
+			expectErr: false,
+		},
+		{
+			name:      "RSASSA-PSS with SHA-512",
+			raw:       RSASSA_PSS_SHA_512,
+			expected:  signature.AlgorithmPS512,
+			expectErr: false,
+		},
+		{
+			name:      "ECDSA on secp256r1 with SHA-256",
+			raw:       ECDSA_SHA_256,
+			expected:  signature.AlgorithmES256,
+			expectErr: false,
+		},
+		{
+			name:      "ECDSA on secp384r1 with SHA-384",
+			raw:       ECDSA_SHA_384,
+			expected:  signature.AlgorithmES384,
+			expectErr: false,
+		},
+		{
+			name:      "ECDSA on secp521r1 with SHA-512",
+			raw:       ECDSA_SHA_512,
+			expected:  signature.AlgorithmES512,
+			expectErr: false,
+		},
+		{
+			name:      "unsupported algorithm",
+			raw:       "",
+			expected:  0,
+			expectErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			alg, err := ParseSigningAlgorithFromName(tt.raw)
+			if alg != tt.expected {
+				t.Fatalf("unexpected signing algorithm, expect: %v, got: %v", tt.expected, alg)
+			}
+			if (err != nil) != tt.expectErr {
+				t.Fatalf("expect ParseSigningAlgorithFromName error: %v, got: %v", tt.expectErr, err)
 			}
 		})
 	}

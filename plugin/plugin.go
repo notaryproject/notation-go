@@ -127,14 +127,11 @@ type DescribeKeyResponse struct {
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 	KeySpec string `json:"keySpec"`
 
-	// TODO: need to check new spec, now add a new field(CertificateChain) to response
 	// Ordered list of certificates starting with leaf certificate
 	// and ending with root certificate.
-	CertificateChain [][]byte `json:"certificateChain"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
-// TODO: need to check new spec
 // do we still need keyspec and hash?
 type GenerateSignatureRequest struct {
 	ContractVersion string            `json:"contractVersion"`
@@ -150,7 +147,6 @@ func (GenerateSignatureRequest) Command() Command {
 }
 
 // GenerateSignatureResponse is the response of a generate-signature request.
-// TODO: need to check new spec
 type GenerateSignatureResponse struct {
 	KeyID            string `json:"keyId"`
 	Signature        []byte `json:"signature"`
