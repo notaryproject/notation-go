@@ -14,7 +14,7 @@ func TestProvider_Builtin_NewProvider(t *testing.T) {
 		*keyCertPair
 		expectedErr bool
 	}
-	tests := make([]builtinArgs, 0)
+	var tests []builtinArgs
 	for _, keyCert := range keyCertPairCollections {
 		tests = append(tests, builtinArgs{
 			keyCert,
@@ -56,8 +56,7 @@ func TestProvider_Builtin_NewProvider(t *testing.T) {
 	}
 }
 
-type customerCommand struct {
-}
+type customerCommand struct{}
 
 func (customerCommand) Command() plugin.Command {
 	return "customer"

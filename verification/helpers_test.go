@@ -48,6 +48,9 @@ func TestLoadPolicyDocument(t *testing.T) {
 	// existing invalid json file
 	path := filepath.Join(t.TempDir(), "invalid.json")
 	err = ioutil.WriteFile(path, []byte(`{"invalid`), 0644)
+	if err != nil {
+		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
+	}
 	_, err = loadPolicyDocument(path)
 	if err == nil {
 		t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
@@ -58,6 +61,9 @@ func TestLoadPolicyDocument(t *testing.T) {
 	policyDoc1 := dummyPolicyDocument()
 	policyJson, _ := json.Marshal(policyDoc1)
 	err = ioutil.WriteFile(path, policyJson, 0644)
+	if err != nil {
+		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
+	}
 	_, err = loadPolicyDocument(path)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
@@ -76,6 +82,9 @@ func TestLoadX509TrustStore(t *testing.T) {
 		),
 	}
 	caTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509, &dummyPolicy, path)
+	if err != nil {
+		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
+	}
 	saTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509SigningAuthority, &dummyPolicy, path)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
