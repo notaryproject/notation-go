@@ -224,7 +224,7 @@ func WithPluginConfig(ctx context.Context, config map[string]string) context.Con
 }
 
 // getPluginConfig used to retrieve the config from the context.
-func getPluginConfig(ctx context.Context, config map[string]string) map[string]string {
+func getPluginConfig(ctx context.Context) map[string]string {
 	config, ok := ctx.Value(pluginConfigCtxKey{}).(map[string]string)
 	if !ok {
 		return nil

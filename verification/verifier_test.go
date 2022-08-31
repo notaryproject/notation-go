@@ -14,6 +14,9 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/registry"
+
+	_ "github.com/notaryproject/notation-core-go/signature/cose"
+	_ "github.com/notaryproject/notation-core-go/signature/jws"
 )
 
 func verifyResult(outcome *SignatureVerificationOutcome, expectedResult VerificationResult, expectedErr error, t *testing.T) {
@@ -255,7 +258,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository()
 		repo.GetResponse = invalidSigEnv
-		expectedErr := fmt.Errorf("signature is invalid. Error: illegal base64 data at input byte 242")
+		expectedErr := fmt.Errorf("payload error: illegal base64 data at input byte 242")
 		testCases = append(testCases, testCase{
 			verificationType:  Integrity,
 			verificationLevel: level,
@@ -443,7 +446,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -467,7 +470,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Reason:  "i feel like failing today",
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -490,7 +493,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -514,7 +517,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Reason:  "i feel like failing today",
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -540,7 +543,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -583,7 +586,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
-	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "verification plugin \"plugin-name\" returned unexpected response : \"invalid plugin response\"" {
 		t.Fatalf("verification should fail when the verification plugin returns unexpected response. error : %v", outcomes[0].Error)
 	}
@@ -597,7 +599,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{}, // exclude the critical attribute
+		ProcessedAttributes: []string{VerificationPlugin}, // exclude the critical attribute
 	}
 
 	verifier = Verifier{
@@ -616,7 +618,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{

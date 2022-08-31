@@ -41,9 +41,6 @@ var (
 )
 
 var (
-	validMetaDataWithSigningCapabilityFunc = func(ctx context.Context, req plugin.Request) (interface{}, error) {
-		return &validMetadata, nil
-	}
 	validMetaDataWithEnvelopeGeneratorCapabilityFunc = func(ctx context.Context, req plugin.Request) (interface{}, error) {
 		metaData := validMetadata
 		metaData.Capabilities = []plugin.Capability{plugin.CapabilityEnvelopeGenerator}

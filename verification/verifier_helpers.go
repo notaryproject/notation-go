@@ -37,7 +37,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 	sigPayload, signerInfo, err := sigEnv.Verify()
 	if err != nil {
 		switch err.(type) {
-		case *signature.SignatureNotFoundError, *signature.MalformedSignatureError, *signature.SignatureIntegrityError:
+		case *signature.SignatureEnvelopeNotFoundError, *signature.MalformedSignatureError, *signature.SignatureIntegrityError:
 			return nil, nil, &VerificationResult{
 				Success: false,
 				Error:   err,
@@ -260,13 +260,11 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 
 	signature := plugin.Signature{
 		CriticalAttributes: plugin.CriticalAttributes{
-			ContentType:                  payloadInfo.ContentType,
-			SigningScheme:                string(signerInfo.SignedAttributes.SigningScheme),
-			Expiry:                       &signerInfo.SignedAttributes.Expiry,
-			AuthenticSigningTime:         authenticSigningTime,
-			VerificationPlugin:           GetVerificationPlugin(signerInfo),
-			VerificationPluginMinVersion: GetVerificationPluginMinVersion(signerInfo),
-			ExtendedAttributes:           extendedAttributes,
+			ContentType:          payloadInfo.ContentType,
+			SigningScheme:        string(signerInfo.SignedAttributes.SigningScheme),
+			Expiry:               &signerInfo.SignedAttributes.Expiry,
+			AuthenticSigningTime: authenticSigningTime,
+			ExtendedAttributes:   extendedAttributes,
 		},
 		UnprocessedAttributes: attributesToProcess,
 		CertificateChain:      certChain,
@@ -277,12 +275,11 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 		SignatureVerification: capabilitiesToVerify,
 	}
 
-	pluginConfig := map[string]string{}
 	request := &plugin.VerifySignatureRequest{
 		ContractVersion: plugin.ContractVersion,
 		Signature:       signature,
 		TrustPolicy:     policy,
-		PluginConfig:    getPluginConfig(ctx, pluginConfig),
+		PluginConfig:    getPluginConfig(ctx),
 	}
 	pluginRunner, err := v.PluginManager.Runner(verificationPluginName)
 	if err != nil {
