@@ -126,9 +126,6 @@ type DescribeKeyResponse struct {
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 	KeySpec string `json:"keySpec"`
-
-	// Ordered list of certificates starting with leaf certificate
-	// and ending with root certificate.
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
