@@ -1,12 +1,10 @@
 package mock
 
 import (
-	_ "embed"
-	nsigner "github.com/notaryproject/notation-core-go/signer"
-)
-
-import (
 	"context"
+	_ "embed"
+
+	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
@@ -54,7 +52,7 @@ var (
 		Size:        100,
 		Annotations: Annotations,
 	}
-	PluginExtendedCriticalAttribute = nsigner.Attribute{
+	PluginExtendedCriticalAttribute = signature.Attribute{
 		Key:      "SomeKey",
 		Critical: true,
 		Value:    "SomeValue",
@@ -93,7 +91,7 @@ func (t Repository) GetBlob(ctx context.Context, digest digest.Digest) ([]byte, 
 	return t.GetResponse, t.GetError
 }
 
-func (t Repository) PutSignatureManifest(ctx context.Context, signature []byte, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, registry.SignatureManifest, error) {
+func (t Repository) PutSignatureManifest(ctx context.Context, signature []byte, signatureMediaType string, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, registry.SignatureManifest, error) {
 	return notation.Descriptor{}, registry.SignatureManifest{}, nil
 }
 

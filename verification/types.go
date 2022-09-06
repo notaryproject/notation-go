@@ -3,7 +3,8 @@ package verification
 import (
 	"context"
 	"fmt"
-	nsigner "github.com/notaryproject/notation-core-go/signer"
+
+	"github.com/notaryproject/notation-core-go/signature"
 )
 
 // TrustStorePrefix is an enum for trust store prefixes supported such as "ca", "signingAuthority"
@@ -32,7 +33,9 @@ type VerificationResult struct {
 // and results for each verification type that was performed
 type SignatureVerificationOutcome struct {
 	// SignerInfo contains the details of the digital signature and associated metadata
-	SignerInfo *nsigner.SignerInfo
+	SignerInfo *signature.SignerInfo
+	// Signature payload contains the payload of an envelope
+	SignaturePayload *signature.Payload
 	// VerificationLevel describes what verification level was used for performing signature verification
 	VerificationLevel *VerificationLevel
 	// VerificationResults contains the verifications performed on the signature and their results
@@ -221,10 +224,18 @@ func WithPluginConfig(ctx context.Context, config map[string]string) context.Con
 }
 
 // getPluginConfig used to retrieve the config from the context.
-func getPluginConfig(ctx context.Context, config map[string]string) map[string]string {
+func getPluginConfig(ctx context.Context) map[string]string {
 	config, ok := ctx.Value(pluginConfigCtxKey{}).(map[string]string)
 	if !ok {
 		return nil
 	}
 	return config
 }
+
+const (
+	// VerificationPlugin specifies the name of the verification plugin that should be used to verify the signature.
+	VerificationPlugin = "io.cncf.notary.verificationPlugin"
+
+	// VerificationPluginMinVersion specifies the minimum version of the verification plugin that should be used to verify the signature.
+	VerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
+)

@@ -3,11 +3,12 @@ package verification
 import (
 	"encoding/json"
 	"fmt"
-	nsigner "github.com/notaryproject/notation-core-go/signer"
-	"github.com/notaryproject/notation-go/dir"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/dir"
 
 	ldapv3 "github.com/go-ldap/ldap/v3"
 )
@@ -26,11 +27,11 @@ func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-func loadX509TrustStores(scheme nsigner.SigningScheme, policy *TrustPolicy, pathManager *dir.PathManager) (map[string]*X509TrustStore, error) {
+func loadX509TrustStores(scheme signature.SigningScheme, policy *TrustPolicy, pathManager *dir.PathManager) (map[string]*X509TrustStore, error) {
 	var prefixToLoad TrustStorePrefix
-	if scheme == nsigner.SigningSchemeX509 {
+	if scheme == signature.SigningSchemeX509 {
 		prefixToLoad = TrustStorePrefixCA
-	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
+	} else if scheme == signature.SigningSchemeX509SigningAuthority {
 		prefixToLoad = TrustStorePrefixSigningAuthority
 	} else {
 		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)

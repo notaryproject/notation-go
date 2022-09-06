@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/plugin"
@@ -123,7 +124,7 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 
 		// artifact digest must match the digest from the signature payload
 		payload := &notation.Payload{}
-		err := json.Unmarshal(outcome.SignerInfo.Payload, payload)
+		err := json.Unmarshal(outcome.SignaturePayload.Content, payload)
 		if err != nil || !artifactDescriptor.Equal(payload.TargetArtifact) {
 			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
 			continue
@@ -140,8 +141,9 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigManifest registry.SignatureManifest, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
 
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
-	signerInfo, integrityResult := v.verifyIntegrity(sigBlob, sigManifest, outcome)
+	sigPayload, signerInfo, integrityResult := v.verifyIntegrity(sigBlob, sigManifest, outcome)
 	outcome.SignerInfo = signerInfo
+	outcome.SignaturePayload = sigPayload
 	outcome.VerificationResults = append(outcome.VerificationResults, integrityResult)
 	if integrityResult.Error != nil {
 		return integrityResult.Error
@@ -149,7 +151,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 
 	// check if we need to verify using a plugin
 	var pluginCapabilities []plugin.Capability
-	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
+	verificationPluginName := GetVerificationPlugin(outcome.SignerInfo)
 	if verificationPluginName != "" {
 		installedPlugin, err := v.PluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
@@ -220,7 +222,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 		}
 
 		if len(capabilitiesToVerify) > 0 {
-			response, err := v.executePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome.SignerInfo)
+			response, err := v.executePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome.SignerInfo, outcome.SignaturePayload)
 			if err != nil {
 				return err
 			}
@@ -232,7 +234,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 }
 
 func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.VerificationCapability, response *plugin.VerifySignatureResponse, outcome *SignatureVerificationOutcome) error {
-	verificationPluginName := outcome.SignerInfo.SignedAttributes.VerificationPlugin
+	verificationPluginName := GetVerificationPlugin(outcome.SignerInfo)
 
 	// verify all extended critical attributes are processed by the plugin
 	for _, attr := range outcome.SignerInfo.SignedAttributes.ExtendedAttributes {
