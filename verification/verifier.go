@@ -151,13 +151,20 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 
 	// check if we need to verify using a plugin
 	var pluginCapabilities []plugin.Capability
-	verificationPluginName := GetVerificationPlugin(outcome.SignerInfo)
-	if verificationPluginName != "" {
+	verificationPluginName, err := getVerificationPlugin(outcome.SignerInfo)
+	// use plugin, but getPluginName returns an error
+	if err != nil && err != errExtendedAttributeNotExist {
+		return err
+	}
+	if err == nil {
 		installedPlugin, err := v.PluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
 			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}
 
+		if _, err := getVerificationPluginMinVersion(signerInfo); err != nil && err != errExtendedAttributeNotExist {
+			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
+		}
 		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
 		// https://github.com/notaryproject/notation-go/issues/102
 
@@ -234,8 +241,10 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 }
 
 func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.VerificationCapability, response *plugin.VerifySignatureResponse, outcome *SignatureVerificationOutcome) error {
-	verificationPluginName := GetVerificationPlugin(outcome.SignerInfo)
-
+	verificationPluginName, err := getVerificationPlugin(outcome.SignerInfo)
+	if err != nil {
+		return err
+	}
 	// verify all extended critical attributes are processed by the plugin
 	for _, attr := range outcome.SignerInfo.SignedAttributes.ExtendedAttributes {
 		if attr.Critical {
