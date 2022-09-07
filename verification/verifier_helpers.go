@@ -3,7 +3,9 @@ package verification
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +14,10 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/registry"
 )
+
+var errExtendedAttributeNotExist = errors.New("Extended attribute not exist")
+
+var semVerRegEx = regexp.MustCompile("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$")
 
 // isCriticalFailure checks whether a VerificationResult fails the entire signature verification workflow.
 // signature verification workflow is considered failed if there is a VerificationResult with "Enforced" as the action but the result was unsuccessful
@@ -235,7 +241,10 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 }
 
 func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, signerInfo *signature.SignerInfo, payloadInfo *signature.Payload) (*plugin.VerifySignatureResponse, error) {
-	verificationPluginName := GetVerificationPlugin(signerInfo)
+	verificationPluginName, err := getVerificationPlugin(signerInfo)
+	if err != nil {
+		return nil, err
+	}
 	var attributesToProcess []string
 	extendedAttributes := make(map[string]interface{})
 
@@ -298,20 +307,49 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	return response, nil
 }
 
-func GetVerificationPlugin(signerInfo *signature.SignerInfo) string {
-	if verificationPlugin, err := signerInfo.ExtendedAttribute(VerificationPlugin); err == nil {
-		if name, ok := verificationPlugin.Value.(string); ok {
-			return name
-		}
+// extractCriticalStringExtendedAttribute extracts a critical string Extended attribute from a signer
+func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, key string) (string, error) {
+	attr, err := signerInfo.ExtendedAttribute(key)
+	// not exist
+	if err != nil {
+		return "", errExtendedAttributeNotExist
 	}
-	return ""
+	// not critical
+	if !attr.Critical {
+		return "", fmt.Errorf("%v is not a critical Extended attribute", key)
+	}
+	// not string
+	val, ok := attr.Value.(string)
+	if !ok {
+		return "", fmt.Errorf("%v from Extended attribute is not a string", key)
+	}
+	return val, nil
 }
 
-func GetVerificationPluginMinVersion(signerInfo *signature.SignerInfo) string {
-	if verificationPluginVersion, err := signerInfo.ExtendedAttribute(VerificationPluginMinVersion); err == nil {
-		if version, ok := verificationPluginVersion.Value.(string); ok {
-			return version
-		}
+// getVerificationPlugin get plugin name from the Extended attributes
+func getVerificationPlugin(signerInfo *signature.SignerInfo) (string, error) {
+	name, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPlugin)
+	if err != nil {
+		return "", err
 	}
-	return ""
+	// not an empty string
+	if strings.TrimSpace(name) == "" {
+		return "", fmt.Errorf("%v from Extended attribute is an empty string", VerificationPlugin)
+	}
+	return name, nil
+}
+
+func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, error) {
+	version, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPluginMinVersion)
+	if err != nil {
+		return "", err
+	}
+	// empty version
+	if strings.TrimSpace(version) == "" {
+		return "", fmt.Errorf("%v from Extended attribute is an empty string", VerificationPluginMinVersion)
+	}
+	if !semVerRegEx.MatchString(version) {
+		return "", fmt.Errorf("%v from Extended attribute is not a is not valid SemVer", VerificationPluginMinVersion)
+	}
+	return version, nil
 }
