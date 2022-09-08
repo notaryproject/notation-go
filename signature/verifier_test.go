@@ -3,9 +3,11 @@ package signature
 import (
 	"context"
 	"crypto/x509"
+	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 )
 
@@ -15,36 +17,29 @@ func TestVerifierInterface(t *testing.T) {
 	}
 }
 
-func TestVerifyWithCertChain(t *testing.T) {
-	// sign with key
-	key, cert, err := generateKeyCertPair()
+func testVerifierFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir string) {
+	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, envelopeType, dir)
 	if err != nil {
-		t.Fatalf("generateKeyCertPair() error = %v", err)
+		t.Fatalf("prepare key cert file failed: %v", err)
 	}
-	s, err := NewSigner(key, cert)
+	s, err := NewSignerFromFiles(keyPath, certPath, envelopeType)
 	if err != nil {
-		t.Fatalf("NewSigner() error = %v", err)
+		t.Fatalf("NewSignerFromFiles() failed: %v", err)
 	}
-
-	ctx := context.Background()
-	desc, sOpts := generateSigningContent(nil)
-	sig, err := s.Sign(ctx, desc, sOpts)
+	desc, opts := generateSigningContent(nil)
+	sig, err := s.Sign(context.Background(), desc, opts)
 	if err != nil {
-		t.Fatalf("Sign() error = %v", err)
+		t.Fatalf("Sign() failed: %v", err)
 	}
-
 	// verify signature
-	v := NewVerifier()
-	var vOpts notation.VerifyOptions
-
-	// should fail if nothing is trusted
-	if _, err := v.Verify(ctx, sig, vOpts); err == nil {
-		t.Errorf("Verify() error = %v, wantErr %v", err, true)
+	v, err := NewVerifierFromFiles([]string{certPath})
+	if err != nil {
+		t.Fatalf("NewVerifierFromFiles() failed: %v", err)
 	}
-
-	// verify again with certificate trusted
-	v.TrustedCerts = []*x509.Certificate{cert[len(cert)-1]}
-	got, err := v.Verify(ctx, sig, vOpts)
+	vOpts := notation.VerifyOptions{
+		SignatureMediaType: envelopeType,
+	}
+	got, err := v.Verify(context.Background(), sig, vOpts)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
@@ -54,6 +49,63 @@ func TestVerifyWithCertChain(t *testing.T) {
 	if !reflect.DeepEqual(got, desc) {
 		t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
 	}
+}
+
+func TestNewVerifierFromFile(t *testing.T) {
+	dir := t.TempDir()
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				testVerifierFromFile(t, keyCert, envelopeType, dir)
+			})
+		}
+	}
+}
+
+func TestVerifyWithCertChain(t *testing.T) {
+	// sign with key
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
+				if err != nil {
+					t.Fatalf("NewSigner() error = %v", err)
+				}
+
+				ctx := context.Background()
+				desc, sOpts := generateSigningContent(nil)
+				sig, err := s.Sign(ctx, desc, sOpts)
+				if err != nil {
+					t.Fatalf("Sign() error = %v", err)
+				}
+
+				// verify signature
+				v := NewVerifier()
+				vOpts := notation.VerifyOptions{
+					SignatureMediaType: envelopeType,
+				}
+
+				// should fail if nothing is trusted
+				if _, err := v.Verify(ctx, sig, vOpts); err == nil {
+					t.Errorf("Verify() error = %v, wantErr %v", err, true)
+				}
+
+				// verify again with certificate trusted
+				v.TrustedCerts = []*x509.Certificate{keyCert.certs[len(keyCert.certs)-1]}
+				got, err := v.Verify(ctx, sig, vOpts)
+				if err != nil {
+					t.Fatalf("Verify() error = %v", err)
+				}
+				if !got.Equal(desc) {
+					t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
+				}
+				if !reflect.DeepEqual(got, desc) {
+					t.Errorf("Verify() Descriptor = %v, want %v", got, desc)
+				}
+			})
+		}
+	}
+
 }
 
 func TestVerifyWithTimestamp(t *testing.T) {
