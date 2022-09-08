@@ -3,8 +3,6 @@ package plugin
 import (
 	"context"
 	"time"
-
-	"github.com/notaryproject/notation-core-go/signer"
 )
 
 // Prefix is the prefix required on all plugin binary names.
@@ -127,17 +125,18 @@ type DescribeKeyResponse struct {
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec signer.KeySpec `json:"keySpec"`
+	KeySpec string `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a generate-signature request.
+// do we still need keyspec and hash?
 type GenerateSignatureRequest struct {
-	ContractVersion string               `json:"contractVersion"`
-	KeyID           string               `json:"keyId"`
-	KeySpec         signer.KeySpec       `json:"keySpec"`
-	Hash            signer.HashAlgorithm `json:"hashAlgorithm"`
-	Payload         []byte               `json:"payload"`
-	PluginConfig    map[string]string    `json:"pluginConfig,omitempty"`
+	ContractVersion string            `json:"contractVersion"`
+	KeyID           string            `json:"keyId"`
+	Payload         []byte            `json:"payload"`
+	KeySpec         string            `json:"keySpec"`
+	Hash            string            `json:"hashAlgorithm"`
+	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
 }
 
 func (GenerateSignatureRequest) Command() Command {
@@ -146,9 +145,9 @@ func (GenerateSignatureRequest) Command() Command {
 
 // GenerateSignatureResponse is the response of a generate-signature request.
 type GenerateSignatureResponse struct {
-	KeyID            string                    `json:"keyId"`
-	Signature        []byte                    `json:"signature"`
-	SigningAlgorithm signer.SignatureAlgorithm `json:"signingAlgorithm"`
+	KeyID            string `json:"keyId"`
+	Signature        []byte `json:"signature"`
+	SigningAlgorithm string `json:"signingAlgorithm"`
 
 	// Ordered list of certificates starting with leaf certificate
 	// and ending with root certificate.
@@ -194,13 +193,11 @@ type Signature struct {
 // CriticalAttributes contains all Notary V2 defined critical
 // attributes and their values in the signature envelope
 type CriticalAttributes struct {
-	ContentType                  string                 `json:"contentType"`
-	SigningScheme                string                 `json:"signingScheme"`
-	Expiry                       *time.Time             `json:"expiry,omitempty"`
-	AuthenticSigningTime         *time.Time             `json:"authenticSigningTime,omitempty"`
-	VerificationPlugin           string                 `json:"verificationPlugin,omitempty"`
-	VerificationPluginMinVersion string                 `json:"verificationPluginMinVersion,omitempty"`
-	ExtendedAttributes           map[string]interface{} `json:"extendedAttributes,omitempty"`
+	ContentType          string                 `json:"contentType"`
+	SigningScheme        string                 `json:"signingScheme"`
+	Expiry               *time.Time             `json:"expiry,omitempty"`
+	AuthenticSigningTime *time.Time             `json:"authenticSigningTime,omitempty"`
+	ExtendedAttributes   map[string]interface{} `json:"extendedAttributes,omitempty"`
 }
 
 // TrustPolicy represents trusted identities that sign the artifacts
