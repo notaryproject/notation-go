@@ -38,8 +38,13 @@ func NewRootedFS(root string, fsys fs.FS) RootedFS {
 // UnionDirFS is a simple union directory file system interface
 type UnionDirFS interface {
 	fs.ReadDirFS
+
 	// GetPath returns the path of the named file or directory under the FS
 	GetPath(elem ...string) (string, error)
+
+	// ListAllPath returns all available paths of the named file or directory
+	// under the FS
+	ListAllPath(elem ...string) []string
 }
 
 // NewUnionDirFS create an unionDirFS by rootedFS
@@ -109,6 +114,22 @@ func (u unionDirFS) GetPath(elem ...string) (string, error) {
 		Err:  fs.ErrNotExist,
 		Path: pathSuffix,
 	}
+}
+
+// ListAllPath returns all available paths of the named file or directory under
+// the unionDirFS u
+//
+// if path doesn't exist, the result would be empty.
+func (u unionDirFS) ListAllPath(elem ...string) []string {
+	pathSuffix := path.Join(elem...)
+	var paths []string
+	for _, dir := range u.Dirs {
+		_, err := fs.Stat(dir, pathSuffix)
+		if err == nil {
+			paths = append(paths, filepath.Join(dir.Root(), pathSuffix))
+		}
+	}
+	return paths
 }
 
 // ReadDir implements the ReadDirFS interface
