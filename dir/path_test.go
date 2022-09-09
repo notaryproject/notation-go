@@ -119,6 +119,153 @@ func TestX509TrustStoreCerts(t *testing.T) {
 	}
 }
 
+func TestConfigForWrite(t *testing.T) {
+	config := PathManager{
+		UserConfigFS: unionDirFS{
+			Dirs: []RootedFS{
+				NewRootedFS(
+					"/user/exampleuser/.config/notation",
+					fstest.MapFS{},
+				),
+			},
+		},
+		SystemConfigFS: unionDirFS{
+			Dirs: []RootedFS{
+				NewRootedFS(
+					"/etc/notation",
+					fstest.MapFS{},
+				),
+			},
+		},
+	}
+	type args struct {
+		WriteLevel WriteLevel
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "config path for write in user level",
+			args:    args{UserLevel},
+			want:    "/user/exampleuser/.config/notation/config.json",
+			wantErr: false,
+		},
+		{
+			name:    "config path for write in system level",
+			args:    args{SystemLevel},
+			want:    "/etc/notation/config.json",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := config.ConfigForWrite(tt.args.WriteLevel)
+			assertPathEqual(t, tt.want, got, "config path for write error.")
+		})
+	}
+}
+
+func TestTrustStoreForWrite(t *testing.T) {
+	config := PathManager{
+		UserConfigFS: unionDirFS{
+			Dirs: []RootedFS{
+				NewRootedFS(
+					"/user/exampleuser/.config/notation",
+					fstest.MapFS{},
+				),
+			},
+		},
+		SystemConfigFS: unionDirFS{
+			Dirs: []RootedFS{
+				NewRootedFS(
+					"/etc/notation",
+					fstest.MapFS{},
+				),
+			},
+		},
+	}
+	type args struct {
+		WriteLevel WriteLevel
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "trust store path for write in user level",
+			args:    args{UserLevel},
+			want:    "/user/exampleuser/.config/notation/truststore/x509/ca/jj",
+			wantErr: false,
+		},
+		{
+			name:    "trust store path for write in system level",
+			args:    args{SystemLevel},
+			want:    "/etc/notation/truststore/x509/ca/jj",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := config.X509TrustStoreForWrite(tt.args.WriteLevel, "ca", "jj")
+			assertPathEqual(t, tt.want, got, "config path for write error.")
+		})
+	}
+}
+
+func TestTrustPolicyForWrite(t *testing.T) {
+	config := PathManager{
+		UserConfigFS: unionDirFS{
+			Dirs: []RootedFS{
+				NewRootedFS(
+					"/user/exampleuser/.config/notation",
+					fstest.MapFS{},
+				),
+			},
+		},
+		SystemConfigFS: unionDirFS{
+			Dirs: []RootedFS{
+				NewRootedFS(
+					"/etc/notation",
+					fstest.MapFS{},
+				),
+			},
+		},
+	}
+	type args struct {
+		WriteLevel WriteLevel
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "trust policy path for write in user level",
+			args:    args{UserLevel},
+			want:    "/user/exampleuser/.config/notation/trustpolicy.json",
+			wantErr: false,
+		},
+		{
+			name:    "trust policy path for write in system level",
+			args:    args{SystemLevel},
+			want:    "/etc/notation/trustpolicy.json",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := config.TrustPolicyForWrite(tt.args.WriteLevel)
+			assertPathEqual(t, tt.want, got, "config path for write error.")
+		})
+	}
+}
+
 func TestPathManager_Config(t *testing.T) {
 	path := &PathManager{
 		ConfigFS: NewUnionDirFS(
