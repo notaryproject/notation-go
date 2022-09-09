@@ -117,7 +117,7 @@ func (u unionDirFS) GetPath(elem ...string) (string, error) {
 }
 
 // ListAllPath returns all available paths of the named file or directory under
-// the unionDirFS u
+// the unionDirFS
 //
 // if path doesn't exist, the result would be empty.
 func (u unionDirFS) ListAllPath(elem ...string) []string {
