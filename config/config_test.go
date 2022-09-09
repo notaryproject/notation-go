@@ -4,8 +4,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
-
-	"github.com/notaryproject/notation-go/dir"
 )
 
 const (
@@ -32,10 +30,6 @@ var sampleConfig = &Config{
 }
 
 func TestLoadFile(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		ConfigPath = dir.Path.Config()
-	})
 	type args struct {
 		filePath string
 	}
@@ -60,8 +54,7 @@ func TestLoadFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ConfigPath = tt.args.filePath
-			got, err := LoadConfig()
+			got, err := LoadConfig(tt.args.filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("loadFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -74,13 +67,9 @@ func TestLoadFile(t *testing.T) {
 }
 
 func TestSaveFile(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		ConfigPath = dir.Path.Config()
-	})
 	root := t.TempDir()
-	ConfigPath = filepath.Join(root, "config.json")
-	sampleConfig.Save()
+	configPath := filepath.Join(root, "config.json")
+	sampleConfig.Save(configPath)
 	config, err := LoadConfig()
 	if err != nil {
 		t.Fatal("Load config file from temp dir failed")

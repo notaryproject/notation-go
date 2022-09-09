@@ -4,21 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-
-	"github.com/notaryproject/notation-go/dir"
 )
-
-var (
-	// ConfigPath is the path for config.json
-	ConfigPath string
-	// SigningKeysPath is the path for signingkeys.json
-	SigningKeysPath string
-)
-
-func init() {
-	ConfigPath = dir.Path.Config()
-	SigningKeysPath = dir.Path.SigningKeyConfig()
-}
 
 // save stores the cfg struct to file
 func save(filePath string, cfg interface{}) error {

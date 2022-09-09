@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"io/fs"
+
+	"github.com/notaryproject/notation-go/dir"
 )
 
 // X509KeyPair contains the paths of a public/private key pair files.
@@ -27,7 +29,7 @@ type KeySuite struct {
 	*ExternalKey
 }
 
-// Is checks whether the given name is equal with the Name variable
+// Is checks whether the given name is equal with the Name variable.
 func (k KeySuite) Is(name string) bool {
 	return k.Name == name
 }
@@ -38,21 +40,36 @@ type SigningKeys struct {
 	Keys    []KeySuite `json:"keys"`
 }
 
-// Save config to file
-func (s *SigningKeys) Save() error {
-	return save(SigningKeysPath, s)
+// Save config to file.
+//
+// if `path` is not set, it uses build-in user level signingkey.json directory.
+func (s *SigningKeys) Save(path ...string) error {
+	if len(path) > 0 {
+		return save(path[0], s)
+	}
+	return save(dir.Path.SigningKeyConfig(), s)
 }
 
-// NewSigningKeys creates a new signingkeys config file
+// NewSigningKeys creates a new signingkeys config file.
 func NewSigningKeys() *SigningKeys {
 	return &SigningKeys{Keys: []KeySuite{}}
 }
 
 // LoadSigningKeys reads the config from file
 // or return a default config if not found.
-func LoadSigningKeys() (*SigningKeys, error) {
-	var config SigningKeys
-	err := load(SigningKeysPath, &config)
+//
+// if `path` is not set, it uses build-in user level signingkey.json directory.
+func LoadSigningKeys(path ...string) (*SigningKeys, error) {
+	var (
+		err    error
+		config SigningKeys
+	)
+	if len(path) > 0 {
+		err = load(path[0], &config)
+	} else {
+		err = load(dir.Path.SigningKeyConfig(), &config)
+	}
+
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewSigningKeys(), nil
