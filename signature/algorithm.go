@@ -6,7 +6,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 )
 
-// one of the following key spec name.
+// one of the following supported key spec names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 const (
@@ -18,7 +18,7 @@ const (
 	EC_521   = "EC-521"
 )
 
-// one of the following hash name.
+// one of the following supported hash algorithm names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 const (
@@ -27,7 +27,7 @@ const (
 	SHA_512 = "SHA-512"
 )
 
-// one of the following signing algorithm name.
+// one of the following supported signing algorithm names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
 const (
