@@ -79,7 +79,7 @@ func TestSaveSigningKeys(t *testing.T) {
 	root := t.TempDir()
 	signingKeysPath := filepath.Join(root, "signingkeys.json")
 	sampleSigningKeysInfo.Save(signingKeysPath)
-	info, err := LoadSigningKeys()
+	info, err := LoadSigningKeys(signingKeysPath)
 	if err != nil {
 		t.Fatal("Load signingkeys.json from temp dir failed.")
 	}
