@@ -71,7 +71,7 @@ func TestSaveFile(t *testing.T) {
 	root := t.TempDir()
 	configPath := filepath.Join(root, "config.json")
 	sampleConfig.Save(configPath)
-	config, err := LoadConfig()
+	config, err := LoadConfig(configPath)
 	if err != nil {
 		t.Fatal("Load config file from temp dir failed")
 	}
