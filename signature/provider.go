@@ -10,6 +10,7 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 )
 
+// builtInPluginMetaData is the builtin metadata used by builtinProvider.
 var builtInPluginMetaData = plugin.Metadata{
 	SupportedContractVersions: []string{plugin.ContractVersion},
 	Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
@@ -26,14 +27,14 @@ type provider interface {
 	SetConfig(map[string]string)
 }
 
-// builtinPlugin is a builtin provider implementation.
-//
+// builtinProvider is a builtin provider implementation
+// which wraps the signature.Signature to support builtin signing method.
 // It only supports describe key and metadata command.
-// It wraps signature.Signature to support builtin signing method.
 type builtinProvider struct {
 	signature.LocalSigner
 }
 
+// newBuiltinProvider creates a builtinProvider to support local signing.
 func newBuiltinProvider(key crypto.PrivateKey, certChain []*x509.Certificate) (provider, error) {
 	builtinSigner, err := signature.NewLocalSigner(certChain, key)
 	if err != nil {
@@ -44,6 +45,7 @@ func newBuiltinProvider(key crypto.PrivateKey, certChain []*x509.Certificate) (p
 	}, nil
 }
 
+// metadata provides metadata for builtinProvider.
 func (*builtinProvider) metadata() *plugin.Metadata {
 	// The only properties that are really relevant
 	// are the supported contract version and the capabilities.
@@ -51,14 +53,12 @@ func (*builtinProvider) metadata() *plugin.Metadata {
 	return &builtInPluginMetaData
 }
 
-// SetConfig set config when signing.
-func (*builtinProvider) SetConfig(map[string]string) {
+// SetConfig sets config when signing.
+func (*builtinProvider) SetConfig(map[string]string) {}
 
-}
-
-// Run implement the plugin workflow.
+// Run implements the plugin workflow.
 //
-// builtinProvider only support metadata and describe key.
+// builtinProvider only supports metadata and describe key.
 func (p *builtinProvider) Run(_ context.Context, req plugin.Request) (interface{}, error) {
 	switch req.Command() {
 	case plugin.CommandGetMetadata:
@@ -75,10 +75,10 @@ func (p *builtinProvider) Run(_ context.Context, req plugin.Request) (interface{
 	}
 }
 
-// externalProvider is a external provider implementation which will interact with plugin.
+// externalProvider is an external provider implementation which will interact with plugin.
 // It supports all plugin commands.
 //
-// The detail implementation depends on the real plugin.
+// The detail implementation depends on the underlying plugin.
 //
 // It wraps a signature.Signature to support external signing.
 type externalProvider struct {
@@ -96,12 +96,12 @@ func newExternalProvider(runner plugin.Runner, keyID string) provider {
 	}
 }
 
-// SetConfig setups config used by signing.
+// SetConfig sets up config used by signing.
 func (p *externalProvider) SetConfig(cfg map[string]string) {
 	p.config = cfg
 }
 
-// describeKey invokes plugin's DescribleKey command.
+// describeKey invokes plugin's DescribeKey command.
 func (p *externalProvider) describeKey(ctx context.Context) (*plugin.DescribeKeyResponse, error) {
 	req := &plugin.DescribeKeyRequest{
 		ContractVersion: plugin.ContractVersion,
@@ -119,7 +119,7 @@ func (p *externalProvider) describeKey(ctx context.Context) (*plugin.DescribeKey
 	return resp, nil
 }
 
-// Sign sign the digest by calling the underlying plugin.
+// Sign signs the digest by calling the underlying plugin.
 func (p *externalProvider) Sign(payload []byte) ([]byte, []*x509.Certificate, error) {
 	// Execute plugin sign command.
 	keySpec, err := p.KeySpec()
@@ -157,7 +157,7 @@ func (p *externalProvider) Sign(payload []byte) ([]byte, []*x509.Certificate, er
 	return resp.Signature, certs, nil
 }
 
-// KeySpec returns the keySpec of a keyID by calling describleKey and do some keySpec validation.
+// KeySpec returns the keySpec of a keyID by calling describeKey and do some keySpec validation.
 func (p *externalProvider) KeySpec() (signature.KeySpec, error) {
 	if p.keySpec != InvalidKeySpec {
 		return p.keySpec, nil
