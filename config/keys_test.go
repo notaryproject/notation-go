@@ -4,8 +4,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
-
-	"github.com/notaryproject/notation-go/dir"
 )
 
 const (
@@ -44,10 +42,6 @@ var sampleSigningKeysInfo = &SigningKeys{
 }
 
 func TestLoadSigningKeysInfo(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		SigningKeysPath = dir.Path.SigningKeyConfig()
-	})
 	type args struct {
 		filePath string
 	}
@@ -69,8 +63,7 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			SigningKeysPath = tt.args.filePath
-			got, err := LoadSigningKeys()
+			got, err := LoadSigningKeys(tt.args.filePath)
 			if err != nil {
 				t.Errorf("LoadSigningKeysInfo() error = %v", err)
 				return
@@ -83,13 +76,9 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 }
 
 func TestSaveSigningKeys(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		SigningKeysPath = dir.Path.SigningKeyConfig()
-	})
 	root := t.TempDir()
-	SigningKeysPath = filepath.Join(root, "signingkeys.json")
-	sampleSigningKeysInfo.Save()
+	signingKeysPath := filepath.Join(root, "signingkeys.json")
+	sampleSigningKeysInfo.Save(signingKeysPath)
 	info, err := LoadSigningKeys()
 	if err != nil {
 		t.Fatal("Load signingkeys.json from temp dir failed.")
