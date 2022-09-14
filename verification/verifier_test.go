@@ -258,7 +258,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository()
 		repo.GetResponse = invalidSigEnv
-		expectedErr := fmt.Errorf("payload error: illegal base64 data at input byte 242")
+		expectedErr := fmt.Errorf("signature is invalid. Error: illegal base64 data at input byte 242")
 		testCases = append(testCases, testCase{
 			verificationType:  Integrity,
 			verificationLevel: level,

@@ -25,7 +25,6 @@ func init() {
 	validCoseSignatureEnvelope, _ = msg.MarshalCBOR()
 }
 
-// func setU
 const invalidMediaType = "invalid"
 
 func checkErrorEqual(expected, got error) bool {
