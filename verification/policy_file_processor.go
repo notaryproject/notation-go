@@ -11,10 +11,14 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-var trustPolicyPath string
+var (
+	trustPolicyPath         string
+	trustPolicyPathForWrite string
+)
 
 func init() {
 	trustPolicyPath = dir.Path.TrustPolicy()
+	trustPolicyPathForWrite = dir.Path.TrustPolicyForWrite(dir.UserLevel)
 }
 
 // PolicyDocumentOperation provides functions to manipulate TrustPolicies
@@ -39,24 +43,24 @@ type PolicyDocumentOperation interface {
 	DeletePolicies(names []string) error
 }
 
-// AddPolices adds given policies to the PolicyDocument.
+// AddPolicies adds given policies to the PolicyDocument.
 // It will not add any new policies if some policy fails to be added.
 func (pd *PolicyDocument) AddPolicies(policies []*TrustPolicy) error {
-	existingPolices := pd.getNameToPolicyMap()
+	existingPolicies := pd.getNameToPolicyMap()
 
 	for _, trustPolicy := range policies {
 		if err := validatePolicy(trustPolicy); err != nil {
 			return err
 		}
-		if _, exist := existingPolices[trustPolicy.Name]; exist {
+		if _, exist := existingPolicies[trustPolicy.Name]; exist {
 			return ErrorPolicyNameExists{
 				Msg: fmt.Sprintf("%s already exists", trustPolicy.Name),
 			}
 		}
-		existingPolices[trustPolicy.Name] = trustPolicy
+		existingPolicies[trustPolicy.Name] = trustPolicy
 	}
 
-	pd.overwritePolicies(existingPolices)
+	pd.overwritePolicies(existingPolicies)
 	return pd.save()
 }
 
@@ -113,14 +117,14 @@ func isMatchedScope(scopes []string, matchingScope string) bool {
 // UpdatePolicy updates existing policy with given new policy.
 // Notes: new policy only contains fields that need to be updated.
 func (pd *PolicyDocument) UpdatePolicy(policy *TrustPolicy) error {
-	existingPolices := pd.getNameToPolicyMap()
+	existingPolicies := pd.getNameToPolicyMap()
 
-	if _, exist := existingPolices[policy.Name]; !exist {
+	if _, exist := existingPolicies[policy.Name]; !exist {
 		return ErrorPolicyNotExists{
 			Msg: fmt.Sprintf("%s not exists.", policy.Name),
 		}
 	}
-	mergedPolicy := mergePolicy(existingPolices[policy.Name], policy)
+	mergedPolicy := mergePolicy(existingPolicies[policy.Name], policy)
 
 	return pd.updatePolicies([]*TrustPolicy{mergedPolicy})
 }
@@ -128,15 +132,15 @@ func (pd *PolicyDocument) UpdatePolicy(policy *TrustPolicy) error {
 // UpdatePolicies updates existing policies with given new policies.
 // Notes: new policies only contain fields that need to be updated.
 func (pd *PolicyDocument) UpdatePolicies(policies []*TrustPolicy) error {
-	existingPolices := pd.getNameToPolicyMap()
+	existingPolicies := pd.getNameToPolicyMap()
 
 	for idx, policy := range policies {
-		if _, exist := existingPolices[policy.Name]; !exist {
+		if _, exist := existingPolicies[policy.Name]; !exist {
 			return ErrorPolicyNotExists{
 				Msg: fmt.Sprintf("%s not exists.", policy.Name),
 			}
 		}
-		policies[idx] = mergePolicy(existingPolices[policy.Name], policy)
+		policies[idx] = mergePolicy(existingPolicies[policy.Name], policy)
 	}
 
 	return pd.updatePolicies(policies)
@@ -145,56 +149,56 @@ func (pd *PolicyDocument) UpdatePolicies(policies []*TrustPolicy) error {
 // updatePolicies updates existing policies by replacing them with given
 // policies of the same name.
 func (pd *PolicyDocument) updatePolicies(policies []*TrustPolicy) error {
-	existingPolices := pd.getNameToPolicyMap()
+	existingPolicies := pd.getNameToPolicyMap()
 
 	for _, policy := range policies {
 		if err := validatePolicy(policy); err != nil {
 			return err
 		}
-		existingPolices[policy.Name] = policy
+		existingPolicies[policy.Name] = policy
 	}
 
-	pd.overwritePolicies(existingPolices)
+	pd.overwritePolicies(existingPolicies)
 	return pd.save()
 }
 
 // DeletePolicies deletes specified policies from the PolicyDocument.
 func (pd *PolicyDocument) DeletePolicies(names []string) error {
-	existingPolices := pd.getNameToPolicyMap()
+	existingPolicies := pd.getNameToPolicyMap()
 	uniqueNames := make(map[string]struct{})
 	for _, name := range names {
 		uniqueNames[name] = struct{}{}
 	}
 
 	for name, _ := range uniqueNames {
-		if _, exist := existingPolices[name]; !exist {
+		if _, exist := existingPolicies[name]; !exist {
 			return ErrorPolicyNotExists{
 				Msg: fmt.Sprintf("Policy %s does not exist", name),
 			}
 		}
-		delete(existingPolices, name)
+		delete(existingPolicies, name)
 	}
 	// return error if all policies are deleted.
-	if len(existingPolices) == 0 {
+	if len(existingPolicies) == 0 {
 		return errors.New("illegal to delete all policies")
 	}
 
-	pd.overwritePolicies(existingPolices)
+	pd.overwritePolicies(existingPolicies)
 	return pd.save()
 }
 
 // getPolicies returns required policies by names.
 func (pd *PolicyDocument) getPolicies(names []string) ([]*TrustPolicy, error) {
-	existingPolices := pd.getNameToPolicyMap()
+	existingPolicies := pd.getNameToPolicyMap()
 	var policies []*TrustPolicy
 
 	for _, name := range names {
-		if _, ok := existingPolices[name]; !ok {
+		if _, ok := existingPolicies[name]; !ok {
 			return nil, ErrorPolicyNotExists{
 				Msg: fmt.Sprintf("%s not exists.", name),
 			}
 		}
-		policies = append(policies, existingPolices[name])
+		policies = append(policies, existingPolicies[name])
 	}
 
 	return policies, nil
@@ -219,11 +223,11 @@ func LoadDefaultPolicyDocument() (*PolicyDocument, error) {
 // save stores the trust policy to file.
 // TODO: move to config submodule.
 func (c *PolicyDocument) save() error {
-	dir := filepath.Dir(trustPolicyPath)
+	dir := filepath.Dir(trustPolicyPathForWrite)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
-	file, err := os.Create(trustPolicyPath)
+	file, err := os.Create(trustPolicyPathForWrite)
 	if err != nil {
 		return err
 	}
@@ -244,9 +248,9 @@ func (pd *PolicyDocument) getNameToPolicyMap() map[string]*TrustPolicy {
 
 // overwritePolicies replaces TrustPolicies of PolicyDocument with the given
 // policies.
-func (pd *PolicyDocument) overwritePolicies(newPolices map[string]*TrustPolicy) {
-	policies := make([]TrustPolicy, 0, len(newPolices))
-	for _, policy := range newPolices {
+func (pd *PolicyDocument) overwritePolicies(newPolicies map[string]*TrustPolicy) {
+	policies := make([]TrustPolicy, 0, len(newPolicies))
+	for _, policy := range newPolicies {
 		policies = append(policies, *policy)
 	}
 	pd.TrustPolicies = policies
