@@ -325,7 +325,7 @@ func mergePolicy(base *TrustPolicy, override *TrustPolicy) *TrustPolicy {
 		policy.SignatureVerification.Level = override.SignatureVerification.Level
 	}
 	if override.SignatureVerification.Override != nil {
-		policy.SignatureVerification.Override = override.SignatureVerification.Override
+		mergeMaps(policy.SignatureVerification.Override, override.SignatureVerification.Override)
 	}
 	if len(override.TrustStores) > 0 {
 		policy.TrustStores = override.TrustStores
@@ -335,4 +335,14 @@ func mergePolicy(base *TrustPolicy, override *TrustPolicy) *TrustPolicy {
 	}
 
 	return policy
+}
+
+func mergeMaps(base, override map[string]string) {
+	if base == nil {
+		base = make(map[string]string)
+	}
+	
+	for k, v := range override {
+		base[k] = v
+	}
 }
