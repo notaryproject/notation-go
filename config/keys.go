@@ -42,12 +42,13 @@ type SigningKeys struct {
 
 // Save config to file.
 //
-// if `path` is not set, it uses build-in user level signingkey.json directory.
-func (s *SigningKeys) Save(path ...string) error {
-	if len(path) > 0 {
-		return save(path[0], s)
+// if `path` is an empty string, it uses build-in user level signingkey.json directory.
+func (s *SigningKeys) Save(path string) error {
+	// set default path
+	if path == "" {
+		path = dir.Path.SigningKeyConfig()
 	}
-	return save(dir.Path.SigningKeyConfig(), s)
+	return save(path, s)
 }
 
 // NewSigningKeys creates a new signingkeys config file.
@@ -58,18 +59,16 @@ func NewSigningKeys() *SigningKeys {
 // LoadSigningKeys reads the config from file
 // or return a default config if not found.
 //
-// if `path` is not set, it uses build-in user level signingkey.json directory.
-func LoadSigningKeys(path ...string) (*SigningKeys, error) {
-	var (
-		err    error
-		config SigningKeys
-	)
-	if len(path) > 0 {
-		err = load(path[0], &config)
-	} else {
-		err = load(dir.Path.SigningKeyConfig(), &config)
+// if `path` is an empty string, it uses build-in user level signingkey.json directory.
+func LoadSigningKeys(path string) (*SigningKeys, error) {
+	// set default path
+	if path == "" {
+		path = dir.Path.SigningKeyConfig()
 	}
 
+	// load signingkeys config
+	var config SigningKeys
+	err := load(path, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewSigningKeys(), nil
