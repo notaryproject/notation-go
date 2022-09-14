@@ -42,7 +42,7 @@ type SigningKeys struct {
 
 // Save config to file.
 //
-// if `path` is an empty string, it uses build-in user level signingkey.json directory.
+// if `path` is an empty string, it uses built-in user level signingkey.json directory.
 func (s *SigningKeys) Save(path string) error {
 	// set default path
 	if path == "" {
@@ -59,7 +59,7 @@ func NewSigningKeys() *SigningKeys {
 // LoadSigningKeys reads the config from file
 // or return a default config if not found.
 //
-// if `path` is an empty string, it uses build-in user level signingkey.json directory.
+// if `path` is an empty string, it uses built-in user level signingkey.json directory.
 func LoadSigningKeys(path string) (*SigningKeys, error) {
 	// set default path
 	if path == "" {

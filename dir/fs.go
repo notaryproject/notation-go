@@ -142,7 +142,7 @@ func (u unionDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
 
 // PluginFS returns the UnionDirFS for notation plugins
 // if dirs is set, use dirs as the directories for plugins
-// if dirs is not set, use build-in directory structure for plugins
+// if dirs is not set, use built-in directory structure for plugins
 func PluginFS(dirs ...string) UnionDirFS {
 	var rootedFsys []RootedFS
 	if len(dirs) == 0 {

@@ -43,7 +43,7 @@ func NewConfig() *Config {
 
 // Save stores the config to file.
 //
-// if the `path` is an empty string, it uses build-in user level config directory.
+// if the `path` is an empty string, it uses built-in user level config directory.
 func (c *Config) Save(path string) error {
 	// set default path
 	if path == "" {
@@ -54,7 +54,7 @@ func (c *Config) Save(path string) error {
 
 // LoadConfig reads the config from file or return a default config if not found.
 //
-// if `path` is an empty string, it uses build-in config.json directory, including
+// if `path` is an empty string, it uses built-in config.json directory, including
 // user level and system level.
 func LoadConfig(path string) (*Config, error) {
 	// set default path
