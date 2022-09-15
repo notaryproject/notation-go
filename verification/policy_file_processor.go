@@ -13,19 +13,26 @@ import (
 
 var (
 	trustPolicyPath         string
-	trustPolicyPathForWrite string
+	trustPolicyPathForWriteUserLevel string
+	trustPolicyPathForWriteSystemLevel string
+	trustPolicyPaths map[dir.WriteLevel]string
 )
 
 func init() {
 	trustPolicyPath = dir.Path.TrustPolicy()
-	trustPolicyPathForWrite = dir.Path.TrustPolicyForWrite(dir.UserLevel)
+	trustPolicyPathForWriteUserLevel = dir.Path.TrustPolicyForWrite(dir.UserLevel)
+	trustPolicyPathForWriteSystemLevel = dir.Path.TrustPolicyForWrite(dir.SystemLevel)
+	trustPolicyPaths = map[dir.WriteLevel]string{
+		dir.UserLevel: trustPolicyPathForWriteUserLevel,
+		dir.SystemLevel: trustPolicyPathForWriteSystemLevel,
+	}
 }
 
 // PolicyDocumentOperation provides functions to manipulate TrustPolicies
 // within a PolicyDocument.
 type PolicyDocumentOperation interface {
 	// AddPolicies adds given policies to the PolicyDocument.
-	AddPolicies(policies []*TrustPolicy) error
+	AddPolicies(policies []*TrustPolicy, writeLevel dir.WriteLevel) error
 
 	// GetPolicy returns the required policy.
 	GetPolicy(policyName string) (*TrustPolicy, error)
@@ -37,15 +44,15 @@ type PolicyDocumentOperation interface {
 	ListPoliciesWithinScope(scope string) []*TrustPolicy
 
 	// UpdatePolicies updates given policies within the PolicyDocument.
-	UpdatePolicies(policies []*TrustPolicy) error
+	UpdatePolicies(policies []*TrustPolicy, writeLevel dir.WriteLevel) error
 
 	// DeletePolicies deletes given policies from the PolicyDocument.
-	DeletePolicies(names []string) error
+	DeletePolicies(names []string, writeLevel dir.WriteLevel) error
 }
 
 // AddPolicies adds given policies to the PolicyDocument.
 // It will not add any new policies if some policy fails to be added.
-func (pd *PolicyDocument) AddPolicies(policies []*TrustPolicy) error {
+func (pd *PolicyDocument) AddPolicies(policies []*TrustPolicy, writeLevel dir.WriteLevel) error {
 	existingPolicies := pd.getNameToPolicyMap()
 
 	for _, trustPolicy := range policies {
@@ -61,7 +68,7 @@ func (pd *PolicyDocument) AddPolicies(policies []*TrustPolicy) error {
 	}
 
 	pd.overwritePolicies(existingPolicies)
-	return pd.save()
+	return pd.save(writeLevel)
 }
 
 // GetPolicy returns the policy of the specified name.
@@ -116,7 +123,7 @@ func isMatchedScope(scopes []string, matchingScope string) bool {
 
 // UpdatePolicy updates existing policy with given new policy.
 // Notes: new policy only contains fields that need to be updated.
-func (pd *PolicyDocument) UpdatePolicy(policy *TrustPolicy) error {
+func (pd *PolicyDocument) UpdatePolicy(policy *TrustPolicy, writeLevel dir.WriteLevel) error {
 	existingPolicies := pd.getNameToPolicyMap()
 
 	if _, exist := existingPolicies[policy.Name]; !exist {
@@ -126,12 +133,12 @@ func (pd *PolicyDocument) UpdatePolicy(policy *TrustPolicy) error {
 	}
 	mergedPolicy := mergePolicy(existingPolicies[policy.Name], policy)
 
-	return pd.updatePolicies([]*TrustPolicy{mergedPolicy})
+	return pd.updatePolicies([]*TrustPolicy{mergedPolicy}, writeLevel)
 }
 
 // UpdatePolicies updates existing policies with given new policies.
 // Notes: new policies only contain fields that need to be updated.
-func (pd *PolicyDocument) UpdatePolicies(policies []*TrustPolicy) error {
+func (pd *PolicyDocument) UpdatePolicies(policies []*TrustPolicy, writeLevel dir.WriteLevel) error {
 	existingPolicies := pd.getNameToPolicyMap()
 
 	for idx, policy := range policies {
@@ -143,12 +150,12 @@ func (pd *PolicyDocument) UpdatePolicies(policies []*TrustPolicy) error {
 		policies[idx] = mergePolicy(existingPolicies[policy.Name], policy)
 	}
 
-	return pd.updatePolicies(policies)
+	return pd.updatePolicies(policies, writeLevel)
 }
 
 // updatePolicies updates existing policies by replacing them with given
 // policies of the same name.
-func (pd *PolicyDocument) updatePolicies(policies []*TrustPolicy) error {
+func (pd *PolicyDocument) updatePolicies(policies []*TrustPolicy, writeLevel dir.WriteLevel) error {
 	existingPolicies := pd.getNameToPolicyMap()
 
 	for _, policy := range policies {
@@ -159,11 +166,11 @@ func (pd *PolicyDocument) updatePolicies(policies []*TrustPolicy) error {
 	}
 
 	pd.overwritePolicies(existingPolicies)
-	return pd.save()
+	return pd.save(writeLevel)
 }
 
 // DeletePolicies deletes specified policies from the PolicyDocument.
-func (pd *PolicyDocument) DeletePolicies(names []string) error {
+func (pd *PolicyDocument) DeletePolicies(names []string, writeLevel dir.WriteLevel) error {
 	existingPolicies := pd.getNameToPolicyMap()
 	uniqueNames := make(map[string]struct{})
 	for _, name := range names {
@@ -184,7 +191,7 @@ func (pd *PolicyDocument) DeletePolicies(names []string) error {
 	}
 
 	pd.overwritePolicies(existingPolicies)
-	return pd.save()
+	return pd.save(writeLevel)
 }
 
 // getPolicies returns required policies by names.
@@ -222,7 +229,11 @@ func LoadDefaultPolicyDocument() (*PolicyDocument, error) {
 
 // save stores the trust policy to file.
 // TODO: move to config submodule.
-func (c *PolicyDocument) save() error {
+func (c *PolicyDocument) save(writeLevel dir.WriteLevel) error {
+	trustPolicyPathForWrite, ok := trustPolicyPaths[writeLevel]
+	if !ok {
+		return fmt.Errorf("invalid write level: %q", writeLevel)
+	}
 	dir := filepath.Dir(trustPolicyPathForWrite)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
@@ -292,11 +303,15 @@ func extractPolicyVersion(policyBytes []byte) (string, error) {
 	if err := json.Unmarshal(policyBytes, &policy); err != nil {
 		return "", err
 	}
-	version, ok := policy["version"]
+	versionStr, ok := policy["version"]
 	if !ok {
 		return "", errors.New("version is not specified")
 	}
-	return version.(string), nil
+	version, ok := versionStr.(string)
+	if !ok {
+		return "", errors.New("version must be a string type")
+	}
+	return version, nil
 }
 
 // ParseTrustPolicies creates policies from the given bytes of specified version.
