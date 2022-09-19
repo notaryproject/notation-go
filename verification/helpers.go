@@ -2,12 +2,8 @@ package verification
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -179,40 +175,4 @@ func isSubsetDN(dn1 map[string]string, dn2 map[string]string) bool {
 		}
 	}
 	return true
-}
-
-// Copy the src file to dst. Existing file will be overwritten.
-func copy(src, dst string) (int64, error) {
-	sourceFileStat, err := os.Stat(src)
-	if err != nil {
-		return 0, err
-	}
-
-	if !sourceFileStat.Mode().IsRegular() {
-		return 0, fmt.Errorf("%s is not a regular file", src)
-	}
-
-	source, err := os.Open(src)
-	if err != nil {
-		return 0, err
-	}
-	defer source.Close()
-
-	if err := os.MkdirAll(dst, 0700); err != nil {
-		return 0, err
-	}
-	certFile := filepath.Join(dst, filepath.Base(src))
-	destination, err := os.Create(certFile)
-	if err != nil {
-		return 0, err
-	}
-	defer destination.Close()
-	return io.Copy(destination, source)
-}
-
-func checkError(err error) error {
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	return nil
 }
