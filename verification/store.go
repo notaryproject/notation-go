@@ -2,12 +2,15 @@ package verification
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
+	"github.com/notaryproject/notation-go/dir"
 )
 
 // X509TrustStore provide the members and behavior for a named trust store
@@ -74,4 +77,45 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 	trustStore.Path = path
 
 	return &trustStore, nil
+}
+
+// AddCertToTrustStore adds a single cert file at path to the User level trust store
+// under dir truststore/x509/storeType/namedStore
+func AddCertToTrustStore(path, storeType, namedStore string) error {
+	// initialize
+	certPath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	storeType = strings.TrimSpace(storeType)
+	if storeType == "" {
+		return errors.New("store type cannot be empty or contain only whitespaces")
+	}
+	namedStore = strings.TrimSpace(namedStore)
+	if namedStore == "" {
+		return errors.New("named store cannot be empty or contain only whitespaces")
+	}
+
+	// check if the target path is a cert (support PEM and DER formats)
+	if _, err := corex509.ReadCertificateFile(certPath); err != nil {
+		return err
+	}
+
+	// core process
+	// get User level trust store path
+	trustStorePath, err := dir.Path.UserConfigFS.GetPath(dir.TrustStoreDir, "x509", storeType, namedStore)
+	if err := checkError(err); err != nil {
+		return err
+	}
+	// check if certificate already in the trust store
+	if _, err := os.Stat(filepath.Join(trustStorePath, filepath.Base(certPath))); err == nil {
+		return errors.New("certificate already exists in the Trust Store")
+	}
+	// add cert to trust store
+	_, err = copy(certPath, trustStorePath)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
