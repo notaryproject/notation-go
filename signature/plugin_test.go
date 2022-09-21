@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
-
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
+	gcose "github.com/veraison/go-cose"
 )
 
 const unsupported = "unsupported"
@@ -31,8 +32,10 @@ var (
 	}
 	validSignDescriptor, validSignOpts = generateSigningContent(nil)
 	invalidJwsEnvelope, _              = json.Marshal(struct{}{})
+	invalidCoseEnvelope, _             = gcose.NewSign1Message().MarshalCBOR()
 	envelopeTypeToData                 = map[string][]byte{
-		jws.MediaTypeEnvelope: invalidJwsEnvelope,
+		jws.MediaTypeEnvelope:  invalidJwsEnvelope,
+		cose.MediaTypeEnvelope: invalidCoseEnvelope,
 	}
 	invalidSignatureEnvelope = []byte("invalid")
 )

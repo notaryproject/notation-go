@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
 )
@@ -26,16 +25,13 @@ type pluginSigner struct {
 // by delegating the one or more operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
+func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string, envelopeMediaType string) (notation.Signer, error) {
 	if runner == nil {
 		return nil, errors.New("nil plugin runner")
 	}
 	if keyID == "" {
 		return nil, errors.New("nil signing keyID")
 	}
-
-	// TODO: pass media type as a parameter.
-	envelopeMediaType := jws.MediaTypeEnvelope
 	if err := ValidateEnvelopeMediaType(envelopeMediaType); err != nil {
 		return nil, err
 	}
