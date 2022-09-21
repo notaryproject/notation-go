@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	nsigner "github.com/notaryproject/notation-core-go/signer"
+	"strconv"
+	"testing"
+
+	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/registry"
-	"strconv"
-	"testing"
+
+	// _ "github.com/notaryproject/notation-core-go/signature/cose"
+	_ "github.com/notaryproject/notation-core-go/signature/jws"
 )
 
 func verifyResult(outcome *SignatureVerificationOutcome, expectedResult VerificationResult, expectedErr error, t *testing.T) {
@@ -182,20 +186,20 @@ func TestRegistryGetBlobError(t *testing.T) {
 }
 
 func TestNotationVerificationCombinations(t *testing.T) {
-	assertNotationVerification(t, nsigner.SigningSchemeX509)
-	assertNotationVerification(t, nsigner.SigningSchemeX509SigningAuthority)
+	assertNotationVerification(t, signature.SigningSchemeX509)
+	assertNotationVerification(t, signature.SigningSchemeX509SigningAuthority)
 }
 
-func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
+func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 	var validSigEnv []byte
 	var invalidSigEnv []byte
 	var expiredSigEnv []byte
 
-	if scheme == nsigner.SigningSchemeX509 {
+	if scheme == signature.SigningSchemeX509 {
 		validSigEnv = mock.MockCaValidSigEnv
 		invalidSigEnv = mock.MockCaInvalidSigEnv
 		expiredSigEnv = mock.MockCaExpiredSigEnv
-	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
+	} else if scheme == signature.SigningSchemeX509SigningAuthority {
 		validSigEnv = mock.MockSaValidSigEnv
 		invalidSigEnv = mock.MockSaInvalidSigEnv
 		expiredSigEnv = mock.MockSaExpiredSigEnv
@@ -382,15 +386,15 @@ func assertNotationVerification(t *testing.T, scheme nsigner.SigningScheme) {
 }
 
 func TestVerificationPluginInteractions(t *testing.T) {
-	assertPluginVerification(nsigner.SigningSchemeX509, t)
-	assertPluginVerification(nsigner.SigningSchemeX509SigningAuthority, t)
+	assertPluginVerification(signature.SigningSchemeX509, t)
+	assertPluginVerification(signature.SigningSchemeX509SigningAuthority, t)
 }
 
-func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
+func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	var pluginSigEnv []byte
-	if scheme == nsigner.SigningSchemeX509 {
+	if scheme == signature.SigningSchemeX509 {
 		pluginSigEnv = mock.MockCaPluginSigEnv
-	} else if scheme == nsigner.SigningSchemeX509SigningAuthority {
+	} else if scheme == signature.SigningSchemeX509SigningAuthority {
 		pluginSigEnv = mock.MockSaPluginSigEnv
 	}
 
@@ -442,7 +446,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -466,7 +470,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 				Reason:  "i feel like failing today",
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -489,7 +493,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -513,7 +517,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 				Reason:  "i feel like failing today",
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -539,7 +543,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
@@ -582,7 +586,6 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
-	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "verification plugin \"plugin-name\" returned unexpected response : \"invalid plugin response\"" {
 		t.Fatalf("verification should fail when the verification plugin returns unexpected response. error : %v", outcomes[0].Error)
 	}
@@ -596,7 +599,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []string{}, // exclude the critical attribute
+		ProcessedAttributes: []string{VerificationPlugin}, // exclude the critical attribute
 	}
 
 	verifier = Verifier{
@@ -615,7 +618,7 @@ func assertPluginVerification(scheme nsigner.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{},
-		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key},
+		ProcessedAttributes: []string{mock.PluginExtendedCriticalAttribute.Key, VerificationPlugin},
 	}
 
 	verifier = Verifier{
