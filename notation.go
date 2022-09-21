@@ -9,8 +9,13 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-// SigningAgent is the unprotected header field used by signature
-const SigningAgent = "Notation/1.0.0"
+const (
+	// SigningAgent is the unprotected header field used by signature.
+	SigningAgent = "Notation/1.0.0"
+
+	// MediaTypePayloadV1 is the supported content type for signature's payload.
+	MediaTypePayloadV1 = "application/vnd.cncf.notary.payload.v1+json"
+)
 
 // Descriptor describes the artifact that needs to be signed.
 type Descriptor struct {

@@ -43,7 +43,7 @@ func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string
 	}, nil
 }
 
-// Sign signs the artifact described by its descriptor and returns the marshalled envelope
+// Sign signs the artifact described by its descriptor and returns the marshalled envelope.
 func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
@@ -119,7 +119,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	s.sigProvider.SetConfig(config)
 	signReq := &signature.SignRequest{
 		Payload: signature.Payload{
-			ContentType: signature.MediaTypePayloadV1,
+			ContentType: notation.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
 		Signer:                   s.sigProvider,
@@ -144,9 +144,12 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		return nil, err
 	}
 
-	_, _, verErr := sigEnv.Verify()
+	envContent, verErr := sigEnv.Verify()
 	if verErr != nil {
 		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", verErr)
+	}
+	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+		return nil, err
 	}
 
 	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
@@ -178,7 +181,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		KeyID:                 s.keyID,
 		Payload:               payloadBytes,
 		SignatureEnvelopeType: s.envelopeMediaType,
-		PayloadType:           signature.MediaTypePayloadV1,
+		PayloadType:           notation.MediaTypePayloadV1,
 		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
 	out, err := s.sigProvider.Run(ctx, req)
@@ -203,13 +206,16 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		return nil, err
 	}
 
-	sigPayload, _, err := sigEnv.Verify()
+	envContent, err := sigEnv.Verify()
 	if err != nil {
+		return nil, err
+	}
+	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, err
 	}
 
 	var signedPayload notation.Payload
-	if err = json.Unmarshal(sigPayload.Content, &signedPayload); err != nil {
+	if err = json.Unmarshal(envContent.Payload.Content, &signedPayload); err != nil {
 		return nil, fmt.Errorf("signed envelope payload can't be unmarshaled: %w", err)
 	}
 
