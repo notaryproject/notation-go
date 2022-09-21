@@ -32,7 +32,6 @@ func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string
 	if keyID == "" {
 		return nil, errors.New("nil signing keyID")
 	}
-
 	if err := ValidateEnvelopeMediaType(envelopeMediaType); err != nil {
 		return nil, err
 	}

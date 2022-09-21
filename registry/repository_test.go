@@ -28,6 +28,7 @@ const (
 	validDigest7             = "13b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	validDigest8             = "57f2c47061dae97063dc46598168a80a9f89302c1f24fe2a422a1ec0aba3017a"
 	validDigest9             = "023c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b"
+	validDigest10            = "1761e09cad8aa44e48ffb41c78371a6c139bd0df555c90b5d99739b9551c7828"
 	invalidDigest            = "invaliddigest"
 	algo                     = "sha256"
 	validDigestWithAlgo      = algo + ":" + validDigest
@@ -39,6 +40,7 @@ const (
 	validDigestWithAlgo7     = algo + ":" + validDigest7
 	validDigestWithAlgo8     = algo + ":" + validDigest8
 	validDigestWithAlgo9     = algo + ":" + validDigest9
+	validDigestWithAlgo10    = algo + ":" + validDigest10
 	validHost                = "localhost"
 	validRegistry            = validHost + ":5000"
 	invalidHost              = "badhost"
@@ -52,6 +54,7 @@ const (
 	validReference6          = validRegistry + "/" + validRepo + "@" + validDigest6
 	invalidReference         = "invalid reference"
 	joseTag                  = "application/jose+json"
+	coseTag                  = "application/cose"
 	validTimestamp           = "2022-07-29T02:23:10Z"
 	size                     = 104
 	size2                    = 135
@@ -103,14 +106,15 @@ const (
 )
 
 type args struct {
-	ctx             context.Context
-	reference       string
-	remoteClient    remote.Client
-	plainHttp       bool
-	digest          digest.Digest
-	annotations     map[string]string
-	subjectManifest notation.Descriptor
-	signature       []byte
+	ctx                context.Context
+	reference          string
+	remoteClient       remote.Client
+	plainHttp          bool
+	digest             digest.Digest
+	annotations        map[string]string
+	subjectManifest    notation.Descriptor
+	signature          []byte
+	signatureMediaType string
 }
 
 type mockRemoteClient struct {
@@ -253,6 +257,17 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			Header: map[string][]string{
 				"Docker-Content-Digest": {validDigestWithAlgo2},
 				"Content-Type":          {mediaType},
+			},
+		}, nil
+	case "/v2/test/manifests/" + validDigestWithAlgo10:
+		if req.Method == "GET" {
+			return &http.Response{}, fmt.Errorf(msg)
+		}
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       io.NopCloser(bytes.NewReader([]byte(msg))),
+			Header: map[string][]string{
+				"Docker-Content-Digest": {validDigestWithAlgo10},
 			},
 		}, nil
 	case "/v2/test/blobs/uploads/":
@@ -507,7 +522,7 @@ func TestPutSignatureManifest(t *testing.T) {
 			},
 		},
 		{
-			name:      "succeed to put signature manifest",
+			name:      "succeed to put signature manifest with jws media type",
 			expectErr: false,
 			expectDes: notation.Descriptor{
 				MediaType: artifactspec.MediaTypeArtifactManifest,
@@ -531,6 +546,35 @@ func TestPutSignatureManifest(t *testing.T) {
 				annotations: map[string]string{
 					artifactspec.AnnotationArtifactCreated: validTimestamp,
 				},
+				signatureMediaType: joseTag,
+			},
+		},
+		{
+			name:      "succeed to put signature manifest with cose media type",
+			expectErr: false,
+			expectDes: notation.Descriptor{
+				MediaType: artifactspec.MediaTypeArtifactManifest,
+				Digest:    digest.Digest(validDigestWithAlgo10),
+				Size:      364,
+			},
+			expectManifest: SignatureManifest{
+				Annotations: map[string]string{
+					artifactspec.AnnotationArtifactCreated: validTimestamp,
+				},
+				Blob: notation.Descriptor{
+					MediaType: coseTag,
+					Digest:    validDigestWithAlgo5,
+				},
+			},
+			args: args{
+				reference:    validReference,
+				signature:    make([]byte, 0),
+				ctx:          context.Background(),
+				remoteClient: mockRemoteClient{},
+				annotations: map[string]string{
+					artifactspec.AnnotationArtifactCreated: validTimestamp,
+				},
+				signatureMediaType: coseTag,
 			},
 		},
 	}
@@ -540,7 +584,7 @@ func TestPutSignatureManifest(t *testing.T) {
 			ref, _ := registry.ParseReference(args.reference)
 			client := NewRepositoryClient(args.remoteClient, ref, args.plainHttp)
 
-			des, manifest, err := client.PutSignatureManifest(args.ctx, args.signature, args.subjectManifest, args.annotations)
+			des, manifest, err := client.PutSignatureManifest(args.ctx, args.signature, args.signatureMediaType, args.subjectManifest, args.annotations)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("error = %v, expectErr = %v", err, tt.expectErr)
 			}

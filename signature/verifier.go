@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-core-go/signature/jws"
 	x509n "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 )
@@ -52,8 +51,7 @@ func ValidatePayloadContentType(payload *signature.Payload) error {
 // Verify verifies the signature and returns the verified descriptor and
 // metadata of the signed artifact.
 func (v *Verifier) Verify(_ context.Context, sig []byte, opts notation.VerifyOptions) (notation.Descriptor, error) {
-	// TODO: pass media type as a parameter
-	sigEnv, err := signature.ParseEnvelope(jws.MediaTypeEnvelope, sig)
+	sigEnv, err := signature.ParseEnvelope(opts.SignatureMediaType, sig)
 	if err != nil {
 		return notation.Descriptor{}, err
 	}

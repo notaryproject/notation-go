@@ -91,7 +91,7 @@ func (t Repository) GetBlob(ctx context.Context, digest digest.Digest) ([]byte, 
 	return t.GetResponse, t.GetError
 }
 
-func (t Repository) PutSignatureManifest(ctx context.Context, signature []byte, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, registry.SignatureManifest, error) {
+func (t Repository) PutSignatureManifest(ctx context.Context, signature []byte, signatureMediaType string, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, registry.SignatureManifest, error) {
 	return notation.Descriptor{}, registry.SignatureManifest{}, nil
 }
 
