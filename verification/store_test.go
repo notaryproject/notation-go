@@ -68,7 +68,16 @@ func TestLoadTrustStoreWithLeafCerts(t *testing.T) {
 	path := filepath.FromSlash("testdata/truststore/x509/trust-store-with-leaf-certs")
 	failurePath := filepath.FromSlash("testdata/truststore/x509/trust-store-with-leaf-certs/non-ca.crt")
 	_, err := LoadX509TrustStore(path)
-	if err == nil || err.Error() != fmt.Sprintf("certificate with subject \"CN=lol,OU=lol,O=lol,L=lol,ST=Some-State,C=AU,1.2.840.113549.1.9.1=#13036c6f6c\" from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", failurePath) {
+	if err == nil || err.Error() != fmt.Sprintf("single certificate from %q is not a self-signed certificate or CA certificate", failurePath) {
+		t.Fatalf("leaf cert in a trust store should return error : %q", err)
+	}
+}
+
+func TestLoadTrustStoreWithLeafCertsInSingleFile(t *testing.T) {
+	path := filepath.FromSlash("testdata/truststore/x509/trust-store-with-leaf-certs-in-single-file")
+	failurePath := filepath.FromSlash("testdata/truststore/x509/trust-store-with-leaf-certs-in-single-file/RootAndLeafCerts.crt")
+	_, err := LoadX509TrustStore(path)
+	if err == nil || err.Error() != fmt.Sprintf("certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", failurePath) {
 		t.Fatalf("leaf cert in a trust store should return error : %q", err)
 	}
 }

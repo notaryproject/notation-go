@@ -1,6 +1,7 @@
 package verification
 
 import (
+	"bytes"
 	"crypto/x509"
 	"fmt"
 	"io/fs"
@@ -52,14 +53,8 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 			return nil, fmt.Errorf("error while reading certificates from %q: %w", joinedPath, err)
 		}
 
-		// to prevent any trust store misconfigurations, ensure there is at least one certificate from each file
-		if len(certs) < 1 {
-			return nil, fmt.Errorf("could not parse a certificate from %q, every file in a trust store must have a PEM or DER certificate in it", joinedPath)
-		}
-		for _, cert := range certs {
-			if !cert.IsCA {
-				return nil, fmt.Errorf("certificate with subject %q from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", cert.Subject, joinedPath)
-			}
+		if err := validateCerts(certs, joinedPath); err != nil {
+			return nil, err
 		}
 
 		trustStore.Certificates = append(trustStore.Certificates, certs...)
@@ -74,4 +69,34 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 	trustStore.Path = path
 
 	return &trustStore, nil
+}
+
+func validateCerts(certs []*x509.Certificate, path string) error {
+	// to prevent any trust store misconfigurations, ensure there is at least
+	// one certificate from each file.
+	if len(certs) < 1 {
+		return fmt.Errorf("could not parse a certificate from %q, every file in a trust store must have a PEM or DER certificate in it", path)
+	}
+
+	if len(certs) == 1 {
+		// if there is only one certificate, it must be a self-signed cert or
+		// CA cert.
+		if !isSelfSigned(certs[0]) && !certs[0].IsCA {
+			return fmt.Errorf("single certificate from %q is not a self-signed certificate or CA certificate", path)
+		}
+	} else {
+		// if there are multiple certificates, all of them must be CA certificates.
+		for _, cert := range certs {
+			if !cert.IsCA {
+				return fmt.Errorf("certificate with subject %q from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", cert.Subject, path)
+			}
+		}
+	}
+
+	return nil
+}
+
+func isSelfSigned(cert *x509.Certificate) bool {
+	err := cert.CheckSignatureFrom(cert)
+	return err == nil && bytes.Equal(cert.RawSubject, cert.RawIssuer)
 }
