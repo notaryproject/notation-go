@@ -56,10 +56,9 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 		if len(certs) < 1 {
 			return nil, fmt.Errorf("could not parse a certificate from %q, every file in a trust store must have a PEM or DER certificate in it", joinedPath)
 		}
-		for _, cert := range certs {
-			if !cert.IsCA {
-				return nil, fmt.Errorf("certificate with subject %q from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", cert.Subject, joinedPath)
-			}
+		rootCert := certs[len(certs) - 1]
+		if !rootCert.IsCA {
+			return nil, fmt.Errorf("root certificate with subject %q from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", rootCert.Subject, joinedPath)
 		}
 
 		trustStore.Certificates = append(trustStore.Certificates, certs...)
