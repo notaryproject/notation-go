@@ -9,7 +9,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/oras-project/artifacts-spec v1.0.0-rc.2
-	oras.land/oras-go/v2 v2.0.0-rc.2
+	oras.land/oras-go/v2 v2.0.0-rc.3
 )
 
 require (
