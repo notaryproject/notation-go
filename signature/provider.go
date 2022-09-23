@@ -10,7 +10,7 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 )
 
-// builtInPluginMetaData is the builtin metadata used by builtinProvider.
+// builtInPluginMetaData is the metadata used by builtinProvider.
 var builtInPluginMetaData = plugin.Metadata{
 	SupportedContractVersions: []string{plugin.ContractVersion},
 	Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
@@ -80,7 +80,7 @@ func (p *builtinProvider) Run(_ context.Context, req plugin.Request) (interface{
 //
 // The detail implementation depends on the underlying plugin.
 //
-// It wraps a signature.Signature to support external signing.
+// It wraps a signature.Signer to support external signing.
 type externalProvider struct {
 	plugin.Runner
 	keyID   string
@@ -129,8 +129,8 @@ func (p *externalProvider) Sign(payload []byte) ([]byte, []*x509.Certificate, er
 	req := &plugin.GenerateSignatureRequest{
 		ContractVersion: plugin.ContractVersion,
 		KeyID:           p.keyID,
-		KeySpec:         KeySpecName(keySpec),
-		Hash:            KeySpecHashName(keySpec),
+		KeySpec:         plugin.KeySpecString(keySpec),
+		Hash:            plugin.KeySpecHashString(keySpec),
 		Payload:         payload,
 		PluginConfig:    p.config,
 	}
@@ -159,7 +159,7 @@ func (p *externalProvider) Sign(payload []byte) ([]byte, []*x509.Certificate, er
 
 // KeySpec returns the keySpec of a keyID by calling describeKey and do some keySpec validation.
 func (p *externalProvider) KeySpec() (signature.KeySpec, error) {
-	if p.keySpec != InvalidKeySpec {
+	if p.keySpec != (signature.KeySpec{}) {
 		return p.keySpec, nil
 	}
 	keyResp, err := p.describeKey(context.Background())
@@ -171,6 +171,6 @@ func (p *externalProvider) KeySpec() (signature.KeySpec, error) {
 	if p.keyID != keyResp.KeyID {
 		return signature.KeySpec{}, fmt.Errorf("keyID in describeKey response %q does not match request %q", keyResp.KeyID, p.keyID)
 	}
-	p.keySpec, err = ParseKeySpecFromName(keyResp.KeySpec)
+	p.keySpec, err = plugin.ParseKeySpec(keyResp.KeySpec)
 	return p.keySpec, err
 }
