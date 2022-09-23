@@ -10,7 +10,7 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 )
 
-// builtInPluginMetaData is the builtin metadata used by builtinProvider.
+// builtInPluginMetaData is the metadata used by builtinProvider.
 var builtInPluginMetaData = plugin.Metadata{
 	SupportedContractVersions: []string{plugin.ContractVersion},
 	Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
@@ -24,7 +24,6 @@ var builtInPluginMetaData = plugin.Metadata{
 type provider interface {
 	plugin.Runner
 	signature.Signer
-	SetConfig(map[string]string)
 }
 
 // builtinProvider is a builtin provider implementation
@@ -53,9 +52,6 @@ func (*builtinProvider) metadata() *plugin.Metadata {
 	return &builtInPluginMetaData
 }
 
-// SetConfig sets config when signing.
-func (*builtinProvider) SetConfig(map[string]string) {}
-
 // Run implements the plugin workflow.
 //
 // builtinProvider only supports metadata and describe key.
@@ -80,7 +76,7 @@ func (p *builtinProvider) Run(_ context.Context, req plugin.Request) (interface{
 //
 // The detail implementation depends on the underlying plugin.
 //
-// It wraps a signature.Signature to support external signing.
+// It wraps a signature.Signer to support external signing.
 type externalProvider struct {
 	plugin.Runner
 	keyID   string
@@ -96,27 +92,10 @@ func newExternalProvider(runner plugin.Runner, keyID string) provider {
 	}
 }
 
-// SetConfig sets up config used by signing.
-func (p *externalProvider) SetConfig(cfg map[string]string) {
+// prepareSigning sets up config and keySpec used to sign.
+func (p *externalProvider) prepareSigning(cfg map[string]string, keySpec signature.KeySpec) {
 	p.config = cfg
-}
-
-// describeKey invokes plugin's DescribeKey command.
-func (p *externalProvider) describeKey(ctx context.Context) (*plugin.DescribeKeyResponse, error) {
-	req := &plugin.DescribeKeyRequest{
-		ContractVersion: plugin.ContractVersion,
-		KeyID:           p.keyID,
-		PluginConfig:    p.config,
-	}
-	out, err := p.Run(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("describe-key command failed: %w", err)
-	}
-	resp, ok := out.(*plugin.DescribeKeyResponse)
-	if !ok {
-		return nil, fmt.Errorf("plugin runner returned incorrect describe-key response type '%T'", out)
-	}
-	return resp, nil
+	p.keySpec = keySpec
 }
 
 // Sign signs the digest by calling the underlying plugin.
@@ -129,8 +108,8 @@ func (p *externalProvider) Sign(payload []byte) ([]byte, []*x509.Certificate, er
 	req := &plugin.GenerateSignatureRequest{
 		ContractVersion: plugin.ContractVersion,
 		KeyID:           p.keyID,
-		KeySpec:         KeySpecName(keySpec),
-		Hash:            KeySpecHashName(keySpec),
+		KeySpec:         plugin.KeySpecString(keySpec),
+		Hash:            plugin.KeySpecHashString(keySpec),
 		Payload:         payload,
 		PluginConfig:    p.config,
 	}
@@ -159,18 +138,5 @@ func (p *externalProvider) Sign(payload []byte) ([]byte, []*x509.Certificate, er
 
 // KeySpec returns the keySpec of a keyID by calling describeKey and do some keySpec validation.
 func (p *externalProvider) KeySpec() (signature.KeySpec, error) {
-	if p.keySpec != InvalidKeySpec {
-		return p.keySpec, nil
-	}
-	keyResp, err := p.describeKey(context.Background())
-	if err != nil {
-		return signature.KeySpec{}, err
-	}
-
-	// Check keyID is honored.
-	if p.keyID != keyResp.KeyID {
-		return signature.KeySpec{}, fmt.Errorf("keyID in describeKey response %q does not match request %q", keyResp.KeyID, p.keyID)
-	}
-	p.keySpec, err = ParseKeySpecFromName(keyResp.KeySpec)
-	return p.keySpec, err
+	return p.keySpec, nil
 }

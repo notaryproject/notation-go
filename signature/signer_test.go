@@ -20,6 +20,7 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp/timestamptest"
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -33,7 +34,7 @@ var keyCertPairCollections []*keyCertPair
 
 const testKeyID = "testKeyID"
 
-// setUpKeyCertPairCollections setups all combinations of private key and certificates
+// setUpKeyCertPairCollections setups all combinations of private key and certificates.
 func setUpKeyCertPairCollections() []*keyCertPair {
 	// rsa
 	var keyCertPairs []*keyCertPair
@@ -45,7 +46,7 @@ func setUpKeyCertPairCollections() []*keyCertPair {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
 		keyCertPairs = append(keyCertPairs, &keyCertPair{
-			keySpecName: KeySpecName(keySpec),
+			keySpecName: plugin.KeySpecString(keySpec),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, rsaRoot.Cert},
 		})
@@ -60,7 +61,7 @@ func setUpKeyCertPairCollections() []*keyCertPair {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
 		keyCertPairs = append(keyCertPairs, &keyCertPair{
-			keySpecName: KeySpecName(keySpec),
+			keySpecName: plugin.KeySpecString(keySpec),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, ecdsaRoot.Cert},
 		})
@@ -321,12 +322,15 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 		t.Fatalf("verification failed. error = %v", err)
 	}
 
-	_, sigInfo, vErr := sigEnv.Verify()
+	envContent, vErr := sigEnv.Verify()
 	if vErr != nil {
 		t.Fatalf("verification failed. error = %v", err)
 	}
+	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+		t.Fatalf("verification failed. error = %v", err)
+	}
 
-	trustedCert, err := signature.VerifyAuthenticity(sigInfo, []*x509.Certificate{trust})
+	trustedCert, err := signature.VerifyAuthenticity(&envContent.SignerInfo, []*x509.Certificate{trust})
 
 	if err != nil || !trustedCert.Equal(trust) {
 		t.Fatalf("VerifyAuthenticity failed. error = %v", err)

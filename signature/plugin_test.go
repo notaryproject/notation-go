@@ -15,7 +15,6 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
-
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
 	gcose "github.com/veraison/go-cose"
@@ -38,6 +37,7 @@ var (
 		jws.MediaTypeEnvelope:  invalidJwsEnvelope,
 		cose.MediaTypeEnvelope: invalidCoseEnvelope,
 	}
+	invalidSignatureEnvelope = []byte("invalid")
 )
 
 var (
@@ -180,7 +180,7 @@ func (p *mockProvider) Run(ctx context.Context, req plugin.Request) (interface{}
 		}
 		return &plugin.DescribeKeyResponse{
 			KeyID:   p.keyID,
-			KeySpec: KeySpecName(keySpec),
+			KeySpec: plugin.KeySpecString(keySpec),
 		}, nil
 	case plugin.CommandGenerateSignature:
 		if p.generateSignature != nil {
@@ -202,7 +202,7 @@ func (p *mockProvider) Run(ctx context.Context, req plugin.Request) (interface{}
 		return &plugin.GenerateSignatureResponse{
 			KeyID:            p.keyID,
 			Signature:        sig,
-			SigningAlgorithm: SigningAlgorithmName(keySpec.SignatureAlgorithm()),
+			SigningAlgorithm: plugin.SigningAlgorithmString(keySpec.SignatureAlgorithm()),
 			CertificateChain: certs,
 		}, nil
 	case plugin.CommandGenerateEnvelope:
@@ -488,12 +488,18 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload, signerInfo, err := env.Verify()
+	envContent, err := env.Verify()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if payload.ContentType != signature.MediaTypePayloadV1 {
-		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, signature.MediaTypePayloadV1)
+
+	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+		t.Fatalf("verification failed. error = %v", err)
+	}
+
+	payload, signerInfo := envContent.Payload, envContent.SignerInfo
+	if payload.ContentType != notation.MediaTypePayloadV1 {
+		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, notation.MediaTypePayloadV1)
 	}
 	var gotPayload notation.Payload
 	if err := json.Unmarshal(payload.Content, &gotPayload); err != nil {
@@ -503,7 +509,7 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner) {
 		TargetArtifact: validSignDescriptor,
 	}
 	if !reflect.DeepEqual(expectedPayload, gotPayload) {
-		t.Fatalf("Signer.Sign() descriptor subject changed, expect: %v, got: %v", expectedPayload, *payload)
+		t.Fatalf("Signer.Sign() descriptor subject changed, expect: %v, got: %v", expectedPayload, payload)
 	}
 	if signerInfo.SignedAttributes.SigningScheme != signature.SigningSchemeX509 {
 		t.Fatalf("Signer.Sign() signing scheme changed, expect: %v, got: %v", signerInfo.SignedAttributes.SigningScheme, signature.SigningSchemeX509)
@@ -745,7 +751,7 @@ func TestPluginSigner_SignEnvelope_MalFormedEnvelope(t *testing.T) {
 				sigProvider:       p,
 				envelopeMediaType: envelopeType,
 			}
-			var expectedErr *signature.MalformedSignatureError
+			var expectedErr *signature.InvalidSignatureError
 			if _, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{}); err == nil || !errors.As(err, &expectedErr) {
 				t.Fatalf("Signer.Sign() error = %v, want MalformedSignatureError", err)
 			}
