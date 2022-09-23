@@ -17,7 +17,6 @@ import (
 
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
-	// gcose "github.com/veraison/go-cose"
 )
 
 const unsupported = "unsupported"
@@ -32,11 +31,10 @@ var (
 	}
 	validSignDescriptor, validSignOpts = generateSigningContent(nil)
 	invalidJwsEnvelope, _              = json.Marshal(struct{}{})
-	// invalidCoseEnvelope, _             = gcose.NewSign1Message().MarshalCBOR()
-	envelopeTypeToData = map[string][]byte{
+	envelopeTypeToData                 = map[string][]byte{
 		jws.MediaTypeEnvelope: invalidJwsEnvelope,
-		// cose.MediaTypeEnvelope: invalidCoseEnvelope,
 	}
+	invalidSignatureEnvelope = []byte("invalid")
 )
 
 var (
@@ -179,7 +177,7 @@ func (p *mockProvider) Run(ctx context.Context, req plugin.Request) (interface{}
 		}
 		return &plugin.DescribeKeyResponse{
 			KeyID:   p.keyID,
-			KeySpec: KeySpecName(keySpec),
+			KeySpec: plugin.KeySpecString(keySpec),
 		}, nil
 	case plugin.CommandGenerateSignature:
 		if p.generateSignature != nil {
@@ -201,7 +199,7 @@ func (p *mockProvider) Run(ctx context.Context, req plugin.Request) (interface{}
 		return &plugin.GenerateSignatureResponse{
 			KeyID:            p.keyID,
 			Signature:        sig,
-			SigningAlgorithm: SigningAlgorithmName(keySpec.SignatureAlgorithm()),
+			SigningAlgorithm: plugin.SigningAlgorithmString(keySpec.SignatureAlgorithm()),
 			CertificateChain: certs,
 		}, nil
 	case plugin.CommandGenerateEnvelope:

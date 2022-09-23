@@ -9,12 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/notaryproject/notation-go/plugin"
-
 	"github.com/notaryproject/notation-core-go/signature"
-	sig "github.com/notaryproject/notation-go/signature"
-
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/registry"
+	sig "github.com/notaryproject/notation-go/signature"
 )
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
@@ -331,7 +329,7 @@ func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, ke
 	// not string
 	val, ok := attr.Value.(string)
 	if !ok {
-		return "", fmt.Errorf("%v from Extended attribute is not a string", key)
+		return "", fmt.Errorf("%v from extended attribute is not a string", key)
 	}
 	return val, nil
 }
@@ -344,7 +342,7 @@ func getVerificationPlugin(signerInfo *signature.SignerInfo) (string, error) {
 	}
 	// not an empty string
 	if strings.TrimSpace(name) == "" {
-		return "", fmt.Errorf("%v from Extended attribute is an empty string", VerificationPlugin)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPlugin)
 	}
 	return name, nil
 }
@@ -357,10 +355,10 @@ func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, 
 	}
 	// empty version
 	if strings.TrimSpace(version) == "" {
-		return "", fmt.Errorf("%v from Extended attribute is an empty string", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPluginMinVersion)
 	}
 	if !semVerRegEx.MatchString(version) {
-		return "", fmt.Errorf("%v from Extended attribute is not a is not valid SemVer", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", VerificationPluginMinVersion)
 	}
 	return version, nil
 }

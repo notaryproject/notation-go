@@ -20,6 +20,7 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/crypto/timestamp/timestamptest"
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -45,7 +46,7 @@ func setUpKeyCertPairCollections() []*keyCertPair {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
 		keyCertPairs = append(keyCertPairs, &keyCertPair{
-			keySpecName: KeySpecName(keySpec),
+			keySpecName: plugin.KeySpecString(keySpec),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, rsaRoot.Cert},
 		})
@@ -60,7 +61,7 @@ func setUpKeyCertPairCollections() []*keyCertPair {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
 		keyCertPairs = append(keyCertPairs, &keyCertPair{
-			keySpecName: KeySpecName(keySpec),
+			keySpecName: plugin.KeySpecString(keySpec),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, ecdsaRoot.Cert},
 		})
