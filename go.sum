@@ -8,8 +8,8 @@ github.com/go-ldap/ldap/v3 v3.4.4 h1:qPjipEpt+qDa6SI/h1fzuGWoRUY+qqQ9sOZq67/PYUs
 github.com/go-ldap/ldap/v3 v3.4.4/go.mod h1:fe1MsuN5eJJ1FeLT/LEBVdWfNWKh459R7aXgXtJC+aI=
 github.com/golang-jwt/jwt/v4 v4.4.2 h1:rcc4lwaZgFMCZ5jxF9ABolDcIHdBytAFgqFPbSJQAYs=
 github.com/golang-jwt/jwt/v4 v4.4.2/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=
-github.com/notaryproject/notation-core-go v0.1.0-alpha.3.0.20220921042126-b9264de6f2c9 h1:XX6d8zEwuW+TLzxU1bGJ16fS2w8SWf5udR8Lt6n7+fQ=
-github.com/notaryproject/notation-core-go v0.1.0-alpha.3.0.20220921042126-b9264de6f2c9/go.mod h1:mM4M9wPdu0CGgh8f3wOcu0XMiXwEKWQurjBG4nmqQ4g=
+github.com/notaryproject/notation-core-go v0.1.0-alpha.3.0.20220921054535-009c09a9628e h1:n3wJRhIVbEGg497rtKV3IMaZJv2hFKYHCOtNIOAyLYw=
+github.com/notaryproject/notation-core-go v0.1.0-alpha.3.0.20220921054535-009c09a9628e/go.mod h1:mM4M9wPdu0CGgh8f3wOcu0XMiXwEKWQurjBG4nmqQ4g=
 github.com/opencontainers/distribution-spec/specs-go v0.0.0-20220620172159-4ab4752c3b86 h1:Oumw+lPnO8qNLTY2mrqPJZMoGExLi/0h/DdikoLTXVU=
 github.com/opencontainers/distribution-spec/specs-go v0.0.0-20220620172159-4ab4752c3b86/go.mod h1:aA4vdXRS8E1TG7pLZOz85InHi3BiPdErh8IpJN6E0x4=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
