@@ -22,7 +22,7 @@ func testVerifierFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir 
 	if err != nil {
 		t.Fatalf("prepare key cert file failed: %v", err)
 	}
-	s, err := NewSignerFromFiles(keyPath, certPath, envelopeType)
+	s, err := NewSignerFromFiles(keyPath, certPath)
 	if err != nil {
 		t.Fatalf("NewSignerFromFiles() failed: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestVerifyWithCertChain(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
+				s, err := NewSigner(keyCert.key, keyCert.certs)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}

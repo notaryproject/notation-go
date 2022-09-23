@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
 )
@@ -25,13 +26,16 @@ type pluginSigner struct {
 // by delegating the one or more operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string, envelopeMediaType string) (notation.Signer, error) {
+func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
 	if runner == nil {
 		return nil, errors.New("nil plugin runner")
 	}
 	if keyID == "" {
 		return nil, errors.New("nil signing keyID")
 	}
+
+	// TODO: pass media type as a parameter.
+	envelopeMediaType := jws.MediaTypeEnvelope
 	if err := ValidateEnvelopeMediaType(envelopeMediaType); err != nil {
 		return nil, err
 	}
@@ -115,8 +119,14 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		return nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
 	}
 
-	// Create plugin signature provider
-	s.sigProvider.SetConfig(config)
+	// for external plugin, pass keySpec and config before signing
+	if extProvider, ok := s.sigProvider.(*externalProvider); ok {
+		ks, err := plugin.ParseKeySpec(key.KeySpec)
+		if err != nil {
+			return nil, err
+		}
+		extProvider.prepareSigning(config, ks)
+	}
 	signReq := &signature.SignRequest{
 		Payload: signature.Payload{
 			ContentType: notation.MediaTypePayloadV1,
@@ -125,8 +135,8 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		Signer:                   s.sigProvider,
 		SigningTime:              time.Now(),
 		ExtendedSignedAttributes: nil,
-		SigningAgent:             notation.SigningAgent,
 		SigningScheme:            signature.SigningSchemeX509,
+		SigningAgent:             notation.SigningAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
 	}
 
 	if !opts.Expiry.IsZero() {

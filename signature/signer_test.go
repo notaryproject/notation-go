@@ -118,7 +118,7 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 	if err != nil {
 		t.Fatalf("prepareTestKeyCertFile() failed: %v", err)
 	}
-	s, err := NewSignerFromFiles(keyPath, certPath, envelopeType)
+	s, err := NewSignerFromFiles(keyPath, certPath)
 	if err != nil {
 		t.Fatalf("NewSignerFromFiles() failed: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestSignWithTimestamp(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
+				s, err := NewSigner(keyCert.key, keyCert.certs)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -192,7 +192,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
+				s, err := NewSigner(keyCert.key, keyCert.certs)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -246,7 +246,7 @@ func TestExternalSigner_Sign(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			externalRunner := newMockProvider(keyCert.key, keyCert.certs, testKeyID)
-			s, err := NewSignerPlugin(externalRunner, testKeyID, nil, envelopeType)
+			s, err := NewSignerPlugin(externalRunner, testKeyID, nil)
 			if err != nil {
 				t.Fatalf("NewSigner() error = %v", err)
 			}
@@ -266,7 +266,7 @@ func TestExternalSigner_SignEnvelope(t *testing.T) {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				externalRunner := newMockEnvelopeProvider(keyCert.key, keyCert.certs, testKeyID)
 				p := newExternalProvider(externalRunner, testKeyID)
-				s, err := NewSignerPlugin(p, testKeyID, nil, envelopeType)
+				s, err := NewSignerPlugin(p, testKeyID, nil)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -338,7 +338,7 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 }
 
 func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate) {
-	s, err := NewSigner(key, certs, envelopeType)
+	s, err := NewSigner(key, certs)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}
