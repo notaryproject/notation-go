@@ -13,7 +13,6 @@ import (
 var (
 	validJwsSignatureEnvelope, _ = json.Marshal(struct{}{})
 	validCoseSignatureEnvelope   []byte
-	invalidSignatureEnvelope     = []byte("invalid")
 )
 
 func init() {
@@ -37,45 +36,6 @@ func checkErrorEqual(expected, got error) bool {
 	return false
 }
 
-func TestGuessSignatureEnvelopeFormat(t *testing.T) {
-	tests := []struct {
-		name         string
-		raw          []byte
-		expectedType string
-		expectedErr  error
-	}{
-		{
-			name:         "jws signature media type",
-			raw:          validJwsSignatureEnvelope,
-			expectedType: jws.MediaTypeEnvelope,
-			expectedErr:  nil,
-		},
-		{
-			name:         "cose signature media type",
-			raw:          validCoseSignatureEnvelope,
-			expectedType: cose.MediaTypeEnvelope,
-			expectedErr:  nil,
-		},
-		{
-			name:         "invalid signature media type",
-			raw:          invalidSignatureEnvelope,
-			expectedType: "",
-			expectedErr:  errors.New("unsupported signature format"),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			eType, err := GuessSignatureEnvelopeFormat(tt.raw)
-			if !checkErrorEqual(tt.expectedErr, err) {
-				t.Fatalf("expected guess signature envelope format err: %v, got: %v", tt.expectedErr, err)
-			}
-			if eType != tt.expectedType {
-				t.Fatalf("expected signature envelopeType: %v, got: %v", tt.expectedType, eType)
-			}
-		})
-	}
-}
-
 func TestValidateEnvelopeMediaType(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -95,7 +55,7 @@ func TestValidateEnvelopeMediaType(t *testing.T) {
 		{
 			name:        "invalid media type",
 			mediaType:   invalidMediaType,
-			expectedErr: errors.New("signing mediaTypeEnvelope invalid"),
+			expectedErr: errors.New("invalid envelope media type"),
 		},
 	}
 	for _, tt := range tests {

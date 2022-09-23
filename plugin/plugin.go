@@ -133,9 +133,9 @@ type DescribeKeyResponse struct {
 type GenerateSignatureRequest struct {
 	ContractVersion string            `json:"contractVersion"`
 	KeyID           string            `json:"keyId"`
-	Payload         []byte            `json:"payload"`
 	KeySpec         string            `json:"keySpec"`
 	Hash            string            `json:"hashAlgorithm"`
+	Payload         []byte            `json:"payload"`
 	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
 }
 

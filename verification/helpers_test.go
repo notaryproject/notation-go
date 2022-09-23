@@ -2,7 +2,7 @@ package verification
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -47,7 +47,7 @@ func TestLoadPolicyDocument(t *testing.T) {
 	}
 	// existing invalid json file
 	path := filepath.Join(t.TempDir(), "invalid.json")
-	err = ioutil.WriteFile(path, []byte(`{"invalid`), 0644)
+	err = os.WriteFile(path, []byte(`{"invalid`), 0644)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestLoadPolicyDocument(t *testing.T) {
 	path = filepath.Join(t.TempDir(), "trustpolicy.json")
 	policyDoc1 := dummyPolicyDocument()
 	policyJson, _ := json.Marshal(policyDoc1)
-	err = ioutil.WriteFile(path, policyJson, 0644)
+	err = os.WriteFile(path, policyJson, 0644)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
 	}

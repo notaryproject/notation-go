@@ -1,4 +1,4 @@
-package signature
+package plugin
 
 import (
 	"errors"
@@ -39,11 +39,8 @@ const (
 	RSASSA_PSS_SHA_512 = "RSASSA-PSS-SHA-512"
 )
 
-// InvalidKeySpec is the invalid value of keySpec.
-var InvalidKeySpec = signature.KeySpec{}
-
 // KeySpecName returns the name of a keySpec according to the spec.
-func KeySpecName(k signature.KeySpec) string {
+func KeySpecString(k signature.KeySpec) string {
 	switch k.Type {
 	case signature.KeyTypeEC:
 		switch k.Size {
@@ -68,7 +65,7 @@ func KeySpecName(k signature.KeySpec) string {
 }
 
 // KeySpecHashName returns the name of hash function according to the spec.
-func KeySpecHashName(k signature.KeySpec) string {
+func KeySpecHashString(k signature.KeySpec) string {
 	switch k.Type {
 	case signature.KeyTypeEC:
 		switch k.Size {
@@ -93,7 +90,7 @@ func KeySpecHashName(k signature.KeySpec) string {
 }
 
 // ParseKeySpecFromName parses keySpec name to a signature.keySpec type.
-func ParseKeySpecFromName(raw string) (keySpec signature.KeySpec, err error) {
+func ParseKeySpec(raw string) (keySpec signature.KeySpec, err error) {
 	switch raw {
 	case RSA_2048:
 		keySpec.Size = 2048
@@ -114,14 +111,14 @@ func ParseKeySpecFromName(raw string) (keySpec signature.KeySpec, err error) {
 		keySpec.Size = 521
 		keySpec.Type = signature.KeyTypeEC
 	default:
-		keySpec = InvalidKeySpec
-		err = errors.New("parse KeySpec error, keySpec not supported")
+		keySpec = signature.KeySpec{}
+		err = errors.New("unknown key spec")
 	}
 	return
 }
 
 // SigningAlgorithmName returns the signing algorithm name of an algorithm according to the spec.
-func SigningAlgorithmName(alg signature.Algorithm) string {
+func SigningAlgorithmString(alg signature.Algorithm) string {
 	switch alg {
 	case signature.AlgorithmES256:
 		return ECDSA_SHA_256
@@ -140,7 +137,7 @@ func SigningAlgorithmName(alg signature.Algorithm) string {
 }
 
 // ParseSigningAlgorithFromName parses the signing algorithm name from a given string.
-func ParseSigningAlgorithFromName(raw string) (signature.Algorithm, error) {
+func ParseSigningAlgorithm(raw string) (signature.Algorithm, error) {
 	switch raw {
 	case ECDSA_SHA_256:
 		return signature.AlgorithmES256, nil
@@ -155,5 +152,5 @@ func ParseSigningAlgorithFromName(raw string) (signature.Algorithm, error) {
 	case RSASSA_PSS_SHA_512:
 		return signature.AlgorithmPS512, nil
 	}
-	return 0, errors.New("parse Signing algorithm error, signing algorithm not supported")
+	return 0, errors.New("unknown signing algorithm")
 }
