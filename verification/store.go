@@ -79,7 +79,7 @@ func validateCerts(certs []*x509.Certificate, path string) error {
 
 	for _, cert := range certs {
 		if !cert.IsCA {
-			if err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature); err != nil {
+			if err := cert.CheckSignatureFrom(cert); err != nil {
 				return fmt.Errorf(
 					"certificate with subject %q from file %q is not a CA certificate or self-signed signing certificate",
 					cert.Subject,
