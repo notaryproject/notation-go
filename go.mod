@@ -9,7 +9,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/oras-project/artifacts-spec v1.0.0-rc.2
 	github.com/veraison/go-cose v1.0.0-rc.1.0.20220824135457-9d2fab636b83
-	oras.land/oras-go/v2 v2.0.0-rc.2
+	oras.land/oras-go/v2 v2.0.0-rc.3
 )
 
 require (
