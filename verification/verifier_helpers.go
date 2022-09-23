@@ -9,15 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/notaryproject/notation-go/plugin"
-
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/registry"
+	sig "github.com/notaryproject/notation-go/signature"
 )
 
-var errExtendedAttributeNotExist = errors.New("Extended attribute not exist")
+var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
-var semVerRegEx = regexp.MustCompile("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$")
+var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$`)
 
 // isCriticalFailure checks whether a VerificationResult fails the entire signature verification workflow.
 // signature verification workflow is considered failed if there is a VerificationResult with "Enforced" as the action but the result was unsuccessful
@@ -25,13 +25,11 @@ func isCriticalFailure(result *VerificationResult) bool {
 	return result.Action == Enforced && !result.Success
 }
 
-func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.SignatureManifest, outcome *SignatureVerificationOutcome) (*signature.Payload, *signature.SignerInfo, *VerificationResult) {
+func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.SignatureManifest, outcome *SignatureVerificationOutcome) (*signature.EnvelopeContent, *VerificationResult) {
 	// parse the signature
-	// TODO: this media type is pulled from registry
-	// Do we need to check the media type?
 	sigEnv, err := signature.ParseEnvelope(sigManifest.Blob.MediaType, sigBlob)
 	if err != nil {
-		return nil, nil, &VerificationResult{
+		return nil, &VerificationResult{
 			Success: false,
 			Error:   fmt.Errorf("unable to parse the digital signature, error : %s", err),
 			Type:    Integrity,
@@ -40,11 +38,11 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 	}
 
 	// verify integrity
-	sigPayload, signerInfo, err := sigEnv.Verify()
+	envContent, err := sigEnv.Verify()
 	if err != nil {
 		switch err.(type) {
-		case *signature.SignatureEnvelopeNotFoundError, *signature.MalformedSignatureError, *signature.SignatureIntegrityError:
-			return nil, nil, &VerificationResult{
+		case *signature.SignatureEnvelopeNotFoundError, *signature.InvalidSignatureError, *signature.SignatureIntegrityError:
+			return nil, &VerificationResult{
 				Success: false,
 				Error:   err,
 				Type:    Integrity,
@@ -52,7 +50,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 			}
 		default:
 			// unexpected error
-			return nil, nil, &VerificationResult{
+			return nil, &VerificationResult{
 				Success: false,
 				Error:   ErrorVerificationInconclusive{msg: err.Error()},
 				Type:    Integrity,
@@ -61,8 +59,17 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 		}
 	}
 
+	if err := sig.ValidatePayloadContentType(&envContent.Payload); err != nil {
+		return nil, &VerificationResult{
+			Success: false,
+			Error:   err,
+			Type:    Integrity,
+			Action:  outcome.VerificationLevel.VerificationMap[Integrity],
+		}
+	}
+
 	// integrity has been verified successfully
-	return sigPayload, signerInfo, &VerificationResult{
+	return envContent, &VerificationResult{
 		Success: true,
 		Type:    Integrity,
 		Action:  outcome.VerificationLevel.VerificationMap[Integrity],
@@ -71,7 +78,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 
 func (v *Verifier) verifyAuthenticity(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
 	// verify authenticity
-	trustStores, err := loadX509TrustStores(outcome.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, v.PathManager)
+	trustStores, err := loadX509TrustStores(outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, v.PathManager)
 
 	if err != nil {
 		return &VerificationResult{
@@ -94,7 +101,7 @@ func (v *Verifier) verifyAuthenticity(trustPolicy *TrustPolicy, outcome *Signatu
 			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
 		}
 	}
-	_, err = signature.VerifyAuthenticity(outcome.SignerInfo, trustCerts)
+	_, err = signature.VerifyAuthenticity(&outcome.EnvelopeContent.SignerInfo, trustCerts)
 	if err != nil {
 		switch err.(type) {
 		case *signature.SignatureAuthenticityError:
@@ -122,10 +129,10 @@ func (v *Verifier) verifyAuthenticity(trustPolicy *TrustPolicy, outcome *Signatu
 }
 
 func (v *Verifier) verifyExpiry(outcome *SignatureVerificationOutcome) *VerificationResult {
-	if !outcome.SignerInfo.SignedAttributes.Expiry.IsZero() && !time.Now().Before(outcome.SignerInfo.SignedAttributes.Expiry) {
+	if expiry := outcome.EnvelopeContent.SignerInfo.SignedAttributes.Expiry; !expiry.IsZero() && !time.Now().Before(expiry) {
 		return &VerificationResult{
 			Success: false,
-			Error:   fmt.Errorf("digital signature has expired on %q", outcome.SignerInfo.SignedAttributes.Expiry.Format(time.RFC1123Z)),
+			Error:   fmt.Errorf("digital signature has expired on %q", expiry.Format(time.RFC1123Z)),
 			Type:    Expiry,
 			Action:  outcome.VerificationLevel.VerificationMap[Expiry],
 		}
@@ -142,13 +149,13 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 	invalidTimestamp := false
 	var err error
 
-	if outcome.SignerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
+	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
 		// TODO verify RFC3161 TSA signature if present (not in RC1)
 		// https://github.com/notaryproject/notation-go/issues/78
-		if len(outcome.SignerInfo.UnsignedAttributes.TimestampSignature) == 0 {
+		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
 			// if there is no TSA signature, then every certificate should be valid at the time of verification
 			now := time.Now()
-			for _, cert := range outcome.SignerInfo.CertificateChain {
+			for _, cert := range signerInfo.CertificateChain {
 				if now.Before(cert.NotBefore) {
 					invalidTimestamp = true
 					err = fmt.Errorf("certificate %q is not valid yet, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
@@ -161,11 +168,11 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 				}
 			}
 		}
-	} else if outcome.SignerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
-		authenticSigningTime := outcome.SignerInfo.SignedAttributes.SigningTime
+	} else if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
+		authenticSigningTime := signerInfo.SignedAttributes.SigningTime
 		// TODO use authenticSigningTime from signerInfo
 		// https://github.com/notaryproject/notation-core-go/issues/38
-		for _, cert := range outcome.SignerInfo.CertificateChain {
+		for _, cert := range signerInfo.CertificateChain {
 			if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
 				invalidTimestamp = true
 				err = fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z))
@@ -193,7 +200,7 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 // verifyX509TrustedIdentities verified x509 trusted identities. This functions uses the VerificationResult from x509 trust store verification and modifies it
 func (v *Verifier) verifyX509TrustedIdentities(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome, authenticityResult *VerificationResult) {
 	// verify trusted identities
-	err := verifyX509TrustedIdentities(outcome.SignerInfo.CertificateChain, trustPolicy)
+	err := verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
 	if err != nil {
 		authenticityResult.Success = false
 		authenticityResult.Error = err
@@ -240,7 +247,8 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
 }
 
-func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, signerInfo *signature.SignerInfo, payloadInfo *signature.Payload) (*plugin.VerifySignatureResponse, error) {
+func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, envelopeContent *signature.EnvelopeContent) (*plugin.VerifySignatureResponse, error) {
+	signerInfo, payloadInfo := &envelopeContent.SignerInfo, envelopeContent.Payload
 	verificationPluginName, err := getVerificationPlugin(signerInfo)
 	if err != nil {
 		return nil, err
@@ -307,7 +315,7 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	return response, nil
 }
 
-// extractCriticalStringExtendedAttribute extracts a critical string Extended attribute from a signer
+// extractCriticalStringExtendedAttribute extracts a critical string Extended attribute from a signer.
 func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, key string) (string, error) {
 	attr, err := signerInfo.ExtendedAttribute(key)
 	// not exist
@@ -321,12 +329,12 @@ func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, ke
 	// not string
 	val, ok := attr.Value.(string)
 	if !ok {
-		return "", fmt.Errorf("%v from Extended attribute is not a string", key)
+		return "", fmt.Errorf("%v from extended attribute is not a string", key)
 	}
 	return val, nil
 }
 
-// getVerificationPlugin get plugin name from the Extended attributes
+// getVerificationPlugin get plugin name from the Extended attributes.
 func getVerificationPlugin(signerInfo *signature.SignerInfo) (string, error) {
 	name, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPlugin)
 	if err != nil {
@@ -334,11 +342,12 @@ func getVerificationPlugin(signerInfo *signature.SignerInfo) (string, error) {
 	}
 	// not an empty string
 	if strings.TrimSpace(name) == "" {
-		return "", fmt.Errorf("%v from Extended attribute is an empty string", VerificationPlugin)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPlugin)
 	}
 	return name, nil
 }
 
+// getVerificationPlugin get plugin version from the Extended attributes.
 func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, error) {
 	version, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPluginMinVersion)
 	if err != nil {
@@ -346,10 +355,10 @@ func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, 
 	}
 	// empty version
 	if strings.TrimSpace(version) == "" {
-		return "", fmt.Errorf("%v from Extended attribute is an empty string", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPluginMinVersion)
 	}
 	if !semVerRegEx.MatchString(version) {
-		return "", fmt.Errorf("%v from Extended attribute is not a is not valid SemVer", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", VerificationPluginMinVersion)
 	}
 	return version, nil
 }

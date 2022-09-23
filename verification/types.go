@@ -32,10 +32,8 @@ type VerificationResult struct {
 // SignatureVerificationOutcome encapsulates the SignerInfo (that includes the details of the digital signature)
 // and results for each verification type that was performed
 type SignatureVerificationOutcome struct {
-	// SignerInfo contains the details of the digital signature and associated metadata
-	SignerInfo *signature.SignerInfo
-	// Signature payload contains the payload of an envelope
-	SignaturePayload *signature.Payload
+	// EnvelopeContent contains the details of the digital signature and associated metadata
+	EnvelopeContent *signature.EnvelopeContent
 	// VerificationLevel describes what verification level was used for performing signature verification
 	VerificationLevel *VerificationLevel
 	// VerificationResults contains the verifications performed on the signature and their results

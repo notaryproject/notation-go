@@ -1,4 +1,4 @@
-package signature
+package plugin
 
 import (
 	"testing"
@@ -72,7 +72,7 @@ func TestKeySpecName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if name := KeySpecName(tt.keySpec); name != tt.expected {
+			if name := KeySpecString(tt.keySpec); name != tt.expected {
 				t.Fatalf("unexpected keySpec name, expect: %v, got: %v", tt.expected, name)
 			}
 		})
@@ -145,7 +145,7 @@ func TestKeySpecHashName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if name := KeySpecHashName(tt.keySpec); name != tt.expected {
+			if name := KeySpecHashString(tt.keySpec); name != tt.expected {
 				t.Fatalf("unexpected keySpec hash function name, expect: %v, got: %v", tt.expected, name)
 			}
 		})
@@ -216,14 +216,14 @@ func TestParseKeySpecFromName(t *testing.T) {
 		{
 			name:      "Unsupported key spec",
 			raw:       "unsuppored",
-			expected:  InvalidKeySpec,
+			expected:  signature.KeySpec{},
 			expectErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keySpec, err := ParseKeySpecFromName(tt.raw)
+			keySpec, err := ParseKeySpec(tt.raw)
 			if keySpec != tt.expected {
 				t.Fatalf("unexpected parsed keySpec name, expect: %v, got: %v", tt.expected, keySpec)
 			}
@@ -278,7 +278,7 @@ func TestSigningAlgorithmName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if name := SigningAlgorithmName(tt.alg); name != tt.expected {
+			if name := SigningAlgorithmString(tt.alg); name != tt.expected {
 				t.Fatalf("unexpected signing algorithm name, expect: %v, got: %v", tt.expected, name)
 			}
 		})
@@ -337,7 +337,7 @@ func TestParseSigningAlgorithFromName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			alg, err := ParseSigningAlgorithFromName(tt.raw)
+			alg, err := ParseSigningAlgorithm(tt.raw)
 			if alg != tt.expected {
 				t.Fatalf("unexpected signing algorithm, expect: %v, got: %v", tt.expected, alg)
 			}
