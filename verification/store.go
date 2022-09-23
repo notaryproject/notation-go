@@ -1,7 +1,6 @@
 package verification
 
 import (
-	"bytes"
 	"crypto/x509"
 	"fmt"
 	"io/fs"
@@ -78,25 +77,17 @@ func validateCerts(certs []*x509.Certificate, path string) error {
 		return fmt.Errorf("could not parse a certificate from %q, every file in a trust store must have a PEM or DER certificate in it", path)
 	}
 
-	if len(certs) == 1 {
-		// if there is only one certificate, it must be a self-signed cert or
-		// CA cert.
-		if !isSelfSigned(certs[0]) && !certs[0].IsCA {
-			return fmt.Errorf("single certificate from %q is not a self-signed certificate or CA certificate", path)
-		}
-	} else {
-		// if there are multiple certificates, all of them must be CA certificates.
-		for _, cert := range certs {
-			if !cert.IsCA {
-				return fmt.Errorf("certificate with subject %q from file %q is not a CA certificate, only CA certificates (BasicConstraint CA=True) are allowed", cert.Subject, path)
+	for _, cert := range certs {
+		if !cert.IsCA {
+			if err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature); err != nil {
+				return fmt.Errorf(
+					"certificate with subject %q from file %q is not a CA certificate or self-signed signing certificate",
+					cert.Subject,
+					path,
+				)
 			}
 		}
 	}
 
 	return nil
-}
-
-func isSelfSigned(cert *x509.Certificate) bool {
-	err := cert.CheckSignatureFrom(cert)
-	return err == nil && bytes.Equal(cert.RawSubject, cert.RawIssuer)
 }
