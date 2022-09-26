@@ -77,7 +77,7 @@ func TestProvider_Builtin_Runner(t *testing.T) {
 		{
 			name:         string(plugin.CommandGetMetadata),
 			req:          &plugin.GetMetadataRequest{},
-			ExpectedResp: &builtInPluginMetaData,
+			ExpectedResp: builtInPluginMetaData,
 			expectedErr:  false,
 		},
 		{

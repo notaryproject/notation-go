@@ -11,7 +11,7 @@ import (
 )
 
 // builtInPluginMetaData is the metadata used by builtinProvider.
-var builtInPluginMetaData = plugin.Metadata{
+var builtInPluginMetaData = &plugin.Metadata{
 	SupportedContractVersions: []string{plugin.ContractVersion},
 	Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
 	Name:                      "built-in",
@@ -49,7 +49,7 @@ func (*builtinProvider) metadata() *plugin.Metadata {
 	// The only properties that are really relevant
 	// are the supported contract version and the capabilities.
 	// All other are just filled with meaningful data.
-	return &builtInPluginMetaData
+	return builtInPluginMetaData
 }
 
 // Run implements the plugin workflow.
