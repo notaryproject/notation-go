@@ -7,13 +7,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
 )
 
 // NewSignerFromFiles creates a signer from key, certificate files
 // TODO: Add tests for this method. https://github.com/notaryproject/notation-go/issues/80
-func NewSignerFromFiles(keyPath, certPath string) (notation.Signer, error) {
+func NewSignerFromFiles(keyPath, certPath, envelopeMediaType string) (notation.Signer, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
 	}
@@ -40,17 +39,14 @@ func NewSignerFromFiles(keyPath, certPath string) (notation.Signer, error) {
 	}
 
 	// create signer
-	return NewSigner(cert.PrivateKey, certs)
+	return NewSigner(cert.PrivateKey, certs, envelopeMediaType)
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
 // with a certificate chain.
 // The relation of the provided signing key and its certificate chain is not verified,
 // and should be verified by the caller.
-func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
-	// TODO: pass media type as a parameter
-	envelopeMediaType := jws.MediaTypeEnvelope
-
+func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate, envelopeMediaType string) (notation.Signer, error) {
 	builtinProvider, err := newBuiltinProvider(key, certChain)
 	if err != nil {
 		return nil, err
