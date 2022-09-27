@@ -1,21 +1,18 @@
 package signature
 
 import (
-	"context"
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 
-	"github.com/notaryproject/notation-core-go/signer"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/plugin"
 )
 
 // NewSignerFromFiles creates a signer from key, certificate files
 // TODO: Add tests for this method. https://github.com/notaryproject/notation-go/issues/80
-func NewSignerFromFiles(keyPath, certPath string) (notation.Signer, error) {
+func NewSignerFromFiles(keyPath, certPath, envelopeMediaType string) (notation.Signer, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
 	}
@@ -42,93 +39,26 @@ func NewSignerFromFiles(keyPath, certPath string) (notation.Signer, error) {
 	}
 
 	// create signer
-	return NewSigner(cert.PrivateKey, certs)
+	return NewSigner(cert.PrivateKey, certs, envelopeMediaType)
 }
 
 // NewSigner creates a signer with the recommended signing method and a signing key bundled
 // with a certificate chain.
 // The relation of the provided signing key and its certificate chain is not verified,
 // and should be verified by the caller.
-func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
-	lsp, err := signer.NewLocalSignatureProvider(certChain, key)
+func NewSigner(key crypto.PrivateKey, certChain []*x509.Certificate, envelopeMediaType string) (notation.Signer, error) {
+	builtinProvider, err := newBuiltinProvider(key, certChain)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pluginSigner{
-		runner: &builtinPlugin{localSignatureProvider: lsp},
-	}, nil
-}
-
-// builtinPlugin is a plugin.Runner implementation which
-// signs supports the generate-signature workflow using
-// the provided key and certificates.
-type builtinPlugin struct {
-	localSignatureProvider *signer.LocalSignatureProvider
-	sigAlg                 signer.SignatureAlgorithm
-}
-
-func (builtinPlugin) metadata() *plugin.Metadata {
-	// The only properties that are really relevant
-	// are the supported contract version and the capabilities.
-	// All other are just filled with meaningful data.
-	return &plugin.Metadata{
-		SupportedContractVersions: []string{plugin.ContractVersion},
-		Capabilities:              []plugin.Capability{plugin.CapabilitySignatureGenerator},
-		Name:                      "built-in",
-		Description:               "Notation built-in signer",
-		Version:                   plugin.ContractVersion,
-		URL:                       "https://github.com/notaryproject/notation-go",
+	if err := ValidateEnvelopeMediaType(envelopeMediaType); err != nil {
+		return nil, err
 	}
-}
-
-// Run implement the generate-signature workflow.
-func (r *builtinPlugin) Run(_ context.Context, req plugin.Request) (interface{}, error) {
-	switch req.Command() {
-	case plugin.CommandGetMetadata:
-		return r.metadata(), nil
-	case plugin.CommandDescribeKey:
-		req1 := req.(*plugin.DescribeKeyRequest)
-
-		ks, err := r.localSignatureProvider.KeySpec()
-		if err != nil {
-			return nil, plugin.RequestError{
-				Code: plugin.ErrorCodeGeneric,
-				Err:  err,
-			}
-		}
-
-		return &plugin.DescribeKeyResponse{
-			KeyID:   req1.KeyID,
-			KeySpec: ks,
-		}, nil
-	case plugin.CommandGenerateSignature:
-		req1 := req.(*plugin.GenerateSignatureRequest)
-
-		signed, certChain, err := r.localSignatureProvider.Sign(req1.Payload)
-		if err != nil {
-			return nil, plugin.RequestError{
-				Code: plugin.ErrorCodeGeneric,
-				Err:  err,
-			}
-		}
-
-		rawCerts := make([][]byte, len(certChain))
-		for i, cert := range certChain {
-			rawCerts[i] = cert.Raw
-		}
-
-		return &plugin.GenerateSignatureResponse{
-			KeyID:            req1.KeyID,
-			Signature:        signed,
-			SigningAlgorithm: r.sigAlg,
-			CertificateChain: rawCerts,
-		}, nil
+	signer := &pluginSigner{
+		sigProvider:       builtinProvider,
+		envelopeMediaType: envelopeMediaType,
 	}
-	return nil, plugin.RequestError{
-		Code: plugin.ErrorCodeGeneric,
-		Err:  fmt.Errorf("command %q is not supported", req.Command()),
-	}
+	return signer, nil
 }
 
 // called from plugin.go

@@ -9,8 +9,11 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-// Media type for Notary payload for OCI artifacts, which contains an artifact descriptor.
-const MediaTypePayload = "application/vnd.cncf.notary.payload.v1+json"
+// MediaTypePayloadV1 is the supported content type for signature's payload.
+const MediaTypePayloadV1 = "application/vnd.cncf.notary.payload.v1+json"
+
+// SigningAgent is the unprotected header field used by signature.
+var SigningAgent = "Notation/1.0.0"
 
 // Descriptor describes the artifact that needs to be signed.
 type Descriptor struct {
@@ -65,7 +68,12 @@ type Signer interface {
 }
 
 // VerifyOptions contains parameters for Verifier.Verify.
-type VerifyOptions struct{}
+type VerifyOptions struct {
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently only `application/jose+json`` is supported.
+	// TODO: in the future, application/cose will also be supported.
+	SignatureMediaType string
+}
 
 // Validate does basic validation on VerifyOptions.
 func (opts VerifyOptions) Validate() error {

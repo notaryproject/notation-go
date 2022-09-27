@@ -8,33 +8,43 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/notaryproject/notation-core-go/signer"
+	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
 )
 
 // pluginSigner signs artifacts and generates signatures.
 type pluginSigner struct {
-	runner       plugin.Runner
-	keyID        string
-	pluginConfig map[string]string
+	sigProvider       provider
+	envelopeMediaType string
+	keyID             string
+	pluginConfig      map[string]string
 }
 
-// NewSignerPlugin creates a notation.Signer that signs artifacts and generates JWS signatures
+// NewSignerPlugin creates a notation.Signer that signs artifacts and generates signatures
 // by delegating the one or more operations to the named plugin,
 // as defined in
 // https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
+func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string]string, envelopeMediaType string) (notation.Signer, error) {
 	if runner == nil {
 		return nil, errors.New("nil plugin runner")
 	}
 	if keyID == "" {
 		return nil, errors.New("nil signing keyID")
 	}
-	return &pluginSigner{runner, keyID, pluginConfig}, nil
+
+	if err := ValidateEnvelopeMediaType(envelopeMediaType); err != nil {
+		return nil, err
+	}
+	return &pluginSigner{
+		sigProvider:       newExternalProvider(runner, keyID),
+		envelopeMediaType: envelopeMediaType,
+		keyID:             keyID,
+		pluginConfig:      pluginConfig,
+	}, nil
 }
 
-// Sign signs the artifact described by its descriptor, and returns the signature.
+// Sign signs the artifact described by its descriptor and returns the marshalled envelope.
 func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
@@ -55,7 +65,7 @@ func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, opts 
 }
 
 func (s *pluginSigner) getMetadata(ctx context.Context) (*plugin.Metadata, error) {
-	out, err := s.runner.Run(ctx, new(plugin.GetMetadataRequest))
+	out, err := s.sigProvider.Run(ctx, new(plugin.GetMetadataRequest))
 	if err != nil {
 		return nil, fmt.Errorf("metadata command failed: %w", err)
 	}
@@ -75,7 +85,7 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 		KeyID:           s.keyID,
 		PluginConfig:    config,
 	}
-	out, err := s.runner.Run(ctx, req)
+	out, err := s.sigProvider.Run(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("describe-key command failed: %w", err)
 	}
@@ -106,28 +116,32 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		return nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
 	}
 
-	// Create plugin signature provider
-	psp := pluginSigProvider{
-		runner:  s.runner,
-		ctx:     ctx,
-		keyID:   s.keyID,
-		keySpec: key.KeySpec,
+	// for external plugin, pass keySpec and config before signing
+	if extProvider, ok := s.sigProvider.(*externalProvider); ok {
+		ks, err := plugin.ParseKeySpec(key.KeySpec)
+		if err != nil {
+			return nil, err
+		}
+		extProvider.prepareSigning(config, ks)
 	}
-	signReq := signer.SignRequest{
-		Payload:             payloadBytes,
-		PayloadContentType:  signer.PayloadContentTypeV1,
-		SignatureProvider:   psp,
-		SigningTime:         time.Now(),
-		ExtendedSignedAttrs: nil,
-		SigningScheme:       signer.SigningSchemeX509,
-		SigningAgent:        "Notation/1.0.0", // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
+	signReq := &signature.SignRequest{
+		Payload: signature.Payload{
+			ContentType: notation.MediaTypePayloadV1,
+			Content:     payloadBytes,
+		},
+		Signer:                   s.sigProvider,
+		SigningTime:              time.Now(),
+		ExtendedSignedAttributes: nil,
+		SigningScheme:            signature.SigningSchemeX509,
+		SigningAgent:             notation.SigningAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
 	}
+
 	if !opts.Expiry.IsZero() {
 		signReq.Expiry = opts.Expiry
 	}
 
 	// perform signing using pluginSigProvider
-	sigEnv, err := signer.NewSignatureEnvelope(signer.MediaTypeJWSJson)
+	sigEnv, err := signature.NewEnvelope(s.envelopeMediaType)
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +151,12 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		return nil, err
 	}
 
-	_, verErr := sigEnv.Verify()
+	envContent, verErr := sigEnv.Verify()
 	if verErr != nil {
-		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", err)
+		return nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", verErr)
+	}
+	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+		return nil, err
 	}
 
 	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
@@ -170,11 +187,11 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		ContractVersion:       plugin.ContractVersion,
 		KeyID:                 s.keyID,
 		Payload:               payloadBytes,
-		SignatureEnvelopeType: string(signer.MediaTypeJWSJson),
-		PayloadType:           notation.MediaTypePayload,
+		SignatureEnvelopeType: s.envelopeMediaType,
+		PayloadType:           notation.MediaTypePayloadV1,
 		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
-	out, err := s.runner.Run(ctx, req)
+	out, err := s.sigProvider.Run(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate-envelope command failed: %w", err)
 	}
@@ -191,18 +208,21 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		)
 	}
 
-	sigEnv, err := signer.NewSignatureEnvelopeFromBytes(resp.SignatureEnvelope, signer.MediaTypeJWSJson)
+	sigEnv, err := signature.ParseEnvelope(s.envelopeMediaType, resp.SignatureEnvelope)
 	if err != nil {
 		return nil, err
 	}
 
-	sigInfo, err := sigEnv.Verify()
+	envContent, err := sigEnv.Verify()
 	if err != nil {
+		return nil, err
+	}
+	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, err
 	}
 
 	var signedPayload notation.Payload
-	if err = json.Unmarshal(sigInfo.Payload, &signedPayload); err != nil {
+	if err = json.Unmarshal(envContent.Payload.Content, &signedPayload); err != nil {
 		return nil, fmt.Errorf("signed envelope payload can't be unmarshaled: %w", err)
 	}
 
@@ -239,50 +259,4 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 		certs[i] = cert
 	}
 	return certs, nil
-}
-
-type pluginSigProvider struct {
-	runner  plugin.Runner
-	ctx     context.Context
-	keyID   string
-	keySpec signer.KeySpec
-	config  map[string]string
-}
-
-func (psp pluginSigProvider) Sign(bytes []byte) ([]byte, []*x509.Certificate, error) {
-	// Execute plugin sign command.
-	req := &plugin.GenerateSignatureRequest{
-		ContractVersion: plugin.ContractVersion,
-		KeyID:           psp.keyID,
-		KeySpec:         psp.keySpec,
-		Hash:            psp.keySpec.SignatureAlgorithm().Hash(),
-		Payload:         bytes,
-		PluginConfig:    psp.config,
-	}
-
-	out, err := psp.runner.Run(psp.ctx, req)
-	if err != nil {
-		return nil, nil, fmt.Errorf("generate-signature command failed: %w", err)
-	}
-
-	resp, ok := out.(*plugin.GenerateSignatureResponse)
-	if !ok {
-		return nil, nil, fmt.Errorf("plugin runner returned incorrect generate-signature response type '%T'", out)
-	}
-
-	// Check keyID is honored.
-	if req.KeyID != resp.KeyID {
-		return nil, nil, fmt.Errorf("keyID in generateSignature response %q does not match request %q", resp.KeyID, req.KeyID)
-	}
-
-	certs, err := parseCertChain(resp.CertificateChain)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return resp.Signature, certs, nil
-}
-
-func (psp pluginSigProvider) KeySpec() (signer.KeySpec, error) {
-	return psp.keySpec, nil
 }

@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/notaryproject/notation-core-go/signer"
+	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/signature/jws"
 	x509n "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 )
@@ -39,32 +40,47 @@ func NewVerifierFromFiles(certPaths []string) (*Verifier, error) {
 	return &Verifier{TrustedCerts: certs}, nil
 }
 
+func ValidatePayloadContentType(payload *signature.Payload) error {
+	switch payload.ContentType {
+	case notation.MediaTypePayloadV1:
+		return nil
+	default:
+		return fmt.Errorf("payload content type %s not supported", payload.ContentType)
+	}
+}
+
 // Verify verifies the signature and returns the verified descriptor and
 // metadata of the signed artifact.
 func (v *Verifier) Verify(_ context.Context, sig []byte, opts notation.VerifyOptions) (notation.Descriptor, error) {
-	sigEnv, err := signer.NewSignatureEnvelopeFromBytes(sig, signer.MediaTypeJWSJson)
+	// TODO: pass media type as a parameter
+	sigEnv, err := signature.ParseEnvelope(jws.MediaTypeEnvelope, sig)
 	if err != nil {
 		return notation.Descriptor{}, err
 	}
 
-	sigInfo, err := sigEnv.Verify()
+	envContent, err := sigEnv.Verify()
 	if err != nil {
 		return notation.Descriptor{}, err
 	}
 
-	_, authErr := signer.VerifyAuthenticity(sigInfo, v.TrustedCerts)
+	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+		return notation.Descriptor{}, err
+	}
+
+	_, authErr := signature.VerifyAuthenticity(&envContent.SignerInfo, v.TrustedCerts)
 	if authErr != nil {
 		return notation.Descriptor{}, authErr
 	}
 
 	// TODO: validate expiry and timestamp https://github.com/notaryproject/notation-go/issues/78
 	var payload notation.Payload
-	if err = json.Unmarshal(sigInfo.Payload, &payload); err != nil {
+	if err = json.Unmarshal(envContent.Payload.Content, &payload); err != nil {
 		return notation.Descriptor{}, fmt.Errorf("envelope payload can't be decoded: %w", err)
 	}
 
 	return payload.TargetArtifact, nil
 }
+
 //
 // // verifySigner verifies the signing identity and returns the verification key.
 // func (v *Verifier) verifySigner(sig *notation.JWSEnvelope) (crypto.PublicKey, error) {
