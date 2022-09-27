@@ -47,3 +47,27 @@ func (e ErrorVerificationFailed) Error() string {
 	}
 	return "signature verification failed"
 }
+
+// ErrorPolicyNameExists is used when the adding policy already exists.
+type ErrorPolicyNameExists struct {
+	Msg string
+}
+
+func (e ErrorPolicyNameExists) Error() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+	return "given policy name already exists"
+}
+
+// ErrorPolicyNotExists is used when the modified policy does not exist.
+type ErrorPolicyNotExists struct {
+	Msg string
+}
+
+func (e ErrorPolicyNotExists) Error() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+	return "given policy name not exists"
+}

@@ -132,7 +132,7 @@ func validateTrustStore(statement TrustPolicy) error {
 	for _, trustStore := range statement.TrustStores {
 		i := strings.Index(trustStore, ":")
 		if i < 0 || !IsValidTrustStorePrefix(trustStore[:i]) {
-			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, trustStore[:i], trustStore)
+			return fmt.Errorf("trust policy statement %q uses an unsupported trust store: %q", statement.Name, trustStore)
 		}
 	}
 
@@ -158,40 +158,8 @@ func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 	policyStatementNameCount := make(map[string]int)
 
 	for _, statement := range policyDoc.TrustPolicies {
-
-		// Verify statement name is valid
-		if statement.Name == "" {
-			return errors.New("a trust policy statement is missing a name, every statement requires a name")
-		}
+		validatePolicy(&statement)
 		policyStatementNameCount[statement.Name]++
-
-		// Verify signature verification level is valid
-		verificationLevel, err := GetVerificationLevel(statement.SignatureVerification)
-		if err != nil {
-			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification.Level)
-		}
-
-		// Any signature verification other than "skip" needs a trust store and trusted identities
-		if verificationLevel.Name == "skip" {
-			if len(statement.TrustStores) > 0 || len(statement.TrustedIdentities) > 0 {
-				return fmt.Errorf("trust policy statement %q is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped", statement.Name)
-			}
-		} else {
-			if len(statement.TrustStores) == 0 || len(statement.TrustedIdentities) == 0 {
-				return fmt.Errorf("trust policy statement %q is either missing trust stores or trusted identities, both must be specified", statement.Name)
-			}
-
-			// Verify Trust Store is valid
-			if err := validateTrustStore(statement); err != nil {
-				return err
-			}
-
-			// Verify Trusted Identities are valid
-			if err := validateTrustedIdentities(statement); err != nil {
-				return err
-			}
-		}
-
 	}
 
 	// Verify registry scopes are valid
@@ -207,6 +175,41 @@ func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 	}
 
 	// No errors
+	return nil
+}
+
+func validatePolicy(statement *TrustPolicy) error {
+	// Verify statement name is valid
+	if statement.Name == "" {
+		return errors.New("a trust policy statement is missing a name, every statement requires a name")
+	}
+
+	// Verify signature verification level is valid
+	verificationLevel, err := GetVerificationLevel(statement.SignatureVerification)
+	if err != nil {
+		return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification.Level)
+	}
+
+	// Any signature verification other than "skip" needs a trust store and trusted identities
+	if verificationLevel.Name == "skip" {
+		if len(statement.TrustStores) > 0 || len(statement.TrustedIdentities) > 0 {
+			return fmt.Errorf("trust policy statement %q is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped", statement.Name)
+		}
+	} else {
+		if len(statement.TrustStores) == 0 || len(statement.TrustedIdentities) == 0 {
+			return fmt.Errorf("trust policy statement %q is either missing trust stores or trusted identities, both must be specified", statement.Name)
+		}
+
+		// Verify Trust Store is valid
+		if err := validateTrustStore(*statement); err != nil {
+			return err
+		}
+
+		// Verify Trusted Identities are valid
+		if err := validateTrustedIdentities(*statement); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
