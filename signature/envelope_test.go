@@ -1,11 +1,28 @@
 package signature
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
+	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
+	gcose "github.com/veraison/go-cose"
 )
+
+var (
+	validJwsSignatureEnvelope, _ = json.Marshal(struct{}{})
+	validCoseSignatureEnvelope   []byte
+)
+
+func init() {
+	msg := gcose.Sign1Message{
+		Headers:   gcose.NewSign1Message().Headers,
+		Payload:   []byte("valid"),
+		Signature: []byte("valid"),
+	}
+	validCoseSignatureEnvelope, _ = msg.MarshalCBOR()
+}
 
 const invalidMediaType = "invalid"
 
@@ -28,6 +45,11 @@ func TestValidateEnvelopeMediaType(t *testing.T) {
 		{
 			name:        "jws signature media type",
 			mediaType:   jws.MediaTypeEnvelope,
+			expectedErr: nil,
+		},
+		{
+			name:        "cose signature media type",
+			mediaType:   cose.MediaTypeEnvelope,
 			expectedErr: nil,
 		},
 		{
