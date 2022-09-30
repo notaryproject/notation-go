@@ -44,6 +44,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS"}, true},
 		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "nonX509Prefix:my-custom-identity"}, true},
 		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "x509.subject:C=LOL,O=LOL,ST=LOL"}, true},
+		{[]string{"C=IND,O=SomeOrg,ST=TS"}, true},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

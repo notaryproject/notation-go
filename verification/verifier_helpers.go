@@ -214,10 +214,13 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 
 	var trustedX509Identities []map[string]string
 	for _, identity := range trustPolicy.TrustedIdentities {
-		i := strings.Index(identity, ":")
+		parts := strings.Split(identity, ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("trustpolicy identity %q is malformed.", identity)
+		}
 
-		identityPrefix := identity[:i]
-		identityValue := identity[i+1:]
+		identityPrefix := parts[0]
+		identityValue := parts[1]
 
 		if identityPrefix == x509Subject {
 			parsedSubject, err := parseDistinguishedName(identityValue)
