@@ -121,8 +121,8 @@ func TestX509TrustStoreCerts(t *testing.T) {
 
 func TestConfigForWrite(t *testing.T) {
 	config := PathManager{}
-	userConfig = "/user/exampleuser/.config/notation/"
-	systemConfig = "/etc/notation/"
+	UserConfig = "/user/exampleuser/.config/notation/"
+	SystemConfig = "/etc/notation/"
 
 	type args struct {
 		WriteLevel DirLevel
@@ -156,8 +156,8 @@ func TestConfigForWrite(t *testing.T) {
 
 func TestTrustStoreForWrite(t *testing.T) {
 	config := PathManager{}
-	userConfig = "/user/exampleuser/.config/notation/"
-	systemConfig = "/etc/notation/"
+	UserConfig = "/user/exampleuser/.config/notation/"
+	SystemConfig = "/etc/notation/"
 	type args struct {
 		WriteLevel DirLevel
 	}
@@ -190,8 +190,8 @@ func TestTrustStoreForWrite(t *testing.T) {
 
 func TestTrustPolicyForWrite(t *testing.T) {
 	config := PathManager{}
-	userConfig = "/user/exampleuser/.config/notation/"
-	systemConfig = "/etc/notation/"
+	UserConfig = "/user/exampleuser/.config/notation/"
+	SystemConfig = "/etc/notation/"
 	type args struct {
 		WriteLevel DirLevel
 	}
@@ -236,7 +236,7 @@ func TestPathManager_Config(t *testing.T) {
 
 func TestPathManager_LocalKey(t *testing.T) {
 	path := &PathManager{}
-	userConfig = "/home/exampleuser/.config/notation/"
+	UserConfig = "/home/exampleuser/.config/notation/"
 	keyPath, certPath := path.Localkey("key1")
 	if keyPath != "/home/exampleuser/.config/notation/localkeys/key1"+LocalKeyExtension {
 		t.Fatal("get Localkey() failed.")
@@ -248,7 +248,7 @@ func TestPathManager_LocalKey(t *testing.T) {
 
 func TestPathManager_SigningKeyConfig(t *testing.T) {
 	path := &PathManager{}
-	userConfig = "/home/exampleuser/.config/notation/"
+	UserConfig = "/home/exampleuser/.config/notation/"
 	signingKeyPath := path.SigningKeyConfig()
 	if signingKeyPath != "/home/exampleuser/.config/notation/"+SigningKeysFile {
 		t.Fatal("get SigningKeyConfig() failed.")

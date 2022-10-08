@@ -146,8 +146,8 @@ func (u unionDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
 func PluginFS(dirs ...string) UnionDirFS {
 	var rootedFsys []RootedFS
 	if len(dirs) == 0 {
-		dirs = append(dirs, filepath.Join(userLibexec, "plugins"))
-		dirs = append(dirs, filepath.Join(systemLibexec, "plugins"))
+		dirs = append(dirs, filepath.Join(UserLibexec, "plugins"))
+		dirs = append(dirs, filepath.Join(SystemLibexec, "plugins"))
 	}
 	for _, dir := range dirs {
 		rootedFsys = append(rootedFsys, NewRootedFS(dir, nil))

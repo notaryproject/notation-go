@@ -254,8 +254,8 @@ func TestPluginFS(t *testing.T) {
 			name: "default PluginFS",
 			args: args{dirs: []string{}},
 			want: NewUnionDirFS(
-				NewRootedFS(filepath.Join(userLibexec, "plugins"), nil),
-				NewRootedFS(filepath.Join(systemLibexec, "plugins"), nil),
+				NewRootedFS(filepath.Join(UserLibexec, "plugins"), nil),
+				NewRootedFS(filepath.Join(SystemLibexec, "plugins"), nil),
 			),
 		},
 		{

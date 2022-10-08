@@ -84,11 +84,11 @@ func TestLoadPath(t *testing.T) {
 			userCacheDir = tt.userCacheDir
 			getenv = tt.getenv
 			loadPath()
-			assertPathEqual(t, tt.wantSystemConfig, systemConfig, "systemConfig error.")
-			assertPathEqual(t, tt.wantSystemLibexec, systemLibexec, "systemLibexec error.")
-			assertPathEqual(t, tt.wantUserConfig, userConfig, "userConfig error.")
-			assertPathEqual(t, tt.wantUserLibexec, userLibexec, "userLibexec")
-			assertPathEqual(t, tt.wantUserCache, userCache, "userCache error.")
+			assertPathEqual(t, tt.wantSystemConfig, SystemConfig, "systemConfig error.")
+			assertPathEqual(t, tt.wantSystemLibexec, SystemLibexec, "systemLibexec error.")
+			assertPathEqual(t, tt.wantUserConfig, UserConfig, "userConfig error.")
+			assertPathEqual(t, tt.wantUserLibexec, UserLibexec, "userLibexec")
+			assertPathEqual(t, tt.wantUserCache, UserCache, "userCache error.")
 		})
 	}
 }

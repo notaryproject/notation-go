@@ -80,9 +80,9 @@ func (p *PathManager) Config(dirLevel DirLevel) string {
 		path, err = p.ConfigFS.GetPath(ConfigFile)
 		checkError(err)
 	case SystemLevel:
-		path = filepath.Join(systemConfig, ConfigFile)
+		path = filepath.Join(SystemConfig, ConfigFile)
 	case UserLevel:
-		path = filepath.Join(userConfig, ConfigFile)
+		path = filepath.Join(UserConfig, ConfigFile)
 	}
 
 	return path
@@ -91,14 +91,14 @@ func (p *PathManager) Config(dirLevel DirLevel) string {
 // LocalKey returns the user level path of the local private key and it's certificate
 // in the localkeys directory
 func (p *PathManager) Localkey(name string) (keyPath, certPath string) {
-	keyPath = filepath.Join(userConfig, LocalKeysDir, name+LocalKeyExtension)
-	certPath = filepath.Join(userConfig, LocalKeysDir, name+LocalCertificateExtension)
+	keyPath = filepath.Join(UserConfig, LocalKeysDir, name+LocalKeyExtension)
+	certPath = filepath.Join(UserConfig, LocalKeysDir, name+LocalCertificateExtension)
 	return
 }
 
 // SigningKeyConfig returns the writable user level path of signingkeys.json files
 func (p *PathManager) SigningKeyConfig() string {
-	return filepath.Join(userConfig, SigningKeysFile)
+	return filepath.Join(UserConfig, SigningKeysFile)
 }
 
 // TrustPolicy returns the path of trustpolicy.json file based on named directory level.
@@ -113,9 +113,9 @@ func (p *PathManager) TrustPolicy(dirLevel DirLevel) string {
 		path, err = p.ConfigFS.GetPath(TrustPolicyFile)
 		checkError(err)
 	case SystemLevel:
-		path = filepath.Join(systemConfig, TrustPolicyFile)
+		path = filepath.Join(SystemConfig, TrustPolicyFile)
 	case UserLevel:
-		path = filepath.Join(userConfig, TrustPolicyFile)
+		path = filepath.Join(UserConfig, TrustPolicyFile)
 	}
 
 	return path
@@ -134,9 +134,9 @@ func (p *PathManager) X509TrustStore(dirLevel DirLevel, prefix, namedStore strin
 		path, err = p.ConfigFS.GetPath(TrustStoreDir, "x509", prefix, namedStore)
 		checkError(err)
 	case SystemLevel:
-		path = filepath.Join(systemConfig, TrustStoreDir, "x509", prefix, namedStore)
+		path = filepath.Join(SystemConfig, TrustStoreDir, "x509", prefix, namedStore)
 	case UserLevel:
-		path = filepath.Join(userConfig, TrustStoreDir, "x509", prefix, namedStore)
+		path = filepath.Join(UserConfig, TrustStoreDir, "x509", prefix, namedStore)
 	}
 
 	return path
