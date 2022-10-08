@@ -45,7 +45,7 @@ func NewConfig() *Config {
 func (c *Config) Save(path string) error {
 	// set default path
 	if path == "" {
-		path = dir.Path.ConfigForWrite(dir.UserLevel)
+		path = dir.Path.Config(dir.UserLevel)
 	}
 	return save(path, c)
 }
@@ -57,7 +57,7 @@ func (c *Config) Save(path string) error {
 func LoadConfig(path string) (*Config, error) {
 	// set default path
 	if path == "" {
-		path = dir.Path.Config()
+		path = dir.Path.Config(dir.UnionLevel)
 	}
 
 	// load config

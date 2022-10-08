@@ -3,6 +3,7 @@ package dir
 import (
 	"errors"
 	"io/fs"
+	"path/filepath"
 
 	"github.com/opencontainers/go-digest"
 )
@@ -36,14 +37,20 @@ const (
 	TrustStoreDir = "truststore"
 )
 
-// WriteLevel defines the write directory level supporting UserLevel or SystemLevel.
-type WriteLevel int
+// DirLevel defines the directory level.
+type DirLevel int
 
 const (
+	// UnionLevel is the label to specify the directory to union user and system level,
+	// and user level has higher priority than system level.
+	// [directory spec]: https://github.com/notaryproject/notation/blob/main/specs/directory.md#category
+	UnionLevel DirLevel = iota
+
 	// SystemLevel is the label to specify write directory to system level
-	SystemLevel WriteLevel = 0
+	SystemLevel
+
 	// UserLevel is the label to specify write directory to user level
-	UserLevel WriteLevel = 1
+	UserLevel
 )
 
 // PathManager contains the union directory file system and methods
@@ -52,12 +59,6 @@ type PathManager struct {
 	ConfigFS  UnionDirFS
 	CacheFS   UnionDirFS
 	LibexecFS UnionDirFS
-
-	UserConfigFS   UnionDirFS
-	SystemConfigFS UnionDirFS
-
-	UserLibexecFS   UnionDirFS
-	SystemLibexecFS UnionDirFS
 }
 
 func checkError(err error) {
@@ -67,58 +68,78 @@ func checkError(err error) {
 	}
 }
 
-// Config returns the ready-only path of config.json
-func (p *PathManager) Config() string {
-	path, err := p.ConfigFS.GetPath(ConfigFile)
-	checkError(err)
-	return path
-}
+// Config returns the path of config.json based on named directory level.
+func (p *PathManager) Config(dirLevel DirLevel) string {
+	var (
+		path string
+		err  error
+	)
 
-// ConfigForWrite returns the writable path of config.json
-func (p *PathManager) ConfigForWrite(writeLevel WriteLevel) string {
-	return getPathForWrite(writeLevel, p.UserConfigFS, p.SystemConfigFS, ConfigFile)
+	switch dirLevel {
+	case UnionLevel:
+		path, err = p.ConfigFS.GetPath(ConfigFile)
+		checkError(err)
+	case SystemLevel:
+		path = filepath.Join(systemConfig, ConfigFile)
+	case UserLevel:
+		path = filepath.Join(userConfig, ConfigFile)
+	}
+
+	return path
 }
 
 // LocalKey returns the user level path of the local private key and it's certificate
 // in the localkeys directory
 func (p *PathManager) Localkey(name string) (keyPath, certPath string) {
-	keyPath, err := p.UserConfigFS.GetPath(LocalKeysDir, name+LocalKeyExtension)
-	checkError(err)
-	certPath, err = p.UserConfigFS.GetPath(LocalKeysDir, name+LocalCertificateExtension)
-	checkError(err)
-	return keyPath, certPath
+	keyPath = filepath.Join(userConfig, LocalKeysDir, name+LocalKeyExtension)
+	certPath = filepath.Join(userConfig, LocalKeysDir, name+LocalCertificateExtension)
+	return
 }
 
 // SigningKeyConfig returns the writable user level path of signingkeys.json files
 func (p *PathManager) SigningKeyConfig() string {
-	path, err := p.UserConfigFS.GetPath(SigningKeysFile)
-	checkError(err)
+	return filepath.Join(userConfig, SigningKeysFile)
+}
+
+// TrustPolicy returns the path of trustpolicy.json file based on named directory level.
+func (p *PathManager) TrustPolicy(dirLevel DirLevel) string {
+	var (
+		path string
+		err  error
+	)
+
+	switch dirLevel {
+	case UnionLevel:
+		path, err = p.ConfigFS.GetPath(TrustPolicyFile)
+		checkError(err)
+	case SystemLevel:
+		path = filepath.Join(systemConfig, TrustPolicyFile)
+	case UserLevel:
+		path = filepath.Join(userConfig, TrustPolicyFile)
+	}
+
 	return path
 }
 
-// TrustPolicy returns the ready-only path of trustpolicy.json file
-func (p *PathManager) TrustPolicy() string {
-	path, err := p.ConfigFS.GetPath(TrustPolicyFile)
-	checkError(err)
+// X509TrustStore returns the path of x509 trust store certificate
+// based on named directory level.
+func (p *PathManager) X509TrustStore(dirLevel DirLevel, prefix, namedStore string) string {
+	var (
+		path string
+		err  error
+	)
+
+	switch dirLevel {
+	case UnionLevel:
+		path, err = p.ConfigFS.GetPath(TrustStoreDir, "x509", prefix, namedStore)
+		checkError(err)
+	case SystemLevel:
+		path = filepath.Join(systemConfig, TrustStoreDir, "x509", prefix, namedStore)
+	case UserLevel:
+		path = filepath.Join(userConfig, TrustStoreDir, "x509", prefix, namedStore)
+	}
+
 	return path
-}
-
-// TrustPolicyForWrite returns the writable path of trustpolicy.json file
-func (p *PathManager) TrustPolicyForWrite(writeLevel WriteLevel) string {
-	return getPathForWrite(writeLevel, p.UserConfigFS, p.SystemConfigFS, TrustPolicyFile)
-}
-
-// X509TrustStore returns the read-only path of x509 trust store certificate
-func (p *PathManager) X509TrustStore(prefix, namedStore string) string {
-	path, err := p.ConfigFS.GetPath(TrustStoreDir, "x509", prefix, namedStore)
-	checkError(err)
-	return path
-}
-
-// X509TrustStoreForWrite returns the writable path of x509 trust store certificate
-func (p *PathManager) X509TrustStoreForWrite(writeLevel WriteLevel, prefix, namedStore string) string {
-	return getPathForWrite(writeLevel, p.UserConfigFS, p.SystemConfigFS,
-		TrustStoreDir, "x509", prefix, namedStore)
 }
 
 // CachedSignature returns the cached signature file path
@@ -148,21 +169,6 @@ func (p *PathManager) CachedSignatureRoot(manifestDigest digest.Digest) string {
 // CachedSignatureStoreDirPath returns the cached signing keys directory
 func (p *PathManager) CachedSignatureStoreDirPath() string {
 	path, err := p.CacheFS.GetPath(SignatureStoreDirName)
-	checkError(err)
-	return path
-}
-
-func getPathForWrite(writeLevel WriteLevel, user UnionDirFS, system UnionDirFS, items ...string) string {
-	var (
-		path string
-		err  error
-	)
-	if writeLevel == SystemLevel {
-		path, err = system.GetPath(items...)
-	} else {
-		path, err = user.GetPath(items...)
-	}
-
 	checkError(err)
 	return path
 }

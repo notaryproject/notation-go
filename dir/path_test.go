@@ -113,33 +113,19 @@ func TestX509TrustStoreCerts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.X509TrustStore(tt.args.prefix, tt.args.namedStore)
+			got := config.X509TrustStore(UnionLevel, tt.args.prefix, tt.args.namedStore)
 			assertPathEqual(t, tt.want, got, "X509TrustStoreCerts path error.")
 		})
 	}
 }
 
 func TestConfigForWrite(t *testing.T) {
-	config := PathManager{
-		UserConfigFS: unionDirFS{
-			Dirs: []RootedFS{
-				NewRootedFS(
-					"/user/exampleuser/.config/notation",
-					fstest.MapFS{},
-				),
-			},
-		},
-		SystemConfigFS: unionDirFS{
-			Dirs: []RootedFS{
-				NewRootedFS(
-					"/etc/notation",
-					fstest.MapFS{},
-				),
-			},
-		},
-	}
+	config := PathManager{}
+	userConfig = "/user/exampleuser/.config/notation/"
+	systemConfig = "/etc/notation/"
+
 	type args struct {
-		WriteLevel WriteLevel
+		WriteLevel DirLevel
 	}
 	tests := []struct {
 		name    string
@@ -162,33 +148,18 @@ func TestConfigForWrite(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.ConfigForWrite(tt.args.WriteLevel)
+			got := config.Config(tt.args.WriteLevel)
 			assertPathEqual(t, tt.want, got, "config path for write error.")
 		})
 	}
 }
 
 func TestTrustStoreForWrite(t *testing.T) {
-	config := PathManager{
-		UserConfigFS: unionDirFS{
-			Dirs: []RootedFS{
-				NewRootedFS(
-					"/user/exampleuser/.config/notation",
-					fstest.MapFS{},
-				),
-			},
-		},
-		SystemConfigFS: unionDirFS{
-			Dirs: []RootedFS{
-				NewRootedFS(
-					"/etc/notation",
-					fstest.MapFS{},
-				),
-			},
-		},
-	}
+	config := PathManager{}
+	userConfig = "/user/exampleuser/.config/notation/"
+	systemConfig = "/etc/notation/"
 	type args struct {
-		WriteLevel WriteLevel
+		WriteLevel DirLevel
 	}
 	tests := []struct {
 		name    string
@@ -211,33 +182,18 @@ func TestTrustStoreForWrite(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.X509TrustStoreForWrite(tt.args.WriteLevel, "ca", "jj")
+			got := config.X509TrustStore(tt.args.WriteLevel, "ca", "jj")
 			assertPathEqual(t, tt.want, got, "config path for write error.")
 		})
 	}
 }
 
 func TestTrustPolicyForWrite(t *testing.T) {
-	config := PathManager{
-		UserConfigFS: unionDirFS{
-			Dirs: []RootedFS{
-				NewRootedFS(
-					"/user/exampleuser/.config/notation",
-					fstest.MapFS{},
-				),
-			},
-		},
-		SystemConfigFS: unionDirFS{
-			Dirs: []RootedFS{
-				NewRootedFS(
-					"/etc/notation",
-					fstest.MapFS{},
-				),
-			},
-		},
-	}
+	config := PathManager{}
+	userConfig = "/user/exampleuser/.config/notation/"
+	systemConfig = "/etc/notation/"
 	type args struct {
-		WriteLevel WriteLevel
+		WriteLevel DirLevel
 	}
 	tests := []struct {
 		name    string
@@ -260,7 +216,7 @@ func TestTrustPolicyForWrite(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.TrustPolicyForWrite(tt.args.WriteLevel)
+			got := config.TrustPolicy(tt.args.WriteLevel)
 			assertPathEqual(t, tt.want, got, "config path for write error.")
 		})
 	}
@@ -272,18 +228,15 @@ func TestPathManager_Config(t *testing.T) {
 			NewRootedFS("/home/exampleuser/.config/notation/", nil),
 		),
 	}
-	configPath := path.Config()
+	configPath := path.Config(UnionLevel)
 	if configPath != "/home/exampleuser/.config/notation/"+ConfigFile {
 		t.Fatal("get Config() failed.")
 	}
 }
 
 func TestPathManager_LocalKey(t *testing.T) {
-	path := &PathManager{
-		UserConfigFS: NewUnionDirFS(
-			NewRootedFS("/home/exampleuser/.config/notation/", nil),
-		),
-	}
+	path := &PathManager{}
+	userConfig = "/home/exampleuser/.config/notation/"
 	keyPath, certPath := path.Localkey("key1")
 	if keyPath != "/home/exampleuser/.config/notation/localkeys/key1"+LocalKeyExtension {
 		t.Fatal("get Localkey() failed.")
@@ -294,11 +247,8 @@ func TestPathManager_LocalKey(t *testing.T) {
 }
 
 func TestPathManager_SigningKeyConfig(t *testing.T) {
-	path := &PathManager{
-		UserConfigFS: NewUnionDirFS(
-			NewRootedFS("/home/exampleuser/.config/notation/", nil),
-		),
-	}
+	path := &PathManager{}
+	userConfig = "/home/exampleuser/.config/notation/"
 	signingKeyPath := path.SigningKeyConfig()
 	if signingKeyPath != "/home/exampleuser/.config/notation/"+SigningKeysFile {
 		t.Fatal("get SigningKeyConfig() failed.")
@@ -311,7 +261,7 @@ func TestPathManager_TrustPolicy(t *testing.T) {
 			NewRootedFS("/home/exampleuser/.config/notation/", nil),
 		),
 	}
-	policyPath := path.TrustPolicy()
+	policyPath := path.TrustPolicy(UnionLevel)
 	if policyPath != "/home/exampleuser/.config/notation/"+TrustPolicyFile {
 		t.Fatal("get TrustPolicy() failed.")
 	}
@@ -323,7 +273,7 @@ func TestPathManager_X509TrustStore(t *testing.T) {
 			NewRootedFS("/home/exampleuser/.config/notation/", nil),
 		),
 	}
-	storePath := path.X509TrustStore("ca", "store")
+	storePath := path.X509TrustStore(UnionLevel, "ca", "store")
 	if storePath != "/home/exampleuser/.config/notation/truststore/x509/ca/store" {
 		t.Fatal("get X509TrustStore() failed.")
 	}
