@@ -192,13 +192,11 @@ type Signature struct {
 // CriticalAttributes contains all Notary V2 defined critical
 // attributes and their values in the signature envelope
 type CriticalAttributes struct {
-	ContentType                  string                 `json:"contentType"`
-	SigningScheme                string                 `json:"signingScheme"`
-	Expiry                       *time.Time             `json:"expiry,omitempty"`
-	AuthenticSigningTime         *time.Time             `json:"authenticSigningTime,omitempty"`
-	VerificationPlugin           string                 `json:"verificationPlugin,omitempty"`
-	VerificationPluginMinVersion string                 `json:"verificationPluginMinVersion,omitempty"`
-	ExtendedAttributes           map[string]interface{} `json:"extendedAttributes,omitempty"`
+	ContentType          string                 `json:"contentType"`
+	SigningScheme        string                 `json:"signingScheme"`
+	Expiry               *time.Time             `json:"expiry,omitempty"`
+	AuthenticSigningTime *time.Time             `json:"authenticSigningTime,omitempty"`
+	ExtendedAttributes   map[string]interface{} `json:"extendedAttributes,omitempty"`
 }
 
 // TrustPolicy represents trusted identities that sign the artifacts

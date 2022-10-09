@@ -70,8 +70,7 @@ type Signer interface {
 // VerifyOptions contains parameters for Verifier.Verify.
 type VerifyOptions struct {
 	// SignatureMediaType is the envelope type of the signature.
-	// Currently only `application/jose+json`` is supported.
-	// TODO: in the future, application/cose will also be supported.
+	// Currently both `application/jose+json` and `application/cose` are supported.
 	SignatureMediaType string
 }
 
