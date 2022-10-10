@@ -39,7 +39,7 @@ func init() {
 }
 
 // loadPath function defines the directory for
-// NotationLibexec, NotationConfig, NotationCache
+// NotationLibexec, NotationConfig, NotationCache.
 func loadPath() {
 	var err error
 	// set system config and libexec

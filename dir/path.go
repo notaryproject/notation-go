@@ -9,31 +9,31 @@ import (
 )
 
 const (
-	// ConfigFile is the name of config file
+	// ConfigFile is the name of config file.
 	ConfigFile = "config.json"
 
-	// LocalCertificateExtension defines the extension of the certificate files
+	// LocalCertificateExtension defines the extension of the certificate files.
 	LocalCertificateExtension = ".crt"
 
-	// LocalKeyExtension defines the extension of the key files
+	// LocalKeyExtension defines the extension of the key files.
 	LocalKeyExtension = ".key"
 
-	// LocalKeysDir is the directory name for local key store
+	// LocalKeysDir is the directory name for local key store.
 	LocalKeysDir = "localkeys"
 
-	// SignatureExtension defines the extension of the signature files
+	// SignatureExtension defines the extension of the signature files.
 	SignatureExtension = ".sig"
 
-	// SignatureStoreDirName is the name of the signature store directory
+	// SignatureStoreDirName is the name of the signature store directory.
 	SignatureStoreDirName = "signatures"
 
-	// SigningKeysFile is the file name of signing key info
+	// SigningKeysFile is the file name of signing key info.
 	SigningKeysFile = "signingkeys.json"
 
-	// TrustPolicyFile is the file name of trust policy info
+	// TrustPolicyFile is the file name of trust policy info.
 	TrustPolicyFile = "trustpolicy.json"
 
-	// TrustStoreDir is the directory name of trust store
+	// TrustStoreDir is the directory name of trust store.
 	TrustStoreDir = "truststore"
 )
 
@@ -46,15 +46,15 @@ const (
 	// [directory spec]: https://github.com/notaryproject/notation/blob/main/specs/directory.md#category
 	UnionLevel DirLevel = iota
 
-	// SystemLevel is the label to specify write directory to system level
+	// SystemLevel is the label to specify write directory to system level.
 	SystemLevel
 
-	// UserLevel is the label to specify write directory to user level
+	// UserLevel is the label to specify write directory to user level.
 	UserLevel
 )
 
 // PathManager contains the union directory file system and methods
-// to access paths of notation
+// to access paths of notation.
 type PathManager struct {
 	ConfigFS  UnionDirFS
 	CacheFS   UnionDirFS
@@ -62,7 +62,7 @@ type PathManager struct {
 }
 
 func checkError(err error) {
-	// if path does not exist, the path can be used to create file
+	// if path does not exist, the path can be used to create file.
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		panic(err)
 	}
@@ -123,9 +123,9 @@ func (p *PathManager) TrustPolicy(dirLevel DirLevel) string {
 	return path
 }
 
-// X509TrustStore returns the path of x509 trust store certificate
+// TrustStore returns the path of x509 trust store certificate
 // based on named directory level.
-func (p *PathManager) X509TrustStore(dirLevel DirLevel, prefix, namedStore string) string {
+func (p *PathManager) TrustStore(dirLevel DirLevel, prefix, namedStore string) string {
 	var (
 		path string
 		err  error

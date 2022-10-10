@@ -50,7 +50,7 @@ func loadX509TrustStores(scheme signature.SigningScheme, policy *TrustPolicy, pa
 		}
 
 		name := trustStore[i+1:]
-		x509TrustStore, err := LoadX509TrustStore(pathManager.X509TrustStore(dir.UnionLevel, prefix, name))
+		x509TrustStore, err := LoadX509TrustStore(pathManager.TrustStore(dir.UnionLevel, prefix, name))
 		if err != nil {
 			return nil, err
 		}

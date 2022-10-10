@@ -34,9 +34,7 @@ type VerificationCertificates struct {
 
 // NewConfig creates a new config file
 func NewConfig() *Config {
-	return &Config{
-		InsecureRegistries: []string{},
-	}
+	return &Config{}
 }
 
 // Save stores the config to file.

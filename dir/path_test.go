@@ -113,7 +113,7 @@ func TestX509TrustStoreCerts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.X509TrustStore(UnionLevel, tt.args.prefix, tt.args.namedStore)
+			got := config.TrustStore(UnionLevel, tt.args.prefix, tt.args.namedStore)
 			assertPathEqual(t, tt.want, got, "X509TrustStoreCerts path error.")
 		})
 	}
@@ -182,7 +182,7 @@ func TestTrustStoreForWrite(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.X509TrustStore(tt.args.WriteLevel, "ca", "jj")
+			got := config.TrustStore(tt.args.WriteLevel, "ca", "jj")
 			assertPathEqual(t, tt.want, got, "config path for write error.")
 		})
 	}
@@ -273,7 +273,7 @@ func TestPathManager_X509TrustStore(t *testing.T) {
 			NewRootedFS("/home/exampleuser/.config/notation/", nil),
 		),
 	}
-	storePath := path.X509TrustStore(UnionLevel, "ca", "store")
+	storePath := path.TrustStore(UnionLevel, "ca", "store")
 	if storePath != "/home/exampleuser/.config/notation/truststore/x509/ca/store" {
 		t.Fatal("get X509TrustStore() failed.")
 	}
