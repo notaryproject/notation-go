@@ -41,10 +41,6 @@ func NewConfig() *Config {
 //
 // if the `path` is an empty string, it uses built-in user level config directory.
 func (c *Config) Save(path string) error {
-	// set default path
-	if path == "" {
-		path = dir.Path.Config(dir.UserLevel)
-	}
 	return save(path, c)
 }
 
