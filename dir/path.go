@@ -41,8 +41,8 @@ const (
 type DirLevel int
 
 const (
-	// UnionLevel is the label to specify the directory to union user and system level,
-	// and user level has higher priority than system level.
+	// UnionLevel is the label to specify the directory to union user and
+	// system level, and user level has higher priority than system level.
 	// [directory spec]: https://github.com/notaryproject/notation/blob/main/specs/directory.md#category
 	UnionLevel DirLevel = iota
 
@@ -88,20 +88,22 @@ func (p *PathManager) Config(dirLevel DirLevel) string {
 	return path
 }
 
-// LocalKey returns the user level path of the local private key and it's certificate
-// in the localkeys directory
+// LocalKey returns the user level path of the local private key and
+// it's certificate in the localkeys directory.
 func (p *PathManager) Localkey(name string) (keyPath, certPath string) {
 	keyPath = filepath.Join(UserConfig, LocalKeysDir, name+LocalKeyExtension)
 	certPath = filepath.Join(UserConfig, LocalKeysDir, name+LocalCertificateExtension)
 	return
 }
 
-// SigningKeyConfig returns the writable user level path of signingkeys.json files
+// SigningKeyConfig returns the writable user level path of signingkeys.json
+// files.
 func (p *PathManager) SigningKeyConfig() string {
 	return filepath.Join(UserConfig, SigningKeysFile)
 }
 
-// TrustPolicy returns the path of trustpolicy.json file based on named directory level.
+// TrustPolicy returns the path of trustpolicy.json file based on named
+// directory level.
 func (p *PathManager) TrustPolicy(dirLevel DirLevel) string {
 	var (
 		path string
@@ -142,7 +144,7 @@ func (p *PathManager) X509TrustStore(dirLevel DirLevel, prefix, namedStore strin
 	return path
 }
 
-// CachedSignature returns the cached signature file path
+// CachedSignature returns the cached signature file path.
 func (p *PathManager) CachedSignature(manifestDigest, signatureDigest digest.Digest) string {
 	path, err := p.CacheFS.GetPath(
 		SignatureStoreDirName,
@@ -155,7 +157,7 @@ func (p *PathManager) CachedSignature(manifestDigest, signatureDigest digest.Dig
 	return path
 }
 
-// CachedSignatureRoot returns the cached signature root path
+// CachedSignatureRoot returns the cached signature root path.
 func (p *PathManager) CachedSignatureRoot(manifestDigest digest.Digest) string {
 	path, err := p.CacheFS.GetPath(
 		SignatureStoreDirName,
@@ -166,7 +168,7 @@ func (p *PathManager) CachedSignatureRoot(manifestDigest digest.Digest) string {
 	return path
 }
 
-// CachedSignatureStoreDirPath returns the cached signing keys directory
+// CachedSignatureStoreDirPath returns the cached signing keys directory.
 func (p *PathManager) CachedSignatureStoreDirPath() string {
 	path, err := p.CacheFS.GetPath(SignatureStoreDirName)
 	checkError(err)
