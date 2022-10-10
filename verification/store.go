@@ -77,11 +77,13 @@ func validateCerts(certs []*x509.Certificate, path string) error {
 		return fmt.Errorf("could not parse a certificate from %q, every file in a trust store must have a PEM or DER certificate in it", path)
 	}
 
+	// for each and every cert in certs, it needs to be a CA or self-signed
+	// certificate to pass the validation.
 	for _, cert := range certs {
 		if !cert.IsCA {
 			if err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature); err != nil {
 				return fmt.Errorf(
-					"certificate with subject %q from file %q is not a CA certificate or self-signed signing certificate",
+					"certificate with subject %q from file %q is not a CA or self-signed certificate",
 					cert.Subject,
 					path,
 				)
