@@ -158,7 +158,10 @@ func (policyDoc *PolicyDocument) ValidatePolicyDocument() error {
 	policyStatementNameCount := make(map[string]int)
 
 	for _, statement := range policyDoc.TrustPolicies {
-		validatePolicy(&statement)
+		err := validatePolicy(&statement)
+		if err != nil {
+			return err
+		}
 		policyStatementNameCount[statement.Name]++
 	}
 
