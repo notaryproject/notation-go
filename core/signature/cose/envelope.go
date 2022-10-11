@@ -2,4 +2,5 @@ package cose
 
 import "github.com/notaryproject/notation-core-go/signature/cose"
 
-const MediaTypeEnvelope = cose.MediaTypeEnvelope
+// MediaTypeEnvelope is the COSE signature envelope blob mediaType.
+const MediaTypeEnvelope string = cose.MediaTypeEnvelope
