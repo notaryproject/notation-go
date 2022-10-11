@@ -6,7 +6,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 )
 
-func TestKeySpecName(t *testing.T) {
+func TestKeySpecString(t *testing.T) {
 	tests := []struct {
 		name     string
 		keySpec  signature.KeySpec
@@ -79,7 +79,7 @@ func TestKeySpecName(t *testing.T) {
 	}
 }
 
-func TestKeySpecHashName(t *testing.T) {
+func TestKeySpecHashString(t *testing.T) {
 	tests := []struct {
 		name     string
 		keySpec  signature.KeySpec
@@ -152,7 +152,7 @@ func TestKeySpecHashName(t *testing.T) {
 	}
 }
 
-func TestParseKeySpecFromName(t *testing.T) {
+func TestParseKeySpec(t *testing.T) {
 	tests := []struct {
 		name      string
 		raw       string
@@ -234,7 +234,7 @@ func TestParseKeySpecFromName(t *testing.T) {
 	}
 }
 
-func TestSigningAlgorithmName(t *testing.T) {
+func TestSigningAlgorithmString(t *testing.T) {
 	tests := []struct {
 		name     string
 		alg      signature.Algorithm
@@ -285,7 +285,7 @@ func TestSigningAlgorithmName(t *testing.T) {
 	}
 }
 
-func TestParseSigningAlgorithFromName(t *testing.T) {
+func TestParseSigningAlgorithm(t *testing.T) {
 	tests := []struct {
 		name      string
 		raw       string
