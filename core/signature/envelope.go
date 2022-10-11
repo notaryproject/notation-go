@@ -8,3 +8,9 @@ import (
 func RegisteredEnvelopeTypes() []string {
 	return signature.RegisteredEnvelopeTypes()
 }
+
+// ParseEnvelope generates an envelope for given envelope bytes with specified
+// media type.
+func ParseEnvelope(mediaType string, envelopeBytes []byte) (signature.Envelope, error) {
+	return signature.ParseEnvelope(mediaType, envelopeBytes)
+}
