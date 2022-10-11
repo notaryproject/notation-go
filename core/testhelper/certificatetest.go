@@ -6,6 +6,7 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 )
 
+// RSACertTuple contains certificate and private key.
 type RSACertTuple = testhelper.RSACertTuple
 
 // GetRSACertTupleWithPK returns a RSACertTuple given private key.
