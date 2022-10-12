@@ -1,8 +1,6 @@
 package signature
 
-import (
-	"github.com/notaryproject/notation-core-go/signature"
-)
+import "github.com/notaryproject/notation-core-go/signature"
 
 // Envelope provides basic functions to manipulate signatures.
 type Envelope = signature.Envelope
