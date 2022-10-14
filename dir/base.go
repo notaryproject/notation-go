@@ -17,18 +17,18 @@ var (
 	userCacheDir  = os.UserCacheDir
 	getenv        = os.Getenv
 
-	// systemLibexec directory for binaries not meant to be executed directly
+	// SystemLibexec directory for binaries not meant to be executed directly
 	// by users' shell or scripts
-	systemLibexec string
-	// systemConfig directory for configurations
-	systemConfig string
+	SystemLibexec string
+	// SystemConfig directory for configurations
+	SystemConfig string
 
-	// userLibexec is user level libexec directory
-	userLibexec string
-	// userConfig is user level config directory
-	userConfig string
-	// userCache for user-specific cache
-	userCache string
+	// UserLibexec is user level libexec directory
+	UserLibexec string
+	// UserConfig is user level config directory
+	UserConfig string
+	// UserCache for user-specific cache
+	UserCache string
 
 	// Path is a PathManager pointer
 	Path *PathManager
@@ -39,75 +39,63 @@ func init() {
 }
 
 // loadPath function defines the directory for
-// NotationLibexec, NotationConfig, NotationCache
+// NotationLibexec, NotationConfig, NotationCache.
 func loadPath() {
 	var err error
 	// set system config and libexec
 	switch goos {
 	case "darwin":
-		systemConfig = "/Library/Application Support/notation"
-		systemLibexec = "/usr/local/lib/notation"
+		SystemConfig = "/Library/Application Support/notation"
+		SystemLibexec = "/usr/local/lib/notation"
 	case "windows":
-		systemConfig = getenv("ProgramData")
-		if systemConfig == "" {
+		SystemConfig = getenv("ProgramData")
+		if SystemConfig == "" {
 			// unsupported OS
 			panic("environment variable `ProgramData` is not set.")
 		}
-		systemConfig = filepath.Join(systemConfig, notation)
+		SystemConfig = filepath.Join(SystemConfig, notation)
 
-		systemLibexec = getenv("ProgramFiles")
-		if systemLibexec == "" {
+		SystemLibexec = getenv("ProgramFiles")
+		if SystemLibexec == "" {
 			// unsupported OS
 			panic("environment variable `ProgramFiles` is not set.")
 		}
-		systemLibexec = filepath.Join(systemLibexec, notation)
+		SystemLibexec = filepath.Join(SystemLibexec, notation)
 
 	default:
-		systemConfig = "/etc/notation"
-		systemLibexec = "/usr/libexec/notation"
+		SystemConfig = "/etc/notation"
+		SystemLibexec = "/usr/libexec/notation"
 	}
 
 	// set user config
-	userConfig, err = userConfigDir()
+	UserConfig, err = userConfigDir()
 	if err != nil {
 		panic(err)
 	}
-	userConfig = filepath.Join(userConfig, notation)
+	UserConfig = filepath.Join(UserConfig, notation)
 	// set user libexec
-	userLibexec = userConfig
+	UserLibexec = UserConfig
 	// set user cache
-	userCache, err = userCacheDir()
+	UserCache, err = userCacheDir()
 	if err != nil {
 		panic(err)
 	}
-	userCache = filepath.Join(userCache, notation)
+	UserCache = filepath.Join(UserCache, notation)
 
 	// set PathManager
 	// TODO(JeyJeyGao): The user/system directory priority may change later
 	// (https://github.com/notaryproject/notation/issues/203)
 	Path = &PathManager{
 		ConfigFS: NewUnionDirFS(
-			NewRootedFS(userConfig, nil),
-			NewRootedFS(systemConfig, nil),
-		),
-		UserConfigFS: NewUnionDirFS(
-			NewRootedFS(userConfig, nil),
-		),
-		SystemConfigFS: NewUnionDirFS(
-			NewRootedFS(userConfig, nil),
+			NewRootedFS(UserConfig, nil),
+			NewRootedFS(SystemConfig, nil),
 		),
 		CacheFS: NewUnionDirFS(
-			NewRootedFS(userCache, nil),
+			NewRootedFS(UserCache, nil),
 		),
 		LibexecFS: NewUnionDirFS(
-			NewRootedFS(userLibexec, nil),
-			NewRootedFS(systemLibexec, nil),
-		),
-		UserLibexecFS: NewUnionDirFS(
-			NewRootedFS(userLibexec, nil),
-		),
-		SystemLibexecFS: NewUnionDirFS(
-			NewRootedFS(systemLibexec, nil),
+			NewRootedFS(UserLibexec, nil),
+			NewRootedFS(SystemLibexec, nil),
 		),
 	}
 }

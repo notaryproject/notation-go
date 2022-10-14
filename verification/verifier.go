@@ -27,7 +27,7 @@ type pluginManager interface {
 
 func NewVerifier(repository registry.Repository) (*Verifier, error) {
 	// load trust policy
-	policyDocument, err := loadPolicyDocument(dir.Path.TrustPolicy())
+	policyDocument, err := loadPolicyDocument(dir.Path.TrustPolicy(dir.UnionLevel))
 	if err != nil {
 		return nil, err
 	}

@@ -25,8 +25,6 @@ type Config struct {
 	InsecureRegistries       []string                 `json:"insecureRegistries"`
 	CredentialsStore         string                   `json:"credsStore,omitempty"`
 	CredentialHelpers        map[string]string        `json:"credHelpers,omitempty"`
-	// EnvelopeType defines the envelope type for signing
-	EnvelopeType string `json:"envelopeType,omitempty"`
 }
 
 // VerificationCertificates is a collection of public certs used for verification.
@@ -36,19 +34,13 @@ type VerificationCertificates struct {
 
 // NewConfig creates a new config file
 func NewConfig() *Config {
-	return &Config{
-		InsecureRegistries: []string{},
-	}
+	return &Config{}
 }
 
 // Save stores the config to file.
 //
 // if the `path` is an empty string, it uses built-in user level config directory.
 func (c *Config) Save(path string) error {
-	// set default path
-	if path == "" {
-		path = dir.Path.ConfigForWrite(dir.UserLevel)
-	}
 	return save(path, c)
 }
 
@@ -59,7 +51,7 @@ func (c *Config) Save(path string) error {
 func LoadConfig(path string) (*Config, error) {
 	// set default path
 	if path == "" {
-		path = dir.Path.Config()
+		path = dir.Path.Config(dir.UnionLevel)
 	}
 
 	// load config

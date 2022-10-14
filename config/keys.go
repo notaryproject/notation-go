@@ -61,11 +61,6 @@ func NewSigningKeys() *SigningKeys {
 //
 // if `path` is an empty string, it uses built-in user level signingkey.json directory.
 func LoadSigningKeys(path string) (*SigningKeys, error) {
-	// set default path
-	if path == "" {
-		path = dir.Path.SigningKeyConfig()
-	}
-
 	// load signingkeys config
 	var config SigningKeys
 	err := load(path, &config)

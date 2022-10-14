@@ -13,6 +13,5 @@
     },
     "insecureRegistries": [
         "registry.wabbit-networks.io"
-    ],
-    "envelopeType": "jws"
+    ]
 }
