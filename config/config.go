@@ -23,6 +23,8 @@ type Config struct {
 	InsecureRegistries       []string                 `json:"insecureRegistries"`
 	CredentialsStore         string                   `json:"credsStore,omitempty"`
 	CredentialHelpers        map[string]string        `json:"credHelpers,omitempty"`
+	// EnvelopeType defines the envelope type for signing
+	EnvelopeType string `json:"envelopeType,omitempty"`
 }
 
 // VerificationCertificates is a collection of public certs used for verification.
