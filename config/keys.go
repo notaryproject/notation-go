@@ -3,8 +3,6 @@ package config
 import (
 	"errors"
 	"io/fs"
-
-	"github.com/notaryproject/notation-go/dir"
 )
 
 // X509KeyPair contains the paths of a public/private key pair files.
@@ -41,13 +39,7 @@ type SigningKeys struct {
 }
 
 // Save config to file.
-//
-// if `path` is an empty string, it uses built-in user level signingkey.json directory.
 func (s *SigningKeys) Save(path string) error {
-	// set default path
-	if path == "" {
-		path = dir.Path.SigningKeyConfig()
-	}
 	return save(path, s)
 }
 
@@ -58,8 +50,6 @@ func NewSigningKeys() *SigningKeys {
 
 // LoadSigningKeys reads the config from file
 // or return a default config if not found.
-//
-// if `path` is an empty string, it uses built-in user level signingkey.json directory.
 func LoadSigningKeys(path string) (*SigningKeys, error) {
 	// load signingkeys config
 	var config SigningKeys

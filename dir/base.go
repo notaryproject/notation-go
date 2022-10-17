@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/notaryproject/notation-go/config"
 )
 
 const (
@@ -32,10 +34,16 @@ var (
 
 	// Path is a PathManager pointer
 	Path *PathManager
+
+	// harden defines security level, default value is false
+	// if Harden is true, only read system level
+	// if harden is false, read user and system level
+	harden bool
 )
 
 func init() {
 	loadPath()
+	loadSettings()
 }
 
 // loadPath function defines the directory for
@@ -98,4 +106,17 @@ func loadPath() {
 			NewRootedFS(SystemLibexec, nil),
 		),
 	}
+}
+
+// loadSettings loads the required settings for directory structure
+func loadSettings() {
+	// load harden setting
+	configPath := filepath.Join(SystemConfig, ConfigFile)
+	cfg, err := config.LoadConfig(configPath)
+	// system level read permission is required. It is insecure to bypass
+	// reading config, so any error should panic.
+	if err != nil {
+		panic(err)
+	}
+	harden = cfg.Harden
 }

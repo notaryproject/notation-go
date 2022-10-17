@@ -1,7 +1,10 @@
 package dir
 
 import (
+	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 
@@ -313,4 +316,64 @@ func TestPathManager_CachedSignatureStoreDirPath(t *testing.T) {
 	if signatureDirPath != "/home/exampleuser/.cache/notation/signatures" {
 		t.Fatal("get CachedSignatureStoreDir() failed.")
 	}
+}
+
+func TestSecureDirLevel(t *testing.T) {
+	// backup and restore system config path
+	systemConfigBak := SystemConfig
+	t.Cleanup(func() {
+		SystemConfig = systemConfigBak
+	})
+
+	// generate temp config
+	SystemConfig = t.TempDir()
+
+	setHarden := func(harden bool, fileMode fs.FileMode) {
+		configPath := filepath.Join(SystemConfig, "config.json")
+		os.Remove(configPath)
+		f, err := os.OpenFile(configPath, os.O_CREATE|os.O_RDWR, fileMode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.WriteString(fmt.Sprintf(`{"Harden": %v}`, harden))
+		f.Close()
+		loadSettings()
+	}
+
+	t.Run("no config.json", func(t *testing.T) {
+		dirLevel := secureDirLevel(UserLevel)
+		if dirLevel != UserLevel {
+			t.Fatalf("want dirLevel: %v, got dirLevel: %v", UserLevel, dirLevel)
+		}
+	})
+
+	t.Run("harden is false", func(t *testing.T) {
+		setHarden(false, 0644)
+		dirLevel := secureDirLevel(UserLevel)
+		if dirLevel != UserLevel {
+			t.Fatalf("want dirLevel: %v, got dirLevel: %v", UserLevel, dirLevel)
+		}
+	})
+
+	t.Run("harden is true", func(t *testing.T) {
+		setHarden(true, 0644)
+		dirLevel := secureDirLevel(UserLevel)
+		if dirLevel != SystemLevel {
+			t.Fatalf("want dirLevel: %v, got dirLevel: %v", SystemLevel, dirLevel)
+		}
+	})
+
+	t.Run("config permission error", func(t *testing.T) {
+		defer func() {
+			if d := recover(); d != nil {
+				return
+			}
+		}()
+		setHarden(true, 0000)
+		dirLevel := secureDirLevel(UserLevel)
+		if dirLevel != SystemLevel {
+			t.Fatalf("want dirLevel: %v, got dirLevel: %v", SystemLevel, dirLevel)
+		}
+		t.Fatal("should panic")
+	})
 }

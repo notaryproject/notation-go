@@ -3,8 +3,6 @@ package config
 import (
 	"errors"
 	"io/fs"
-
-	"github.com/notaryproject/notation-go/dir"
 )
 
 // CertificateReference is a named file path.
@@ -21,10 +19,18 @@ func (c CertificateReference) Is(name string) bool {
 // Config reflects the config.json file.
 // Specification: https://github.com/notaryproject/notation/pull/76
 type Config struct {
-	VerificationCertificates VerificationCertificates `json:"verificationCerts"`
-	InsecureRegistries       []string                 `json:"insecureRegistries"`
+	VerificationCertificates VerificationCertificates `json:"verificationCerts,omitempty"`
+	InsecureRegistries       []string                 `json:"insecureRegistries,omitempty"`
 	CredentialsStore         string                   `json:"credsStore,omitempty"`
 	CredentialHelpers        map[string]string        `json:"credHelpers,omitempty"`
+
+	// EnvelopeType defines the envelope type for signing
+	EnvelopeType string `json:"envelopeType,omitempty"`
+
+	// Harden defines security level, default value is false
+	// if Harden is true, only read system level
+	// if harden is false, read user and system level
+	Harden bool `json:"harden,omitempty"`
 }
 
 // VerificationCertificates is a collection of public certs used for verification.
@@ -45,15 +51,7 @@ func (c *Config) Save(path string) error {
 }
 
 // LoadConfig reads the config from file or return a default config if not found.
-//
-// if `path` is an empty string, it uses built-in config.json directory, including
-// user level and system level.
 func LoadConfig(path string) (*Config, error) {
-	// set default path
-	if path == "" {
-		path = dir.Path.Config(dir.UnionLevel)
-	}
-
 	// load config
 	var config Config
 	err := load(path, &config)

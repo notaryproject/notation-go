@@ -42,7 +42,7 @@ type DirLevel int
 
 const (
 	// UnionLevel is the label to specify the directory to union user and
-	// system level, and user level has higher priority than system level.
+	// system level while user level has higher priority than system level.
 	// [directory spec]: https://github.com/notaryproject/notation/blob/main/specs/directory.md#category
 	UnionLevel DirLevel = iota
 
@@ -69,11 +69,16 @@ func checkError(err error) {
 }
 
 // Config returns the path of config.json based on named directory level.
+//
+// dirLevel will be overwritten based on security setting.
 func (p *PathManager) Config(dirLevel DirLevel) string {
 	var (
 		path string
 		err  error
 	)
+
+	// overwrite dirLevel based on security setting
+	dirLevel = secureDirLevel(dirLevel)
 
 	switch dirLevel {
 	case UnionLevel:
@@ -104,11 +109,16 @@ func (p *PathManager) SigningKeyConfig() string {
 
 // TrustPolicy returns the path of trustpolicy.json file based on named
 // directory level.
+//
+// dirLevel will be overwritten based on security setting.
 func (p *PathManager) TrustPolicy(dirLevel DirLevel) string {
 	var (
 		path string
 		err  error
 	)
+
+	// overwrite dirLevel based on security setting
+	dirLevel = secureDirLevel(dirLevel)
 
 	switch dirLevel {
 	case UnionLevel:
@@ -125,20 +135,27 @@ func (p *PathManager) TrustPolicy(dirLevel DirLevel) string {
 
 // TrustStore returns the path of x509 trust store certificate
 // based on named directory level.
-func (p *PathManager) TrustStore(dirLevel DirLevel, prefix, namedStore string) string {
+//
+// dirLevel will be overwritten based on security setting.
+// elements are the sub-directories or file name under `truststore` directory.
+func (p *PathManager) TrustStore(dirLevel DirLevel, elements ...string) string {
 	var (
 		path string
 		err  error
 	)
+	// overwrite dirLevel based on security setting
+	dirLevel = secureDirLevel(dirLevel)
+
+	pathElements := append([]string{TrustStoreDir, "x509"}, elements...)
 
 	switch dirLevel {
 	case UnionLevel:
-		path, err = p.ConfigFS.GetPath(TrustStoreDir, "x509", prefix, namedStore)
+		path, err = p.ConfigFS.GetPath(pathElements...)
 		checkError(err)
 	case SystemLevel:
-		path = filepath.Join(SystemConfig, TrustStoreDir, "x509", prefix, namedStore)
+		path = filepath.Join(append([]string{SystemConfig}, pathElements...)...)
 	case UserLevel:
-		path = filepath.Join(UserConfig, TrustStoreDir, "x509", prefix, namedStore)
+		path = filepath.Join(append([]string{UserConfig}, pathElements...)...)
 	}
 
 	return path
@@ -173,4 +190,15 @@ func (p *PathManager) CachedSignatureStoreDirPath() string {
 	path, err := p.CacheFS.GetPath(SignatureStoreDirName)
 	checkError(err)
 	return path
+}
+
+// secureDirLevel checks the security requirement based on `Harden` field in
+// system level config.json and returns the directory level satisfying the
+// security requirement.
+func secureDirLevel(dirLevel DirLevel) DirLevel {
+	// if Harden is true, only use system directory
+	if harden == true {
+		return SystemLevel
+	}
+	return dirLevel
 }
