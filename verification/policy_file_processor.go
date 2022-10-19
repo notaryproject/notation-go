@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	trustPolicyPath         string
-	trustPolicyPathForWriteUserLevel string
+	trustPolicyPath                    string
+	trustPolicyPathForWriteUserLevel   string
 	trustPolicyPathForWriteSystemLevel string
-	trustPolicyPaths map[dir.WriteLevel]string
+	trustPolicyPaths                   map[dir.WriteLevel]string
 )
 
 func init() {
@@ -23,7 +23,7 @@ func init() {
 	trustPolicyPathForWriteUserLevel = dir.Path.TrustPolicyForWrite(dir.UserLevel)
 	trustPolicyPathForWriteSystemLevel = dir.Path.TrustPolicyForWrite(dir.SystemLevel)
 	trustPolicyPaths = map[dir.WriteLevel]string{
-		dir.UserLevel: trustPolicyPathForWriteUserLevel,
+		dir.UserLevel:   trustPolicyPathForWriteUserLevel,
 		dir.SystemLevel: trustPolicyPathForWriteSystemLevel,
 	}
 }
@@ -177,7 +177,7 @@ func (pd *PolicyDocument) DeletePolicies(names []string, writeLevel dir.WriteLev
 		uniqueNames[name] = struct{}{}
 	}
 
-	for name, _ := range uniqueNames {
+	for name := range uniqueNames {
 		if _, exist := existingPolicies[name]; !exist {
 			return ErrorPolicyNotExists{
 				Msg: fmt.Sprintf("Policy %s does not exist", name),
@@ -356,7 +356,7 @@ func mergeMaps(base, override map[string]string) {
 	if base == nil {
 		base = make(map[string]string)
 	}
-	
+
 	for k, v := range override {
 		base[k] = v
 	}
