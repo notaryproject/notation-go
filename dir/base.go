@@ -14,7 +14,6 @@ var (
 	// for mocking
 	goos          = runtime.GOOS
 	userConfigDir = os.UserConfigDir
-	userCacheDir  = os.UserCacheDir
 	getenv        = os.Getenv
 
 	// systemLibexec directory for binaries not meant to be executed directly
@@ -27,8 +26,6 @@ var (
 	userLibexec string
 	// userConfig is user level config directory
 	userConfig string
-	// userCache for user-specific cache
-	userCache string
 
 	// Path is a PathManager pointer
 	Path *PathManager
@@ -39,7 +36,7 @@ func init() {
 }
 
 // loadPath function defines the directory for
-// NotationLibexec, NotationConfig, NotationCache
+// NotationLibexec, NotationConfig
 func loadPath() {
 	var err error
 	// set system config and libexec
@@ -75,12 +72,6 @@ func loadPath() {
 	userConfig = filepath.Join(userConfig, notation)
 	// set user libexec
 	userLibexec = userConfig
-	// set user cache
-	userCache, err = userCacheDir()
-	if err != nil {
-		panic(err)
-	}
-	userCache = filepath.Join(userCache, notation)
 
 	// set PathManager
 	// TODO(JeyJeyGao): The user/system directory priority may change later
@@ -95,9 +86,6 @@ func loadPath() {
 		),
 		SystemConfigFS: NewUnionDirFS(
 			NewRootedFS(userConfig, nil),
-		),
-		CacheFS: NewUnionDirFS(
-			NewRootedFS(userCache, nil),
 		),
 		LibexecFS: NewUnionDirFS(
 			NewRootedFS(userLibexec, nil),

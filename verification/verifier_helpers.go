@@ -216,7 +216,7 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 	for _, identity := range trustPolicy.TrustedIdentities {
 		parts := strings.Split(identity, ":")
 		if len(parts) != 2 {
-			return fmt.Errorf("trustpolicy identity %q is malformed.", identity)
+			return fmt.Errorf("trustpolicy identity %q is malformed", identity)
 		}
 
 		identityPrefix := parts[0]
