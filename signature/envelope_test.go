@@ -1,18 +1,18 @@
 package signature
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 
+	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
+	"github.com/notaryproject/notation-go"
 	gcose "github.com/veraison/go-cose"
 )
 
 var (
-	validJwsSignatureEnvelope, _ = json.Marshal(struct{}{})
-	validCoseSignatureEnvelope   []byte
+	validCoseSignatureEnvelope []byte
 )
 
 func init() {
@@ -65,4 +65,33 @@ func TestValidateEnvelopeMediaType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidatePayloadContentType(t *testing.T) {
+	payload := &signature.Payload{
+		ContentType: notation.MediaTypePayloadV1,
+	}
+	err := ValidatePayloadContentType(payload)
+	if !isErrEqual(nil, err) {
+		t.Fatalf("ValidatePayloadContentType() expects error: %v, but got: %v.", nil, err)
+	}
+
+	payload = &signature.Payload{
+		ContentType: "invalid",
+	}
+	err = ValidatePayloadContentType(payload)
+	expect := errors.New("payload content type \"invalid\" not supported")
+	if !isErrEqual(expect, err) {
+		t.Fatalf("ValidatePayloadContentType() expects error: %v, but got: %v.", expect, err)
+	}
+}
+
+func isErrEqual(wanted, got error) bool {
+	if wanted == nil && got == nil {
+		return true
+	}
+	if wanted != nil && got != nil {
+		return wanted.Error() == got.Error()
+	}
+	return false
 }
