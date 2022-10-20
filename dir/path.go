@@ -3,8 +3,6 @@ package dir
 import (
 	"errors"
 	"io/fs"
-
-	"github.com/opencontainers/go-digest"
 )
 
 const (
@@ -40,7 +38,6 @@ const (
 // to access paths of notation
 type PathManager struct {
 	ConfigFS     UnionDirFS
-	CacheFS      UnionDirFS
 	LibexecFS    UnionDirFS
 	UserConfigFS UnionDirFS
 }
@@ -86,37 +83,6 @@ func (p *PathManager) TrustPolicy() string {
 // X509TrustStore returns the path of x509 trust store certificate
 func (p *PathManager) X509TrustStore(prefix, namedStore string) string {
 	path, err := p.ConfigFS.GetPath(TrustStoreDir, "x509", prefix, namedStore)
-	checkError(err)
-	return path
-}
-
-// CachedSignature returns the cached signature file path
-func (p *PathManager) CachedSignature(manifestDigest, signatureDigest digest.Digest) string {
-	path, err := p.CacheFS.GetPath(
-		SignatureStoreDirName,
-		manifestDigest.Algorithm().String(),
-		manifestDigest.Encoded(),
-		signatureDigest.Algorithm().String(),
-		signatureDigest.Encoded()+SignatureExtension,
-	)
-	checkError(err)
-	return path
-}
-
-// CachedSignatureRoot returns the cached signature root path
-func (p *PathManager) CachedSignatureRoot(manifestDigest digest.Digest) string {
-	path, err := p.CacheFS.GetPath(
-		SignatureStoreDirName,
-		manifestDigest.Algorithm().String(),
-		manifestDigest.Encoded(),
-	)
-	checkError(err)
-	return path
-}
-
-// CachedSignatureStoreDirPath returns the cached signing keys directory
-func (p *PathManager) CachedSignatureStoreDirPath() string {
-	path, err := p.CacheFS.GetPath(SignatureStoreDirName)
 	checkError(err)
 	return path
 }
