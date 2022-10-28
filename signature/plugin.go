@@ -96,18 +96,30 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 }
 
 func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
-	config := s.mergeConfig(opts.PluginConfig)
-	// Get key info.
-	key, err := s.describeKey(ctx, config)
-	if err != nil {
-		return nil, err
+	// for external plugin, pass keySpec and config before signing
+	if extProvider, ok := s.sigProvider.(*externalProvider); ok {
+		config := s.mergeConfig(opts.PluginConfig)
+		// Get key info.
+		key, err := s.describeKey(ctx, config)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check keyID is honored.
+		if s.keyID != key.KeyID {
+			return nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.keyID)
+		}
+		ks, err := plugin.ParseKeySpec(key.KeySpec)
+		if err != nil {
+			return nil, err
+		}
+		extProvider.prepareSigning(config, ks)
 	}
 
-	// Check keyID is honored.
-	if s.keyID != key.KeyID {
-		return nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.keyID)
-	}
+	return generateSignatureEnvelope(ctx, s.envelopeMediaType, s.sigProvider, desc, opts)
+}
 
+func generateSignatureEnvelope(ctx context.Context, mediaType string, signer signature.Signer, desc notation.Descriptor, opts notation.SignOptions) ([]byte, error) {
 	// Generate payload to be signed.
 	payload := notation.Payload{TargetArtifact: desc}
 	payloadBytes, err := json.Marshal(payload)
@@ -115,20 +127,12 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 		return nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
 	}
 
-	// for external plugin, pass keySpec and config before signing
-	if extProvider, ok := s.sigProvider.(*externalProvider); ok {
-		ks, err := plugin.ParseKeySpec(key.KeySpec)
-		if err != nil {
-			return nil, err
-		}
-		extProvider.prepareSigning(config, ks)
-	}
 	signReq := &signature.SignRequest{
 		Payload: signature.Payload{
 			ContentType: notation.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:                   s.sigProvider,
+		Signer:                   signer,
 		SigningTime:              time.Now(),
 		ExtendedSignedAttributes: nil,
 		SigningScheme:            signature.SigningSchemeX509,
@@ -140,7 +144,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	}
 
 	// perform signing using pluginSigProvider
-	sigEnv, err := signature.NewEnvelope(s.envelopeMediaType)
+	sigEnv, err := signature.NewEnvelope(mediaType)
 	if err != nil {
 		return nil, err
 	}
