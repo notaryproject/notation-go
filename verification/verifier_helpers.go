@@ -253,8 +253,8 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	if err != nil {
 		return nil, err
 	}
-	var attributesToProcess []string
-	extendedAttributes := make(map[string]interface{})
+	var attributesToProcess []interface{}
+	extendedAttributes := make(map[interface{}]interface{})
 
 	// pass extended critical attributes to the plugin's verify-signature command
 	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
