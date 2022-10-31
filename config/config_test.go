@@ -29,7 +29,7 @@ var sampleConfig = &Config{
 	InsecureRegistries: []string{
 		"registry.wabbit-networks.io",
 	},
-	EnvelopeType: "jws",
+	SignatureFormat: "jws",
 }
 
 func TestLoadFile(t *testing.T) {
