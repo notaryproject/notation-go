@@ -59,14 +59,14 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign artifact %v in signature media type %v", metadata.Name, metadata.Capabilities, desc.Digest, opts.SignatureMediaType)
 	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
-		return s.generateSignature(ctx, desc, opts)
+		return s.generateSignature(ctx, desc, opts, metadata)
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions, metadata *proto.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature by plugin")
 	config := s.mergeConfig(opts.PluginConfig)
@@ -94,6 +94,8 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 			keySpec:      ks,
 		},
 	}
+
+	opts.SigningAgent = fmt.Sprintf("%s %s/%s", signingAgent, metadata.Name, metadata.Version)
 	return genericSigner.Sign(ctx, desc, opts)
 }
 
@@ -141,15 +143,18 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		return nil, nil, err
 	}
 
+	content := envContent.Payload.Content
 	var signedPayload envelope.Payload
-	if err = json.Unmarshal(envContent.Payload.Content, &signedPayload); err != nil {
+	if err = json.Unmarshal(content, &signedPayload); err != nil {
 		return nil, nil, fmt.Errorf("signed envelope payload can't be unmarshalled: %w", err)
 	}
 
-	// TODO: Verify plugin did not add any additional top level payload
-	// attributes. https://github.com/notaryproject/notation-go/issues/80
-	if !isDescriptorSubset(desc, signedPayload.TargetArtifact) {
+	if !isPayloadDescriptorValid(desc, signedPayload.TargetArtifact) {
 		return nil, nil, fmt.Errorf("during signing descriptor subject has changed from %+v to %+v", desc, signedPayload.TargetArtifact)
+	}
+
+	if unknownAttributes := areUnknownAttributesAdded(content); len(unknownAttributes) != 0 {
+		return nil, nil, fmt.Errorf("during signing, following unknown attributes were added to subject descriptor: %+q", unknownAttributes)
 	}
 
 	return resp.SignatureEnvelope, &envContent.SignerInfo, nil
@@ -195,6 +200,40 @@ func isDescriptorSubset(original, newDesc ocispec.Descriptor) bool {
 		}
 	}
 	return true
+}
+
+func isPayloadDescriptorValid(originalDesc, newDesc ocispec.Descriptor) bool {
+	return content.Equal(originalDesc, newDesc) &&
+		isDescriptorSubset(originalDesc, newDesc)
+}
+
+func areUnknownAttributesAdded(content []byte) []string {
+	var targetArtifactMap map[string]interface{}
+	// Ignoring error because we already successfully unmarshalled before this point
+	_ = json.Unmarshal(content, &targetArtifactMap)
+	descriptor := targetArtifactMap["targetArtifact"].(map[string]interface{})
+
+	// Explicitly remove expected keys to check if any are left over
+	delete(descriptor, "mediaType")
+	delete(descriptor, "digest")
+	delete(descriptor, "size")
+	delete(descriptor, "urls")
+	delete(descriptor, "annotations")
+	delete(descriptor, "data")
+	delete(descriptor, "platform")
+	delete(descriptor, "artifactType")
+	delete(targetArtifactMap, "targetArtifact")
+
+	unknownAttributes := append(getKeySet(descriptor), getKeySet(targetArtifactMap)...)
+	return unknownAttributes
+}
+
+func getKeySet(inputMap map[string]interface{}) []string {
+	keySet := make([]string, 0, len(inputMap))
+	for k, _ := range inputMap {
+		keySet = append(keySet, k)
+	}
+	return keySet
 }
 
 func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {

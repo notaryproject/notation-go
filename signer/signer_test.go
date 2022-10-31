@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -140,7 +141,7 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 		t.Fatalf("Sign() failed: %v", err)
 	}
 	// basic verification
-	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1])
+	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 }
 
 func TestNewFromFiles(t *testing.T) {
@@ -194,7 +195,7 @@ func TestSignWithTimestamp(t *testing.T) {
 				}
 
 				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1])
+				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], &validMetadata)
 			})
 		}
 	}
@@ -220,7 +221,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 				}
 
 				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1])
+				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 			})
 		}
 	}
@@ -276,7 +277,7 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 	return desc, sOpts
 }
 
-func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate) {
+func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate, metadata *proto.GetMetadataResponse) {
 	// basic verification
 	sigEnv, err := signature.ParseEnvelope(envelopeType, sig)
 	if err != nil {
@@ -296,6 +297,26 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 	if err != nil || !trustedCert.Equal(trust) {
 		t.Fatalf("VerifyAuthenticity failed. error = %v", err)
 	}
+
+	verifySigningAgent(t, envContent.SignerInfo.UnsignedAttributes.SigningAgent, metadata)
+}
+
+func verifySigningAgent(t *testing.T, signingAgentId string, metadata *proto.GetMetadataResponse) {
+	signingAgentRegex := regexp.MustCompile("^(?P<agent>.*) (?P<name>.*)/(?P<version>.*)$")
+	match := signingAgentRegex.FindStringSubmatch(signingAgentId)
+
+	results := map[string]string{}
+	for i, name := range match {
+		results[signingAgentRegex.SubexpNames()[i]] = name
+	}
+
+	if metadata == nil {
+		if signingAgentId != signingAgent {
+			t.Fatalf("Expected signingAgent of %s but signature contained %s instead", signingAgent, signingAgentId)
+		}
+	} else if results["agent"] != signingAgent || results["name"] != metadata.Name || results["version"] != metadata.Version {
+		t.Fatalf("Expected signingAgent of %s %s/%s but signature contained %s instead", signingAgent, metadata.Name, metadata.Version, signingAgentId)
+	}
 }
 
 func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate) {
@@ -313,5 +334,5 @@ func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.Private
 	}
 
 	// basic verification
-	basicVerification(t, sig, envelopeType, certs[len(certs)-1])
+	basicVerification(t, sig, envelopeType, certs[len(certs)-1], nil)
 }

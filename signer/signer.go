@@ -82,6 +82,12 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
 
+	var signingAgentId string
+	if opts.SigningAgent != "" {
+		signingAgentId = opts.SigningAgent
+	} else {
+		signingAgentId = signingAgent
+	}
 	signReq := &signature.SignRequest{
 		Payload: signature.Payload{
 			ContentType: envelope.MediaTypePayloadV1,
@@ -90,7 +96,7 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		Signer:        s.Signer,
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
-		SigningAgent:  signingAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
+		SigningAgent:  signingAgentId,
 	}
 
 	// Add expiry only if ExpiryDuration is not zero
