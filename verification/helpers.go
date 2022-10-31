@@ -69,6 +69,15 @@ func isPresent(val string, values []string) bool {
 	return false
 }
 
+func isPresentAny(val interface{}, values []interface{}) bool {
+	for _, v := range values {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
 func getArtifactPathFromUri(artifactUri string) (string, error) {
 	// TODO support more types of URI like "domain.com/repository", "domain.com/repository:tag"
 	i := strings.LastIndex(artifactUri, "@")

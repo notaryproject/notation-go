@@ -247,7 +247,7 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 	// verify all extended critical attributes are processed by the plugin
 	for _, attr := range outcome.EnvelopeContent.SignerInfo.SignedAttributes.ExtendedAttributes {
 		if attr.Critical {
-			if !isPresent(attr.Key, response.ProcessedAttributes) {
+			if !isPresentAny(attr.Key, response.ProcessedAttributes) {
 				return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
 			}
 		}
