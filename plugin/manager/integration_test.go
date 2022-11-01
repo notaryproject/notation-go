@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 )
@@ -55,7 +56,8 @@ func TestIntegration(t *testing.T) {
 		t.Skip()
 	}
 	root := preparePlugin(t)
-	mgr := manager.New(root)
+	fsys := dir.NewSysFS(root)
+	mgr := manager.New(fsys)
 	p, err := mgr.Get(context.Background(), "foo")
 	if err != nil {
 		t.Fatal(err)

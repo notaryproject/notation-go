@@ -40,13 +40,11 @@ type SigningKeys struct {
 	Keys    []KeySuite `json:"keys"`
 }
 
-// Save config to file.
-//
-// if `path` is an empty string, it uses built-in user level signingkey.json directory.
-func (s *SigningKeys) Save(path string) error {
-	// set default path
-	if path == "" {
-		path = dir.Path.SigningKeyConfig()
+// Save config to file
+func (s *SigningKeys) Save() error {
+	path, err := dir.ConfigFS().SysPath(dir.PathSigningKeys)
+	if err != nil {
+		return err
 	}
 	return save(path, s)
 }
@@ -60,15 +58,15 @@ func NewSigningKeys() *SigningKeys {
 // or return a default config if not found.
 //
 // if `path` is an empty string, it uses built-in user level signingkey.json directory.
-func LoadSigningKeys(path string) (*SigningKeys, error) {
-	// set default path
-	if path == "" {
-		path = dir.Path.SigningKeyConfig()
-	}
-
+func LoadSigningKeys() (*SigningKeys, error) {
 	// load signingkeys config
 	var config SigningKeys
-	err := load(path, &config)
+
+	path, err := dir.ConfigFS().SysPath(dir.PathSigningKeys)
+	if err != nil {
+		return nil, err
+	}
+	err = load(path, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewSigningKeys(), nil

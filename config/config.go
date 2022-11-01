@@ -41,30 +41,25 @@ func NewConfig() *Config {
 	}
 }
 
-// Save stores the config to file.
-//
-// if the `path` is an empty string, it uses built-in user level config directory.
-func (c *Config) Save(path string) error {
-	// set default path
-	if path == "" {
-		path = dir.Path.ConfigForWrite(dir.UserLevel)
+// Save stores the config to file
+func (c *Config) Save() error {
+	path, err := dir.ConfigFS().SysPath(dir.PathConfigFile)
+	if err != nil {
+		return err
 	}
 	return save(path, c)
 }
 
 // LoadConfig reads the config from file or return a default config if not found.
-//
-// if `path` is an empty string, it uses built-in config.json directory, including
-// user level and system level.
-func LoadConfig(path string) (*Config, error) {
-	// set default path
-	if path == "" {
-		path = dir.Path.Config()
-	}
-
+func LoadConfig() (*Config, error) {
 	// load config
 	var config Config
-	err := load(path, &config)
+	path, err := dir.ConfigFS().SysPath(dir.PathConfigFile)
+	if err != nil {
+		return nil, err
+	}
+
+	err = load(path, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewConfig(), nil

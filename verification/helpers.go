@@ -3,7 +3,6 @@ package verification
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -13,9 +12,9 @@ import (
 	ldapv3 "github.com/go-ldap/ldap/v3"
 )
 
-func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
+func loadPolicyDocument() (*PolicyDocument, error) {
 	policyDocument := &PolicyDocument{}
-	jsonFile, err := os.Open(policyDocumentPath)
+	jsonFile, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +26,7 @@ func loadPolicyDocument(policyDocumentPath string) (*PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-func loadX509TrustStores(scheme signature.SigningScheme, policy *TrustPolicy, pathManager *dir.PathManager) (map[string]*X509TrustStore, error) {
+func loadX509TrustStores(scheme signature.SigningScheme, policy *TrustPolicy) (map[string]*X509TrustStore, error) {
 	var prefixToLoad TrustStorePrefix
 	if scheme == signature.SigningSchemeX509 {
 		prefixToLoad = TrustStorePrefixCA
@@ -50,7 +49,11 @@ func loadX509TrustStores(scheme signature.SigningScheme, policy *TrustPolicy, pa
 		}
 
 		name := trustStore[i+1:]
-		x509TrustStore, err := LoadX509TrustStore(pathManager.X509TrustStore(prefix, name))
+		path, err := dir.ConfigFS().SysPath(dir.X509TrustStoreDir(prefix, name))
+		if err != nil {
+			return nil, err
+		}
+		x509TrustStore, err := LoadX509TrustStore(path)
 		if err != nil {
 			return nil, err
 		}

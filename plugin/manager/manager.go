@@ -61,18 +61,13 @@ func (c execCommander) Output(ctx context.Context, name string, command string, 
 
 // Manager manages plugins installed on the system.
 type Manager struct {
-	fsys  dir.UnionDirFS
+	fsys  dir.SysFS
 	cmder commander
 }
 
-// New returns a new manager rooted at root.
-//
-// roots is the path of the directories where plugins are stored
-// following the {root}/{plugin-name}/notation-{plugin-name}[.exe] pattern.
-//
-// if roots is not set, it uses the build in directory structure.
-func New(roots ...string) *Manager {
-	return &Manager{dir.PluginFS(roots...), execCommander{}}
+// New returns a new manager.
+func New(fsys dir.SysFS) *Manager {
+	return &Manager{fsys, execCommander{}}
 }
 
 // Get returns a plugin on the system by its name.
@@ -223,9 +218,9 @@ func binName(name string) string {
 	return addExeSuffix(plugin.Prefix + name)
 }
 
-func binPath(fsys dir.UnionDirFS, name string) string {
+func binPath(fsys dir.SysFS, name string) string {
 	base := binName(name)
-	if path, err := fsys.GetPath(name, base); err == nil {
+	if path, err := fsys.SysPath(path.Join(name, base)); err == nil {
 		return path
 	}
 	return filepath.Join(name, base)

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -42,6 +41,7 @@ var sampleSigningKeysInfo = &SigningKeys{
 }
 
 func TestLoadSigningKeysInfo(t *testing.T) {
+<<<<<<< HEAD
 	type args struct {
 		filePath string
 	}
@@ -72,14 +72,31 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 				t.Fatal("singingKeysInfo test failed.")
 			}
 		})
+=======
+	dir.UserConfigDir = "./testdata"
+	got, err := LoadSigningKeys()
+	if err != nil {
+		t.Errorf("LoadSigningKeysInfo() error = %v", err)
+		return
 	}
+	if !reflect.DeepEqual(sampleSigningKeysInfo, got) {
+		t.Fatal("singingKeysInfo test failed.")
+>>>>>>> f940754 (refactor: dir package)
+	}
+
 }
 
 func TestSaveSigningKeys(t *testing.T) {
 	root := t.TempDir()
+<<<<<<< HEAD
 	signingKeysPath := filepath.Join(root, "signingkeys.json")
 	sampleSigningKeysInfo.Save(signingKeysPath)
 	info, err := LoadSigningKeys(signingKeysPath)
+=======
+	dir.UserConfigDir = root
+	sampleSigningKeysInfo.Save()
+	info, err := LoadSigningKeys()
+>>>>>>> f940754 (refactor: dir package)
 	if err != nil {
 		t.Fatal("Load signingkeys.json from temp dir failed.")
 	}

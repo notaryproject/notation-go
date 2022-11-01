@@ -41,30 +41,37 @@ func TestGetArtifactDigestFromUri(t *testing.T) {
 
 func TestLoadPolicyDocument(t *testing.T) {
 	// non-existing policy file
-	_, err := loadPolicyDocument(filepath.FromSlash("/non/existent"))
+	tempRoot := t.TempDir()
+	dir.UserConfigDir = tempRoot
+	_, err := loadPolicyDocument()
 	if err == nil {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
+
 	// existing invalid json file
-	path := filepath.Join(t.TempDir(), "invalid.json")
+	tempRoot = t.TempDir()
+	dir.UserConfigDir = tempRoot
+	path := filepath.Join(tempRoot, "invalid.json")
 	err = os.WriteFile(path, []byte(`{"invalid`), 0644)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
 	}
-	_, err = loadPolicyDocument(path)
+	_, err = loadPolicyDocument()
 	if err == nil {
 		t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
 	}
 
 	// existing policy file
-	path = filepath.Join(t.TempDir(), "trustpolicy.json")
+	tempRoot = t.TempDir()
+	dir.UserConfigDir = tempRoot
+	path = filepath.Join(tempRoot, "trustpolicy.json")
 	policyDoc1 := dummyPolicyDocument()
 	policyJson, _ := json.Marshal(policyDoc1)
 	err = os.WriteFile(path, policyJson, 0644)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
 	}
-	_, err = loadPolicyDocument(path)
+	_, err = loadPolicyDocument()
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
 	}
@@ -76,16 +83,12 @@ func TestLoadX509TrustStore(t *testing.T) {
 	signingAuthorityStore := "signingAuthority:valid-trust-store"
 	dummyPolicy := dummyPolicyStatement()
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
-	path := &dir.PathManager{
-		ConfigFS: dir.NewUnionDirFS(
-			dir.NewRootedFS("testdata", nil),
-		),
-	}
-	caTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509, &dummyPolicy, path)
+	dir.UserConfigDir = "./testdata"
+	caTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509, &dummyPolicy)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
-	saTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509SigningAuthority, &dummyPolicy, path)
+	saTrustStores, err := loadX509TrustStores(signature.SigningSchemeX509SigningAuthority, &dummyPolicy)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
