@@ -1,7 +1,6 @@
 package config
 
 import (
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -33,54 +32,20 @@ var sampleConfig = &Config{
 }
 
 func TestLoadFile(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		ConfigPath = dir.Path.Config()
-	})
-	type args struct {
-		filePath string
+	dir.UserConfigDir = "./testdata"
+	got, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error. err = %v", err)
 	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Config
-		wantErr bool
-	}{
-		{
-			name:    "load config file",
-			args:    args{filePath: configPath},
-			want:    sampleConfig,
-			wantErr: false,
-		},
-		{
-			name:    "load default config file",
-			args:    args{filePath: nonexistentPath},
-			want:    NewConfig(),
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ConfigPath = tt.args.filePath
-			got, err := LoadConfig()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("loadFile() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("loadFile() = %v, want %v", got, tt.want)
-			}
-		})
+
+	if !reflect.DeepEqual(got, sampleConfig) {
+		t.Errorf("loadFile() = %v, want %v", got, sampleConfig)
 	}
 }
 
 func TestSaveFile(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		ConfigPath = dir.Path.Config()
-	})
 	root := t.TempDir()
-	ConfigPath = filepath.Join(root, "config.json")
+	dir.UserConfigDir = root
 	sampleConfig.Save()
 	config, err := LoadConfig()
 	if err != nil {

@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"io/fs"
+
+	"github.com/notaryproject/notation-go/dir"
 )
 
 // CertificateReference is a named file path.
@@ -41,13 +43,22 @@ func NewConfig() *Config {
 
 // Save stores the config to file
 func (c *Config) Save() error {
-	return save(ConfigPath, c)
+	path, err := dir.ConfigFS().SysPath(dir.PathConfigFile)
+	if err != nil {
+		return err
+	}
+	return save(path, c)
 }
 
 // LoadConfig reads the config from file or return a default config if not found.
 func LoadConfig() (*Config, error) {
 	var config Config
-	err := load(ConfigPath, &config)
+	path, err := dir.ConfigFS().SysPath(dir.PathConfigFile)
+	if err != nil {
+		return nil, err
+	}
+
+	err = load(path, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewConfig(), nil
