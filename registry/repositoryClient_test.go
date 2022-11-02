@@ -106,15 +106,17 @@ const (
 )
 
 type args struct {
-	ctx                context.Context
-	reference          string
-	remoteClient       remote.Client
-	plainHttp          bool
-	digest             digest.Digest
-	annotations        map[string]string
-	subjectManifest    notation.Descriptor
-	signature          []byte
-	signatureMediaType string
+	ctx                   context.Context
+	reference             string
+	remoteClient          remote.Client
+	plainHttp             bool
+	digest                digest.Digest
+	annotations           map[string]string
+	subjectManifest       notation.Descriptor
+	signature             []byte
+	signatureMediaType    string
+	signatureManifestDesc notation.Descriptor
+	artifactManifestDesc  notation.Descriptor
 }
 
 type mockRemoteClient struct {
@@ -296,20 +298,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 	}
 }
 
-func TestNewRepositoryClient_constructCorrectly(t *testing.T) {
-	remoteClient := mockRemoteClient{}
-	ref := registry.Reference{}
-	plainHttp := false
-	client := NewRepositoryClient(remoteClient, ref, plainHttp)
-
-	if client.Client != remoteClient ||
-		client.PlainHTTP != plainHttp ||
-		client.Reference != ref {
-		t.Fatalf("Expect client with remoteClient: %v, plainHTTP: %v, ref: %v, got: %+v",
-			remoteClient, plainHttp, ref, client.Client)
-	}
-}
-
 func TestResolve(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -348,7 +336,7 @@ func TestResolve(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := tt.args
 			ref, _ := registry.ParseReference(args.reference)
-			client := NewRepositoryClient(args.remoteClient, ref, args.plainHttp)
+			client := newRepositoryClient(args.remoteClient, ref, args.plainHttp)
 			res, err := client.Resolve(args.ctx, args.reference)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("error = %v, expectErr = %v", err, tt.expectErr)
@@ -360,7 +348,7 @@ func TestResolve(t *testing.T) {
 	}
 }
 
-func TestGetBlob(t *testing.T) {
+func TestFetchSignatureBlob(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
@@ -376,7 +364,10 @@ func TestGetBlob(t *testing.T) {
 				reference:    validReference,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				digest:       digest.Digest(invalidDigest),
+				signatureManifestDesc: notation.Descriptor{
+					MediaType: artifactspec.MediaTypeArtifactManifest,
+					Digest:    digest.Digest(invalidDigest),
+				},
 			},
 		},
 		{
@@ -388,7 +379,10 @@ func TestGetBlob(t *testing.T) {
 				reference:    validReference,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				digest:       digest.Digest(validDigestWithAlgo3),
+				signatureManifestDesc: notation.Descriptor{
+					MediaType: artifactspec.MediaTypeArtifactManifest,
+					Digest:    digest.Digest(validDigestWithAlgo3),
+				},
 			},
 		},
 		{
@@ -400,7 +394,10 @@ func TestGetBlob(t *testing.T) {
 				reference:    validReference6,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				digest:       digest.Digest(validDigestWithAlgo6),
+				signatureManifestDesc: notation.Descriptor{
+					MediaType: artifactspec.MediaTypeArtifactManifest,
+					Digest:    digest.Digest(validDigestWithAlgo6),
+				},
 			},
 		},
 	}
@@ -409,8 +406,8 @@ func TestGetBlob(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := tt.args
 			ref, _ := registry.ParseReference(args.reference)
-			client := NewRepositoryClient(args.remoteClient, ref, args.plainHttp)
-			res, err := client.GetBlob(args.ctx, args.digest)
+			client := newRepositoryClient(args.remoteClient, ref, args.plainHttp)
+			res, _, err := client.FetchSignatureBlob(args.ctx, args.signatureManifestDesc)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("error = %v, expectErr = %v", err, tt.expectErr)
 			}
@@ -421,11 +418,11 @@ func TestGetBlob(t *testing.T) {
 	}
 }
 
-func TestListSignatureManifests(t *testing.T) {
+func TestListSignatures(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
-		expect    []SignatureManifest
+		expect    []interface{}
 		expectErr bool
 	}{
 		{
@@ -455,20 +452,14 @@ func TestListSignatureManifests(t *testing.T) {
 		{
 			name:      "succeed to list",
 			expectErr: false,
-			expect: []SignatureManifest{
-				{
-					Blob: notation.Descriptor{
-						Digest: validDigestWithAlgo9,
-						Size:   90,
-					},
-				},
-			},
 			args: args{
 				ctx:          context.Background(),
 				reference:    validReference,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				digest:       digest.Digest(validDigest8),
+				artifactManifestDesc: notation.Descriptor{
+					Digest: digest.Digest(validDigest8),
+				},
 			},
 		},
 	}
@@ -476,32 +467,29 @@ func TestListSignatureManifests(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := tt.args
 			ref, _ := registry.ParseReference(args.reference)
-			client := NewRepositoryClient(args.remoteClient, ref, args.plainHttp)
+			client := newRepositoryClient(args.remoteClient, ref, args.plainHttp)
 
-			res, err := client.ListSignatureManifests(args.ctx, args.digest)
+			err := client.ListSignatures(args.ctx, args.artifactManifestDesc, nil)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("error = %v, expectErr = %v", err, tt.expectErr)
-			}
-			if !reflect.DeepEqual(res, tt.expect) {
-				t.Errorf("expect %+v, got %+v", tt.expect, res)
 			}
 		})
 	}
 }
 
-func TestPutSignatureManifest(t *testing.T) {
+func TestPushSignature(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           args
 		expectDes      notation.Descriptor
-		expectManifest SignatureManifest
+		expectManifest notation.Descriptor
 		expectErr      bool
 	}{
 		{
 			name:           "failed to upload signature",
 			expectErr:      true,
 			expectDes:      notation.Descriptor{},
-			expectManifest: SignatureManifest{},
+			expectManifest: notation.Descriptor{},
 			args: args{
 				reference:    referenceWithInvalidHost,
 				signature:    make([]byte, 0),
@@ -513,7 +501,7 @@ func TestPutSignatureManifest(t *testing.T) {
 			name:           "failed to upload signature manifest",
 			expectErr:      true,
 			expectDes:      notation.Descriptor{},
-			expectManifest: SignatureManifest{},
+			expectManifest: notation.Descriptor{},
 			args: args{
 				reference:    validReference,
 				signature:    make([]byte, 0),
@@ -528,15 +516,6 @@ func TestPutSignatureManifest(t *testing.T) {
 				MediaType: artifactspec.MediaTypeArtifactManifest,
 				Digest:    digest.Digest(validDigestWithAlgo4),
 				Size:      369,
-			},
-			expectManifest: SignatureManifest{
-				Annotations: map[string]string{
-					artifactspec.AnnotationArtifactCreated: validTimestamp,
-				},
-				Blob: notation.Descriptor{
-					MediaType: joseTag,
-					Digest:    validDigestWithAlgo5,
-				},
 			},
 			args: args{
 				reference:    validReference,
@@ -557,15 +536,6 @@ func TestPutSignatureManifest(t *testing.T) {
 				Digest:    digest.Digest(validDigestWithAlgo10),
 				Size:      364,
 			},
-			expectManifest: SignatureManifest{
-				Annotations: map[string]string{
-					artifactspec.AnnotationArtifactCreated: validTimestamp,
-				},
-				Blob: notation.Descriptor{
-					MediaType: coseTag,
-					Digest:    validDigestWithAlgo5,
-				},
-			},
 			args: args{
 				reference:    validReference,
 				signature:    make([]byte, 0),
@@ -582,18 +552,26 @@ func TestPutSignatureManifest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := tt.args
 			ref, _ := registry.ParseReference(args.reference)
-			client := NewRepositoryClient(args.remoteClient, ref, args.plainHttp)
+			client := newRepositoryClient(args.remoteClient, ref, args.plainHttp)
 
-			des, manifest, err := client.PutSignatureManifest(args.ctx, args.signature, args.signatureMediaType, args.subjectManifest, args.annotations)
+			des, _, err := client.PushSignature(args.ctx, args.signature, args.signatureMediaType, args.subjectManifest, args.annotations)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("error = %v, expectErr = %v", err, tt.expectErr)
 			}
 			if !reflect.DeepEqual(des, tt.expectDes) {
 				t.Errorf("expect descriptor: %+v, got %+v", tt.expectDes, des)
 			}
-			if !reflect.DeepEqual(manifest, tt.expectManifest) {
-				t.Errorf("expect manifest: %+v, got %+v", tt.expectManifest, manifest)
-			}
 		})
+	}
+}
+
+// newRepositoryClient creates a new repository client.
+func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
+	return &repositoryClient{
+		Repository: remote.Repository{
+			Client:    client,
+			Reference: ref,
+			PlainHTTP: plainHTTP,
+		},
 	}
 }
