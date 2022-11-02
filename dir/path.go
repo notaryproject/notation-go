@@ -69,24 +69,3 @@ func X509TrustStoreDir(items ...string) string {
 	pathItems = append(pathItems, items...)
 	return path.Join(pathItems...)
 }
-
-// X509TrustStoreForWrite returns the writable path of x509 trust store certificate
-func (p *PathManager) X509TrustStoreForWrite(writeLevel WriteLevel, prefix, namedStore string) string {
-	return getPathForWrite(writeLevel, p.UserConfigFS, p.SystemConfigFS,
-		TrustStoreDir, "x509", prefix, namedStore)
-}
-
-func getPathForWrite(writeLevel WriteLevel, user UnionDirFS, system UnionDirFS, items ...string) string {
-	var (
-		path string
-		err  error
-	)
-	if writeLevel == SystemLevel {
-		path, err = system.GetPath(items...)
-	} else {
-		path, err = user.GetPath(items...)
-	}
-
-	checkError(err)
-	return path
-}

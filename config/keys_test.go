@@ -3,6 +3,8 @@ package config
 import (
 	"reflect"
 	"testing"
+
+	"github.com/notaryproject/notation-go/dir"
 )
 
 const (
@@ -41,38 +43,6 @@ var sampleSigningKeysInfo = &SigningKeys{
 }
 
 func TestLoadSigningKeysInfo(t *testing.T) {
-<<<<<<< HEAD
-	type args struct {
-		filePath string
-	}
-	tests := []struct {
-		name string
-		args args
-		want *SigningKeys
-	}{
-		{
-			name: "read signingkeys info",
-			args: args{filePath: signingKeysPath},
-			want: sampleSigningKeysInfo,
-		},
-		{
-			name: "get default signingkeys info",
-			args: args{filePath: nonexistentPath},
-			want: NewSigningKeys(),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := LoadSigningKeys(tt.args.filePath)
-			if err != nil {
-				t.Errorf("LoadSigningKeysInfo() error = %v", err)
-				return
-			}
-			if !reflect.DeepEqual(tt.want, got) {
-				t.Fatal("singingKeysInfo test failed.")
-			}
-		})
-=======
 	dir.UserConfigDir = "./testdata"
 	got, err := LoadSigningKeys()
 	if err != nil {
@@ -81,22 +51,15 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 	}
 	if !reflect.DeepEqual(sampleSigningKeysInfo, got) {
 		t.Fatal("singingKeysInfo test failed.")
->>>>>>> f940754 (refactor: dir package)
 	}
 
 }
 
 func TestSaveSigningKeys(t *testing.T) {
 	root := t.TempDir()
-<<<<<<< HEAD
-	signingKeysPath := filepath.Join(root, "signingkeys.json")
-	sampleSigningKeysInfo.Save(signingKeysPath)
-	info, err := LoadSigningKeys(signingKeysPath)
-=======
 	dir.UserConfigDir = root
 	sampleSigningKeysInfo.Save()
 	info, err := LoadSigningKeys()
->>>>>>> f940754 (refactor: dir package)
 	if err != nil {
 		t.Fatal("Load signingkeys.json from temp dir failed.")
 	}
