@@ -58,11 +58,7 @@ func NewSigningKeys() *SigningKeys {
 // or return a default config if not found.
 func LoadSigningKeys() (*SigningKeys, error) {
 	var config SigningKeys
-	path, err := dir.ConfigFS().SysPath(dir.PathSigningKeys)
-	if err != nil {
-		return nil, err
-	}
-	err = load(path, &config)
+	err := load(dir.PathSigningKeys, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewSigningKeys(), nil

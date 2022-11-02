@@ -28,14 +28,14 @@ import (
 	"path/filepath"
 )
 
-const (
-	// notation is the directory name for notation configurations.
-	notation = "notation"
-)
-
 var (
 	UserConfigDir  string // Absolute path of user level {NOTATION_CONFIG}
 	UserLibexecDir string // Absolute path of user level {NOTATION_LIBEXEC}
+)
+
+const (
+	// notation is the directory name for notation configurations.
+	notation = "notation"
 )
 
 // The relative path to {NOTATION_CONFIG}
