@@ -1,6 +1,3 @@
-//go:build windows
-// +build windows
-
 package dir
 
 import "testing"
@@ -11,7 +8,7 @@ func mockGetenv(name string) string {
 
 func Test_loadWindowsPath(t *testing.T) {
 	getenv = mockGetenv
-	loadWindowsPath()
+	loadSystemPath()
 	if SystemConfigDir != "/path/notation" {
 		t.Fatalf(`SystemConfigDir for Windows is incorrect. got: %q, want: "/path/notation"`, SystemConfigDir)
 	}

@@ -10,7 +10,7 @@ func mockGetUserConfig() (string, error) {
 
 func Test_loadPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
-	loadPath()
+	loadUserPath()
 	if UserConfigDir != "/path/notation" {
 		t.Fatalf(`loadPath() UserConfigDir is incorrect. got: %q, want: "/path/notation"`, UserConfigDir)
 	}
@@ -22,7 +22,7 @@ func Test_loadPath(t *testing.T) {
 
 func TestLocalKeyPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
-	loadPath()
+	loadUserPath()
 	gotKeyPath, gotCertPath := LocalKeyPath("web")
 	if gotKeyPath != "localkeys/web.key" {
 		t.Fatalf(`LocalKeyPath() gotKeyPath = %q, want "localkeys/web.key"`, gotKeyPath)
@@ -34,7 +34,7 @@ func TestLocalKeyPath(t *testing.T) {
 
 func TestX509TrustStoreDir(t *testing.T) {
 	userConfigDir = mockGetUserConfig
-	loadPath()
+	loadUserPath()
 	if got := X509TrustStoreDir("ca", "web"); got != "truststore/x509/ca/web" {
 		t.Fatalf(`X509TrustStoreDir() = %q, want "truststore/x509/ca/web"`, got)
 	}

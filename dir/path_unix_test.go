@@ -1,12 +1,9 @@
-//go:build linux
-// +build linux
-
 package dir
 
 import "testing"
 
 func Test_loadLinuxPath(t *testing.T) {
-	loadLinuxPath()
+	loadSystemPath()
 	if SystemConfigDir != "/etc/notation" {
 		t.Fatalf(`SystemConfigDir for Linux is incorrect. got: %q, want: "/etc/notation"`, SystemConfigDir)
 	}

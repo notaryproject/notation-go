@@ -1,12 +1,9 @@
-//go:build darwin
-// +build darwin
-
 package dir
 
 import "testing"
 
 func Test_loadDarwinPath(t *testing.T) {
-	loadDarwinPath()
+	loadSystemPath()
 	if SystemConfigDir != "/Library/Application Support/notation" {
 		t.Fatalf(`SystemConfigDir for Darwin is incorrect. got: %q, want: "/Library/Application Support/notation"`, SystemConfigDir)
 	}

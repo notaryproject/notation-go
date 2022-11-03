@@ -1,6 +1,3 @@
-//go:build windows
-// +build windows
-
 package dir
 
 import (
@@ -12,12 +9,12 @@ import (
 var getenv = os.Getenv
 
 func init() {
-	loadWindowsPath()
+	loadSystemPath()
 }
 
-// loadWindowsPath function defines the directory for
+// loadSystemPath function defines the directory for
 // NotationLibexec, NotationConfig
-func loadWindowsPath() {
+func loadSystemPath() {
 	systemDir := getenv("ProgramData")
 	if systemDir == "" {
 		// unsupported OS

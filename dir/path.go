@@ -1,3 +1,25 @@
+// package dir implements Notation directory structure.
+// [directory spec]: https://github.com/notaryproject/notation/blob/main/specs/directory.md
+//
+// Example:
+//
+//   - Read config.json:
+//     file, err := dir.ConfigFS().Open(dir.PathConfigFile)
+//
+//   - Get the path of config.json:
+//     path, err := dir.ConfigFS().SysPath(dir.PathConfigFile)
+//
+//   - Read trustpolicy.json:
+//     file, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
+//
+//   - Get the path of trustpolicy.json:
+//     path, err := dir.ConfigFS().SysPath(dir.trustpolicy)
+//
+//   - Set custom configurations directory:
+//     dir.UserConfigDir = '/path/to/configurations/'
+//
+// Only user level directory is supported for RC.1, and system level directory
+// may be added later.
 package dir
 
 import (
@@ -13,16 +35,21 @@ var (
 	UserLibexecDir   string // Absolute path of user level {NOTATION_LIBEXEC}
 )
 
-// The relative path to {NOTATION_CONFIG}
 const (
 	// notation is the directory name for notation configurations.
 	notation = "notation"
+)
+
+// The relative path to {NOTATION_CONFIG}
+const (
 	// PathConfigFile is the config.json file relative path.
 	PathConfigFile = "config.json"
 	// PathSigningKeys is the signingkeys file relative path.
 	PathSigningKeys = "signingkeys.json"
 	// PathTrustPolicy is the trust policy file relative path.
 	PathTrustPolicy = "trustpolicy.json"
+	// PathPlugins is the plugins directory relative path.
+	PathPlugins = "plugins"
 	// LocalKeysDir is the directory name for local key relative path.
 	LocalKeysDir = "localkeys"
 	// LocalCertificateExtension defines the extension of the certificate files.
@@ -36,12 +63,11 @@ const (
 var userConfigDir = os.UserCacheDir
 
 func init() {
-	loadPath()
+	loadUserPath()
 }
 
-// loadPath function defines the directory for
-// NotationLibexec, NotationConfig
-func loadPath() {
+// loadUserPath function defines UserConfigDir and UserLibexecDir.
+func loadUserPath() {
 	// set user config
 	userDir, err := userConfigDir()
 	if err != nil {

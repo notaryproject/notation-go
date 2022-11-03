@@ -26,17 +26,14 @@ func (s sysFS) SysPath(items ...string) (string, error) {
 	return filepath.Join(pathItems...), nil
 }
 
-// NewSysFS returns the SysFS for the given roots directories.
+// NewSysFS returns the SysFS for the given root directory.
 //
 // Support one root directory for rc.1, and may support union directories FS
 // after rc.1.
-func NewSysFS(roots ...string) SysFS {
-	if len(roots) == 0 {
-		return nil
-	}
+func NewSysFS(root string) SysFS {
 	return sysFS{
-		FS:   os.DirFS(roots[0]),
-		root: roots[0]}
+		FS:   os.DirFS(root),
+		root: root}
 }
 
 // ConfigFS is the config SysFS
@@ -46,5 +43,5 @@ func ConfigFS() SysFS {
 
 // PluginFS is the plugin SysFS
 func PluginFS() SysFS {
-	return NewSysFS(filepath.Join(UserLibexecDir, "plugins"))
+	return NewSysFS(filepath.Join(UserLibexecDir, PathPlugins))
 }

@@ -1,15 +1,12 @@
-//go:build linux
-// +build linux
-
 package dir
 
 func init() {
-	loadLinuxPath()
+	loadSystemPath()
 }
 
-// loadLinuxPath function defines the directory for
+// loadSystemPath function defines the directory for
 // NotationLibexec, NotationConfig
-func loadLinuxPath() {
+func loadSystemPath() {
 	SystemConfigDir = "/etc/" + notation
 	SystemLibexecDir = "/usr/libexec/" + notation
 }

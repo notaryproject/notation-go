@@ -12,7 +12,7 @@ import (
 	"testing/fstest"
 
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/internal/mock/mock_fs"
+	"github.com/notaryproject/notation-go/internal/mock/mockfs"
 	"github.com/notaryproject/notation-go/plugin"
 )
 
@@ -46,7 +46,7 @@ var validMetadataBar = plugin.Metadata{
 }
 
 func TestManager_Get_Empty(t *testing.T) {
-	mgr := &Manager{mock_fs.NewSysFSMock(fstest.MapFS{}, ""), nil}
+	mgr := &Manager{mockfs.NewSysFSMock(fstest.MapFS{}, ""), nil}
 	got, err := mgr.Get(context.Background(), "foo")
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("Manager.Get() error = %v, want %v", got, ErrNotFound)
@@ -69,25 +69,25 @@ func TestManager_Get_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// empty fsys.
-	mgr := &Manager{mock_fs.NewSysFSMock(fstest.MapFS{}, ""), nil}
+	mgr := &Manager{mockfs.NewSysFSMock(fstest.MapFS{}, ""), nil}
 	check(mgr.Get(ctx, "foo"))
 
 	// plugin directory exists without executable.
 
-	mgr = &Manager{mock_fs.NewSysFSMock(fstest.MapFS{
+	mgr = &Manager{mockfs.NewSysFSMock(fstest.MapFS{
 		"foo": &fstest.MapFile{Mode: fs.ModeDir},
 	}, ""), nil}
 	check(mgr.Get(ctx, "foo"))
 
 	// plugin directory exists with symlinked executable.
-	mgr = &Manager{mock_fs.NewSysFSMock(fstest.MapFS{
+	mgr = &Manager{mockfs.NewSysFSMock(fstest.MapFS{
 		"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 		addExeSuffix("foo/notation-foo"): &fstest.MapFile{Mode: fs.ModeSymlink},
 	}, ""), nil}
 	check(mgr.Get(ctx, "foo"))
 
 	// valid plugin exists but is not the target.
-	mgr = &Manager{mock_fs.NewSysFSMock(fstest.MapFS{
+	mgr = &Manager{mockfs.NewSysFSMock(fstest.MapFS{
 		"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 		addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 	}, ""), testCommander{metadataJSON(validMetadata), true, nil}}
@@ -107,7 +107,7 @@ func TestManager_Get(t *testing.T) {
 	}{
 		{
 			"command error",
-			&Manager{mock_fs.NewSysFSMock(
+			&Manager{mockfs.NewSysFSMock(
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
@@ -119,7 +119,7 @@ func TestManager_Get(t *testing.T) {
 		},
 		{
 			"invalid json",
-			&Manager{mock_fs.NewSysFSMock(
+			&Manager{mockfs.NewSysFSMock(
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
@@ -131,7 +131,7 @@ func TestManager_Get(t *testing.T) {
 		},
 		{
 			"invalid metadata name",
-			&Manager{mock_fs.NewSysFSMock(
+			&Manager{mockfs.NewSysFSMock(
 				fstest.MapFS{
 					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("baz/notation-baz"): new(fstest.MapFile),
@@ -143,7 +143,7 @@ func TestManager_Get(t *testing.T) {
 		},
 		{
 			"invalid metadata content",
-			&Manager{mock_fs.NewSysFSMock(
+			&Manager{mockfs.NewSysFSMock(
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
@@ -155,7 +155,7 @@ func TestManager_Get(t *testing.T) {
 		},
 		{
 			"valid",
-			&Manager{mock_fs.NewSysFSMock(
+			&Manager{mockfs.NewSysFSMock(
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
@@ -202,12 +202,12 @@ func TestManager_List(t *testing.T) {
 		want []*Plugin
 	}{
 		{"empty fsys",
-			&Manager{mock_fs.NewSysFSMock(fstest.MapFS{}, ""), nil}, nil},
+			&Manager{mockfs.NewSysFSMock(fstest.MapFS{}, ""), nil}, nil},
 		{"fsys without plugins",
-			&Manager{mock_fs.NewSysFSMock(fstest.MapFS{"a.go": &fstest.MapFile{}}, ""), nil}, nil},
+			&Manager{mockfs.NewSysFSMock(fstest.MapFS{"a.go": &fstest.MapFile{}}, ""), nil}, nil},
 		{"fsys with plugins but symlinked",
 			&Manager{
-				mock_fs.NewSysFSMock(fstest.MapFS{
+				mockfs.NewSysFSMock(fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir | fs.ModeSymlink},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
@@ -216,7 +216,7 @@ func TestManager_List(t *testing.T) {
 		{
 			"fsys with some invalid plugins",
 			&Manager{
-				mock_fs.NewSysFSMock(fstest.MapFS{
+				mockfs.NewSysFSMock(fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 				}, ""),
@@ -224,7 +224,7 @@ func TestManager_List(t *testing.T) {
 		{
 			"fsys with plugins",
 			&Manager{
-				mock_fs.NewSysFSMock(fstest.MapFS{
+				mockfs.NewSysFSMock(fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
 					"baz":                            &fstest.MapFile{Mode: fs.ModeDir},
@@ -247,7 +247,7 @@ func TestManager_List(t *testing.T) {
 }
 
 func TestManager_Runner_Run_NotFound(t *testing.T) {
-	mgr := &Manager{mock_fs.NewSysFSMock(fstest.MapFS{}, ""), nil}
+	mgr := &Manager{mockfs.NewSysFSMock(fstest.MapFS{}, ""), nil}
 	_, err := mgr.Runner("foo")
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Manager.Runner() error = %v, want %v", err, ErrNotFound)
@@ -267,7 +267,7 @@ func TestManager_Runner_Run(t *testing.T) {
 		err  error
 	}{
 		{"exec error", &Manager{
-			mock_fs.NewSysFSMock(
+			mockfs.NewSysFSMock(
 				fstest.MapFS{
 					"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 					addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
@@ -277,7 +277,7 @@ func TestManager_Runner_Run(t *testing.T) {
 		},
 		{"request error",
 			&Manager{
-				mock_fs.NewSysFSMock(
+				mockfs.NewSysFSMock(
 					fstest.MapFS{
 						"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 						addExeSuffix("foo/notation-foo"): new(fstest.MapFile),
@@ -287,7 +287,7 @@ func TestManager_Runner_Run(t *testing.T) {
 		},
 		{"valid",
 			&Manager{
-				mock_fs.NewSysFSMock(
+				mockfs.NewSysFSMock(
 					fstest.MapFS{
 						"foo":                            &fstest.MapFile{Mode: fs.ModeDir},
 						addExeSuffix("foo/notation-foo"): new(fstest.MapFile),

@@ -1,15 +1,12 @@
-//go:build darwin
-// +build darwin
-
 package dir
 
 func init() {
-	loadDarwinPath()
+	loadSystemPath()
 }
 
-// loadDarwinPath function defines the directory for
+// loadSystemPath function defines the directory for
 // NotationLibexec, NotationConfig
-func loadDarwinPath() {
+func loadSystemPath() {
 	SystemConfigDir = "/Library/Application Support/" + notation
 	SystemLibexecDir = "/usr/local/lib/" + notation
 }
