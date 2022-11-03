@@ -360,11 +360,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 				Error:   tt.expectedErr,
 			}
 
-			path := &dir.PathManager{
-				ConfigFS: dir.NewUnionDirFS(
-					dir.NewRootedFS("testdata", nil),
-				),
-			}
+			dir.UserConfigDir = "testdata"
 
 			pluginManager := mock.PluginManager{}
 			pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
@@ -374,7 +370,6 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 				PolicyDocument: &tt.policyDocument,
 				Repository:     &tt.repository,
 				PluginManager:  pluginManager,
-				PathManager:    path,
 			}
 			outcomes, _ := verifier.Verify(context.Background(), mock.SampleArtifactUri)
 			if len(outcomes) != 1 {
@@ -401,11 +396,8 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	repo.GetResponse = pluginSigEnv
-	path := &dir.PathManager{
-		ConfigFS: dir.NewUnionDirFS(
-			dir.NewRootedFS("testdata", nil),
-		),
-	}
+
+	dir.UserConfigDir = "testdata"
 
 	// verification plugin is not installed
 	pluginManager := mock.PluginManager{}
@@ -415,7 +407,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err := verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "error while locating the verification plugin \"plugin-name\", make sure the plugin is installed successfully before verifying the signature. error: plugin not found" {
@@ -430,7 +421,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "digital signature requires plugin \"plugin-name\" with signature verification capabilities (\"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\" and/or \"SIGNATURE_VERIFIER.REVOCATION_CHECK\") installed" {
@@ -453,7 +443,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err != nil || outcomes[0].Error != nil {
@@ -477,7 +466,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "trusted identify verification by plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
@@ -500,7 +488,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err != nil || outcomes[0].Error != nil {
@@ -524,7 +511,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "revocation check by verification plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
@@ -550,7 +536,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err != nil || outcomes[0].Error != nil {
@@ -567,7 +552,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err != nil || outcomes[0].Error != nil {
@@ -583,7 +567,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "verification plugin \"plugin-name\" returned unexpected response : \"invalid plugin response\"" {
@@ -606,7 +589,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "extended critical attribute \"SomeKey\" was not processed by the verification plugin \"plugin-name\" (all extended critical attributes must be processed by the verification plugin)" {
@@ -625,7 +607,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PolicyDocument: &policyDocument,
 		Repository:     repo,
 		PluginManager:  pluginManager,
-		PathManager:    path,
 	}
 	outcomes, err = verifier.Verify(context.Background(), mock.SampleArtifactUri)
 	if err == nil || outcomes[0].Error == nil || outcomes[0].Error.Error() != "verification plugin \"plugin-name\" failed to verify \"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\"" {
