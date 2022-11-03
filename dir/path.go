@@ -28,7 +28,6 @@ import (
 	"path/filepath"
 )
 
-// The relative path to {NOTATION_CONFIG}
 const (
 	// notation is the directory name for notation configurations.
 	notation = "notation"
