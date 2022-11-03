@@ -58,7 +58,7 @@ const (
 	TrustStoreDir = "truststore"
 )
 
-var userConfigDir = os.UserCacheDir
+var userConfigDir = os.UserCacheDir // for unit test
 
 func init() {
 	loadUserPath()
