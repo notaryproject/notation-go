@@ -29,10 +29,8 @@ import (
 )
 
 var (
-	SystemConfigDir  string // Absolute path of system level {NOTATION_CONFIG}
-	SystemLibexecDir string // Absolute path of system level {NOTATION_LIBEXEC}
-	UserConfigDir    string // Absolute path of user level {NOTATION_CONFIG}
-	UserLibexecDir   string // Absolute path of user level {NOTATION_LIBEXEC}
+	UserConfigDir  string // Absolute path of user level {NOTATION_CONFIG}
+	UserLibexecDir string // Absolute path of user level {NOTATION_LIBEXEC}
 )
 
 const (
