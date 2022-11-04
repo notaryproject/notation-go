@@ -63,6 +63,12 @@ const (
 
 	TrustStorePrefixCA               TrustStorePrefix = "ca"
 	TrustStorePrefixSigningAuthority TrustStorePrefix = "signingAuthority"
+
+	// HeaderVerificationPlugin specifies the name of the verification plugin that should be used to verify the signature.
+	HeaderVerificationPlugin = "io.cncf.notary.verificationPlugin"
+
+	// HeaderVerificationPluginMinVersion specifies the minimum version of the verification plugin that should be used to verify the signature.
+	HeaderVerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
 )
 
 var (
@@ -134,6 +140,11 @@ var (
 	TrustStorePrefixes = []TrustStorePrefix{
 		TrustStorePrefixCA,
 		TrustStorePrefixSigningAuthority,
+	}
+
+	VerificationPluginHeaders = []string{
+		HeaderVerificationPlugin,
+		HeaderVerificationPluginMinVersion,
 	}
 )
 
@@ -229,11 +240,3 @@ func getPluginConfig(ctx context.Context) map[string]string {
 	}
 	return config
 }
-
-const (
-	// VerificationPlugin specifies the name of the verification plugin that should be used to verify the signature.
-	VerificationPlugin = "io.cncf.notary.verificationPlugin"
-
-	// VerificationPluginMinVersion specifies the minimum version of the verification plugin that should be used to verify the signature.
-	VerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
-)
