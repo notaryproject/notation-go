@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/internal/signatureManifest"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/registry"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type Verifier struct {
@@ -88,7 +90,12 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 	}
 
 	// get signature manifests
-	sigManifests, err := v.Repository.ListSignatureManifests(ctx, artifactDescriptor.Digest)
+	var sigManifests []ocispec.Descriptor
+	err = v.Repository.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
+		sigManifests = append(sigManifests, signatureManifests...)
+		return nil
+	})
+	//sigManifests, err := v.Repository.ListSignatureManifests(ctx, artifactDescriptor.Digest)
 	if err != nil {
 		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : %s", artifactUri, err.Error())}
 	}
@@ -99,15 +106,16 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 	// process signatures
 	for _, sigManifest := range sigManifests {
 		// get signature envelope
-		sigBlob, err := v.Repository.GetBlob(ctx, sigManifest.Blob.Digest)
+		sigBlob, sigBlobDesc, err := v.Repository.FetchSignatureBlob(ctx, sigManifest)
+		//sigBlob, err := v.Repository.GetBlob(ctx, sigManifest.Blob.Digest)
 		if err != nil {
-			return verificationOutcomes, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigManifest.Blob.Digest, artifactUri, err.Error())}
+			return verificationOutcomes, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactUri, err.Error())}
 		}
 		outcome := &SignatureVerificationOutcome{
 			VerificationResults: []*VerificationResult{},
 			VerificationLevel:   verificationLevel,
 		}
-		err = v.processSignature(ctx, sigBlob, sigManifest, trustPolicy, outcome)
+		err = v.processSignature(ctx, sigBlob, sigBlobDesc, trustPolicy, outcome)
 		if err != nil {
 			outcome.Error = err
 		}
@@ -123,9 +131,9 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 		}
 
 		// artifact digest must match the digest from the signature payload
-		payload := &notation.Payload{}
+		payload := &envelope.Payload{}
 		err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
-		if err != nil || !artifactDescriptor.Equal(payload.TargetArtifact) {
+		if err != nil || !signatureManifest.NotationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
 			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
 			continue
 		}
@@ -138,10 +146,10 @@ func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*Signature
 	return verificationOutcomes, ErrorVerificationFailed{}
 }
 
-func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigManifest registry.SignatureManifest, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
+func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigBlobDesc ocispec.Descriptor, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
 
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
-	envContent, integrityResult := v.verifyIntegrity(sigBlob, sigManifest, outcome)
+	envContent, integrityResult := v.verifyIntegrity(sigBlob, sigBlobDesc, outcome)
 	outcome.EnvelopeContent = envContent
 	outcome.VerificationResults = append(outcome.VerificationResults, integrityResult)
 	if integrityResult.Error != nil {

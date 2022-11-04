@@ -5,11 +5,11 @@ import (
 	_ "embed"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/internal/signatureManifest"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/registry"
 	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 //go:embed testdata/ca_valid_sig_env.json
@@ -40,13 +40,13 @@ var (
 	SampleArtifactUri = "registry.acme-rockets.io/software/net-monitor@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
 	SampleDigest      = digest.Digest("sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e")
 	Annotations       = map[string]string{"key": "value"}
-	ImageDescriptor   = notation.Descriptor{
+	ImageDescriptor   = ocispec.Descriptor{
 		MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:      SampleDigest,
 		Size:        528,
 		Annotations: nil,
 	}
-	JwsSigEnvDescriptor = notation.Descriptor{
+	JwsSigEnvDescriptor = ocispec.Descriptor{
 		MediaType:   "application/jose+json",
 		Digest:      SampleDigest,
 		Size:        100,
@@ -60,9 +60,9 @@ var (
 )
 
 type Repository struct {
-	ResolveResponse                notation.Descriptor
+	ResolveResponse                ocispec.Descriptor
 	ResolveError                   error
-	ListSignatureManifestsResponse []registry.SignatureManifest
+	ListSignatureManifestsResponse []signatureManifest.SignatureManifest
 	ListSignatureManifestsError    error
 	GetResponse                    []byte
 	GetError                       error
@@ -71,7 +71,7 @@ type Repository struct {
 func NewRepository() Repository {
 	return Repository{
 		ResolveResponse: ImageDescriptor,
-		ListSignatureManifestsResponse: []registry.SignatureManifest{{
+		ListSignatureManifestsResponse: []signatureManifest.SignatureManifest{{
 			Blob:        JwsSigEnvDescriptor,
 			Annotations: Annotations,
 		}},
@@ -79,20 +79,20 @@ func NewRepository() Repository {
 	}
 }
 
-func (t Repository) Resolve(ctx context.Context, reference string) (notation.Descriptor, error) {
+func (t Repository) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	return t.ResolveResponse, t.ResolveError
 }
 
-func (t Repository) ListSignatureManifests(ctx context.Context, manifestDigest digest.Digest) ([]registry.SignatureManifest, error) {
-	return t.ListSignatureManifestsResponse, t.ListSignatureManifestsError
+func (t Repository) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
+	return t.ListSignatureManifestsError
 }
 
-func (t Repository) GetBlob(ctx context.Context, digest digest.Digest) ([]byte, error) {
-	return t.GetResponse, t.GetError
+func (t Repository) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
+	return t.GetResponse, ocispec.Descriptor{}, t.GetError
 }
 
-func (t Repository) PutSignatureManifest(ctx context.Context, signature []byte, signatureMediaType string, manifest notation.Descriptor, annotaions map[string]string) (notation.Descriptor, registry.SignatureManifest, error) {
-	return notation.Descriptor{}, registry.SignatureManifest{}, nil
+func (t Repository) PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+	return ocispec.Descriptor{}, ocispec.Descriptor{}, nil
 }
 
 type PluginManager struct {

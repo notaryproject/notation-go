@@ -1,9 +1,10 @@
+// Package registry provides Repository for remote signing and verification
 package registry
 
 import (
 	"context"
 
-	"github.com/notaryproject/notation-go"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry/remote"
 )
 
@@ -11,16 +12,16 @@ import (
 // verification.
 type Repository interface {
 	// Resolve resolves a reference(tag or digest) to a manifest descriptor
-	Resolve(ctx context.Context, reference string) (notation.Descriptor, error)
+	Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error)
 	// ListSignatures returns signature manifests filtered by fn given the
 	// artifact manifest descriptor
-	ListSignatures(ctx context.Context, desc notation.Descriptor, fn func(signatureManifests []notation.Descriptor) error) error
+	ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error
 	// FetchSignatureBlob returns signature envelope blob and descriptor given
 	// signature manifest descriptor
-	FetchSignatureBlob(ctx context.Context, desc notation.Descriptor) ([]byte, notation.Descriptor, error)
+	FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error)
 	// PushSignature creates and uploads an signature manifest along with its
 	// linked signature envelope blob.
-	PushSignature(ctx context.Context, blob []byte, mediaType string, subject notation.Descriptor, annotations map[string]string) (blobDesc, manifestDesc notation.Descriptor, err error)
+	PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error)
 }
 
 // NewRepository returns a new Repository

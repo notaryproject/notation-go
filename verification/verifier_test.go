@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/internal/signatureManifest"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/registry"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -157,7 +157,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{msg: errorMessage}
 
 	// mock the repository
-	repo.ListSignatureManifestsResponse = []registry.SignatureManifest{}
+	repo.ListSignatureManifestsResponse = []signatureManifest.SignatureManifest{}
 	_, err := verifier.Verify(context.Background(), mock.SampleArtifactUri)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -220,9 +220,9 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository()
-		repo.ListSignatureManifestsResponse = []registry.SignatureManifest{
+		repo.ListSignatureManifestsResponse = []signatureManifest.SignatureManifest{
 			{
-				Blob: notation.Descriptor{
+				Blob: ocispec.Descriptor{
 					MediaType:   "application/unsupported+json",
 					Digest:      mock.SampleDigest,
 					Size:        100,

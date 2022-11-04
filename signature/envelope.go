@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/internal/envelope"
 )
 
 // ValidateEnvelopeMediaType validetes envelope media type is supported by notation-core-go.
@@ -21,7 +21,7 @@ func ValidateEnvelopeMediaType(mediaType string) error {
 // ValidatePayloadContentType validates signature payload's content type.
 func ValidatePayloadContentType(payload *signature.Payload) error {
 	switch payload.ContentType {
-	case notation.MediaTypePayloadV1:
+	case envelope.MediaTypePayloadV1:
 		return nil
 	default:
 		return fmt.Errorf("payload content type %q not supported", payload.ContentType)

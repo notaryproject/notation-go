@@ -11,8 +11,8 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/registry"
 	sig "github.com/notaryproject/notation-go/signature"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
@@ -25,9 +25,9 @@ func isCriticalFailure(result *VerificationResult) bool {
 	return result.Action == Enforced && !result.Success
 }
 
-func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.SignatureManifest, outcome *SignatureVerificationOutcome) (*signature.EnvelopeContent, *VerificationResult) {
+func (v *Verifier) verifyIntegrity(sigBlob []byte, sigBlobDesc ocispec.Descriptor, outcome *SignatureVerificationOutcome) (*signature.EnvelopeContent, *VerificationResult) {
 	// parse the signature
-	sigEnv, err := signature.ParseEnvelope(sigManifest.Blob.MediaType, sigBlob)
+	sigEnv, err := signature.ParseEnvelope(sigBlobDesc.MediaType, sigBlob)
 	if err != nil {
 		return nil, &VerificationResult{
 			Success: false,

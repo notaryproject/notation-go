@@ -19,7 +19,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-core-go/timestamp/timestamptest"
-	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/opencontainers/go-digest"
 )
@@ -123,7 +123,7 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 		t.Fatalf("NewSignerFromFiles() failed: %v", err)
 	}
 	desc, opts := generateSigningContent(nil)
-	sig, err := s.Sign(context.Background(), desc, opts)
+	sig, _, err := s.Sign(context.Background(), desc, envelopeType, opts)
 	if err != nil {
 		t.Fatalf("Sign() failed: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestSignWithTimestamp(t *testing.T) {
 				// sign content
 				ctx := context.Background()
 				desc, sOpts := generateSigningContent(tsa)
-				sig, err := s.Sign(ctx, desc, sOpts)
+				sig, _, err := s.Sign(ctx, desc, envelopeType, sOpts)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
 				}
@@ -200,7 +200,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 				ctx := context.Background()
 				desc, sOpts := generateSigningContent(nil)
 				sOpts.Expiry = time.Time{} // reset expiry
-				sig, err := s.Sign(ctx, desc, sOpts)
+				sig, _, err := s.Sign(ctx, desc, envelopeType, sOpts)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
 				}
@@ -250,7 +250,7 @@ func TestExternalSigner_Sign(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewSigner() error = %v", err)
 			}
-			sig, err := s.Sign(context.Background(), validSignDescriptor, validSignOpts)
+			sig, _, err := s.Sign(context.Background(), validSignDescriptor, envelopeType, validSignOpts)
 			if err != nil {
 				t.Fatalf("Sign() error = %v", err)
 			}
@@ -270,7 +270,7 @@ func TestExternalSigner_SignEnvelope(t *testing.T) {
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
-				sig, err := s.Sign(context.Background(), validSignDescriptor, validSignOpts)
+				sig, _, err := s.Sign(context.Background(), validSignDescriptor, envelopeType, validSignOpts)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
 				}
@@ -345,7 +345,7 @@ func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.Private
 
 	ctx := context.Background()
 	desc, sOpts := generateSigningContent(nil)
-	sig, err := s.Sign(ctx, desc, sOpts)
+	sig, _, err := s.Sign(ctx, desc, envelopeType, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
 	}

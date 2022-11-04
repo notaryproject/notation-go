@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/notaryproject/notation-go"
 	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
@@ -112,11 +112,11 @@ type args struct {
 	plainHttp             bool
 	digest                digest.Digest
 	annotations           map[string]string
-	subjectManifest       notation.Descriptor
+	subjectManifest       ocispec.Descriptor
 	signature             []byte
 	signatureMediaType    string
-	signatureManifestDesc notation.Descriptor
-	artifactManifestDesc  notation.Descriptor
+	signatureManifestDesc ocispec.Descriptor
+	artifactManifestDesc  ocispec.Descriptor
 }
 
 type mockRemoteClient struct {
@@ -302,7 +302,7 @@ func TestResolve(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
-		expect    notation.Descriptor
+		expect    ocispec.Descriptor
 		expectErr bool
 	}{
 		{
@@ -313,7 +313,7 @@ func TestResolve(t *testing.T) {
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
 			},
-			expect:    notation.Descriptor{},
+			expect:    ocispec.Descriptor{},
 			expectErr: true,
 		},
 		{
@@ -324,7 +324,7 @@ func TestResolve(t *testing.T) {
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
 			},
-			expect: notation.Descriptor{
+			expect: ocispec.Descriptor{
 				MediaType: mediaType,
 				Digest:    validDigestWithAlgo,
 			},
@@ -364,7 +364,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 				reference:    validReference,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				signatureManifestDesc: notation.Descriptor{
+				signatureManifestDesc: ocispec.Descriptor{
 					MediaType: artifactspec.MediaTypeArtifactManifest,
 					Digest:    digest.Digest(invalidDigest),
 				},
@@ -379,7 +379,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 				reference:    validReference,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				signatureManifestDesc: notation.Descriptor{
+				signatureManifestDesc: ocispec.Descriptor{
 					MediaType: artifactspec.MediaTypeArtifactManifest,
 					Digest:    digest.Digest(validDigestWithAlgo3),
 				},
@@ -394,7 +394,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 				reference:    validReference6,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				signatureManifestDesc: notation.Descriptor{
+				signatureManifestDesc: ocispec.Descriptor{
 					MediaType: artifactspec.MediaTypeArtifactManifest,
 					Digest:    digest.Digest(validDigestWithAlgo6),
 				},
@@ -457,7 +457,7 @@ func TestListSignatures(t *testing.T) {
 				reference:    validReference,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
-				artifactManifestDesc: notation.Descriptor{
+				artifactManifestDesc: ocispec.Descriptor{
 					Digest: digest.Digest(validDigest8),
 				},
 			},
@@ -481,15 +481,15 @@ func TestPushSignature(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           args
-		expectDes      notation.Descriptor
-		expectManifest notation.Descriptor
+		expectDes      ocispec.Descriptor
+		expectManifest ocispec.Descriptor
 		expectErr      bool
 	}{
 		{
 			name:           "failed to upload signature",
 			expectErr:      true,
-			expectDes:      notation.Descriptor{},
-			expectManifest: notation.Descriptor{},
+			expectDes:      ocispec.Descriptor{},
+			expectManifest: ocispec.Descriptor{},
 			args: args{
 				reference:    referenceWithInvalidHost,
 				signature:    make([]byte, 0),
@@ -500,8 +500,8 @@ func TestPushSignature(t *testing.T) {
 		{
 			name:           "failed to upload signature manifest",
 			expectErr:      true,
-			expectDes:      notation.Descriptor{},
-			expectManifest: notation.Descriptor{},
+			expectDes:      ocispec.Descriptor{},
+			expectManifest: ocispec.Descriptor{},
 			args: args{
 				reference:    validReference,
 				signature:    make([]byte, 0),
@@ -512,7 +512,7 @@ func TestPushSignature(t *testing.T) {
 		{
 			name:      "succeed to put signature manifest with jws media type",
 			expectErr: false,
-			expectDes: notation.Descriptor{
+			expectDes: ocispec.Descriptor{
 				MediaType: artifactspec.MediaTypeArtifactManifest,
 				Digest:    digest.Digest(validDigestWithAlgo4),
 				Size:      369,
@@ -531,7 +531,7 @@ func TestPushSignature(t *testing.T) {
 		{
 			name:      "succeed to put signature manifest with cose media type",
 			expectErr: false,
-			expectDes: notation.Descriptor{
+			expectDes: ocispec.Descriptor{
 				MediaType: artifactspec.MediaTypeArtifactManifest,
 				Digest:    digest.Digest(validDigestWithAlgo10),
 				Size:      364,

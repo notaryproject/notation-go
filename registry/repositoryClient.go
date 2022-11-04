@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/notaryproject/notation-go"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
@@ -27,23 +26,23 @@ type repositoryClient struct {
 }
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
-func (c *repositoryClient) Resolve(ctx context.Context, reference string) (notation.Descriptor, error) {
+func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	desc, err := c.Repository.Resolve(ctx, reference)
 	if err != nil {
-		return notation.Descriptor{}, err
+		return ocispec.Descriptor{}, err
 	}
-	return notationDescriptorFromOCI(desc), nil
+	return desc, nil
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
-func (c *repositoryClient) ListSignatures(ctx context.Context, desc notation.Descriptor, fn func(signatureManifests []notation.Descriptor) error) error {
+func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
 	if err := c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: desc.Digest,
 	}, ArtifactTypeNotation, func(referrers []artifactspec.Descriptor) error {
-		var sigManifestDesc []notation.Descriptor
+		var sigManifestDesc []ocispec.Descriptor
 		for _, referrer := range referrers {
-			sigManifestDesc = append(sigManifestDesc, notationDescriptorFromArtifact(referrer))
+			sigManifestDesc = append(sigManifestDesc, ocispecDescriptorFromArtifact(referrer))
 		}
 		return fn(sigManifestDesc)
 	}); err != nil {
@@ -54,40 +53,40 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc notation.Des
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
 // signature manifest descriptor
-func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc notation.Descriptor) ([]byte, notation.Descriptor, error) {
+func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
 	sigManifest, err := c.getSignatureManifest(ctx, desc)
 	if err != nil {
-		return nil, notation.Descriptor{}, err
+		return nil, ocispec.Descriptor{}, err
 	}
 	if len(sigManifest.Blobs) == 0 {
-		return nil, notation.Descriptor{}, errors.New("signature manifest missing signature envelope blob")
+		return nil, ocispec.Descriptor{}, errors.New("signature manifest missing signature envelope blob")
 	}
 	ocidesc, err := c.Repository.Blobs().Resolve(ctx, sigManifest.Blobs[0].Digest.String())
 	if err != nil {
-		return nil, notation.Descriptor{}, err
+		return nil, ocispec.Descriptor{}, err
 	}
 	if ocidesc.Size > maxBlobSizeLimit {
-		return nil, notation.Descriptor{}, fmt.Errorf("signature blob too large: %d", ocidesc.Size)
+		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d", ocidesc.Size)
 	}
 	sigBlob, err := content.FetchAll(ctx, c.Repository.Blobs(), ocidesc)
 	if err != nil {
-		return nil, notation.Descriptor{}, err
+		return nil, ocispec.Descriptor{}, err
 	}
-	return sigBlob, notationDescriptorFromOCI(ocidesc), nil
+	return sigBlob, ocidesc, nil
 }
 
 // PushSignature creates and uploads an signature manifest along with its
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
-func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, mediaType string, subject notation.Descriptor, annotations map[string]string) (blobDesc, manifestDesc notation.Descriptor, err error) {
+func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
 	blobDesc, err = c.uploadSignature(ctx, blob, mediaType)
 	if err != nil {
-		return notation.Descriptor{}, notation.Descriptor{}, err
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 
-	manifestDesc, err = c.uploadSignatureManifest(ctx, artifactDescriptorFromNotation(subject), artifactDescriptorFromNotation(blobDesc), annotations)
+	manifestDesc, err = c.uploadSignatureManifest(ctx, artifactspecDescriptorFromOCI(subject), artifactspecDescriptorFromOCI(blobDesc), annotations)
 	if err != nil {
-		return notation.Descriptor{}, notation.Descriptor{}, err
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 
 	return blobDesc, manifestDesc, nil
@@ -95,7 +94,7 @@ func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, media
 
 // getSignatureManifest returns signature manifest given signature manifest
 // descriptor
-func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifestDesc notation.Descriptor) (artifactspec.Manifest, error) {
+func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifestDesc ocispec.Descriptor) (artifactspec.Manifest, error) {
 
 	repo := c.Repository
 	repo.ManifestMediaTypes = []string{
@@ -123,20 +122,20 @@ func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifest
 }
 
 // uploadSignature uploads the signature envelope blob to the registry
-func (c *repositoryClient) uploadSignature(ctx context.Context, blob []byte, mediaType string) (notation.Descriptor, error) {
+func (c *repositoryClient) uploadSignature(ctx context.Context, blob []byte, mediaType string) (ocispec.Descriptor, error) {
 	desc := ocispec.Descriptor{
 		MediaType: mediaType,
 		Digest:    digest.FromBytes(blob),
 		Size:      int64(len(blob)),
 	}
 	if err := c.Repository.Blobs().Push(ctx, desc, bytes.NewReader(blob)); err != nil {
-		return notation.Descriptor{}, err
+		return ocispec.Descriptor{}, err
 	}
-	return notationDescriptorFromOCI(desc), nil
+	return desc, nil
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc artifactspec.Descriptor, annotations map[string]string) (notation.Descriptor, error) {
+func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc artifactspec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
 	opts := oras.PackArtifactOptions{
 		Subject:             &subject,
 		ManifestAnnotations: annotations,
@@ -144,21 +143,13 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 
 	manifestDesc, err := oras.PackArtifact(ctx, c.Repository.Manifests(), ArtifactTypeNotation, []artifactspec.Descriptor{blobDesc}, opts)
 	if err != nil {
-		return notation.Descriptor{}, err
+		return ocispec.Descriptor{}, err
 	}
-	return notationDescriptorFromOCI(manifestDesc), nil
+	return manifestDesc, nil
 }
 
-func artifactDescriptorFromNotation(desc notation.Descriptor) artifactspec.Descriptor {
-	return artifactspec.Descriptor{
-		MediaType: desc.MediaType,
-		Digest:    desc.Digest,
-		Size:      desc.Size,
-	}
-}
-
-func notationDescriptorFromArtifact(desc artifactspec.Descriptor) notation.Descriptor {
-	return notation.Descriptor{
+func ocispecDescriptorFromArtifact(desc artifactspec.Descriptor) ocispec.Descriptor {
+	return ocispec.Descriptor{
 		MediaType:   desc.MediaType,
 		Digest:      desc.Digest,
 		Size:        desc.Size,
@@ -166,10 +157,11 @@ func notationDescriptorFromArtifact(desc artifactspec.Descriptor) notation.Descr
 	}
 }
 
-func notationDescriptorFromOCI(desc ocispec.Descriptor) notation.Descriptor {
-	return notation.Descriptor{
-		MediaType: desc.MediaType,
-		Digest:    desc.Digest,
-		Size:      desc.Size,
+func artifactspecDescriptorFromOCI(desc ocispec.Descriptor) artifactspec.Descriptor {
+	return artifactspec.Descriptor{
+		MediaType:   desc.MediaType,
+		Digest:      desc.Digest,
+		Size:        desc.Size,
+		Annotations: desc.Annotations,
 	}
 }
