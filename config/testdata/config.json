@@ -1,16 +1,4 @@
 {
-    "verificationCerts": {
-        "certs": [
-            {
-                "name": "wabbit-networks",
-                "path": "/home/demo/.config/notation/certificate/wabbit-networks.crt"
-            },
-            {
-                "name": "import.acme-rockets",
-                "path": "/home/demo/.config/notation/certificate/import.acme-rockets.crt"
-            }
-        ]
-    },
     "insecureRegistries": [
         "registry.wabbit-networks.io"
     ],
