@@ -13,18 +13,6 @@ const (
 )
 
 var sampleConfig = &Config{
-	VerificationCertificates: VerificationCertificates{
-		Certificates: []CertificateReference{
-			{
-				Name: "wabbit-networks",
-				Path: "/home/demo/.config/notation/certificate/wabbit-networks.crt",
-			},
-			{
-				Name: "import.acme-rockets",
-				Path: "/home/demo/.config/notation/certificate/import.acme-rockets.crt",
-			},
-		},
-	},
 	InsecureRegistries: []string{
 		"registry.wabbit-networks.io",
 	},

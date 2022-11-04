@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"github.com/notaryproject/notation-go/dir"
 )
 
 // save stores the cfg struct to file
@@ -24,7 +26,7 @@ func save(filePath string, cfg interface{}) error {
 
 // load reads file, parses json and stores in cfg struct
 func load(filePath string, cfg interface{}) error {
-	file, err := os.Open(filePath)
+	file, err := dir.ConfigFS().Open(filePath)
 	if err != nil {
 		return err
 	}
