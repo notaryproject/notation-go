@@ -1,16 +1,5 @@
-// package config provides the ability to load and save config.json and
-// signingkeys.json files.
-//
-// Example:
-// - load config.json
-//   cfg, err := LoadConfig()
-//
-// - save config.json
-//   cfg.Save()
-//
-// Currently, Only loading from and saving to the built-in directory
-// are supported.
-
+// Package config provides the ability to load and save config.json and
+// signingkeys.json.
 package config
 
 import (
