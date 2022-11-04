@@ -1,7 +1,6 @@
 package config
 
 import (
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -44,51 +43,21 @@ var sampleSigningKeysInfo = &SigningKeys{
 }
 
 func TestLoadSigningKeysInfo(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		SigningKeysPath = dir.Path.SigningKeyConfig()
-	})
-	type args struct {
-		filePath string
+	dir.UserConfigDir = "./testdata"
+	got, err := LoadSigningKeys()
+	if err != nil {
+		t.Errorf("LoadSigningKeysInfo() error = %v", err)
+		return
 	}
-	tests := []struct {
-		name string
-		args args
-		want *SigningKeys
-	}{
-		{
-			name: "read signingkeys info",
-			args: args{filePath: signingKeysPath},
-			want: sampleSigningKeysInfo,
-		},
-		{
-			name: "get default signingkeys info",
-			args: args{filePath: nonexistentPath},
-			want: NewSigningKeys(),
-		},
+	if !reflect.DeepEqual(sampleSigningKeysInfo, got) {
+		t.Fatal("singingKeysInfo test failed.")
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			SigningKeysPath = tt.args.filePath
-			got, err := LoadSigningKeys()
-			if err != nil {
-				t.Errorf("LoadSigningKeysInfo() error = %v", err)
-				return
-			}
-			if !reflect.DeepEqual(tt.want, got) {
-				t.Fatal("singingKeysInfo test failed.")
-			}
-		})
-	}
+
 }
 
 func TestSaveSigningKeys(t *testing.T) {
-	t.Cleanup(func() {
-		// restore path
-		SigningKeysPath = dir.Path.SigningKeyConfig()
-	})
 	root := t.TempDir()
-	SigningKeysPath = filepath.Join(root, "signingkeys.json")
+	dir.UserConfigDir = root
 	sampleSigningKeysInfo.Save()
 	info, err := LoadSigningKeys()
 	if err != nil {

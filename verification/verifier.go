@@ -15,7 +15,6 @@ import (
 type Verifier struct {
 	PolicyDocument *PolicyDocument
 	Repository     registry.Repository
-	PathManager    *dir.PathManager
 	PluginManager  pluginManager
 }
 
@@ -27,7 +26,7 @@ type pluginManager interface {
 
 func NewVerifier(repository registry.Repository) (*Verifier, error) {
 	// load trust policy
-	policyDocument, err := loadPolicyDocument(dir.Path.TrustPolicy())
+	policyDocument, err := loadPolicyDocument()
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +37,7 @@ func NewVerifier(repository registry.Repository) (*Verifier, error) {
 	return &Verifier{
 		PolicyDocument: policyDocument,
 		Repository:     repository,
-		PathManager:    dir.Path,
-		PluginManager:  manager.New(),
+		PluginManager:  manager.New(dir.PluginFS()),
 	}, nil
 }
 
