@@ -256,12 +256,9 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	var attributesToProcess []interface{}
 	extendedAttributes := make(map[interface{}]interface{})
 
-	// pass extended critical attributes to the plugin's verify-signature command
-	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
-		if attr.Critical {
-			extendedAttributes[attr.Key] = attr.Value
-			attributesToProcess = append(attributesToProcess, attr.Key)
-		}
+	for _, attr := range getNonPluginExtendedCriticalAttributes(signerInfo) {
+		extendedAttributes[attr.Key] = attr.Value
+		attributesToProcess = append(attributesToProcess, attr.Key)
 	}
 
 	var certChain [][]byte
@@ -315,6 +312,18 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	return response, nil
 }
 
+func getNonPluginExtendedCriticalAttributes(signerInfo *signature.SignerInfo) []signature.Attribute {
+	var criticalExtendedAttrs []signature.Attribute
+	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
+		attrStrKey, ok := attr.Key.(string)
+		if ok && isPresent(attrStrKey, VerificationPluginHeaders) { // filter the plugin extended attributes
+			continue
+		}
+		criticalExtendedAttrs = append(criticalExtendedAttrs, attr)
+	}
+	return criticalExtendedAttrs
+}
+
 // extractCriticalStringExtendedAttribute extracts a critical string Extended attribute from a signer.
 func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, key string) (string, error) {
 	attr, err := signerInfo.ExtendedAttribute(key)
@@ -336,29 +345,29 @@ func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, ke
 
 // getVerificationPlugin get plugin name from the Extended attributes.
 func getVerificationPlugin(signerInfo *signature.SignerInfo) (string, error) {
-	name, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPlugin)
+	name, err := extractCriticalStringExtendedAttribute(signerInfo, HeaderVerificationPlugin)
 	if err != nil {
 		return "", err
 	}
 	// not an empty string
 	if strings.TrimSpace(name) == "" {
-		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPlugin)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", HeaderVerificationPlugin)
 	}
 	return name, nil
 }
 
 // getVerificationPlugin get plugin version from the Extended attributes.
 func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, error) {
-	version, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPluginMinVersion)
+	version, err := extractCriticalStringExtendedAttribute(signerInfo, HeaderVerificationPluginMinVersion)
 	if err != nil {
 		return "", err
 	}
 	// empty version
 	if strings.TrimSpace(version) == "" {
-		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", HeaderVerificationPluginMinVersion)
 	}
 	if !semVerRegEx.MatchString(version) {
-		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", HeaderVerificationPluginMinVersion)
 	}
 	return version, nil
 }
