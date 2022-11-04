@@ -78,7 +78,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigBlobDesc ocispec.Descripto
 
 func (v *Verifier) verifyAuthenticity(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
 	// verify authenticity
-	trustStores, err := loadX509TrustStores(outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, v.PathManager)
+	trustStores, err := loadX509TrustStores(outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy)
 
 	if err != nil {
 		return &VerificationResult{
