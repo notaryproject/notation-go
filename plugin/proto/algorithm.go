@@ -124,7 +124,8 @@ const (
 	SignatureAlgorithmRSASSA_PSS_SHA512 SignatureAlgorithm = "RSASSA-PSS-SHA-512"
 )
 
-// EncodeSigningAlgorithm returns the signing algorithm name of an algorithm according to the spec.
+// EncodeSigningAlgorithm returns the signing algorithm name of an algorithm
+// according to the spec.
 func EncodeSigningAlgorithm(alg signature.Algorithm) (SignatureAlgorithm, error) {
 	switch alg {
 	case signature.AlgorithmES256:

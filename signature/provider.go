@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin"
 )
 
 // builtInPluginMetaData is the metadata used by builtinProvider.

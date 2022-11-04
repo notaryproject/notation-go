@@ -9,9 +9,11 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-// ErrNotCompliant is returned by Manager.Run when the plugin is found but not compliant.
+// ErrNotCompliant is returned by plugin methods when the response is not
+// compliant.
 var ErrNotCompliant = errors.New("plugin not compliant")
 
+// ErrNotRegularFile is returned when the plugin file is not an regular file.
 var ErrNotRegularFile = errors.New("not regular file")
 
 // Manager manages plugins installed on the system.
@@ -27,7 +29,7 @@ type CLIManager struct {
 
 // Get returns a plugin on the system by its name.
 //
-// If the plugin is not found, the error is of type ErrNotFound.
+// If the plugin is not found, the error is of type os.ErrNotExist.
 func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 	// validate file existence
 	pluginPath := path.Join(name, binName(name))

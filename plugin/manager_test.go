@@ -12,7 +12,7 @@ import (
 	"testing/fstest"
 
 	"github.com/notaryproject/notation-go/internal/mock/mockfs"
-	"github.com/notaryproject/notation-go/pluginv2/proto"
+	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
 type testCommander struct {

@@ -2,7 +2,8 @@ package proto
 
 import "errors"
 
-// GetMetadataRequest contains the parameters passed in a get-plugin-metadata request.
+// GetMetadataRequest contains the parameters passed in a get-plugin-metadata
+// request.
 type GetMetadataRequest struct {
 	PluginConfig map[string]string `json:"pluginConfig,omitempty"`
 }

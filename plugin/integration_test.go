@@ -1,4 +1,4 @@
-package manager_test
+package plugin
 
 import (
 	"context"
@@ -7,13 +7,19 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"testing"
 
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/manager"
+	"github.com/notaryproject/notation-go/plugin/proto"
 )
+
+var exampleMetadata = proto.GetMetadataResponse{
+	Name:                      "foo",
+	Description:               "friendly",
+	Version:                   "1",
+	URL:                       "example.com",
+	SupportedContractVersions: []string{"1"},
+	Capabilities:              []proto.Capability{"cap"}}
 
 func preparePlugin(t *testing.T) string {
 	root := t.TempDir()
@@ -40,8 +46,7 @@ func preparePlugin(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := filepath.Join(root, "foo", plugin.Prefix+"foo")
-	out = addExeSuffix(out)
+	out := filepath.Join(root, "foo", "notation-foo", executableSuffix)
 	cmd := exec.Command("go", "build", "-o", out)
 	cmd.Dir = root
 	err = cmd.Run()
@@ -57,37 +62,28 @@ func TestIntegration(t *testing.T) {
 	}
 	root := preparePlugin(t)
 	fsys := dir.NewSysFS(root)
-	mgr := manager.New(fsys)
-	p, err := mgr.Get(context.Background(), "foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p.Err != nil {
-		t.Fatal(p.Err)
-	}
-	list, err := mgr.List(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(list) != 1 {
-		t.Fatalf("Manager.List() len got %d, want 1", len(list))
-	}
-	if !reflect.DeepEqual(list[0].Metadata, p.Metadata) {
-		t.Errorf("Manager.List() got %v, want %v", list[0], p)
-	}
-	r, err := mgr.Runner("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = r.Run(context.Background(), plugin.GetMetadataRequest{})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
+	mgr := NewCLIManager(fsys)
 
-func addExeSuffix(s string) string {
-	if runtime.GOOS == "windows" {
-		s += ".exe"
+	// check list
+	plugins, err := mgr.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
 	}
-	return s
+	if len(plugins) != 1 {
+		t.Fatalf("Manager.List() len got %d, want 1", len(plugins))
+	}
+
+	// validate and create
+	plugin, err := mgr.Get(context.Background(), "foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(&exampleMetadata, metadata) {
+		t.Fatalf("Metadata error. want: %+v, got: %+v", exampleMetadata, metadata)
+	}
 }

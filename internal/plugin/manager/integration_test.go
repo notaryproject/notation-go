@@ -1,4 +1,4 @@
-package plugin
+package manager_test
 
 import (
 	"context"
@@ -7,19 +7,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/pluginv2/proto"
+	"github.com/notaryproject/notation-go/internal/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin/manager"
 )
-
-var exampleMetadata = proto.GetMetadataResponse{
-	Name:                      "foo",
-	Description:               "friendly",
-	Version:                   "1",
-	URL:                       "example.com",
-	SupportedContractVersions: []string{"1"},
-	Capabilities:              []proto.Capability{"cap"}}
 
 func preparePlugin(t *testing.T) string {
 	root := t.TempDir()
@@ -46,7 +40,8 @@ func preparePlugin(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := filepath.Join(root, "foo", "notation-foo", executableSuffix)
+	out := filepath.Join(root, "foo", plugin.Prefix+"foo")
+	out = addExeSuffix(out)
 	cmd := exec.Command("go", "build", "-o", out)
 	cmd.Dir = root
 	err = cmd.Run()
@@ -62,28 +57,37 @@ func TestIntegration(t *testing.T) {
 	}
 	root := preparePlugin(t)
 	fsys := dir.NewSysFS(root)
-	mgr := NewCLIManager(fsys)
-
-	// check list
-	plugins, err := mgr.List(context.Background())
+	mgr := manager.New(fsys)
+	p, err := mgr.Get(context.Background(), "foo")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plugins) != 1 {
-		t.Fatalf("Manager.List() len got %d, want 1", len(plugins))
+	if p.Err != nil {
+		t.Fatal(p.Err)
 	}
-
-	// validate and create
-	plugin, err := mgr.Get(context.Background(), "foo")
+	list, err := mgr.List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	metadata, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+	if len(list) != 1 {
+		t.Fatalf("Manager.List() len got %d, want 1", len(list))
+	}
+	if !reflect.DeepEqual(list[0].Metadata, p.Metadata) {
+		t.Errorf("Manager.List() got %v, want %v", list[0], p)
+	}
+	r, err := mgr.Runner("foo")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if !reflect.DeepEqual(&exampleMetadata, metadata) {
-		t.Fatalf("Metadata error. want: %+v, got: %+v", exampleMetadata, metadata)
+	_, err = r.Run(context.Background(), plugin.GetMetadataRequest{})
+	if err != nil {
+		t.Fatal(err)
 	}
+}
+
+func addExeSuffix(s string) string {
+	if runtime.GOOS == "windows" {
+		s += ".exe"
+	}
+	return s
 }

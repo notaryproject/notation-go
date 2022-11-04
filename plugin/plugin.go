@@ -1,243 +1,166 @@
+// Package plugin provides the toolings to use the notation plugin.
+//
+// includes a CLIManager and a CLIPlugin implementation.
 package plugin
 
 import (
+	"bytes"
 	"context"
-	"time"
+	"encoding/json"
+	"fmt"
+	"os/exec"
+	"path/filepath"
+
+	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
-// Prefix is the prefix required on all plugin binary names.
-const Prefix = "notation-"
+const prefix = "notation-" // plugin prefix
 
-// ContractVersion is the <major>.<minor> version of the plugin contract.
-const ContractVersion = "1.0"
+var executableSuffix = "" // executable file suffix
 
-// Command is a CLI command available in the plugin contract.
-type Command string
+var executor commander = &execCommander{} // for unit test
 
-const (
-	// CommandGetMetadata is the name of the plugin command
-	// which must be supported by every plugin and returns the
-	// plugin metadata.
-	CommandGetMetadata Command = "get-plugin-metadata"
+// PluginBase is the base requirement to be an plugin.
+type PluginBase interface {
+	GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error)
+}
 
-	// CommandDescribeKey is the name of the plugin command
-	// which must be supported by every plugin that has the
-	// SIGNATURE_GENERATOR.RAW capability.
-	CommandDescribeKey Command = "describe-key"
+// SignPlugin defines the required methods to be a SignPlugin.
+type SignPlugin interface {
+	PluginBase
 
-	// CommandGenerateSignature is the name of the plugin command
-	// which must be supported by every plugin that has the
-	// SIGNATURE_GENERATOR.RAW capability.
-	CommandGenerateSignature Command = "generate-signature"
+	// DescribeKey returns the KeySpec of a key.
+	DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error)
 
-	// CommandGenerateEnvelope is the name of the plugin command
-	// which must be supported by every plugin that has the
-	// SIGNATURE_GENERATOR.ENVELOPE capability.
-	CommandGenerateEnvelope Command = "generate-envelope"
+	// GenerateSignature generates the raw signature based on the request.
+	GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error)
 
-	// CommandVerifySignature is the name of the plugin command
-	// which must be supported by every plugin that has
-	// any SIGNATURE_VERIFIER.* capability
-	CommandVerifySignature Command = "verify-signature"
-)
+	// GenerateEnvelope generates the Envelope with signature based on the request.
+	GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error)
+}
 
-// Capability is a feature available in the plugin contract.
-type Capability string
+// VerifyPlugin defines the required method to be a VerifyPlugin.
+type VerifyPlugin interface {
+	PluginBase
 
-// In returns true if the Capability is present in the given array of capabilities
-func (c Capability) In(capabilities []Capability) bool {
-	for _, capability := range capabilities {
-		if c == capability {
-			return true
-		}
+	// VerifySignature validates the signature based on the request.
+	VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error)
+}
+
+// Plugin defines required methods to be an Plugin.
+type Plugin interface {
+	SignPlugin
+	VerifyPlugin
+}
+
+// CLIPlugin implements Plugin interface to CLI plugins.
+type CLIPlugin struct {
+	name string
+	path string
+}
+
+func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
+	var resp proto.GetMetadataResponse
+	err := run(ctx, p.name, p.path, executor, req, &resp)
+	return &resp, err
+}
+
+func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
+	var resp proto.DescribeKeyResponse
+	err := run(ctx, p.name, p.path, executor, req, &resp)
+	return &resp, err
+}
+
+func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
+	var resp proto.GenerateSignatureResponse
+	err := run(ctx, p.name, p.path, executor, req, &resp)
+	return &resp, err
+}
+
+func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
+	var resp proto.GenerateEnvelopeResponse
+	err := run(ctx, p.name, p.path, executor, req, &resp)
+	return &resp, err
+}
+
+func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
+	var resp proto.VerifySignatureResponse
+	err := run(ctx, p.name, p.path, executor, req, &resp)
+	return &resp, err
+}
+
+// NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
+func NewCLIPlugin(name, path string) (*CLIPlugin, error) {
+	plugin := CLIPlugin{
+		name: name,
+		path: path,
 	}
-	return false
+
+	// validate metadata
+	metadata, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
+	}
+	if metadata.Name != name {
+		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(path))
+	}
+	if err = metadata.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid metadata: %w", err)
+	}
+
+	return &plugin, nil
 }
 
-const (
-	// CapabilitySignatureGenerator is the name of the capability
-	// for a plugin to support generating raw signatures.
-	CapabilitySignatureGenerator Capability = "SIGNATURE_GENERATOR.RAW"
+func run(ctx context.Context, pluginName string, pluginPath string, cmder commander, req proto.Request, resp interface{}) error {
+	// serialize request
+	data, err := json.Marshal(req)
+	if err != nil {
+		return pluginErr(pluginName, fmt.Errorf("failed to marshal request object: %w", err))
+	}
 
-	// CapabilityEnvelopeGenerator is the name of the capability
-	// for a plugin to support generating envelope signatures.
-	CapabilityEnvelopeGenerator Capability = "SIGNATURE_GENERATOR.ENVELOPE"
+	// execute request
+	out, err := cmder.Output(ctx, pluginPath, string(req.Command()), data)
+	if err != nil {
+		var re proto.RequestError
+		err = json.Unmarshal(out, &re)
+		if err != nil {
+			return proto.RequestError{Code: proto.ErrorCodeGeneric, Err: fmt.Errorf("error: %v. stderr: %s", err, out)}
+		}
+		return re
+	}
 
-	// CapabilityTrustedIdentityVerifier is the name of the capability
-	// for a plugin to support verifying trusted identities.
-	CapabilityTrustedIdentityVerifier = Capability(VerificationCapabilityTrustedIdentity)
-
-	// CapabilityRevocationCheckVerifier is the name of the capability
-	// for a plugin to support verifying revocation checks.
-	CapabilityRevocationCheckVerifier = Capability(VerificationCapabilityRevocationCheck)
-)
-
-// VerificationCapability is a verification feature available in the plugin contract.
-type VerificationCapability string
-
-const (
-	// VerificationCapabilityTrustedIdentity is the name of the capability
-	// for a plugin to support verifying trusted identities.
-	VerificationCapabilityTrustedIdentity VerificationCapability = "SIGNATURE_VERIFIER.TRUSTED_IDENTITY"
-
-	// VerificationCapabilityRevocationCheck is the name of the capability
-	// for a plugin to support verifying revocation checks.
-	VerificationCapabilityRevocationCheck VerificationCapability = "SIGNATURE_VERIFIER.REVOCATION_CHECK"
-)
-
-// SigningScheme formalizes the feature set provided by the signature produced using a signing scheme
-type SigningScheme string
-
-const (
-	// SigningSchemeDefault defines a signing scheme that uses the traditional signing workflow
-	// in which an end user generates signatures using X.509 certificates
-	SigningSchemeDefault SigningScheme = "notary.default.x509"
-
-	// SigningSchemeAuthority defines a signing scheme in which a signing authority
-	// generates signatures on behalf of an end user using X.509 certificates
-	SigningSchemeAuthority SigningScheme = "notary.signingAuthority.x509"
-)
-
-// GetMetadataRequest contains the parameters passed in a get-plugin-metadata request.
-type GetMetadataRequest struct {
-	PluginConfig map[string]string `json:"pluginConfig,omitempty"`
+	// deserialize response
+	err = json.Unmarshal(out, resp)
+	if err != nil {
+		return fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
+	}
+	return nil
 }
 
-func (GetMetadataRequest) Command() Command {
-	return CommandGetMetadata
+// commander is defined for mocking purposes.
+type commander interface {
+	// Output runs the command, passing req to the its stdin.
+	// It only returns an error if the binary can't be executed.
+	// Returns stdout if err is nil, stderr if err is not nil.
+	Output(ctx context.Context, path string, command string, req []byte) (out []byte, err error)
 }
 
-// DescribeKeyRequest contains the parameters passed in a describe-key request.
-type DescribeKeyRequest struct {
-	ContractVersion string            `json:"contractVersion"`
-	KeyID           string            `json:"keyId"`
-	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
+// execCommander implements the commander interface using exec.Command().
+type execCommander struct{}
+
+func (c execCommander) Output(ctx context.Context, name string, command string, req []byte) ([]byte, error) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, name, command)
+	cmd.Stdin = bytes.NewReader(req)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return stderr.Bytes(), err
+	}
+	return stdout.Bytes(), nil
 }
 
-func (DescribeKeyRequest) Command() Command {
-	return CommandDescribeKey
-}
-
-// DescribeKeyResponse is the response of a describe-key request.
-type DescribeKeyResponse struct {
-	// The same key id as passed in the request.
-	KeyID string `json:"keyId"`
-
-	// One of following supported key types:
-	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec string `json:"keySpec"`
-}
-
-// GenerateSignatureRequest contains the parameters passed in a generate-signature request.
-type GenerateSignatureRequest struct {
-	ContractVersion string            `json:"contractVersion"`
-	KeyID           string            `json:"keyId"`
-	KeySpec         string            `json:"keySpec"`
-	Hash            string            `json:"hashAlgorithm"`
-	Payload         []byte            `json:"payload"`
-	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
-}
-
-func (GenerateSignatureRequest) Command() Command {
-	return CommandGenerateSignature
-}
-
-// GenerateSignatureResponse is the response of a generate-signature request.
-type GenerateSignatureResponse struct {
-	KeyID            string `json:"keyId"`
-	Signature        []byte `json:"signature"`
-	SigningAlgorithm string `json:"signingAlgorithm"`
-
-	// Ordered list of certificates starting with leaf certificate
-	// and ending with root certificate.
-	CertificateChain [][]byte `json:"certificateChain"`
-}
-
-// GenerateEnvelopeRequest contains the parameters passed in a generate-envelope request.
-type GenerateEnvelopeRequest struct {
-	ContractVersion       string            `json:"contractVersion"`
-	KeyID                 string            `json:"keyId"`
-	PayloadType           string            `json:"payloadType"`
-	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
-	Payload               []byte            `json:"payload"`
-	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
-}
-
-func (GenerateEnvelopeRequest) Command() Command {
-	return CommandGenerateEnvelope
-}
-
-// GenerateEnvelopeResponse is the response of a generate-envelope request.
-type GenerateEnvelopeResponse struct {
-	SignatureEnvelope     []byte            `json:"signatureEnvelope"`
-	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
-	Annotations           map[string]string `json:"annotations,omitempty"`
-}
-
-// VerifySignatureRequest contains the parameters passed in a verify-signature request.
-type VerifySignatureRequest struct {
-	ContractVersion string            `json:"contractVersion"`
-	Signature       Signature         `json:"signature"`
-	TrustPolicy     TrustPolicy       `json:"trustPolicy"`
-	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
-}
-
-// Signature represents a signature pulled from the envelope
-type Signature struct {
-	CriticalAttributes    CriticalAttributes `json:"criticalAttributes"`
-	UnprocessedAttributes []string           `json:"unprocessedAttributes"`
-	CertificateChain      [][]byte           `json:"certificateChain"`
-}
-
-// CriticalAttributes contains all Notary V2 defined critical
-// attributes and their values in the signature envelope
-type CriticalAttributes struct {
-	ContentType          string                 `json:"contentType"`
-	SigningScheme        string                 `json:"signingScheme"`
-	Expiry               *time.Time             `json:"expiry,omitempty"`
-	AuthenticSigningTime *time.Time             `json:"authenticSigningTime,omitempty"`
-	ExtendedAttributes   map[string]interface{} `json:"extendedAttributes,omitempty"`
-}
-
-// TrustPolicy represents trusted identities that sign the artifacts
-type TrustPolicy struct {
-	TrustedIdentities     []string                 `json:"trustedIdentities"`
-	SignatureVerification []VerificationCapability `json:"signatureVerification"`
-}
-
-func (VerifySignatureRequest) Command() Command {
-	return CommandVerifySignature
-}
-
-// VerifySignatureResponse is the response of a verify-signature request.
-type VerifySignatureResponse struct {
-	VerificationResults map[VerificationCapability]*VerificationResult `json:"verificationResults"`
-	ProcessedAttributes []interface{}                                  `json:"processedAttributes"`
-}
-
-// VerificationResult is the result of a verification performed by the plugin
-type VerificationResult struct {
-	Success bool   `json:"success"`
-	Reason  string `json:"reason,omitempty"`
-}
-
-// Request defines a plugin request, which is always associated to a command.
-type Request interface {
-	Command() Command
-}
-
-// Runner is an interface for running commands against a plugin.
-type Runner interface {
-	// Run executes the specified command and waits for it to complete.
-	//
-	// When the returned object is not nil, its type is guaranteed to remain always the same for a given Command.
-	//
-	// The returned error is nil if:
-	// - the plugin exists
-	// - the command runs and exits with a zero exit status
-	// - the command stdout contains a valid json object which can be unmarshal-ed.
-	//
-	// If the command starts but does not complete successfully, the error is of type RequestError wrapping a *exec.ExitError.
-	// Other error types may be returned for other situations.
-	Run(ctx context.Context, req Request) (interface{}, error)
+func pluginErr(name string, err error) error {
+	return fmt.Errorf("%s: %w", name, err)
 }

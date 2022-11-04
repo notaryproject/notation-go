@@ -54,7 +54,8 @@ const (
 	CapabilityEnvelopeGenerator Capability = "SIGNATURE_GENERATOR.ENVELOPE"
 )
 
-// In returns true if the Capability is present in the given array of capabilities
+// In returns true if the Capability is present in the given array of
+// capabilities.
 func (c Capability) In(capabilities []Capability) bool {
 	for _, capability := range capabilities {
 		if c == capability {
@@ -68,16 +69,17 @@ func (c Capability) In(capabilities []Capability) bool {
 type VerificationCapability Capability
 
 const (
-	// CapabilityTrustedIdentityVerifier is the name of the capability
-	// for a plugin to support verifying trusted identities.
-	CapabilityTrustedIdentityVerifier VerificationCapability = "SIGNATURE_VERIFIER.TRUSTED_IDENTITY"
+	// VerificationCapabilityTrustedIdentityVerifier is the name of the
+	// capability for a plugin to support verifying trusted identities.
+	VerificationCapabilityTrustedIdentityVerifier VerificationCapability = "SIGNATURE_VERIFIER.TRUSTED_IDENTITY"
 
-	// CapabilityRevocationCheckVerifier is the name of the capability
-	// for a plugin to support verifying revocation checks.
-	CapabilityRevocationCheckVerifier VerificationCapability = "SIGNATURE_VERIFIER.REVOCATION_CHECK"
+	// VerificationCapabilityRevocationCheckVerifier is the name of the
+	// capability for a plugin to support verifying revocation checks.
+	VerificationCapabilityRevocationCheckVerifier VerificationCapability = "SIGNATURE_VERIFIER.REVOCATION_CHECK"
 )
 
-// In returns true if the Capability is present in the given array of capabilities
+// In returns true if the Capability is present in the given array of
+// capabilities.
 func (c VerificationCapability) In(capabilities []Capability) bool {
 	for _, capability := range capabilities {
 		if Capability(c) == capability {

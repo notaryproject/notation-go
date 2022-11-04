@@ -21,7 +21,8 @@ type DescribeKeyResponse struct {
 	KeySpec string `json:"keySpec"`
 }
 
-// GenerateSignatureRequest contains the parameters passed in a generate-signature request.
+// GenerateSignatureRequest contains the parameters passed in a
+// generate-signature request.
 type GenerateSignatureRequest struct {
 	ContractVersion string            `json:"contractVersion"`
 	KeyID           string            `json:"keyId"`
@@ -46,7 +47,8 @@ type GenerateSignatureResponse struct {
 	CertificateChain [][]byte `json:"certificateChain"`
 }
 
-// GenerateEnvelopeRequest contains the parameters passed in a generate-envelope request.
+// GenerateEnvelopeRequest contains the parameters passed in a generate-envelope
+// request.
 type GenerateEnvelopeRequest struct {
 	ContractVersion       string            `json:"contractVersion"`
 	KeyID                 string            `json:"keyId"`
@@ -67,15 +69,18 @@ type GenerateEnvelopeResponse struct {
 	Annotations           map[string]string `json:"annotations,omitempty"`
 }
 
-// SigningScheme formalizes the feature set provided by the signature produced using a signing scheme
+// SigningScheme formalizes the feature set provided by the signature produced
+// using a signing scheme.
 type SigningScheme string
 
 const (
-	// SigningSchemeDefault defines a signing scheme that uses the traditional signing workflow
-	// in which an end user generates signatures using X.509 certificates
+	// SigningSchemeDefault defines a signing scheme that uses the traditional
+	// signing workflow in which an end user generates signatures using X.509
+	// certificates.
 	SigningSchemeDefault SigningScheme = "notary.default.x509"
 
-	// SigningSchemeAuthority defines a signing scheme in which a signing authority
-	// generates signatures on behalf of an end user using X.509 certificates
+	// SigningSchemeAuthority defines a signing scheme in which a signing
+	// authority generates signatures on behalf of an end user using X.509
+	// certificates.
 	SigningSchemeAuthority SigningScheme = "notary.signingAuthority.x509"
 )
