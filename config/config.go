@@ -1,3 +1,5 @@
+// Package config provides the ability to load and save config.json and
+// signingkeys.json.
 package config
 
 import (
@@ -7,38 +9,19 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-// CertificateReference is a named file path.
-type CertificateReference struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
-
-// Is checks whether the given name is equal with the Name variable
-func (c CertificateReference) Is(name string) bool {
-	return c.Name == name
-}
-
 // Config reflects the config.json file.
 // Specification: https://github.com/notaryproject/notation/pull/76
 type Config struct {
-	VerificationCertificates VerificationCertificates `json:"verificationCerts"`
-	InsecureRegistries       []string                 `json:"insecureRegistries"`
-	CredentialsStore         string                   `json:"credsStore,omitempty"`
-	CredentialHelpers        map[string]string        `json:"credHelpers,omitempty"`
+	InsecureRegistries []string          `json:"insecureRegistries"`
+	CredentialsStore   string            `json:"credsStore,omitempty"`
+	CredentialHelpers  map[string]string `json:"credHelpers,omitempty"`
 	// SignatureFormat defines the signature envelope type for signing
 	SignatureFormat string `json:"signatureFormat,omitempty"`
 }
 
-// VerificationCertificates is a collection of public certs used for verification.
-type VerificationCertificates struct {
-	Certificates []CertificateReference `json:"certs"`
-}
-
 // NewConfig creates a new config file
 func NewConfig() *Config {
-	return &Config{
-		InsecureRegistries: []string{},
-	}
+	return &Config{}
 }
 
 // Save stores the config to file
@@ -53,12 +36,8 @@ func (c *Config) Save() error {
 // LoadConfig reads the config from file or return a default config if not found.
 func LoadConfig() (*Config, error) {
 	var config Config
-	path, err := dir.ConfigFS().SysPath(dir.PathConfigFile)
-	if err != nil {
-		return nil, err
-	}
 
-	err = load(path, &config)
+	err := load(dir.PathConfigFile, &config)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NewConfig(), nil

@@ -323,7 +323,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key, HeaderVerificationPlugin},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
 	v = verifier{
@@ -346,7 +346,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Reason:  "i feel like failing today",
 			},
 		},
-		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key, HeaderVerificationPlugin},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
 	v = verifier{
@@ -368,7 +368,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key, HeaderVerificationPlugin},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
 	v = verifier{
@@ -391,7 +391,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Reason:  "i feel like failing today",
 			},
 		},
-		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key, HeaderVerificationPlugin},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
 	v = verifier{
@@ -416,7 +416,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key, HeaderVerificationPlugin},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
 	v = verifier{
@@ -469,7 +469,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 				Success: true,
 			},
 		},
-		ProcessedAttributes: []interface{}{HeaderVerificationPlugin}, // exclude the critical attribute
+		ProcessedAttributes: []interface{}{}, // exclude the critical attribute
 	}
 
 	v = verifier{
@@ -487,7 +487,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
 		VerificationResults: map[plugin.VerificationCapability]*plugin.VerificationResult{},
-		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key, HeaderVerificationPlugin},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
 	v = verifier{

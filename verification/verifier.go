@@ -217,7 +217,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if _, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo); err != nil && err != errExtendedAttributeNotExist {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
-		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
+		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.HeaderVerificationPluginMinVersion`
 		// https://github.com/notaryproject/notation-go/issues/102
 
 		// filter the "verification" capabilities supported by the installed plugin
@@ -297,12 +297,11 @@ func (v *verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 	if err != nil {
 		return err
 	}
+
 	// verify all extended critical attributes are processed by the plugin
-	for _, attr := range outcome.EnvelopeContent.SignerInfo.SignedAttributes.ExtendedAttributes {
-		if attr.Critical {
-			if !isPresentAny(attr.Key, response.ProcessedAttributes) {
-				return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
-			}
+	for _, attr := range getNonPluginExtendedCriticalAttributes(&outcome.EnvelopeContent.SignerInfo) {
+		if !isPresentAny(attr.Key, response.ProcessedAttributes) {
+			return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
 		}
 	}
 

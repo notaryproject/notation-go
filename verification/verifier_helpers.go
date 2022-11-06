@@ -25,6 +25,11 @@ const (
 	HeaderVerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
 )
 
+var VerificationPluginHeaders = []string{
+	HeaderVerificationPlugin,
+	HeaderVerificationPluginMinVersion,
+}
+
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
 var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$`)
@@ -262,12 +267,9 @@ func (v *verifier) executePlugin(ctx context.Context, trustPolicy *trustpolicy.T
 	var attributesToProcess []interface{}
 	extendedAttributes := make(map[interface{}]interface{})
 
-	// pass extended critical attributes to the plugin's verify-signature command
-	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
-		if attr.Critical {
-			extendedAttributes[attr.Key] = attr.Value
-			attributesToProcess = append(attributesToProcess, attr.Key)
-		}
+	for _, attr := range getNonPluginExtendedCriticalAttributes(signerInfo) {
+		extendedAttributes[attr.Key] = attr.Value
+		attributesToProcess = append(attributesToProcess, attr.Key)
 	}
 
 	var certChain [][]byte
@@ -319,6 +321,18 @@ func (v *verifier) executePlugin(ctx context.Context, trustPolicy *trustpolicy.T
 	}
 
 	return response, nil
+}
+
+func getNonPluginExtendedCriticalAttributes(signerInfo *signature.SignerInfo) []signature.Attribute {
+	var criticalExtendedAttrs []signature.Attribute
+	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
+		attrStrKey, ok := attr.Key.(string)
+		if ok && common.IsPresent(attrStrKey, VerificationPluginHeaders) { // filter the plugin extended attributes
+			continue
+		}
+		criticalExtendedAttrs = append(criticalExtendedAttrs, attr)
+	}
+	return criticalExtendedAttrs
 }
 
 // extractCriticalStringExtendedAttribute extracts a critical string Extended attribute from a signer.
