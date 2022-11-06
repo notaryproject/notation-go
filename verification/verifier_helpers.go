@@ -1,4 +1,4 @@
-package verification
+package verifier
 
 import (
 	"context"
@@ -10,9 +10,19 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/internal/common"
+	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	sig "github.com/notaryproject/notation-go/signature"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/notaryproject/notation-go/verification/trustpolicy"
+)
+
+const (
+	// HeaderVerificationPlugin specifies the name of the verification plugin that should be used to verify the signature.
+	HeaderVerificationPlugin = "io.cncf.notary.verificationPlugin"
+
+	// HeaderVerificationPluginMinVersion specifies the minimum version of the verification plugin that should be used to verify the signature.
+	HeaderVerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
 )
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
@@ -21,19 +31,19 @@ var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\
 
 // isCriticalFailure checks whether a VerificationResult fails the entire signature verification workflow.
 // signature verification workflow is considered failed if there is a VerificationResult with "Enforced" as the action but the result was unsuccessful
-func isCriticalFailure(result *VerificationResult) bool {
-	return result.Action == Enforced && !result.Success
+func isCriticalFailure(result *notation.VerificationResult) bool {
+	return result.Action == trustpolicy.ActionEnforce && !result.Success
 }
 
-func (v *Verifier) verifyIntegrity(sigBlob []byte, sigBlobDesc ocispec.Descriptor, outcome *SignatureVerificationOutcome) (*signature.EnvelopeContent, *VerificationResult) {
+func (v *verifier) verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.VerificationResult) {
 	// parse the signature
-	sigEnv, err := signature.ParseEnvelope(sigBlobDesc.MediaType, sigBlob)
+	sigEnv, err := signature.ParseEnvelope(envelopeMediaType, sigBlob)
 	if err != nil {
-		return nil, &VerificationResult{
+		return nil, &notation.VerificationResult{
 			Success: false,
 			Error:   fmt.Errorf("unable to parse the digital signature, error : %s", err),
-			Type:    Integrity,
-			Action:  outcome.VerificationLevel.VerificationMap[Integrity],
+			Type:    trustpolicy.TypeIntegrity,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeIntegrity],
 		}
 	}
 
@@ -42,110 +52,106 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigBlobDesc ocispec.Descripto
 	if err != nil {
 		switch err.(type) {
 		case *signature.SignatureEnvelopeNotFoundError, *signature.InvalidSignatureError, *signature.SignatureIntegrityError:
-			return nil, &VerificationResult{
+			return nil, &notation.VerificationResult{
 				Success: false,
 				Error:   err,
-				Type:    Integrity,
-				Action:  outcome.VerificationLevel.VerificationMap[Integrity],
+				Type:    trustpolicy.TypeIntegrity,
+				Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeIntegrity],
 			}
 		default:
 			// unexpected error
-			return nil, &VerificationResult{
+			return nil, &notation.VerificationResult{
 				Success: false,
-				Error:   ErrorVerificationInconclusive{msg: err.Error()},
-				Type:    Integrity,
-				Action:  outcome.VerificationLevel.VerificationMap[Integrity],
+				Error:   notation.ErrorVerificationInconclusive{Msg: err.Error()},
+				Type:    trustpolicy.TypeIntegrity,
+				Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeIntegrity],
 			}
 		}
 	}
 
 	if err := sig.ValidatePayloadContentType(&envContent.Payload); err != nil {
-		return nil, &VerificationResult{
+		return nil, &notation.VerificationResult{
 			Success: false,
 			Error:   err,
-			Type:    Integrity,
-			Action:  outcome.VerificationLevel.VerificationMap[Integrity],
+			Type:    trustpolicy.TypeIntegrity,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeIntegrity],
 		}
 	}
 
 	// integrity has been verified successfully
-	return envContent, &VerificationResult{
+	return envContent, &notation.VerificationResult{
 		Success: true,
-		Type:    Integrity,
-		Action:  outcome.VerificationLevel.VerificationMap[Integrity],
+		Type:    trustpolicy.TypeIntegrity,
+		Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeIntegrity],
 	}
 }
 
-func (v *Verifier) verifyAuthenticity(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) *VerificationResult {
+func (v *verifier) verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome) *notation.VerificationResult {
 	// verify authenticity
-	trustStores, err := loadX509TrustStores(outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy)
+	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy)
 
 	if err != nil {
-		return &VerificationResult{
+		return &notation.VerificationResult{
 			Success: false,
-			Error:   ErrorVerificationInconclusive{msg: fmt.Sprintf("error while loading the trust store, %v", err)},
-			Type:    Authenticity,
-			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+			Error:   notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while loading the trust store, %v", err)},
+			Type:    trustpolicy.TypeAuthenticity,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 		}
 	}
 
-	var trustCerts []*x509.Certificate
-	for _, v := range trustStores {
-		trustCerts = append(trustCerts, v.Certificates...)
-	}
 	if len(trustCerts) < 1 {
-		return &VerificationResult{
+		return &notation.VerificationResult{
 			Success: false,
-			Error:   ErrorVerificationInconclusive{msg: "no trusted certificates are found to verify authenticity"},
-			Type:    Authenticity,
-			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+			Error:   notation.ErrorVerificationInconclusive{Msg: "no trusted certificates are found to verify authenticity"},
+			Type:    trustpolicy.TypeAuthenticity,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 		}
 	}
 	_, err = signature.VerifyAuthenticity(&outcome.EnvelopeContent.SignerInfo, trustCerts)
 	if err != nil {
 		switch err.(type) {
 		case *signature.SignatureAuthenticityError:
-			return &VerificationResult{
+			return &notation.VerificationResult{
 				Success: false,
 				Error:   err,
-				Type:    Authenticity,
-				Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+				Type:    trustpolicy.TypeAuthenticity,
+				Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 			}
 		default:
-			return &VerificationResult{
+			return &notation.VerificationResult{
 				Success: false,
-				Error:   ErrorVerificationInconclusive{msg: "authenticity verification failed with error : " + err.Error()},
-				Type:    Authenticity,
-				Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+				Error:   notation.ErrorVerificationInconclusive{Msg: "authenticity verification failed with error : " + err.Error()},
+				Type:    trustpolicy.TypeAuthenticity,
+				Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 			}
 		}
 	} else {
-		return &VerificationResult{
+		return &notation.VerificationResult{
 			Success: true,
-			Type:    Authenticity,
-			Action:  outcome.VerificationLevel.VerificationMap[Authenticity],
+			Type:    trustpolicy.TypeAuthenticity,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 		}
 	}
 }
 
-func (v *Verifier) verifyExpiry(outcome *SignatureVerificationOutcome) *VerificationResult {
+func (v *verifier) verifyExpiry(outcome *notation.VerificationOutcome) *notation.VerificationResult {
 	if expiry := outcome.EnvelopeContent.SignerInfo.SignedAttributes.Expiry; !expiry.IsZero() && !time.Now().Before(expiry) {
-		return &VerificationResult{
+		return &notation.VerificationResult{
 			Success: false,
 			Error:   fmt.Errorf("digital signature has expired on %q", expiry.Format(time.RFC1123Z)),
-			Type:    Expiry,
-			Action:  outcome.VerificationLevel.VerificationMap[Expiry],
+			Type:    trustpolicy.TypeExpiry,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeExpiry],
 		}
 	} else {
-		return &VerificationResult{
+		return &notation.VerificationResult{
 			Success: true,
-			Type:    Expiry,
-			Action:  outcome.VerificationLevel.VerificationMap[Expiry],
+			Type:    trustpolicy.TypeExpiry,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeExpiry],
 		}
 	}
 }
 
-func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcome) *VerificationResult {
+func (v *verifier) verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.VerificationResult {
 	invalidTimestamp := false
 	var err error
 
@@ -182,23 +188,23 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *SignatureVerificationOutcom
 	}
 
 	if invalidTimestamp {
-		return &VerificationResult{
+		return &notation.VerificationResult{
 			Success: false,
 			Error:   err,
-			Type:    AuthenticTimestamp,
-			Action:  outcome.VerificationLevel.VerificationMap[AuthenticTimestamp],
+			Type:    trustpolicy.TypeAuthenticTimestamp,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 		}
 	} else {
-		return &VerificationResult{
+		return &notation.VerificationResult{
 			Success: true,
-			Type:    AuthenticTimestamp,
-			Action:  outcome.VerificationLevel.VerificationMap[AuthenticTimestamp],
+			Type:    trustpolicy.TypeAuthenticTimestamp,
+			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 		}
 	}
 }
 
 // verifyX509TrustedIdentities verified x509 trusted identities. This functions uses the VerificationResult from x509 trust store verification and modifies it
-func (v *Verifier) verifyX509TrustedIdentities(trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome, authenticityResult *VerificationResult) {
+func (v *verifier) verifyX509TrustedIdentities(trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome, authenticityResult *notation.VerificationResult) {
 	// verify trusted identities
 	err := verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
 	if err != nil {
@@ -207,8 +213,8 @@ func (v *Verifier) verifyX509TrustedIdentities(trustPolicy *TrustPolicy, outcome
 	}
 }
 
-func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPolicy) error {
-	if isPresent(wildcard, trustPolicy.TrustedIdentities) {
+func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
+	if common.IsPresent(common.Wildcard, trustPolicy.TrustedIdentities) {
 		return nil
 	}
 
@@ -219,8 +225,8 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 		identityPrefix := identity[:i]
 		identityValue := identity[i+1:]
 
-		if identityPrefix == x509Subject {
-			parsedSubject, err := parseDistinguishedName(identityValue)
+		if identityPrefix == common.X509Subject {
+			parsedSubject, err := common.ParseDistinguishedName(identityValue)
 			if err != nil {
 				return err
 			}
@@ -234,12 +240,12 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 
 	leafCert := certs[0] // trusted identities only supported on the leaf cert
 
-	leafCertDN, err := parseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
+	leafCertDN, err := common.ParseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
 	if err != nil {
 		return fmt.Errorf("error while parsing the certificate subject from the digital signature. error : %q", err)
 	}
 	for _, trustedX509Identity := range trustedX509Identities {
-		if isSubsetDN(trustedX509Identity, leafCertDN) {
+		if common.IsSubsetDN(trustedX509Identity, leafCertDN) {
 			return nil
 		}
 	}
@@ -247,7 +253,7 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *TrustPo
 	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
 }
 
-func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, envelopeContent *signature.EnvelopeContent) (*plugin.VerifySignatureResponse, error) {
+func (v *verifier) executePlugin(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []plugin.VerificationCapability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*plugin.VerifySignatureResponse, error) {
 	signerInfo, payloadInfo := &envelopeContent.SignerInfo, envelopeContent.Payload
 	verificationPluginName, err := getVerificationPlugin(signerInfo)
 	if err != nil {
@@ -296,20 +302,20 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 		ContractVersion: plugin.ContractVersion,
 		Signature:       signature,
 		TrustPolicy:     policy,
-		PluginConfig:    getPluginConfig(ctx),
+		PluginConfig:    pluginConfig,
 	}
 	pluginRunner, err := v.PluginManager.Runner(verificationPluginName)
 	if err != nil {
-		return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("error while loading the verification plugin %q: %s", verificationPluginName, err)}
+		return nil, notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while loading the verification plugin %q: %s", verificationPluginName, err)}
 	}
 	out, err := pluginRunner.Run(ctx, request)
 	if err != nil {
-		return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("error while running the verification plugin %q: %s", verificationPluginName, err)}
+		return nil, notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while running the verification plugin %q: %s", verificationPluginName, err)}
 	}
 
 	response, ok := out.(*plugin.VerifySignatureResponse)
 	if !ok {
-		return nil, ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q returned unexpected response : %q", verificationPluginName, out)}
+		return nil, notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("verification plugin %q returned unexpected response : %q", verificationPluginName, out)}
 	}
 
 	return response, nil
@@ -336,29 +342,29 @@ func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, ke
 
 // getVerificationPlugin get plugin name from the Extended attributes.
 func getVerificationPlugin(signerInfo *signature.SignerInfo) (string, error) {
-	name, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPlugin)
+	name, err := extractCriticalStringExtendedAttribute(signerInfo, HeaderVerificationPlugin)
 	if err != nil {
 		return "", err
 	}
 	// not an empty string
 	if strings.TrimSpace(name) == "" {
-		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPlugin)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", HeaderVerificationPlugin)
 	}
 	return name, nil
 }
 
 // getVerificationPlugin get plugin version from the Extended attributes.
 func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, error) {
-	version, err := extractCriticalStringExtendedAttribute(signerInfo, VerificationPluginMinVersion)
+	version, err := extractCriticalStringExtendedAttribute(signerInfo, HeaderVerificationPluginMinVersion)
 	if err != nil {
 		return "", err
 	}
 	// empty version
 	if strings.TrimSpace(version) == "" {
-		return "", fmt.Errorf("%v from extended attribute is an empty string", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is an empty string", HeaderVerificationPluginMinVersion)
 	}
 	if !semVerRegEx.MatchString(version) {
-		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", VerificationPluginMinVersion)
+		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", HeaderVerificationPluginMinVersion)
 	}
 	return version, nil
 }

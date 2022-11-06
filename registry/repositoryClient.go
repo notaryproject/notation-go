@@ -61,18 +61,18 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	if len(sigManifest.Blobs) == 0 {
 		return nil, ocispec.Descriptor{}, errors.New("signature manifest missing signature envelope blob")
 	}
-	ocidesc, err := c.Repository.Blobs().Resolve(ctx, sigManifest.Blobs[0].Digest.String())
+	sigDesc, err := c.Repository.Blobs().Resolve(ctx, sigManifest.Blobs[0].Digest.String())
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
-	if ocidesc.Size > maxBlobSizeLimit {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d", ocidesc.Size)
+	if sigDesc.Size > maxBlobSizeLimit {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d", sigDesc.Size)
 	}
-	sigBlob, err := content.FetchAll(ctx, c.Repository.Blobs(), ocidesc)
+	sigBlob, err := content.FetchAll(ctx, c.Repository.Blobs(), sigDesc)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
-	return sigBlob, ocidesc, nil
+	return sigBlob, sigDesc, nil
 }
 
 // PushSignature creates and uploads an signature manifest along with its

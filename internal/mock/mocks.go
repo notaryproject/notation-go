@@ -5,7 +5,6 @@ import (
 	_ "embed"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/internal/signatureManifest"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/opencontainers/go-digest"
@@ -46,6 +45,12 @@ var (
 		Size:        528,
 		Annotations: nil,
 	}
+	SigManfiestDescriptor = ocispec.Descriptor{
+		MediaType:   "application/vnd.cncf.oras.artifact.manifest.v1+json",
+		Digest:      SampleDigest,
+		Size:        300,
+		Annotations: Annotations,
+	}
 	JwsSigEnvDescriptor = ocispec.Descriptor{
 		MediaType:   "application/jose+json",
 		Digest:      SampleDigest,
@@ -62,7 +67,7 @@ var (
 type Repository struct {
 	ResolveResponse                ocispec.Descriptor
 	ResolveError                   error
-	ListSignatureManifestsResponse []signatureManifest.SignatureManifest
+	ListSignatureManifestsResponse []ocispec.Descriptor
 	ListSignatureManifestsError    error
 	GetResponse                    []byte
 	GetError                       error
@@ -70,12 +75,9 @@ type Repository struct {
 
 func NewRepository() Repository {
 	return Repository{
-		ResolveResponse: ImageDescriptor,
-		ListSignatureManifestsResponse: []signatureManifest.SignatureManifest{{
-			Blob:        JwsSigEnvDescriptor,
-			Annotations: Annotations,
-		}},
-		GetResponse: MockCaValidSigEnv,
+		ResolveResponse:                ImageDescriptor,
+		ListSignatureManifestsResponse: []ocispec.Descriptor{SigManfiestDescriptor},
+		GetResponse:                    MockCaValidSigEnv,
 	}
 }
 
@@ -84,11 +86,12 @@ func (t Repository) Resolve(ctx context.Context, reference string) (ocispec.Desc
 }
 
 func (t Repository) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
+	fn(t.ListSignatureManifestsResponse)
 	return t.ListSignatureManifestsError
 }
 
 func (t Repository) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
-	return t.GetResponse, ocispec.Descriptor{}, t.GetError
+	return t.GetResponse, JwsSigEnvDescriptor, t.GetError
 }
 
 func (t Repository) PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {

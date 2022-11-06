@@ -1,4 +1,4 @@
-package verification
+package verifier
 
 import (
 	"path/filepath"
@@ -6,16 +6,18 @@ import (
 	"testing"
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
+	"github.com/notaryproject/notation-go/notation"
+	"github.com/notaryproject/notation-go/verification/trustpolicy"
 )
 
 func TestIsCriticalFailure(t *testing.T) {
 	tests := []struct {
-		result          VerificationResult
+		result          notation.VerificationResult
 		criticalFailure bool
 	}{
-		{VerificationResult{Action: Enforced, Success: false}, true},
-		{VerificationResult{Action: Logged, Success: false}, false},
-		{VerificationResult{Action: Skipped, Success: false}, false},
+		{notation.VerificationResult{Action: trustpolicy.ActionEnforce, Success: false}, true},
+		{notation.VerificationResult{Action: trustpolicy.ActionLog, Success: false}, false},
+		{notation.VerificationResult{Action: trustpolicy.ActionSkip, Success: false}, false},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -47,10 +49,10 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			trustPolicy := TrustPolicy{
+			trustPolicy := trustpolicy.TrustPolicy{
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-				SignatureVerification: SignatureVerification{Level: "strict"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
 				TrustStores:           []string{"ca:test-store"},
 				TrustedIdentities:     tt.x509Identities,
 			}

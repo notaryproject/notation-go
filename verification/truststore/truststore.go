@@ -1,26 +1,63 @@
-package verification
+// Package truststore reads certificates in a trust store
+package truststore
 
 import (
+	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
+	"github.com/notaryproject/notation-go/dir"
 )
 
-// X509TrustStore provide the members and behavior for a named trust store
-type X509TrustStore struct {
-	Name         string
-	Prefix       string
-	Path         string
-	Certificates []*x509.Certificate
+// Type is an enum for trust store types supported such as
+// "ca" and "signingAuthority"
+type Type string
+
+const (
+	TypeCA               Type = "ca"
+	TypeSigningAuthority Type = "signingAuthority"
+)
+
+var (
+	Types = []Type{
+		TypeCA,
+		TypeSigningAuthority,
+	}
+)
+
+// X509TrustStore provide list and get behaviors for the trust store
+type X509TrustStore interface {
+	// List named stores under storeType
+	// List(ctx context.Context, storeType Type) ([]string, error)
+
+	// GetCertificates returns certificates under storeType/namedStore
+	GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error)
 }
 
-// LoadX509TrustStore loads a named trust store from a certificates directory,
-// throws error if parsing a certificate from a file fails
-func LoadX509TrustStore(path string) (*X509TrustStore, error) {
+// NewX509TrustStore generates a new X509TrustStore
+func NewX509TrustStore(trustStorefs dir.SysFS) X509TrustStore {
+	return x509TrustStore{trustStorefs}
+}
+
+// x509TrustStore implements X509TrustStore
+type x509TrustStore struct {
+	trustStorefs dir.SysFS
+}
+
+// GetCertificates returns certificates under storeType/namedStore
+func (trustStore x509TrustStore) GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error) {
+	if storeType == "" || namedStore == "" {
+		return nil, errors.New("storeType and namedStore cannot be empty")
+	}
+	path, err := trustStore.trustStorefs.SysPath(dir.X509TrustStoreDir(string(storeType), namedStore))
+	if err != nil {
+		return nil, err
+	}
 	// check path is valid
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%q does not exist", path)
@@ -41,7 +78,7 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 		return nil, err
 	}
 
-	var trustStore X509TrustStore
+	var certificates []*x509.Certificate
 	for _, file := range files {
 		joinedPath := filepath.Join(path, file.Name())
 		if file.IsDir() || file.Type()&fs.ModeSymlink != 0 {
@@ -56,18 +93,14 @@ func LoadX509TrustStore(path string) (*X509TrustStore, error) {
 			return nil, err
 		}
 
-		trustStore.Certificates = append(trustStore.Certificates, certs...)
+		certificates = append(certificates, certs...)
 	}
 
-	if len(trustStore.Certificates) < 1 {
+	if len(certificates) < 1 {
 		return nil, fmt.Errorf("trust store %q has no x509 certificates", path)
 	}
 
-	trustStore.Name = filepath.Base(path)
-	trustStore.Prefix = filepath.Base(filepath.Dir(path))
-	trustStore.Path = path
-
-	return &trustStore, nil
+	return certificates, nil
 }
 
 func validateCerts(certs []*x509.Certificate, path string) error {

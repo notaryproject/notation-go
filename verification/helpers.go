@@ -1,19 +1,21 @@
-package verification
+package verifier
 
 import (
+	"context"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/dir"
-
-	ldapv3 "github.com/go-ldap/ldap/v3"
+	"github.com/notaryproject/notation-go/internal/common"
+	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verification/truststore"
 )
 
-func loadPolicyDocument() (*PolicyDocument, error) {
-	policyDocument := &PolicyDocument{}
+func loadPolicyDocument() (*trustpolicy.Document, error) {
+	policyDocument := &trustpolicy.Document{}
 	jsonFile, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
 	if err != nil {
 		return nil, err
@@ -26,50 +28,39 @@ func loadPolicyDocument() (*PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-func loadX509TrustStores(scheme signature.SigningScheme, policy *TrustPolicy) (map[string]*X509TrustStore, error) {
-	var prefixToLoad TrustStorePrefix
+func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy) ([]*x509.Certificate, error) {
+	var typeToLoad truststore.Type
 	if scheme == signature.SigningSchemeX509 {
-		prefixToLoad = TrustStorePrefixCA
+		typeToLoad = truststore.TypeCA
 	} else if scheme == signature.SigningSchemeX509SigningAuthority {
-		prefixToLoad = TrustStorePrefixSigningAuthority
+		typeToLoad = truststore.TypeSigningAuthority
 	} else {
 		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)
 	}
 
-	var result = make(map[string]*X509TrustStore)
+	var namedStoreSet = make(map[string]struct{})
+	var certificates []*x509.Certificate
+	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 	for _, trustStore := range policy.TrustStores {
-		if result[trustStore] != nil {
+		if _, ok := namedStoreSet[trustStore]; ok {
 			// we loaded this trust store already
 			continue
 		}
+
 		i := strings.Index(trustStore, ":")
-		prefix := trustStore[:i]
-		if prefixToLoad != TrustStorePrefix(prefix) {
+		storeType := trustStore[:i]
+		if typeToLoad != truststore.Type(storeType) {
 			continue
 		}
-
 		name := trustStore[i+1:]
-		path, err := dir.ConfigFS().SysPath(dir.X509TrustStoreDir(prefix, name))
+		certs, err := x509TrustStore.GetCertificates(ctx, typeToLoad, name)
 		if err != nil {
 			return nil, err
 		}
-		x509TrustStore, err := LoadX509TrustStore(path)
-		if err != nil {
-			return nil, err
-		}
-		result[trustStore] = x509TrustStore
+		certificates = append(certificates, certs...)
+		namedStoreSet[trustStore] = struct{}{}
 	}
-	return result, nil
-}
-
-// isPresent is a utility function to check if a string exists in an array
-func isPresent(val string, values []string) bool {
-	for _, v := range values {
-		if v == val {
-			return true
-		}
-	}
-	return false
+	return certificates, nil
 }
 
 func isPresentAny(val interface{}, values []interface{}) bool {
@@ -81,110 +72,72 @@ func isPresentAny(val interface{}, values []interface{}) bool {
 	return false
 }
 
-func getArtifactPathFromUri(artifactUri string) (string, error) {
+func getArtifactPathFromReference(artifactReference string) (string, error) {
 	// TODO support more types of URI like "domain.com/repository", "domain.com/repository:tag"
-	i := strings.LastIndex(artifactUri, "@")
+	i := strings.LastIndex(artifactReference, "@")
 	if i < 0 {
-		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactUri)
+		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
 	}
 
-	artifactPath := artifactUri[:i]
-	if err := validateRegistryScopeFormat(artifactPath); err != nil {
+	artifactPath := artifactReference[:i]
+	if err := common.ValidateRegistryScopeFormat(artifactPath); err != nil {
 		return "", err
 	}
 	return artifactPath, nil
 }
 
-func getArtifactDigestFromUri(artifactUri string) (string, error) {
-	invalidUriErr := fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactUri)
-	i := strings.LastIndex(artifactUri, "@")
-	if i < 0 || i+1 == len(artifactUri) {
+func getArtifactDigestFromReference(artifactReference string) (string, error) {
+	invalidUriErr := fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
+	i := strings.LastIndex(artifactReference, "@")
+	if i < 0 || i+1 == len(artifactReference) {
 		return "", invalidUriErr
 	}
 
-	j := strings.LastIndex(artifactUri[i+1:], ":")
-	if j < 0 || j+1 == len(artifactUri[i+1:]) {
+	j := strings.LastIndex(artifactReference[i+1:], ":")
+	if j < 0 || j+1 == len(artifactReference[i+1:]) {
 		return "", invalidUriErr
 	}
 
-	return artifactUri[i+1:], nil
+	return artifactReference[i+1:], nil
 }
 
-// validateRegistryScopeFormat validates if a scope is following the format defined in distribution spec
-func validateRegistryScopeFormat(scope string) error {
-	// Domain and Repository regexes are adapted from distribution implementation
-	// https://github.com/distribution/distribution/blob/main/reference/regexp.go#L31
-	domainRegexp := regexp.MustCompile(`^(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?$`)
-	repositoryRegexp := regexp.MustCompile(`^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?$`)
-	errorMessage := "registry scope %q is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository"
-	firstSlash := strings.Index(scope, "/")
-	if firstSlash < 0 {
-		return fmt.Errorf(errorMessage, scope)
-	}
-	domain := scope[:firstSlash]
-	repository := scope[firstSlash+1:]
+// getApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy statement that applies to the given
+// registry URI. If no applicable trust policy is found, returns an error
+// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+func getApplicableTrustPolicy(policyDoc *trustpolicy.Document, artifactReference string) (*trustpolicy.TrustPolicy, error) {
 
-	if domain == "" || repository == "" || !domainRegexp.MatchString(domain) || !repositoryRegexp.MatchString(repository) {
-		return fmt.Errorf(errorMessage, scope)
-	}
-
-	// No errors
-	return nil
-}
-
-// parseDistinguishedName parses a DN name and validates Notary V2 rules
-func parseDistinguishedName(name string) (map[string]string, error) {
-	mandatoryFields := []string{"C", "ST", "O"}
-	attrKeyValue := make(map[string]string)
-	dn, err := ldapv3.ParseDN(name)
-
+	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {
-		return nil, fmt.Errorf("distinguished name (DN) %q is not valid, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name)
+		return nil, err
 	}
 
-	for _, rdn := range dn.RDNs {
-
-		// multi-valued RDNs are not supported (TODO: add spec reference here)
-		if len(rdn.Attributes) > 1 {
-			return nil, fmt.Errorf("distinguished name (DN) %q has multi-valued RDN attributes, remove multi-valued RDN attributes as they are not supported", name)
-		}
-		for _, attribute := range rdn.Attributes {
-			if attrKeyValue[attribute.Type] == "" {
-				attrKeyValue[attribute.Type] = attribute.Value
-			} else {
-				return nil, fmt.Errorf("distinguished name (DN) %q has duplicate RDN attribute for %q, DN can only have unique RDN attributes", name, attribute.Type)
-			}
+	var wildcardPolicy *trustpolicy.TrustPolicy
+	var applicablePolicy *trustpolicy.TrustPolicy
+	for _, policyStatement := range policyDoc.TrustPolicies {
+		if common.IsPresent(common.Wildcard, policyStatement.RegistryScopes) {
+			wildcardPolicy = deepCopy(&policyStatement) // we need to deep copy because we can't use the loop variable address. see https://stackoverflow.com/a/45967429
+		} else if common.IsPresent(artifactPath, policyStatement.RegistryScopes) {
+			applicablePolicy = deepCopy(&policyStatement)
 		}
 	}
 
-	// Verify mandatory fields are present
-	for _, field := range mandatoryFields {
-		if attrKeyValue[field] == "" {
-			return nil, fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum", name, field)
-		}
+	if applicablePolicy != nil {
+		// a policy with exact match for registry URI takes precedence over a wildcard (*) policy.
+		return applicablePolicy, nil
+	} else if wildcardPolicy != nil {
+		return wildcardPolicy, nil
+	} else {
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
 	}
-	// No errors
-	return attrKeyValue, nil
 }
 
-func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
-	for i, dn1 := range parsedDNs {
-		for j, dn2 := range parsedDNs {
-			if i != j && isSubsetDN(dn1.ParsedMap, dn2.ParsedMap) {
-				return fmt.Errorf("trust policy statement %q has overlapping x509 trustedIdentities, %q overlaps with %q", policyName, dn1.RawString, dn2.RawString)
-			}
-		}
+// deepCopy returns a pointer to the deeply copied TrustPolicy
+func deepCopy(t *trustpolicy.TrustPolicy) *trustpolicy.TrustPolicy {
+	return &trustpolicy.TrustPolicy{
+		Name:                  t.Name,
+		SignatureVerification: t.SignatureVerification,
+		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
+		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
+		TrustStores:           append([]string(nil), t.TrustStores...),
 	}
-
-	return nil
-}
-
-// isSubsetDN returns true if dn1 is a subset of dn2 i.e. every key/value pair of dn1 has a matching key/value pair in dn2, otherwise returns false
-func isSubsetDN(dn1 map[string]string, dn2 map[string]string) bool {
-	for key := range dn1 {
-		if dn1[key] != dn2[key] {
-			return false
-		}
-	}
-	return true
 }

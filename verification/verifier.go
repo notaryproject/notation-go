@@ -1,23 +1,22 @@
-package verification
+// Package Verifier provides an implementation of notation.Verifier interface
+package verifier
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/internal/envelope"
-	"github.com/notaryproject/notation-go/internal/signatureManifest"
+	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/registry"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verification/truststore"
 )
 
-type Verifier struct {
-	PolicyDocument *PolicyDocument
-	Repository     registry.Repository
-	PluginManager  pluginManager
+// verifier implements notation.Verifier
+type verifier struct {
+	TrustPolicy   *trustpolicy.Document
+	PluginManager pluginManager
 }
 
 // pluginManager is for mocking in unit tests
@@ -26,21 +25,69 @@ type pluginManager interface {
 	Runner(name string) (plugin.Runner, error)
 }
 
-func NewVerifier(repository registry.Repository) (*Verifier, error) {
+func New() (notation.Verifier, error) {
 	// load trust policy
 	policyDocument, err := loadPolicyDocument()
 	if err != nil {
 		return nil, err
 	}
-	if err = policyDocument.ValidatePolicyDocument(); err != nil {
+	if err = policyDocument.Validate(); err != nil {
 		return nil, err
 	}
 
-	return &Verifier{
-		PolicyDocument: policyDocument,
-		Repository:     repository,
-		PluginManager:  manager.New(dir.PluginFS()),
+	return &verifier{
+		TrustPolicy:   policyDocument,
+		PluginManager: manager.New(dir.PluginFS()),
 	}, nil
+}
+
+func NewVerifier(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager *manager.Manager) (notation.Verifier, error) {
+	if err := trustPolicy.Validate(); err != nil {
+		return nil, err
+	}
+	return &verifier{
+		TrustPolicy:   trustPolicy,
+		PluginManager: pluginManager,
+	}, nil
+}
+
+// how to get notation.Descriptor without using a repo?
+func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (notation.Descriptor, *notation.VerificationOutcome, error) {
+	artifactRef := opts.ArtifactReference
+	envelopeMediaType := opts.SignatureMediaType
+	pluginConfig := opts.PluginConfig
+
+	trustPolicy, err := getApplicableTrustPolicy(v.TrustPolicy, artifactRef)
+	if err != nil {
+		return notation.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+	}
+
+	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification) // ignore the error since we already validated the policy document
+
+	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
+		return notation.Descriptor{}, &notation.VerificationOutcome{VerificationLevel: verificationLevel}, nil
+	}
+
+	outcome := &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+	if err != nil {
+		outcome.Error = err
+		return notation.Descriptor{}, outcome, err
+	}
+
+	// // artifact digest must match the digest from the signature payload
+	// payload := &envelope.Payload{}
+	// err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
+	// if err != nil || !signatureManifest.NotationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
+	// 	outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
+	// }
+	// outcome.SignedAnnotations = payload.TargetArtifact.Annotations
+
+	// return artifactDescriptor, outcome, nil
+	return notation.Descriptor{}, outcome, nil
 }
 
 /*
@@ -56,98 +103,98 @@ A signature is considered not valid if verification fails due to any one of the 
 5. Digest in the signature does not match the digest present in the URI
 
 If each and every signature associated with the URI fail the verification, then Verify will return `ErrorVerificationFailed` error
-along with an array of `SignatureVerificationOutcome`.
+along with an array of `VerificationOutcome`.
 
 Callers can pass the verification plugin config in context.Context using "verification.WithPluginConfig()"
 
 For more details on signature verification, see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
 */
-func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*SignatureVerificationOutcome, error) {
-	var verificationOutcomes []*SignatureVerificationOutcome
+// func (v *Verifier) Verify(ctx context.Context, artifactUri string) ([]*notation.VerificationOutcome, error) {
+// 	var verificationOutcomes []*notation.VerificationOutcome
 
-	trustPolicy, err := v.PolicyDocument.getApplicableTrustPolicy(artifactUri)
-	if err != nil {
-		return nil, ErrorNoApplicableTrustPolicy{msg: err.Error()}
-	}
+// 	trustPolicy, err := v.PolicyDocument.getApplicableTrustPolicy(artifactUri)
+// 	if err != nil {
+// 		return nil, ErrorNoApplicableTrustPolicy{msg: err.Error()}
+// 	}
 
-	verificationLevel, _ := GetVerificationLevel(trustPolicy.SignatureVerification) // ignore the error since we already validated the policy document
+// 	verificationLevel, _ := GetVerificationLevel(trustPolicy.SignatureVerification) // ignore the error since we already validated the policy document
 
-	if verificationLevel.Name == Skip.Name {
-		verificationOutcomes = append(verificationOutcomes, &SignatureVerificationOutcome{VerificationLevel: verificationLevel})
-		return verificationOutcomes, nil
-	}
+// 	if verificationLevel.Name == Skip.Name {
+// 		verificationOutcomes = append(verificationOutcomes, &notation.VerificationOutcome{VerificationLevel: verificationLevel})
+// 		return verificationOutcomes, nil
+// 	}
 
-	// make sure the reference exists in the registry
-	artifactDigest, err := getArtifactDigestFromUri(artifactUri)
-	if err != nil {
-		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
-	}
-	artifactDescriptor, err := v.Repository.Resolve(ctx, artifactDigest)
-	if err != nil {
-		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
-	}
+// 	// make sure the reference exists in the registry
+// 	artifactDigest, err := getArtifactDigestFromReference(artifactUri)
+// 	if err != nil {
+// 		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
+// 	}
+// 	artifactDescriptor, err := v.Repository.Resolve(ctx, artifactDigest)
+// 	if err != nil {
+// 		return nil, ErrorSignatureRetrievalFailed{msg: err.Error()}
+// 	}
 
-	// get signature manifests
-	var sigManifests []ocispec.Descriptor
-	err = v.Repository.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
-		sigManifests = append(sigManifests, signatureManifests...)
-		return nil
-	})
-	//sigManifests, err := v.Repository.ListSignatureManifests(ctx, artifactDescriptor.Digest)
-	if err != nil {
-		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : %s", artifactUri, err.Error())}
-	}
-	if len(sigManifests) < 1 {
-		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactUri)}
-	}
+// 	// get signature manifests
+// 	var sigManifests []ocispec.Descriptor
+// 	err = v.Repository.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
+// 		sigManifests = append(sigManifests, signatureManifests...)
+// 		return nil
+// 	})
+// 	//sigManifests, err := v.Repository.ListSignatureManifests(ctx, artifactDescriptor.Digest)
+// 	if err != nil {
+// 		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : %s", artifactUri, err.Error())}
+// 	}
+// 	if len(sigManifests) < 1 {
+// 		return nil, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactUri)}
+// 	}
 
-	// process signatures
-	for _, sigManifest := range sigManifests {
-		// get signature envelope
-		sigBlob, sigBlobDesc, err := v.Repository.FetchSignatureBlob(ctx, sigManifest)
-		//sigBlob, err := v.Repository.GetBlob(ctx, sigManifest.Blob.Digest)
-		if err != nil {
-			return verificationOutcomes, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactUri, err.Error())}
-		}
-		outcome := &SignatureVerificationOutcome{
-			VerificationResults: []*VerificationResult{},
-			VerificationLevel:   verificationLevel,
-		}
-		err = v.processSignature(ctx, sigBlob, sigBlobDesc, trustPolicy, outcome)
-		if err != nil {
-			outcome.Error = err
-		}
-		verificationOutcomes = append(verificationOutcomes, outcome)
-	}
+// 	// process signatures
+// 	for _, sigManifest := range sigManifests {
+// 		// get signature envelope
+// 		sigBlob, sigBlobDesc, err := v.Repository.FetchSignatureBlob(ctx, sigManifest)
+// 		//sigBlob, err := v.Repository.GetBlob(ctx, sigManifest.Blob.Digest)
+// 		if err != nil {
+// 			return verificationOutcomes, ErrorSignatureRetrievalFailed{msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactUri, err.Error())}
+// 		}
+// 		outcome := &notation.VerificationOutcome{
+// 			VerificationResults: []*notation.VerificationResult{},
+// 			VerificationLevel:   verificationLevel,
+// 		}
+// 		err = v.processSignature(ctx, sigBlob, sigBlobDesc, trustPolicy, outcome)
+// 		if err != nil {
+// 			outcome.Error = err
+// 		}
+// 		verificationOutcomes = append(verificationOutcomes, outcome)
+// 	}
 
-	// check whether verification was successful or not
-	for _, outcome := range verificationOutcomes {
+// 	// check whether verification was successful or not
+// 	for _, outcome := range verificationOutcomes {
 
-		// all validations must pass
-		if outcome.Error != nil {
-			continue
-		}
+// 		// all validations must pass
+// 		if outcome.Error != nil {
+// 			continue
+// 		}
 
-		// artifact digest must match the digest from the signature payload
-		payload := &envelope.Payload{}
-		err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
-		if err != nil || !signatureManifest.NotationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
-			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
-			continue
-		}
-		outcome.SignedAnnotations = payload.TargetArtifact.Annotations
+// 		// artifact digest must match the digest from the signature payload
+// 		payload := &envelope.Payload{}
+// 		err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
+// 		if err != nil || !signatureManifest.NotationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
+// 			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
+// 			continue
+// 		}
+// 		outcome.SignedAnnotations = payload.TargetArtifact.Annotations
 
-		// signature verification succeeds if there is at least one good signature
-		return verificationOutcomes, nil
-	}
+// 		// signature verification succeeds if there is at least one good signature
+// 		return verificationOutcomes, nil
+// 	}
 
-	return verificationOutcomes, ErrorVerificationFailed{}
-}
+// 	return verificationOutcomes, ErrorVerificationFailed{}
+// }
 
-func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigBlobDesc ocispec.Descriptor, trustPolicy *TrustPolicy, outcome *SignatureVerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
-	envContent, integrityResult := v.verifyIntegrity(sigBlob, sigBlobDesc, outcome)
+	envContent, integrityResult := v.verifyIntegrity(sigBlob, envelopeMediaType, outcome)
 	outcome.EnvelopeContent = envContent
 	outcome.VerificationResults = append(outcome.VerificationResults, integrityResult)
 	if integrityResult.Error != nil {
@@ -164,11 +211,11 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigBlob
 	if err == nil {
 		installedPlugin, err := v.PluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
-			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}
 
 		if _, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo); err != nil && err != errExtendedAttributeNotExist {
-			return ErrorVerificationInconclusive{msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
 		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.VerificationPluginMinVersion`
 		// https://github.com/notaryproject/notation-go/issues/102
@@ -181,12 +228,12 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigBlob
 		}
 
 		if len(pluginCapabilities) == 0 {
-			return ErrorVerificationInconclusive{msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, plugin.CapabilityTrustedIdentityVerifier, plugin.CapabilityRevocationCheckVerifier)}
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, plugin.CapabilityTrustedIdentityVerifier, plugin.CapabilityRevocationCheckVerifier)}
 		}
 	}
 
 	// verify x509 trust store based authenticity
-	authenticityResult := v.verifyAuthenticity(trustPolicy, outcome)
+	authenticityResult := v.verifyAuthenticity(ctx, trustPolicy, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
 	if isCriticalFailure(authenticityResult) {
 		return authenticityResult.Error
@@ -216,7 +263,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigBlob
 
 	// verify revocation
 	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may override the check
-	if outcome.VerificationLevel.VerificationMap[Revocation] != Skipped &&
+	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
 		!plugin.CapabilityRevocationCheckVerifier.In(pluginCapabilities) {
 		// TODO perform X509 revocation check (not in RC1)
 		// https://github.com/notaryproject/notation-go/issues/110
@@ -227,14 +274,14 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigBlob
 		var capabilitiesToVerify []plugin.VerificationCapability
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured to skip it
-			if outcome.VerificationLevel.VerificationMap[Revocation] == Skipped && pc == plugin.CapabilityRevocationCheckVerifier {
+			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == plugin.CapabilityRevocationCheckVerifier {
 				continue
 			}
 			capabilitiesToVerify = append(capabilitiesToVerify, plugin.VerificationCapability(pc))
 		}
 
 		if len(capabilitiesToVerify) > 0 {
-			response, err := v.executePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent)
+			response, err := v.executePlugin(ctx, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
 			if err != nil {
 				return err
 			}
@@ -245,7 +292,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigBlob
 	return nil
 }
 
-func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.VerificationCapability, response *plugin.VerifySignatureResponse, outcome *SignatureVerificationOutcome) error {
+func (v *verifier) processPluginResponse(capabilitiesToVerify []plugin.VerificationCapability, response *plugin.VerifySignatureResponse, outcome *notation.VerificationOutcome) error {
 	verificationPluginName, err := getVerificationPlugin(&outcome.EnvelopeContent.SignerInfo)
 	if err != nil {
 		return err
@@ -263,15 +310,15 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 		pluginResult := response.VerificationResults[capability]
 		if pluginResult == nil {
 			// verification result is empty for this capability
-			return ErrorVerificationInconclusive{msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
 		}
 		switch capability {
 		case plugin.VerificationCapabilityTrustedIdentity:
 			if !pluginResult.Success {
 				// find the Authenticity VerificationResult that we already created during x509 trust store verification
-				var authenticityResult *VerificationResult
+				var authenticityResult *notation.VerificationResult
 				for _, r := range outcome.VerificationResults {
-					if r.Type == Authenticity {
+					if r.Type == trustpolicy.TypeAuthenticity {
 						authenticityResult = r
 						break
 					}
@@ -285,19 +332,19 @@ func (v *Verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 				}
 			}
 		case plugin.VerificationCapabilityRevocationCheck:
-			var revocationResult *VerificationResult
+			var revocationResult *notation.VerificationResult
 			if !pluginResult.Success {
-				revocationResult = &VerificationResult{
+				revocationResult = &notation.VerificationResult{
 					Success: false,
 					Error:   fmt.Errorf("revocation check by verification plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason),
-					Type:    Revocation,
-					Action:  outcome.VerificationLevel.VerificationMap[Revocation],
+					Type:    trustpolicy.TypeRevocation,
+					Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 				}
 			} else {
-				revocationResult = &VerificationResult{
+				revocationResult = &notation.VerificationResult{
 					Success: true,
-					Type:    Revocation,
-					Action:  outcome.VerificationLevel.VerificationMap[Revocation],
+					Type:    trustpolicy.TypeRevocation,
+					Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 				}
 			}
 			outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
