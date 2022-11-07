@@ -56,11 +56,3 @@ func TestLoadTrustStoreWithLeafCertsInSingleFile(t *testing.T) {
 		t.Fatalf("leaf cert in a trust store should return error : %q", err)
 	}
 }
-
-func TestLoadTrustStoreWithEmptyDir(t *testing.T) {
-	failurePath := filepath.FromSlash("../testdata/truststore/x509/ca/empty-store")
-	_, err := trustStore.GetCertificates(context.Background(), "ca", "empty-store")
-	if err == nil || err.Error() != fmt.Sprintf("trust store %q has no x509 certificates", failurePath) {
-		t.Fatalf("empty trust store should throw an error : %q", err)
-	}
-}
