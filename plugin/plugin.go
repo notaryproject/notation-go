@@ -16,8 +16,6 @@ import (
 
 const prefix = "notation-" // plugin prefix
 
-var executableSuffix = "" // executable file suffix
-
 var executor commander = &execCommander{} // for unit test
 
 // PluginBase is the base requirement to be an plugin.

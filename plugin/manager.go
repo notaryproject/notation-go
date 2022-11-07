@@ -82,7 +82,3 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
 	return &CLIManager{pluginFS: pluginFS}
 }
-
-func binName(name string) string {
-	return prefix + name + executableSuffix
-}

@@ -69,8 +69,8 @@ func TestManager_Get_NotFound(t *testing.T) {
 
 	// plugin directory exists with symlinked executable.
 	mgr = NewCLIManager(mockfs.NewSysFSMock(fstest.MapFS{
-		"foo":                                 &fstest.MapFile{Mode: fs.ModeDir},
-		"foo/notation-foo" + executableSuffix: &fstest.MapFile{Mode: fs.ModeSymlink},
+		"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
+		"foo/" + binName("foo"): &fstest.MapFile{Mode: fs.ModeSymlink},
 	}))
 	got, err := mgr.Get(ctx, "foo")
 	if !errors.Is(err, ErrNotRegularFile) {
@@ -81,8 +81,8 @@ func TestManager_Get_NotFound(t *testing.T) {
 	}
 	// valid plugin exists but is not the target.
 	mgr = NewCLIManager(mockfs.NewSysFSMock(fstest.MapFS{
-		"foo":                                 &fstest.MapFile{Mode: fs.ModeDir},
-		"foo/notation-foo" + executableSuffix: new(fstest.MapFile),
+		"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
+		"foo/" + binName("foo"): new(fstest.MapFile),
 	}))
 	executor = testCommander{metadataJSON(validMetadata), nil}
 	check(mgr.Get(ctx, "baz"))
@@ -92,8 +92,8 @@ func TestManager_Get(t *testing.T) {
 	t.Run("command error", func(t *testing.T) {
 		mgr := NewCLIManager(mockfs.NewSysFSMock(
 			fstest.MapFS{
-				"foo":                                 &fstest.MapFile{Mode: fs.ModeDir},
-				"foo/notation-foo" + executableSuffix: new(fstest.MapFile),
+				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
+				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
 		executor = testCommander{nil, nil}
 		_, err := mgr.Get(context.Background(), "foo")
@@ -105,8 +105,8 @@ func TestManager_Get(t *testing.T) {
 	t.Run("invalid json", func(t *testing.T) {
 		mgr := NewCLIManager(mockfs.NewSysFSMock(
 			fstest.MapFS{
-				"foo":                                 &fstest.MapFile{Mode: fs.ModeDir},
-				"foo/notation-foo" + executableSuffix: new(fstest.MapFile),
+				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
+				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
 		executor = testCommander{[]byte("content"), nil}
 		_, err := mgr.Get(context.Background(), "foo")
@@ -118,8 +118,8 @@ func TestManager_Get(t *testing.T) {
 	t.Run("invalid metadata name", func(t *testing.T) {
 		mgr := NewCLIManager(mockfs.NewSysFSMock(
 			fstest.MapFS{
-				"baz":                                 &fstest.MapFile{Mode: fs.ModeDir},
-				"baz/notation-baz" + executableSuffix: new(fstest.MapFile),
+				"baz":                   &fstest.MapFile{Mode: fs.ModeDir},
+				"baz/" + binName("baz"): new(fstest.MapFile),
 			}))
 		executor = testCommander{metadataJSON(validMetadata), nil}
 		_, err := mgr.Get(context.Background(), "baz")
@@ -131,8 +131,8 @@ func TestManager_Get(t *testing.T) {
 	t.Run("invalid metadata content", func(t *testing.T) {
 		mgr := NewCLIManager(mockfs.NewSysFSMock(
 			fstest.MapFS{
-				"foo":                                 &fstest.MapFile{Mode: fs.ModeDir},
-				"foo/notation-foo" + executableSuffix: new(fstest.MapFile),
+				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
+				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
 		executor = testCommander{metadataJSON(proto.GetMetadataResponse{Name: "foo"}), nil}
 		_, err := mgr.Get(context.Background(), "foo")
@@ -144,8 +144,8 @@ func TestManager_Get(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		mgr := NewCLIManager(mockfs.NewSysFSMock(
 			fstest.MapFS{
-				"foo":                                 &fstest.MapFile{Mode: fs.ModeDir},
-				"foo/notation-foo" + executableSuffix: new(fstest.MapFile),
+				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
+				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
 		executor = testCommander{metadataJSON(validMetadata), nil}
 		plugin, err := mgr.Get(context.Background(), "foo")
