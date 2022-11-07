@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/notaryproject/notation-go/internal/common"
-	"github.com/notaryproject/notation-go/verification/truststore"
+	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
 // ValidationType is an enum for signature verification types such as Integrity, Authenticity, etc.

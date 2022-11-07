@@ -86,7 +86,10 @@ func (t Repository) Resolve(ctx context.Context, reference string) (ocispec.Desc
 }
 
 func (t Repository) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	fn(t.ListSignatureManifestsResponse)
+	err := fn(t.ListSignatureManifestsResponse)
+	if err != nil {
+		return err
+	}
 	return t.ListSignatureManifestsError
 }
 

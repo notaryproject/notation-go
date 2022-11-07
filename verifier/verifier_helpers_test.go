@@ -7,7 +7,7 @@ import (
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go/notation"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 )
 
 func TestIsCriticalFailure(t *testing.T) {

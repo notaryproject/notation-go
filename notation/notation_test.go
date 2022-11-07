@@ -9,14 +9,14 @@ import (
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 func TestRegistryResolveError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
 
 	errorMessage := "network error"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -31,15 +31,29 @@ func TestRegistryResolveError(t *testing.T) {
 	}
 }
 
+func TestSkippedSignatureVerification(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	policyDocument.TrustPolicies[0].SignatureVerification.VerificationLevel = "skip"
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
+
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err != nil || outcomes[0].VerificationLevel != trustpolicy.LevelSkip {
+		t.Fatalf("\"skip\" verification level must pass overall signature verification")
+	}
+}
+
 func TestRegistryListSignaturesError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}}
-	errorMessage := fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : network error", mock.SampleArtifactUri)
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true}
+	errorMessage := "network error"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
-	repo.ListSignatureManifestsError = errors.New("network error")
+	repo.ListSignatureManifestsError = ErrorSignatureRetrievalFailed{Msg: "network error"}
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
@@ -51,7 +65,7 @@ func TestRegistryListSignaturesError(t *testing.T) {
 func TestRegistryNoSignatureManifests(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
 	errorMessage := fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
@@ -68,7 +82,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
 	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
@@ -102,12 +116,20 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 }
 
 type dummyVerifier struct {
-	TrustPolicy   *trustpolicy.Document
-	PluginManager pluginManager
+	TrustPolicyDoc *trustpolicy.Document
+	PluginManager  pluginManager
+	FailVerify     bool
 }
 
-func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, *VerificationOutcome, error) {
-	return Descriptor{}, nil, nil
+func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions, outcome *VerificationOutcome) (Descriptor, error) {
+	if v.FailVerify {
+		return Descriptor{}, errors.New("failed verify")
+	}
+	return Descriptor{}, nil
+}
+
+func (v *dummyVerifier) TrustPolicyDocument() (*trustpolicy.Document, error) {
+	return v.TrustPolicyDoc, nil
 }
 
 // pluginManager is for mocking in unit tests

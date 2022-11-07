@@ -14,7 +14,7 @@ import (
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	sig "github.com/notaryproject/notation-go/signature"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 )
 
 const (

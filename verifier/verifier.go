@@ -3,20 +3,22 @@ package verifier
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/policy"
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
-	"github.com/notaryproject/notation-go/verification/truststore"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
 // verifier implements notation.Verifier
 type verifier struct {
-	TrustPolicy   *trustpolicy.Document
-	PluginManager pluginManager
+	TrustPolicyDoc *trustpolicy.Document
+	PluginManager  pluginManager
 }
 
 // pluginManager is for mocking in unit tests
@@ -36,8 +38,8 @@ func New() (notation.Verifier, error) {
 	}
 
 	return &verifier{
-		TrustPolicy:   policyDocument,
-		PluginManager: manager.New(dir.PluginFS()),
+		TrustPolicyDoc: policyDocument,
+		PluginManager:  manager.New(dir.PluginFS()),
 	}, nil
 }
 
@@ -46,48 +48,46 @@ func NewVerifier(trustPolicy *trustpolicy.Document, trustStore truststore.X509Tr
 		return nil, err
 	}
 	return &verifier{
-		TrustPolicy:   trustPolicy,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: trustPolicy,
+		PluginManager:  pluginManager,
 	}, nil
 }
 
-// how to get notation.Descriptor without using a repo?
-func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (notation.Descriptor, *notation.VerificationOutcome, error) {
+func (v *verifier) TrustPolicyDocument() (*trustpolicy.Document, error) {
+	if err := v.TrustPolicyDoc.Validate(); err != nil {
+		return nil, err
+	}
+	return v.TrustPolicyDoc, nil
+}
+
+func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions, outcome *notation.VerificationOutcome) (notation.Descriptor, error) {
 	artifactRef := opts.ArtifactReference
 	envelopeMediaType := opts.SignatureMediaType
 	pluginConfig := opts.PluginConfig
 
-	trustPolicy, err := getApplicableTrustPolicy(v.TrustPolicy, artifactRef)
+	trustpolicyDoc, err := v.TrustPolicyDocument()
 	if err != nil {
-		return notation.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		return notation.Descriptor{}, err
 	}
-
-	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification) // ignore the error since we already validated the policy document
-
-	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
-		return notation.Descriptor{}, &notation.VerificationOutcome{VerificationLevel: verificationLevel}, nil
-	}
-
-	outcome := &notation.VerificationOutcome{
-		VerificationResults: []*notation.VerificationResult{},
-		VerificationLevel:   verificationLevel,
+	trustPolicy, err := policy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
+	if err != nil {
+		return notation.Descriptor{}, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
 	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
 	if err != nil {
 		outcome.Error = err
-		return notation.Descriptor{}, outcome, err
+		return notation.Descriptor{}, err
 	}
 
-	// // artifact digest must match the digest from the signature payload
-	// payload := &envelope.Payload{}
-	// err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
-	// if err != nil || !signatureManifest.NotationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
-	// 	outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDigest, payload.TargetArtifact.Digest.String())
-	// }
-	// outcome.SignedAnnotations = payload.TargetArtifact.Annotations
+	payload := &notation.Payload{}
+	err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
+	if err != nil {
+		outcome.Error = err
+		return notation.Descriptor{}, err
+	}
+	outcome.SignedAnnotations = payload.TargetArtifact.Annotations
 
-	// return artifactDescriptor, outcome, nil
-	return notation.Descriptor{}, outcome, nil
+	return payload.TargetArtifact, nil
 }
 
 /*

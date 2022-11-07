@@ -10,10 +10,11 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/internal/policy"
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -46,8 +47,8 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 func TestInvalidArtifactUriValidations(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	verifier := verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: mock.PluginManager{},
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  mock.PluginManager{},
 	}
 
 	tests := []struct {
@@ -67,7 +68,7 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			opts := notation.VerifyOptions{ArtifactReference: tt.uri}
-			_, _, err := verifier.Verify(context.Background(), []byte{}, opts)
+			_, err := verifier.Verify(context.Background(), []byte{}, opts, nil)
 			if err != nil != tt.wantErr {
 				t.Fatalf("TestInvalidArtifactUriValidations expected error for %q", tt.uri)
 			}
@@ -78,29 +79,13 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	verifier := verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: mock.PluginManager{},
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  mock.PluginManager{},
 	}
 	opts := notation.VerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
-	_, _, err := verifier.Verify(context.Background(), []byte{}, opts)
+	_, err := verifier.Verify(context.Background(), []byte{}, opts, nil)
 	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable trust policy"}) {
 		t.Fatalf("no applicable trust policy must throw error")
-	}
-}
-
-func TestSkippedSignatureVerification(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
-	policyDocument.TrustPolicies[0].SignatureVerification.VerificationLevel = "skip"
-	verifier := verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: mock.PluginManager{},
-	}
-
-	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
-	_, outcome, err := verifier.Verify(context.Background(), []byte{}, opts)
-
-	if err != nil || outcome.VerificationLevel != trustpolicy.LevelSkip {
-		t.Fatalf("\"skip\" verification level must pass overall signature verification")
 	}
 }
 
@@ -261,10 +246,14 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 
 			verifier := verifier{
-				TrustPolicy:   &tt.policyDocument,
-				PluginManager: pluginManager,
+				TrustPolicyDoc: &tt.policyDocument,
+				PluginManager:  pluginManager,
 			}
-			_, outcome, _ := verifier.Verify(context.Background(), tt.signatureBlob, tt.opts)
+			outcome := &notation.VerificationOutcome{
+				VerificationResults: []*notation.VerificationResult{},
+				VerificationLevel:   tt.verificationLevel,
+			}
+			verifier.Verify(context.Background(), tt.signatureBlob, tt.opts, outcome)
 			verifyResult(outcome, expectedResult, tt.expectedErr, t)
 		})
 	}
@@ -291,11 +280,20 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.GetPluginError = manager.ErrNotFound
 
 	v := verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err := v.Verify(context.Background(), pluginSigEnv, opts)
+	trustPolicy, err := policy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	if err != nil {
+		t.Fatalf("cannot get trustPolicy")
+	}
+	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
+	outcome := &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "error while locating the verification plugin \"plugin-name\", make sure the plugin is installed successfully before verifying the signature. error: plugin not found" {
 		t.Fatalf("verification should fail if the verification plugin is not found")
 	}
@@ -305,11 +303,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilitySignatureGenerator}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "digital signature requires plugin \"plugin-name\" with signature verification capabilities (\"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\" and/or \"SIGNATURE_VERIFIER.REVOCATION_CHECK\") installed" {
 		t.Fatalf("verification should fail if the verification plugin is not found")
 	}
@@ -327,11 +329,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err != nil || outcome.Error != nil {
 		t.Fatalf("verification should succeed when the verification plugin succeeds for trusted identity verification. error : %v", outcome.Error)
 	}
@@ -350,11 +356,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "trusted identify verification by plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
 		t.Fatalf("verification should fail when the verification plugin fails for trusted identity verification. error : %v", outcome.Error)
 	}
@@ -372,11 +382,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err != nil || outcome.Error != nil {
 		t.Fatalf("verification should succeed when the verification plugin succeeds for revocation verification. error : %v", outcome.Error)
 	}
@@ -395,11 +409,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "revocation check by verification plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
 		t.Fatalf("verification should fail when the verification plugin fails for revocation check verification. error : %v", outcome.Error)
 	}
@@ -420,11 +438,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err != nil || outcome.Error != nil {
 		t.Fatalf("verification should succeed when the verification plugin succeeds for both trusted identity and revocation check verifications. error : %v", outcome.Error)
 	}
@@ -436,11 +458,24 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginRunnerExecuteError = errors.New("revocation plugin should not be invoked when the trust policy skips revocation check")
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	trustPolicy, err = policy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	if err != nil {
+		t.Fatalf("cannot get trustPolicy")
+	}
+	verificationLevel, _ = trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err != nil || outcome.Error != nil {
 		t.Fatalf("revocation plugin should not be invoked when the trust policy skips the revocation check. error : %v", outcome.Error)
 	}
@@ -451,11 +486,24 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginRunnerExecuteResponse = "invalid plugin response"
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	trustPolicy, err = policy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	if err != nil {
+		t.Fatalf("cannot get trustPolicy")
+	}
+	verificationLevel, _ = trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "verification plugin \"plugin-name\" returned unexpected response : \"invalid plugin response\"" {
 		t.Fatalf("verification should fail when the verification plugin returns unexpected response. error : %v", outcome.Error)
 	}
@@ -473,11 +521,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "extended critical attribute \"SomeKey\" was not processed by the verification plugin \"plugin-name\" (all extended critical attributes must be processed by the verification plugin)" {
 		t.Fatalf("verification should fail when the verification plugin fails to process an extended critical attribute. error : %v", outcome.Error)
 	}
@@ -491,11 +543,15 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		TrustPolicy:   &policyDocument,
-		PluginManager: pluginManager,
+		TrustPolicyDoc: &policyDocument,
+		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	_, outcome, err = v.Verify(context.Background(), pluginSigEnv, opts)
+	outcome = &notation.VerificationOutcome{
+		VerificationResults: []*notation.VerificationResult{},
+		VerificationLevel:   verificationLevel,
+	}
+	_, err = v.Verify(context.Background(), pluginSigEnv, opts, outcome)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "verification plugin \"plugin-name\" failed to verify \"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\"" {
 		t.Fatalf("verification should fail when the verification plugin does not return response for a capability. error : %v", outcome.Error)
 	}

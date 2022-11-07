@@ -6,14 +6,16 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/timestamp"
+	"github.com/notaryproject/notation-go/internal/policy"
 	"github.com/notaryproject/notation-go/registry"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -121,6 +123,7 @@ type VerificationResult struct {
 // VerificationOutcome encapsulates the SignerInfo (that includes the details of the digital signature)
 // and results for each verification type that was performed
 type VerificationOutcome struct {
+	SignatureBlobDescriptor *ocispec.Descriptor
 	// EnvelopeContent contains the details of the digital signature and associated metadata
 	EnvelopeContent *signature.EnvelopeContent
 	// VerificationLevel describes what verification level was used for performing signature verification
@@ -137,9 +140,31 @@ type VerificationOutcome struct {
 type Verifier interface {
 	// Verify verifies the signature and returns the verified descriptor upon
 	// successful verification.
-	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, *VerificationOutcome, error)
+	Verify(ctx context.Context, signature []byte, opts VerifyOptions, outcome *VerificationOutcome) (Descriptor, error)
+
+	// TrustPolicyDocument gets the validated trust policy document.
+	TrustPolicyDocument() (*trustpolicy.Document, error)
 }
 
+/*
+Verify performs signature verification on each of the notation supported verification types (like integrity, authenticity, etc.) and return the verification outcomes.
+
+Given an artifact reference, Verify will retrieve all the signatures associated with the reference and perform signature verification.
+A signature is considered not valid if verification fails due to any one of the following reasons
+
+1. Artifact Reference is not associated with a signature i.e. unsigned
+2. Registry is unavailable to retrieve the signature
+3. Signature does not satisfy the verification rules configured in the trust policy
+4. Signature specifies a plugin for extended verification and that throws an error
+5. Digest in the signature does not match the digest present in the reference
+
+If each and every signature associated with the reference fail the verification, then Verify will return `ErrorVerificationFailed` error
+along with an array of `VerificationOutcome`.
+
+# Callers can pass the verification plugin config in VerifyOptions.PluginConfig
+
+For more details on signature verification, see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
+*/
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (Descriptor, []*VerificationOutcome, error) {
 	var verificationOutcomes []*VerificationOutcome
 	artifactRef := opts.ArtifactReference
@@ -148,51 +173,67 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		return Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 
+	trustpolicyDoc, err := verifier.TrustPolicyDocument()
+	if err != nil {
+		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+	}
+	trustPolicy, err := policy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
+	if err != nil {
+		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+	}
+	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification) // ignore the error since we already validated the policy document
+	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
+		verificationOutcomes = append(verificationOutcomes, &VerificationOutcome{VerificationLevel: verificationLevel})
+		return Descriptor{}, verificationOutcomes, nil
+	}
+
 	// get signature manifests
-	var sigManifests []ocispec.Descriptor
+	var success bool
+	var sigBlobDesc ocispec.Descriptor
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
-		sigManifests = append(sigManifests, signatureManifests...)
+		if len(signatureManifests) < 1 {
+			return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
+		}
+		// process signatures
+		for _, sigManifest := range signatureManifests {
+			// get signature envelope
+			sigBlob, sigBlobDesc, err := repo.FetchSignatureBlob(ctx, sigManifest)
+			if err != nil {
+				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactRef, err.Error())}
+			}
+			outcome := &VerificationOutcome{
+				SignatureBlobDescriptor: &sigBlobDesc,
+				VerificationResults:     []*VerificationResult{},
+				VerificationLevel:       verificationLevel,
+			}
+			_, err = verifier.Verify(ctx, sigBlob, opts, outcome)
+			if err != nil || outcome == nil || outcome.Error != nil {
+				continue
+			}
+			verificationOutcomes = append(verificationOutcomes, outcome)
+			// artifact digest must match the digest from the signature payload
+			payload := &Payload{}
+			err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
+			if err != nil || !notationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
+				outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDescriptor.Digest.String(), payload.TargetArtifact.Digest.String())
+				continue
+			}
+			outcome.SignedAnnotations = payload.TargetArtifact.Annotations
+			success = true
+
+			return errors.New("no Link header in response")
+		}
 		return nil
 	})
 
 	if err != nil {
-		return Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature(s) associated with %q from the registry, error : %s", artifactRef, err.Error())}
-	}
-	if len(sigManifests) < 1 {
-		return Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
-	}
-
-	// process signatures
-	for _, sigManifest := range sigManifests {
-		// get signature envelope
-		sigBlob, sigBlobDesc, err := repo.FetchSignatureBlob(ctx, sigManifest)
-		if err != nil {
-			return Descriptor{}, verificationOutcomes, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactRef, err.Error())}
-		}
-		_, outcome, err := verifier.Verify(ctx, sigBlob, opts)
-		if outcome != nil && outcome.VerificationLevel.Name == trustpolicy.LevelSkip.Name {
-			verificationOutcomes = append(verificationOutcomes, outcome)
-			return Descriptor{}, verificationOutcomes, nil
-		}
-		if err != nil || outcome == nil || outcome.Error != nil {
-			continue
-		}
-		verificationOutcomes = append(verificationOutcomes, outcome)
+		return Descriptor{}, nil, err
 	}
 
 	// check whether verification was successful or not
-	for _, outcome := range verificationOutcomes {
-		// artifact digest must match the digest from the signature payload
-		payload := &Payload{}
-		err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
-		if err != nil || !notationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
-			outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDescriptor.Digest.String(), payload.TargetArtifact.Digest.String())
-			continue
-		}
-		outcome.SignedAnnotations = payload.TargetArtifact.Annotations
-
+	if success {
 		// signature verification succeeds if there is at least one good signature
-		return notationDescriptorFromOCI(artifactDescriptor), verificationOutcomes, nil
+		return notationDescriptorFromOCI(sigBlobDesc), verificationOutcomes, nil
 	}
 
 	return Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}

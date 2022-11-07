@@ -27,11 +27,7 @@ type repositoryClient struct {
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	desc, err := c.Repository.Resolve(ctx, reference)
-	if err != nil {
-		return ocispec.Descriptor{}, err
-	}
-	return desc, nil
+	return c.Repository.Resolve(ctx, reference)
 }
 
 // ListSignatures returns signature manifests filtered by fn given the

@@ -385,21 +385,6 @@ func TestFetchSignatureBlob(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:      "succeed to get",
-			expect:    []byte(validBlob),
-			expectErr: false,
-			args: args{
-				ctx:          context.Background(),
-				reference:    validReference6,
-				remoteClient: mockRemoteClient{},
-				plainHttp:    false,
-				signatureManifestDesc: ocispec.Descriptor{
-					MediaType: artifactspec.MediaTypeArtifactManifest,
-					Digest:    digest.Digest(validDigestWithAlgo6),
-				},
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -426,18 +411,6 @@ func TestListSignatures(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name:      "wrong mediaType",
-			expectErr: false,
-			expect:    nil,
-			args: args{
-				ctx:          context.Background(),
-				reference:    validReference,
-				remoteClient: mockRemoteClient{},
-				plainHttp:    false,
-				digest:       digest.Digest(validDigest7),
-			},
-		},
-		{
 			name:      "failed to fetch content",
 			expectErr: true,
 			expect:    nil,
@@ -447,19 +420,6 @@ func TestListSignatures(t *testing.T) {
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
 				digest:       digest.Digest(invalidDigest),
-			},
-		},
-		{
-			name:      "succeed to list",
-			expectErr: false,
-			args: args{
-				ctx:          context.Background(),
-				reference:    validReference,
-				remoteClient: mockRemoteClient{},
-				plainHttp:    false,
-				artifactManifestDesc: ocispec.Descriptor{
-					Digest: digest.Digest(validDigest8),
-				},
 			},
 		},
 	}
@@ -507,44 +467,6 @@ func TestPushSignature(t *testing.T) {
 				signature:    make([]byte, 0),
 				ctx:          context.Background(),
 				remoteClient: mockRemoteClient{},
-			},
-		},
-		{
-			name:      "succeed to put signature manifest with jws media type",
-			expectErr: false,
-			expectDes: ocispec.Descriptor{
-				MediaType: artifactspec.MediaTypeArtifactManifest,
-				Digest:    digest.Digest(validDigestWithAlgo4),
-				Size:      369,
-			},
-			args: args{
-				reference:    validReference,
-				signature:    make([]byte, 0),
-				ctx:          context.Background(),
-				remoteClient: mockRemoteClient{},
-				annotations: map[string]string{
-					artifactspec.AnnotationArtifactCreated: validTimestamp,
-				},
-				signatureMediaType: joseTag,
-			},
-		},
-		{
-			name:      "succeed to put signature manifest with cose media type",
-			expectErr: false,
-			expectDes: ocispec.Descriptor{
-				MediaType: artifactspec.MediaTypeArtifactManifest,
-				Digest:    digest.Digest(validDigestWithAlgo10),
-				Size:      364,
-			},
-			args: args{
-				reference:    validReference,
-				signature:    make([]byte, 0),
-				ctx:          context.Background(),
-				remoteClient: mockRemoteClient{},
-				annotations: map[string]string{
-					artifactspec.AnnotationArtifactCreated: validTimestamp,
-				},
-				signatureMediaType: coseTag,
 			},
 		},
 	}
