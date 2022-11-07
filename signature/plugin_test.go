@@ -301,17 +301,6 @@ func TestSigner_Sign_RunMetadataFails(t *testing.T) {
 	})
 }
 
-func TestSigner_Sign_DescribeKeyKeyIDMismatch(t *testing.T) {
-	reqKeyID, respKeyID := "1", "2"
-	p := newDefaultMockProvider()
-	p.keyID = respKeyID
-	signer := pluginSigner{
-		sigProvider: p,
-		keyID:       reqKeyID,
-	}
-	testSignerError(t, signer, fmt.Sprintf("keyID in describeKey response %q does not match request %q", respKeyID, reqKeyID))
-}
-
 func TestSigner_Sign_EnvelopeNotSupported(t *testing.T) {
 	signer := pluginSigner{
 		sigProvider:       newDefaultMockProvider(),
