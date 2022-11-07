@@ -56,7 +56,7 @@ func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 	}
 
 	// validate and create plugin
-	return NewCLIPlugin(name, path)
+	return NewCLIPlugin(ctx, name, path)
 }
 
 // List produces a list of the plugin names on the system.

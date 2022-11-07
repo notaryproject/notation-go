@@ -1,5 +1,7 @@
 package plugin
 
+import "github.com/notaryproject/notation-go/plugin/proto"
+
 func binName(name string) string {
-	return prefix + name + ".exe"
+	return proto.Prefix + name + ".exe"
 }

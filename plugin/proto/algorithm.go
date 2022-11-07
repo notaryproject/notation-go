@@ -7,6 +7,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 )
 
+// KeySpec is type of the signing algorithm, including algorithm and size.
 type KeySpec string
 
 // one of the following supported key spec names.
@@ -74,11 +75,12 @@ func DecodeKeySpec(k KeySpec) (keySpec signature.KeySpec, err error) {
 	return
 }
 
+// HashAlgorithm is the type of a hash algorithm.
+type HashAlgorithm string
+
 // one of the following supported hash algorithm names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-type HashAlgorithm string
-
 const (
 	HashAlgorithmSHA256 HashAlgorithm = "SHA-256"
 	HashAlgorithmSHA384 HashAlgorithm = "SHA-384"
@@ -110,11 +112,12 @@ func HashAlgorithmFromKeySpec(k signature.KeySpec) (HashAlgorithm, error) {
 	return "", fmt.Errorf("invalid KeySpec %q", k)
 }
 
+// SignatureAlgorithm is the type of signature algorithm
+type SignatureAlgorithm string
+
 // one of the following supported signing algorithm names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-type SignatureAlgorithm string
-
 const (
 	SignatureAlgorithmECDSA_SHA256      SignatureAlgorithm = "ECDSA-SHA-256"
 	SignatureAlgorithmECDSA_SHA384      SignatureAlgorithm = "ECDSA-SHA-384"

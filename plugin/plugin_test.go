@@ -14,7 +14,7 @@ import (
 func TestGetMetadata(t *testing.T) {
 	t.Run("invalid json", func(t *testing.T) {
 		stderr := []byte("{}")
-		wantErr := proto.RequestError{Code: proto.ErrorCodeGeneric, Err: fmt.Errorf("error: incomplete json. stderr: %s", stderr)}
+		wantErr := proto.RequestError{Code: proto.ErrorCodeGeneric, Err: fmt.Errorf("incomplete json")}
 
 		plugin := CLIPlugin{}
 		executor = testCommander{output: stderr, err: errors.New("unknown error")}
@@ -110,7 +110,7 @@ func TestGenerateEnvelope(t *testing.T) {
 func TestVerifySignature(t *testing.T) {
 	t.Run("VerifySignature test", func(t *testing.T) {
 		keyResp := proto.VerifySignatureResponse{
-			VerificationResults: map[proto.VerificationCapability]*proto.VerificationResult{},
+			VerificationResults: map[proto.Capability]*proto.VerificationResult{},
 			ProcessedAttributes: []interface{}{"attr1"},
 		}
 		output, err := json.Marshal(keyResp)

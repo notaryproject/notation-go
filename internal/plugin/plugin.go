@@ -64,16 +64,16 @@ const (
 )
 
 // VerificationCapability is a verification feature available in the plugin contract.
-type VerificationCapability = proto.VerificationCapability
+type VerificationCapability string
 
 const (
 	// VerificationCapabilityTrustedIdentity is the name of the capability
 	// for a plugin to support verifying trusted identities.
-	VerificationCapabilityTrustedIdentity VerificationCapability = proto.VerificationCapabilityTrustedIdentityVerifier
+	VerificationCapabilityTrustedIdentity VerificationCapability = VerificationCapability(proto.CapabilityTrustedIdentityVerifier)
 
 	// VerificationCapabilityRevocationCheck is the name of the capability
 	// for a plugin to support verifying revocation checks.
-	VerificationCapabilityRevocationCheck VerificationCapability = proto.VerificationCapabilityRevocationCheckVerifier
+	VerificationCapabilityRevocationCheck VerificationCapability = VerificationCapability(proto.CapabilityRevocationCheckVerifier)
 )
 
 // SigningScheme formalizes the feature set provided by the signature produced using a signing scheme
@@ -111,7 +111,16 @@ type GenerateEnvelopeRequest = proto.GenerateEnvelopeRequest
 type GenerateEnvelopeResponse = proto.GenerateEnvelopeResponse
 
 // VerifySignatureRequest contains the parameters passed in a verify-signature request.
-type VerifySignatureRequest = proto.VerifySignatureRequest
+type VerifySignatureRequest struct {
+	ContractVersion string            `json:"contractVersion"`
+	Signature       Signature         `json:"signature"`
+	TrustPolicy     TrustPolicy       `json:"trustPolicy"`
+	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
+}
+
+func (VerifySignatureRequest) Command() Command {
+	return CommandVerifySignature
+}
 
 // Signature represents a signature pulled from the envelope
 type Signature = proto.Signature
@@ -121,16 +130,24 @@ type Signature = proto.Signature
 type CriticalAttributes = proto.CriticalAttributes
 
 // TrustPolicy represents trusted identities that sign the artifacts
-type TrustPolicy = proto.TrustPolicy
+type TrustPolicy struct {
+	TrustedIdentities     []string                 `json:"trustedIdentities"`
+	SignatureVerification []VerificationCapability `json:"signatureVerification"`
+}
 
 // VerifySignatureResponse is the response of a verify-signature request.
-type VerifySignatureResponse = proto.VerifySignatureResponse
+type VerifySignatureResponse struct {
+	VerificationResults map[VerificationCapability]*VerificationResult `json:"verificationResults"`
+	ProcessedAttributes []interface{}                                  `json:"processedAttributes"`
+}
 
 // VerificationResult is the result of a verification performed by the plugin
 type VerificationResult = proto.VerificationResult
 
 // Request defines a plugin request, which is always associated to a command.
-type Request = proto.Request
+type Request interface {
+	Command() Command
+}
 
 // Runner is an interface for running commands against a plugin.
 type Runner interface {

@@ -14,18 +14,16 @@ import (
 	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
-const prefix = "notation-" // plugin prefix
-
 var executor commander = &execCommander{} // for unit test
 
-// PluginBase is the base requirement to be an plugin.
-type PluginBase interface {
+// GenericPlugin is the base requirement to be an plugin.
+type GenericPlugin interface {
 	GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error)
 }
 
 // SignPlugin defines the required methods to be a SignPlugin.
 type SignPlugin interface {
-	PluginBase
+	GenericPlugin
 
 	// DescribeKey returns the KeySpec of a key.
 	DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error)
@@ -39,7 +37,7 @@ type SignPlugin interface {
 
 // VerifyPlugin defines the required method to be a VerifyPlugin.
 type VerifyPlugin interface {
-	PluginBase
+	GenericPlugin
 
 	// VerifySignature validates the signature based on the request.
 	VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error)
@@ -59,43 +57,43 @@ type CLIPlugin struct {
 
 func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
 	var resp proto.GetMetadataResponse
-	err := run(ctx, p.name, p.path, executor, req, &resp)
+	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
 func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
 	var resp proto.DescribeKeyResponse
-	err := run(ctx, p.name, p.path, executor, req, &resp)
+	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
 	var resp proto.GenerateSignatureResponse
-	err := run(ctx, p.name, p.path, executor, req, &resp)
+	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
 	var resp proto.GenerateEnvelopeResponse
-	err := run(ctx, p.name, p.path, executor, req, &resp)
+	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
 	var resp proto.VerifySignatureResponse
-	err := run(ctx, p.name, p.path, executor, req, &resp)
+	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
 // NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
-func NewCLIPlugin(name, path string) (*CLIPlugin, error) {
+func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	plugin := CLIPlugin{
 		name: name,
 		path: path,
 	}
 
 	// validate metadata
-	metadata, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+	metadata, err := plugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
 	}
@@ -109,20 +107,21 @@ func NewCLIPlugin(name, path string) (*CLIPlugin, error) {
 	return &plugin, nil
 }
 
-func run(ctx context.Context, pluginName string, pluginPath string, cmder commander, req proto.Request, resp interface{}) error {
+func run(ctx context.Context, pluginName string, pluginPath string, req proto.Request, resp interface{}) error {
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
-		return pluginErr(pluginName, fmt.Errorf("failed to marshal request object: %w", err))
+
+		return fmt.Errorf("%s: failed to marshal request object: %w", pluginName, err)
 	}
 
 	// execute request
-	out, err := cmder.Output(ctx, pluginPath, string(req.Command()), data)
+	out, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
 		var re proto.RequestError
 		err = json.Unmarshal(out, &re)
 		if err != nil {
-			return proto.RequestError{Code: proto.ErrorCodeGeneric, Err: fmt.Errorf("error: %v. stderr: %s", err, out)}
+			return proto.RequestError{Code: proto.ErrorCodeGeneric, Err: err}
 		}
 		return re
 	}
@@ -140,25 +139,14 @@ type commander interface {
 	// Output runs the command, passing req to the its stdin.
 	// It only returns an error if the binary can't be executed.
 	// Returns stdout if err is nil, stderr if err is not nil.
-	Output(ctx context.Context, path string, command string, req []byte) (out []byte, err error)
+	Output(ctx context.Context, path string, command proto.Command, req []byte) (out []byte, err error)
 }
 
 // execCommander implements the commander interface using exec.Command().
 type execCommander struct{}
 
-func (c execCommander) Output(ctx context.Context, name string, command string, req []byte) ([]byte, error) {
-	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, name, command)
+func (c execCommander) Output(ctx context.Context, name string, command proto.Command, req []byte) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		return stderr.Bytes(), err
-	}
-	return stdout.Bytes(), nil
-}
-
-func pluginErr(name string, err error) error {
-	return fmt.Errorf("%s: %w", name, err)
+	return cmd.Output()
 }

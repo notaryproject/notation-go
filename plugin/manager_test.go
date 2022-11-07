@@ -20,7 +20,7 @@ type testCommander struct {
 	err    error
 }
 
-func (t testCommander) Output(ctx context.Context, path string, command string, req []byte) (out []byte, err error) {
+func (t testCommander) Output(ctx context.Context, path string, command proto.Command, req []byte) (out []byte, err error) {
 	return t.output, t.err
 }
 

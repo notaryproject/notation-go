@@ -33,14 +33,14 @@ type CriticalAttributes struct {
 
 // TrustPolicy represents trusted identities that sign the artifacts
 type TrustPolicy struct {
-	TrustedIdentities     []string                 `json:"trustedIdentities"`
-	SignatureVerification []VerificationCapability `json:"signatureVerification"`
+	TrustedIdentities     []string     `json:"trustedIdentities"`
+	SignatureVerification []Capability `json:"signatureVerification"`
 }
 
 // VerifySignatureResponse is the response of a verify-signature request.
 type VerifySignatureResponse struct {
-	VerificationResults map[VerificationCapability]*VerificationResult `json:"verificationResults"`
-	ProcessedAttributes []interface{}                                  `json:"processedAttributes"`
+	VerificationResults map[Capability]*VerificationResult `json:"verificationResults"`
+	ProcessedAttributes []interface{}                      `json:"processedAttributes"`
 }
 
 // VerificationResult is the result of a verification performed by the plugin
