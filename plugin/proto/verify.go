@@ -10,6 +10,10 @@ type VerifySignatureRequest struct {
 	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
 }
 
+func (VerifySignatureRequest) Command() Command {
+	return CommandVerifySignature
+}
+
 // Signature represents a signature pulled from the envelope
 type Signature struct {
 	CriticalAttributes    CriticalAttributes `json:"criticalAttributes"`
@@ -31,10 +35,6 @@ type CriticalAttributes struct {
 type TrustPolicy struct {
 	TrustedIdentities     []string                 `json:"trustedIdentities"`
 	SignatureVerification []VerificationCapability `json:"signatureVerification"`
-}
-
-func (VerifySignatureRequest) Command() Command {
-	return CommandVerifySignature
 }
 
 // VerifySignatureResponse is the response of a verify-signature request.

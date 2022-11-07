@@ -27,6 +27,11 @@ type CLIManager struct {
 	pluginFS dir.SysFS
 }
 
+// NewCLIManager returns CLIManager for named pluginFS.
+func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
+	return &CLIManager{pluginFS: pluginFS}
+}
+
 // Get returns a plugin on the system by its name.
 //
 // If the plugin is not found, the error is of type os.ErrNotExist.
@@ -76,9 +81,4 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		return fs.SkipDir
 	})
 	return plugins, nil
-}
-
-// NewCLIManager returns CLIManager for named pluginFS.
-func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
-	return &CLIManager{pluginFS: pluginFS}
 }
