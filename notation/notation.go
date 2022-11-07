@@ -47,13 +47,16 @@ type SignOptions struct {
 	// Expiry identifies the expiration time of the resulted signature.
 	Expiry time.Time
 
-	// TSA is the TimeStamp Authority to timestamp the resulted signature if present.
+	// TSA is the TimeStamp Authority to timestamp the resulted signature if
+	// present.
 	TSA timestamp.Timestamper
 
-	// TSAVerifyOptions is the verify option to verify the fetched timestamp signature.
-	// The `Intermediates` in the verify options will be ignored and re-contrusted using
-	// the certificates in the fetched timestamp signature.
-	// An empty list of `KeyUsages` in the verify options implies ExtKeyUsageTimeStamping.
+	// TSAVerifyOptions is the verify option to verify the fetched timestamp
+	// signature.
+	// The `Intermediates` in the verify options will be ignored and
+	// re-contrusted using the certificates in the fetched timestamp signature.
+	// An empty list of `KeyUsages` in the verify options implies
+	// ExtKeyUsageTimeStamping.
 	TSAVerifyOptions x509.VerifyOptions
 
 	// Sets or overrides the plugin configuration.
@@ -74,7 +77,8 @@ type Signer interface {
 	Sign(ctx context.Context, desc Descriptor, envelopeMediaType string, opts SignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
-// Sign signs the artifact in the remote registry and push the signature to the remote.
+// Sign signs the artifact in the remote registry and push the signature to the
+// remote.
 // The descriptor of the sign content is returned upon sucessful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, reference string, envelopeMediaType string, opts SignOptions) (Descriptor, error) {
 	ociDesc, err := repo.Resolve(ctx, reference)
@@ -102,35 +106,44 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, referenc
 type VerifyOptions struct {
 	ArtifactReference string
 	// SignatureMediaType is the envelope type of the signature.
-	// Currently both `application/jose+json` and `application/cose` are supported.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
 	SignatureMediaType string
 	PluginConfig       map[string]string
 }
 
-// VerificationResult encapsulates the verification result (passed or failed) for a verification type, including the
-// desired verification action as specified in the trust policy
+// VerificationResult encapsulates the verification result (passed or failed)
+// for a verification type, including the desired verification action as
+//
+//	specified in the trust policy
 type VerificationResult struct {
 	// Success is set to true if the verification was successful
 	Success bool
 	// Type of verification that is performed
 	Type trustpolicy.ValidationType
-	// Action is the intended action for the given verification type as defined in the trust policy
+	// Action is the intended action for the given verification type as defined
+	// in the trust policy
 	Action trustpolicy.ValidationAction
 	// Err is set if there are any errors during the verification process
 	Error error
 }
 
-// VerificationOutcome encapsulates the SignerInfo (that includes the details of the digital signature)
+// VerificationOutcome encapsulates the SignerInfo (that includes the details of
+// the digital signature)
 // and results for each verification type that was performed
 type VerificationOutcome struct {
 	SignatureBlobDescriptor *ocispec.Descriptor
-	// EnvelopeContent contains the details of the digital signature and associated metadata
+	// EnvelopeContent contains the details of the digital signature and
+	// associated metadata
 	EnvelopeContent *signature.EnvelopeContent
-	// VerificationLevel describes what verification level was used for performing signature verification
+	// VerificationLevel describes what verification level was used for
+	// performing signature verification
 	VerificationLevel *trustpolicy.VerificationLevel
-	// VerificationResults contains the verifications performed on the signature and their results
+	// VerificationResults contains the verifications performed on the signature
+	// and their results
 	VerificationResults []*VerificationResult
-	// SignedAnnotations contains arbitrary metadata relating to the target artifact that was signed
+	// SignedAnnotations contains arbitrary metadata relating to the target
+	// artifact that was signed
 	SignedAnnotations map[string]string
 	// Error that caused the verification to fail (if it fails)
 	Error error
@@ -138,8 +151,8 @@ type VerificationOutcome struct {
 
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
-	// Verify verifies the signature and returns the verified descriptor upon
-	// successful verification.
+	// Verify verifies the signature blob and returns the verified descriptor
+	// upon successful verification.
 	Verify(ctx context.Context, signature []byte, opts VerifyOptions, outcome *VerificationOutcome) (Descriptor, error)
 
 	// TrustPolicyDocument gets the validated trust policy document.
@@ -147,19 +160,26 @@ type Verifier interface {
 }
 
 /*
-Verify performs signature verification on each of the notation supported verification types (like integrity, authenticity, etc.) and return the verification outcomes.
+Verify performs signature verification on each of the notation supported
+verification types (like integrity, authenticity, etc.) and return the
+verification outcomes.
 
-Given an artifact reference, Verify will retrieve all the signatures associated with the reference and perform signature verification.
-A signature is considered not valid if verification fails due to any one of the following reasons
+Given an artifact reference, Verify will retrieve all the signatures associated
+with the reference and perform signature verification.
+A signature is considered not valid if verification fails due to any one of the
+following reasons
 
-1. Artifact Reference is not associated with a signature i.e. unsigned
-2. Registry is unavailable to retrieve the signature
-3. Signature does not satisfy the verification rules configured in the trust policy
-4. Signature specifies a plugin for extended verification and that throws an error
-5. Digest in the signature does not match the digest present in the reference
+ 1. Artifact Reference is not associated with a signature i.e. unsigned
+ 2. Registry is unavailable to retrieve the signature
+ 3. Signature does not satisfy the verification rules configured in the trust
+    policy
+ 4. Signature specifies a plugin for extended verification and that throws an
+    error
+ 5. Digest in the signature does not match the digest present in the reference
 
-If each and every signature associated with the reference fail the verification, then Verify will return `ErrorVerificationFailed` error
-along with an array of `VerificationOutcome`.
+If each and every signature associated with the reference fail the verification,
+then Verify will return `ErrorVerificationFailed` error along with an array
+of `VerificationOutcome`.
 
 # Callers can pass the verification plugin config in VerifyOptions.PluginConfig
 
@@ -181,7 +201,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if err != nil {
 		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification) // ignore the error since we already validated the policy document
+	// ignore the error since we already validated the policy document
+	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
 	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
 		verificationOutcomes = append(verificationOutcomes, &VerificationOutcome{VerificationLevel: verificationLevel})
 		return Descriptor{}, verificationOutcomes, nil
@@ -207,10 +228,14 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				VerificationLevel:       verificationLevel,
 			}
 			_, err = verifier.Verify(ctx, sigBlob, opts, outcome)
-			if err != nil || outcome == nil || outcome.Error != nil {
+			if err != nil {
+				if outcome != nil && outcome.Error != nil {
+					verificationOutcomes = append(verificationOutcomes, outcome)
+				}
 				continue
 			}
 			verificationOutcomes = append(verificationOutcomes, outcome)
+
 			// artifact digest must match the digest from the signature payload
 			payload := &Payload{}
 			err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
@@ -219,8 +244,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				continue
 			}
 			outcome.SignedAnnotations = payload.TargetArtifact.Annotations
+
+			// At this point, we've found a signature verified successfully
 			success = true
 
+			// Early break from the pagination due to verification succeeded
 			return errors.New("no Link header in response")
 		}
 		return nil
@@ -232,7 +260,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 
 	// check whether verification was successful or not
 	if success {
-		// signature verification succeeds if there is at least one good signature
+		// signature verification succeeds if there is at least one good
+		// signature
 		return notationDescriptorFromOCI(sigBlobDesc), verificationOutcomes, nil
 	}
 
