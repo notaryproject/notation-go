@@ -99,12 +99,6 @@ func withMetaData(f runFunc) optionFunc {
 	}
 }
 
-func withDescribeKey(f runFunc) optionFunc {
-	return func(o *options) {
-		o.describeKey = f
-	}
-}
-
 func withGenerateSignature(f runFunc) optionFunc {
 	return func(o *options) {
 		o.generateSignature = f
@@ -304,32 +298,6 @@ func TestSigner_Sign_RunMetadataFails(t *testing.T) {
 			sigProvider: p,
 		}
 		testSignerError(t, signer, fmt.Sprintf("contract version %q is not in the list of the plugin supported versions %v", plugin.ContractVersion, []string{unsupported}))
-	})
-}
-
-func TestSigner_Sign_DescribeKeyFailed(t *testing.T) {
-	t.Run("run describe-key command failed", func(t *testing.T) {
-		p := newDefaultMockProvider(
-			withDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
-				return nil, errors.New("describle-key command failed")
-			}),
-		)
-		signer := pluginSigner{
-			sigProvider: p,
-		}
-		testSignerError(t, signer, "describe-key command failed")
-	})
-
-	t.Run("describe-key response type error", func(t *testing.T) {
-		p := newDefaultMockProvider(
-			withDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
-				return struct{}{}, nil
-			}),
-		)
-		signer := pluginSigner{
-			sigProvider: p,
-		}
-		testSignerError(t, signer, "plugin runner returned incorrect describe-key response type")
 	})
 }
 
