@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
+	notation "github.com/notaryproject/notation-go/internal"
 )
 
 // ValidateEnvelopeMediaType validetes envelope media type is supported by notation-core-go.

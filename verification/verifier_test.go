@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
+	notation "github.com/notaryproject/notation-go/internal"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/internal/registry"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/registry"
 
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"

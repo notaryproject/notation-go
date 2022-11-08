@@ -3,7 +3,7 @@ package registry
 import (
 	"context"
 
-	"github.com/notaryproject/notation-go"
+	notation "github.com/notaryproject/notation-go/internal"
 	"github.com/opencontainers/go-digest"
 )
 
