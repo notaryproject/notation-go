@@ -43,9 +43,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 	return c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: desc.Digest,
 	}, ArtifactTypeNotation, func(referrers []ocispec.Descriptor) error {
-		var sigManifestDesc []ocispec.Descriptor
-		sigManifestDesc = append(sigManifestDesc, referrers...)
-		return fn(sigManifestDesc)
+		return fn(referrers)
 	})
 }
 
