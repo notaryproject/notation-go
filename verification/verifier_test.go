@@ -10,7 +10,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/dir"
 	notation "github.com/notaryproject/notation-go/internal"
-	"github.com/notaryproject/notation-go/internal/mock"
+	mock "github.com/notaryproject/notation-go/internal/mock_origin"
 	"github.com/notaryproject/notation-go/internal/registry"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"

@@ -9,7 +9,7 @@ import (
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/notation-go/verification/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -53,7 +53,7 @@ func TestRegistryListSignaturesError(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
-	repo.ListSignatureManifestsError = ErrorSignatureRetrievalFailed{Msg: "network error"}
+	repo.ListSignaturesError = ErrorSignatureRetrievalFailed{Msg: "network error"}
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
@@ -70,7 +70,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
-	repo.ListSignatureManifestsResponse = []ocispec.Descriptor{}
+	repo.ListSignaturesResponse = []ocispec.Descriptor{}
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
@@ -87,7 +87,7 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
-	repo.GetError = errors.New("network error")
+	repo.FetchSignatureBlobError = errors.New("network error")
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 

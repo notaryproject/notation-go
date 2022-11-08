@@ -14,7 +14,7 @@ import (
 	"github.com/notaryproject/notation-core-go/timestamp"
 	"github.com/notaryproject/notation-go/internal/policy"
 	"github.com/notaryproject/notation-go/registry"
-	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/notation-go/verification/trustpolicy"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
