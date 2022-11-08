@@ -121,11 +121,15 @@ type dummyVerifier struct {
 	FailVerify     bool
 }
 
-func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions, outcome *VerificationOutcome) (Descriptor, error) {
+func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, *VerificationOutcome, error) {
 	if v.FailVerify {
-		return Descriptor{}, errors.New("failed verify")
+		return Descriptor{}, nil, errors.New("failed verify")
 	}
-	return Descriptor{}, nil
+	outcome := &VerificationOutcome{
+		VerificationResults: []*ValidationResult{},
+		VerificationLevel:   opts.VerificationLevel,
+	}
+	return Descriptor{}, outcome, nil
 }
 
 func (v *dummyVerifier) TrustPolicyDocument() (*trustpolicy.Document, error) {

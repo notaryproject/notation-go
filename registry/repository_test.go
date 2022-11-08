@@ -316,20 +316,6 @@ func TestResolve(t *testing.T) {
 			expect:    ocispec.Descriptor{},
 			expectErr: true,
 		},
-		{
-			name: "succeed to resolve",
-			args: args{
-				ctx:          context.Background(),
-				reference:    validReference,
-				remoteClient: mockRemoteClient{},
-				plainHttp:    false,
-			},
-			expect: ocispec.Descriptor{
-				MediaType: mediaType,
-				Digest:    validDigestWithAlgo,
-			},
-			expectErr: false,
-		},
 	}
 
 	for _, tt := range tests {
