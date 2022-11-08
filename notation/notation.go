@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -215,6 +214,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		if len(signatureManifests) < 1 {
 			return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
 		}
+		// if already verified successfully, no need to continue
+		if success {
+			return nil
+		}
 		// process signatures
 		for _, sigManifest := range signatureManifests {
 			// get signature envelope
@@ -248,8 +251,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			// At this point, we've found a signature verified successfully
 			success = true
 
-			// Early break from the pagination due to verification succeeded
-			return errors.New("no Link header in response")
+			return nil
 		}
 		return nil
 	})
