@@ -160,7 +160,7 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 	cmd.Stdout = &stdout
 	err := cmd.Run()
 	if err != nil {
-		return nil, nil, err
+		return nil, stderr.Bytes(), err
 	}
-	return stdout.Bytes(), stderr.Bytes(), nil
+	return stdout.Bytes(), nil, nil
 }
