@@ -3,7 +3,6 @@ package mock
 import (
 	"context"
 	_ "embed"
-
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/plugin"
