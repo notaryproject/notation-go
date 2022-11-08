@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
+	notation "github.com/notaryproject/notation-go/internal"
+	"github.com/notaryproject/notation-go/internal/registry"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/registry"
 )
 
 type Verifier struct {

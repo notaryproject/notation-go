@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
+	notation "github.com/notaryproject/notation-go/internal"
 	"github.com/notaryproject/notation-go/plugin"
 )
 

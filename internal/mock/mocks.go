@@ -5,10 +5,10 @@ import (
 	_ "embed"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
+	notation "github.com/notaryproject/notation-go/internal"
+	"github.com/notaryproject/notation-go/internal/registry"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
-	"github.com/notaryproject/notation-go/registry"
 	"github.com/opencontainers/go-digest"
 )
 

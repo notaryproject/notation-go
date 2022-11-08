@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/notaryproject/notation-go"
+	notation "github.com/notaryproject/notation-go/internal"
 	"github.com/opencontainers/go-digest"
 	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry"
