@@ -209,7 +209,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 
 	// get signature manifests
 	var success bool
-	var sigBlobDesc ocispec.Descriptor
+	var verifiedSigBlobDesc ocispec.Descriptor
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		if len(signatureManifests) < 1 {
 			return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
@@ -250,6 +250,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 
 			// At this point, we've found a signature verified successfully
 			success = true
+			// Descriptor of the signature blob that get verified successfully
+			verifiedSigBlobDesc = sigBlobDesc
 
 			return nil
 		}
@@ -264,7 +266,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if success {
 		// signature verification succeeds if there is at least one good
 		// signature
-		return notationDescriptorFromOCI(sigBlobDesc), verificationOutcomes, nil
+		return notationDescriptorFromOCI(verifiedSigBlobDesc), verificationOutcomes, nil
 	}
 
 	return Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
