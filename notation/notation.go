@@ -12,7 +12,6 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/timestamp"
-	"github.com/notaryproject/notation-go/internal/policy"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verification/trustpolicy"
 	"github.com/opencontainers/go-digest"
@@ -196,7 +195,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if err != nil {
 		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	trustPolicy, err := policy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
+	trustPolicy, err := trustpolicy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
 	if err != nil {
 		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
