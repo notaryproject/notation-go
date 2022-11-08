@@ -16,14 +16,15 @@ import (
 
 var executor commander = &execCommander{} // for unit test
 
-// GenericPlugin is the base requirement to be an plugin.
-type GenericPlugin interface {
+// genericPlugin is the base requirement to be an plugin.
+type genericPlugin interface {
+	// GetMetadata returns the metadata information of the plugin.
 	GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error)
 }
 
 // SignPlugin defines the required methods to be a SignPlugin.
 type SignPlugin interface {
-	GenericPlugin
+	genericPlugin
 
 	// DescribeKey returns the KeySpec of a key.
 	DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error)
@@ -37,7 +38,7 @@ type SignPlugin interface {
 
 // VerifyPlugin defines the required method to be a VerifyPlugin.
 type VerifyPlugin interface {
-	GenericPlugin
+	genericPlugin
 
 	// VerifySignature validates the signature based on the request.
 	VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error)
@@ -55,6 +56,29 @@ type CLIPlugin struct {
 	path string
 }
 
+// NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
+func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
+	plugin := CLIPlugin{
+		name: name,
+		path: path,
+	}
+
+	// validate metadata
+	metadata, err := plugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
+	}
+	if metadata.Name != name {
+		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(path))
+	}
+	if err = metadata.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid metadata: %w", err)
+	}
+
+	return &plugin, nil
+}
+
+// GetMetadata returns the metadata information of the plugin.
 func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
 	var resp proto.GetMetadataResponse
 	err := run(ctx, p.name, p.path, req, &resp)
@@ -85,33 +109,10 @@ func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignat
 	return &resp, err
 }
 
-// NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
-func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
-	plugin := CLIPlugin{
-		name: name,
-		path: path,
-	}
-
-	// validate metadata
-	metadata, err := plugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
-	}
-	if metadata.Name != name {
-		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(path))
-	}
-	if err = metadata.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid metadata: %w", err)
-	}
-
-	return &plugin, nil
-}
-
 func run(ctx context.Context, pluginName string, pluginPath string, req proto.Request, resp interface{}) error {
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
-
 		return fmt.Errorf("%s: failed to marshal request object: %w", pluginName, err)
 	}
 

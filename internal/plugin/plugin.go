@@ -76,19 +76,6 @@ const (
 	VerificationCapabilityRevocationCheck VerificationCapability = VerificationCapability(proto.CapabilityRevocationCheckVerifier)
 )
 
-// SigningScheme formalizes the feature set provided by the signature produced using a signing scheme
-type SigningScheme = proto.SigningScheme
-
-const (
-	// SigningSchemeDefault defines a signing scheme that uses the traditional signing workflow
-	// in which an end user generates signatures using X.509 certificates
-	SigningSchemeDefault SigningScheme = proto.SigningSchemeDefault
-
-	// SigningSchemeAuthority defines a signing scheme in which a signing authority
-	// generates signatures on behalf of an end user using X.509 certificates
-	SigningSchemeAuthority SigningScheme = proto.SigningSchemeAuthority
-)
-
 // GetMetadataRequest contains the parameters passed in a get-plugin-metadata request.
 type GetMetadataRequest = proto.GetMetadataRequest
 

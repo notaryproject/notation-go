@@ -68,19 +68,3 @@ type GenerateEnvelopeResponse struct {
 	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
 	Annotations           map[string]string `json:"annotations,omitempty"`
 }
-
-// SigningScheme formalizes the feature set provided by the signature produced
-// using a signing scheme.
-type SigningScheme string
-
-const (
-	// SigningSchemeDefault defines a signing scheme that uses the traditional
-	// signing workflow in which an end user generates signatures using X.509
-	// certificates.
-	SigningSchemeDefault SigningScheme = "notary.default.x509"
-
-	// SigningSchemeAuthority defines a signing scheme in which a signing
-	// authority generates signatures on behalf of an end user using X.509
-	// certificates.
-	SigningSchemeAuthority SigningScheme = "notary.signingAuthority.x509"
-)
