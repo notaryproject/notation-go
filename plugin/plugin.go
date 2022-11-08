@@ -16,15 +16,15 @@ import (
 
 var executor commander = &execCommander{} // for unit test
 
-// genericPlugin is the base requirement to be an plugin.
-type genericPlugin interface {
+// GenericPlugin is the base requirement to be an plugin.
+type GenericPlugin interface {
 	// GetMetadata returns the metadata information of the plugin.
 	GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error)
 }
 
 // SignPlugin defines the required methods to be a SignPlugin.
 type SignPlugin interface {
-	genericPlugin
+	GenericPlugin
 
 	// DescribeKey returns the KeySpec of a key.
 	DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error)
@@ -38,7 +38,7 @@ type SignPlugin interface {
 
 // VerifyPlugin defines the required method to be a VerifyPlugin.
 type VerifyPlugin interface {
-	genericPlugin
+	GenericPlugin
 
 	// VerifySignature validates the signature based on the request.
 	VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error)
@@ -85,24 +85,28 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	return &resp, err
 }
 
+// DescribeKey returns the KeySpec of a key.
 func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
 	var resp proto.DescribeKeyResponse
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
+// GenerateSignature generates the raw signature based on the request.
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
 	var resp proto.GenerateSignatureResponse
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
+// GenerateEnvelope generates the Envelope with signature based on the request.
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
 	var resp proto.GenerateEnvelopeResponse
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
+// VerifySignature validates the signature based on the request.
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
 	var resp proto.VerifySignatureResponse
 	err := run(ctx, p.name, p.path, req, &resp)
@@ -117,18 +121,20 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	}
 
 	// execute request
-	out, err := executor.Output(ctx, pluginPath, req.Command(), data)
+	stdout, stderr, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
 		var re proto.RequestError
-		err = json.Unmarshal(out, &re)
-		if err != nil {
-			return proto.RequestError{Code: proto.ErrorCodeGeneric, Err: err}
+		jsonErr := json.Unmarshal(stderr, &re)
+		if jsonErr != nil {
+			return proto.RequestError{
+				Code: proto.ErrorCodeGeneric,
+				Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", err, stderr)}
 		}
 		return re
 	}
 
 	// deserialize response
-	err = json.Unmarshal(out, resp)
+	err = json.Unmarshal(stdout, resp)
 	if err != nil {
 		return fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
 	}
@@ -140,14 +146,18 @@ type commander interface {
 	// Output runs the command, passing req to the its stdin.
 	// It only returns an error if the binary can't be executed.
 	// Returns stdout if err is nil, stderr if err is not nil.
-	Output(ctx context.Context, path string, command proto.Command, req []byte) (out []byte, err error)
+	Output(ctx context.Context, path string, command proto.Command, req []byte) (stdout []byte, stderr []byte, err error)
 }
 
 // execCommander implements the commander interface using exec.Command().
 type execCommander struct{}
 
-func (c execCommander) Output(ctx context.Context, name string, command proto.Command, req []byte) ([]byte, error) {
+func (c execCommander) Output(ctx context.Context, name string, command proto.Command, req []byte) ([]byte, []byte, error) {
+	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
-	return cmd.Output()
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	return stdout.Bytes(), stderr.Bytes(), err
 }

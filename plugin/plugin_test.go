@@ -12,30 +12,47 @@ import (
 )
 
 func TestGetMetadata(t *testing.T) {
-	t.Run("invalid json", func(t *testing.T) {
+	t.Run("plugin error is in invalid json format", func(t *testing.T) {
+		exitErr := errors.New("unknown error")
 		stderr := []byte("{}")
-		wantErr := proto.RequestError{Code: proto.ErrorCodeGeneric, Err: fmt.Errorf("incomplete json")}
-
+		wantErr := proto.RequestError{
+			Code: proto.ErrorCodeGeneric,
+			Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", exitErr, stderr)}
 		plugin := CLIPlugin{}
-		executor = testCommander{output: stderr, err: errors.New("unknown error")}
+		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
 		if !errors.Is(err, wantErr) {
 			t.Fatalf("should error. got err = %v, want %v", err, wantErr)
 		}
 	})
 
-	t.Run("plugin error", func(t *testing.T) {
+	t.Run("plugin error is a valid json", func(t *testing.T) {
 		stderr := []byte("{\"errorCode\":\"ACCESS_DENIED\"}")
 		pluginErr := errors.New("plugin errors")
 		wantErr := proto.RequestError{Code: proto.ErrorCodeAccessDenied}
 
 		plugin := CLIPlugin{}
-		executor = testCommander{output: stderr, err: pluginErr}
+		executor = testCommander{stdout: nil, stderr: stderr, err: pluginErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
 		if !errors.Is(err, wantErr) {
 			t.Fatalf("should error. got err = %v, want %v", err, wantErr)
 		}
 	})
+
+	t.Run("plugin cause system error", func(t *testing.T) {
+		exitErr := errors.New("system error")
+		stderr := []byte("")
+		wantErr := proto.RequestError{
+			Code: proto.ErrorCodeGeneric,
+			Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", exitErr, stderr)}
+		plugin := CLIPlugin{}
+		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
+		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+		if !errors.Is(err, wantErr) {
+			t.Fatalf("should error. got err = %v, want %v", err, wantErr)
+		}
+	})
+
 }
 
 func TestDescribeKey(t *testing.T) {
@@ -45,7 +62,7 @@ func TestDescribeKey(t *testing.T) {
 		if err != nil {
 			t.Fatal("should not error.")
 		}
-		executor = testCommander{output: output, err: nil}
+		executor = testCommander{stdout: output, err: nil}
 
 		plugin := CLIPlugin{}
 		resp, err := plugin.DescribeKey(context.Background(), &proto.DescribeKeyRequest{})
@@ -70,7 +87,7 @@ func TestGenerateSignature(t *testing.T) {
 		if err != nil {
 			t.Fatal("should not error.")
 		}
-		executor = testCommander{output: output, err: nil}
+		executor = testCommander{stdout: output, err: nil}
 
 		plugin := CLIPlugin{}
 		resp, err := plugin.GenerateSignature(context.Background(), &proto.GenerateSignatureRequest{})
@@ -94,7 +111,7 @@ func TestGenerateEnvelope(t *testing.T) {
 		if err != nil {
 			t.Fatal("should not error.")
 		}
-		executor = testCommander{output: output, err: nil}
+		executor = testCommander{stdout: output, err: nil}
 
 		plugin := CLIPlugin{}
 		resp, err := plugin.GenerateEnvelope(context.Background(), &proto.GenerateEnvelopeRequest{})
@@ -117,7 +134,7 @@ func TestVerifySignature(t *testing.T) {
 		if err != nil {
 			t.Fatal("should not error.")
 		}
-		executor = testCommander{output: output, err: nil}
+		executor = testCommander{stdout: output, err: nil}
 
 		plugin := CLIPlugin{}
 		resp, err := plugin.VerifySignature(context.Background(), &proto.VerifySignatureRequest{})

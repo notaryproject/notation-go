@@ -16,12 +16,13 @@ import (
 )
 
 type testCommander struct {
-	output []byte
+	stdout []byte
+	stderr []byte
 	err    error
 }
 
-func (t testCommander) Output(ctx context.Context, path string, command proto.Command, req []byte) (out []byte, err error) {
-	return t.output, t.err
+func (t testCommander) Output(ctx context.Context, path string, command proto.Command, req []byte) (stdout []byte, stderr []byte, err error) {
+	return t.stdout, t.stderr, t.err
 }
 
 var validMetadata = proto.GetMetadataResponse{
@@ -84,7 +85,7 @@ func TestManager_Get_NotFound(t *testing.T) {
 		"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
 		"foo/" + binName("foo"): new(fstest.MapFile),
 	}))
-	executor = testCommander{metadataJSON(validMetadata), nil}
+	executor = testCommander{stdout: metadataJSON(validMetadata)}
 	check(mgr.Get(ctx, "baz"))
 }
 
@@ -95,7 +96,7 @@ func TestManager_Get(t *testing.T) {
 				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
 				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
-		executor = testCommander{nil, nil}
+		executor = testCommander{}
 		_, err := mgr.Get(context.Background(), "foo")
 		if !strings.Contains(err.Error(), "failed to fetch metadata") {
 			t.Fatal("should fail the Get operation.")
@@ -108,7 +109,7 @@ func TestManager_Get(t *testing.T) {
 				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
 				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
-		executor = testCommander{[]byte("content"), nil}
+		executor = testCommander{stdout: []byte("content")}
 		_, err := mgr.Get(context.Background(), "foo")
 		if !strings.Contains(err.Error(), "failed to fetch metadata") {
 			t.Fatal("should fail the Get operation.")
@@ -121,7 +122,7 @@ func TestManager_Get(t *testing.T) {
 				"baz":                   &fstest.MapFile{Mode: fs.ModeDir},
 				"baz/" + binName("baz"): new(fstest.MapFile),
 			}))
-		executor = testCommander{metadataJSON(validMetadata), nil}
+		executor = testCommander{stdout: metadataJSON(validMetadata)}
 		_, err := mgr.Get(context.Background(), "baz")
 		if !strings.Contains(err.Error(), "executable name must be") {
 			t.Fatal("should fail the Get operation.")
@@ -134,7 +135,7 @@ func TestManager_Get(t *testing.T) {
 				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
 				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
-		executor = testCommander{metadataJSON(proto.GetMetadataResponse{Name: "foo"}), nil}
+		executor = testCommander{stdout: metadataJSON(proto.GetMetadataResponse{Name: "foo"})}
 		_, err := mgr.Get(context.Background(), "foo")
 		if !strings.Contains(err.Error(), "invalid metadata") {
 			t.Fatal("should fail the Get operation.")
@@ -147,7 +148,7 @@ func TestManager_Get(t *testing.T) {
 				"foo":                   &fstest.MapFile{Mode: fs.ModeDir},
 				"foo/" + binName("foo"): new(fstest.MapFile),
 			}))
-		executor = testCommander{metadataJSON(validMetadata), nil}
+		executor = testCommander{stdout: metadataJSON(validMetadata)}
 		plugin, err := mgr.Get(context.Background(), "foo")
 		if err != nil {
 			t.Fatalf("should valid. got err = %v", err)
