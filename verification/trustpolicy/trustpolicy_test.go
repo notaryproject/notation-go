@@ -1,6 +1,7 @@
 package trustpolicy
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 )
@@ -442,5 +443,49 @@ func TestCustomVerificationLevel(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestApplicableTrustPolicy tests filtering policies against registry scopes
+func TestApplicableTrustPolicy(t *testing.T) {
+	policyDoc := dummyPolicyDocument()
+
+	policyStatement := dummyPolicyStatement()
+	policyStatement.Name = "test-statement-name-1"
+	registryScope := "registry.wabbit-networks.io/software/unsigned/net-utils"
+	registryUri := fmt.Sprintf("%s@sha256:hash", registryScope)
+	policyStatement.RegistryScopes = []string{registryScope}
+	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "strict"}
+
+	policyDoc.TrustPolicies = []TrustPolicy{
+		policyStatement,
+	}
+	// existing Registry Scope
+	policy, err := GetApplicableTrustPolicy(&policyDoc, registryUri)
+	if policy.Name != policyStatement.Name || err != nil {
+		t.Fatalf("getApplicableTrustPolicy should return %q for registry scope %q", policyStatement.Name, registryScope)
+	}
+
+	// non-existing Registry Scope
+	policy, err = GetApplicableTrustPolicy(&policyDoc, "non.existing.scope/repo@sha256:hash")
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy" {
+		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
+	}
+
+	// wildcard registry scope
+	wildcardStatement := dummyPolicyStatement()
+	wildcardStatement.Name = "test-statement-name-2"
+	wildcardStatement.RegistryScopes = []string{"*"}
+	wildcardStatement.TrustStores = []string{}
+	wildcardStatement.TrustedIdentities = []string{}
+	wildcardStatement.SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
+
+	policyDoc.TrustPolicies = []TrustPolicy{
+		policyStatement,
+		wildcardStatement,
+	}
+	policy, err = GetApplicableTrustPolicy(&policyDoc, "some.registry.that/has.no.policy@sha256:hash")
+	if policy.Name != wildcardStatement.Name || err != nil {
+		t.Fatalf("getApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
 	}
 }
