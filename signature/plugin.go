@@ -122,7 +122,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 
 func generateSignatureEnvelope(ctx context.Context, mediaType string, signer signature.Signer, desc notation.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	// Generate payload to be signed.
-	payload := notation.Payload{TargetArtifact: desc}
+	payload := envelope.Payload{TargetArtifact: desc}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
@@ -181,7 +181,7 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
-	payload := notation.Payload{TargetArtifact: desc}
+	payload := envelope.Payload{TargetArtifact: desc}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
@@ -225,7 +225,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		return nil, nil, err
 	}
 
-	var signedPayload notation.Payload
+	var signedPayload envelope.Payload
 	if err = json.Unmarshal(envContent.Payload.Content, &signedPayload); err != nil {
 		return nil, nil, fmt.Errorf("signed envelope payload can't be unmarshaled: %w", err)
 	}

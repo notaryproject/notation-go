@@ -36,15 +36,15 @@ var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\
 
 // isCriticalFailure checks whether a VerificationResult fails the entire signature verification workflow.
 // signature verification workflow is considered failed if there is a VerificationResult with "Enforced" as the action but the result was unsuccessful
-func isCriticalFailure(result *notation.VerificationResult) bool {
+func isCriticalFailure(result *notation.ValidationResult) bool {
 	return result.Action == trustpolicy.ActionEnforce && !result.Success
 }
 
-func (v *verifier) verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.VerificationResult) {
+func (v *verifier) verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.ValidationResult) {
 	// parse the signature
 	sigEnv, err := signature.ParseEnvelope(envelopeMediaType, sigBlob)
 	if err != nil {
-		return nil, &notation.VerificationResult{
+		return nil, &notation.ValidationResult{
 			Success: false,
 			Error:   fmt.Errorf("unable to parse the digital signature, error : %s", err),
 			Type:    trustpolicy.TypeIntegrity,
@@ -57,7 +57,7 @@ func (v *verifier) verifyIntegrity(sigBlob []byte, envelopeMediaType string, out
 	if err != nil {
 		switch err.(type) {
 		case *signature.SignatureEnvelopeNotFoundError, *signature.InvalidSignatureError, *signature.SignatureIntegrityError:
-			return nil, &notation.VerificationResult{
+			return nil, &notation.ValidationResult{
 				Success: false,
 				Error:   err,
 				Type:    trustpolicy.TypeIntegrity,
@@ -65,7 +65,7 @@ func (v *verifier) verifyIntegrity(sigBlob []byte, envelopeMediaType string, out
 			}
 		default:
 			// unexpected error
-			return nil, &notation.VerificationResult{
+			return nil, &notation.ValidationResult{
 				Success: false,
 				Error:   notation.ErrorVerificationInconclusive{Msg: err.Error()},
 				Type:    trustpolicy.TypeIntegrity,
@@ -75,7 +75,7 @@ func (v *verifier) verifyIntegrity(sigBlob []byte, envelopeMediaType string, out
 	}
 
 	if err := sig.ValidatePayloadContentType(&envContent.Payload); err != nil {
-		return nil, &notation.VerificationResult{
+		return nil, &notation.ValidationResult{
 			Success: false,
 			Error:   err,
 			Type:    trustpolicy.TypeIntegrity,
@@ -84,19 +84,19 @@ func (v *verifier) verifyIntegrity(sigBlob []byte, envelopeMediaType string, out
 	}
 
 	// integrity has been verified successfully
-	return envContent, &notation.VerificationResult{
+	return envContent, &notation.ValidationResult{
 		Success: true,
 		Type:    trustpolicy.TypeIntegrity,
 		Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeIntegrity],
 	}
 }
 
-func (v *verifier) verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome) *notation.VerificationResult {
+func (v *verifier) verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	// verify authenticity
 	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy)
 
 	if err != nil {
-		return &notation.VerificationResult{
+		return &notation.ValidationResult{
 			Success: false,
 			Error:   notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while loading the trust store, %v", err)},
 			Type:    trustpolicy.TypeAuthenticity,
@@ -105,7 +105,7 @@ func (v *verifier) verifyAuthenticity(ctx context.Context, trustPolicy *trustpol
 	}
 
 	if len(trustCerts) < 1 {
-		return &notation.VerificationResult{
+		return &notation.ValidationResult{
 			Success: false,
 			Error:   notation.ErrorVerificationInconclusive{Msg: "no trusted certificates are found to verify authenticity"},
 			Type:    trustpolicy.TypeAuthenticity,
@@ -116,14 +116,14 @@ func (v *verifier) verifyAuthenticity(ctx context.Context, trustPolicy *trustpol
 	if err != nil {
 		switch err.(type) {
 		case *signature.SignatureAuthenticityError:
-			return &notation.VerificationResult{
+			return &notation.ValidationResult{
 				Success: false,
 				Error:   err,
 				Type:    trustpolicy.TypeAuthenticity,
 				Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 			}
 		default:
-			return &notation.VerificationResult{
+			return &notation.ValidationResult{
 				Success: false,
 				Error:   notation.ErrorVerificationInconclusive{Msg: "authenticity verification failed with error : " + err.Error()},
 				Type:    trustpolicy.TypeAuthenticity,
@@ -131,7 +131,7 @@ func (v *verifier) verifyAuthenticity(ctx context.Context, trustPolicy *trustpol
 			}
 		}
 	} else {
-		return &notation.VerificationResult{
+		return &notation.ValidationResult{
 			Success: true,
 			Type:    trustpolicy.TypeAuthenticity,
 			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
@@ -139,16 +139,16 @@ func (v *verifier) verifyAuthenticity(ctx context.Context, trustPolicy *trustpol
 	}
 }
 
-func (v *verifier) verifyExpiry(outcome *notation.VerificationOutcome) *notation.VerificationResult {
+func (v *verifier) verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	if expiry := outcome.EnvelopeContent.SignerInfo.SignedAttributes.Expiry; !expiry.IsZero() && !time.Now().Before(expiry) {
-		return &notation.VerificationResult{
+		return &notation.ValidationResult{
 			Success: false,
 			Error:   fmt.Errorf("digital signature has expired on %q", expiry.Format(time.RFC1123Z)),
 			Type:    trustpolicy.TypeExpiry,
 			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeExpiry],
 		}
 	} else {
-		return &notation.VerificationResult{
+		return &notation.ValidationResult{
 			Success: true,
 			Type:    trustpolicy.TypeExpiry,
 			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeExpiry],
@@ -156,7 +156,7 @@ func (v *verifier) verifyExpiry(outcome *notation.VerificationOutcome) *notation
 	}
 }
 
-func (v *verifier) verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.VerificationResult {
+func (v *verifier) verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	invalidTimestamp := false
 	var err error
 
@@ -193,14 +193,14 @@ func (v *verifier) verifyAuthenticTimestamp(outcome *notation.VerificationOutcom
 	}
 
 	if invalidTimestamp {
-		return &notation.VerificationResult{
+		return &notation.ValidationResult{
 			Success: false,
 			Error:   err,
 			Type:    trustpolicy.TypeAuthenticTimestamp,
 			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 		}
 	} else {
-		return &notation.VerificationResult{
+		return &notation.ValidationResult{
 			Success: true,
 			Type:    trustpolicy.TypeAuthenticTimestamp,
 			Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
@@ -209,7 +209,7 @@ func (v *verifier) verifyAuthenticTimestamp(outcome *notation.VerificationOutcom
 }
 
 // verifyX509TrustedIdentities verified x509 trusted identities. This functions uses the VerificationResult from x509 trust store verification and modifies it
-func (v *verifier) verifyX509TrustedIdentities(trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome, authenticityResult *notation.VerificationResult) {
+func (v *verifier) verifyX509TrustedIdentities(trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome, authenticityResult *notation.ValidationResult) {
 	// verify trusted identities
 	err := verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
 	if err != nil {

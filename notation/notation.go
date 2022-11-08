@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-const AnnotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
+const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
 
 // Descriptor describes the artifact that needs to be signed.
 type Descriptor struct {
@@ -37,11 +38,19 @@ type Descriptor struct {
 
 // Equal reports whether d and t points to the same content.
 func (d Descriptor) Equal(t Descriptor) bool {
-	return d.MediaType == t.MediaType && d.Digest == t.Digest && d.Size == t.Size
+	return d.MediaType == t.MediaType && d.Digest == t.Digest && d.Size == t.Size && reflect.DeepEqual(d.Annotations, t.Annotations)
 }
 
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
+	// Reference of the artifact that needs to be signed.
+	ArtifactReference string
+
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaType string
+
 	// Expiry identifies the expiration time of the resulted signature.
 	Expiry time.Time
 
@@ -62,7 +71,7 @@ type SignOptions struct {
 }
 
 // Payload describes the content that gets signed.
-type Payload struct {
+type payload struct {
 	TargetArtifact Descriptor `json:"targetArtifact"`
 }
 
@@ -78,13 +87,13 @@ type Signer interface {
 // Sign signs the artifact in the remote registry and push the signature to the
 // remote.
 // The descriptor of the sign content is returned upon sucessful signing.
-func Sign(ctx context.Context, signer Signer, repo registry.Repository, reference string, envelopeMediaType string, opts SignOptions) (Descriptor, error) {
-	ociDesc, err := repo.Resolve(ctx, reference)
+func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts SignOptions) (Descriptor, error) {
+	ociDesc, err := repo.Resolve(ctx, opts.ArtifactReference)
 	if err != nil {
 		return Descriptor{}, err
 	}
 	desc := notationDescriptorFromOCI(ociDesc)
-	sig, signerInfo, err := signer.Sign(ctx, desc, envelopeMediaType, opts)
+	sig, signerInfo, err := signer.Sign(ctx, desc, opts.SignatureMediaType, opts)
 	if err != nil {
 		return Descriptor{}, err
 	}
@@ -92,7 +101,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, referenc
 	if err != nil {
 		return Descriptor{}, err
 	}
-	_, _, err = repo.PushSignature(ctx, sig, envelopeMediaType, ociDesc, annotations)
+	_, _, err = repo.PushSignature(ctx, sig, opts.SignatureMediaType, ociDesc, annotations)
 	if err != nil {
 		return Descriptor{}, err
 	}
@@ -102,19 +111,28 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, referenc
 
 // VerifyOptions contains parameters for Verifier.Verify.
 type VerifyOptions struct {
+	// ArtifactReference is the reference of the artifact that is been
+	// verified against to.
 	ArtifactReference string
+
 	// SignatureMediaType is the envelope type of the signature.
 	// Currently both `application/jose+json` and `application/cose` are
 	// supported.
 	SignatureMediaType string
-	PluginConfig       map[string]string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+
+	// VerificationLevel encapsulates the signature verification preset and its
+	// actions for each verification type
+	VerificationLevel *trustpolicy.VerificationLevel
 }
 
-// VerificationResult encapsulates the verification result (passed or failed)
+// ValidationResult encapsulates the verification result (passed or failed)
 // for a verification type, including the desired verification action as
 //
 //	specified in the trust policy
-type VerificationResult struct {
+type ValidationResult struct {
 	// Success is set to true if the verification was successful
 	Success bool
 	// Type of verification that is performed
@@ -126,9 +144,9 @@ type VerificationResult struct {
 	Error error
 }
 
-// VerificationOutcome encapsulates the SignerInfo (that includes the details of
-// the digital signature)
-// and results for each verification type that was performed
+// VerificationOutcome encapsulates a signature blob's descriptor, its content,
+// the verification level and results for each verification type that was
+// performed.
 type VerificationOutcome struct {
 	SignatureBlobDescriptor *ocispec.Descriptor
 	// EnvelopeContent contains the details of the digital signature and
@@ -139,7 +157,7 @@ type VerificationOutcome struct {
 	VerificationLevel *trustpolicy.VerificationLevel
 	// VerificationResults contains the verifications performed on the signature
 	// and their results
-	VerificationResults []*VerificationResult
+	VerificationResults []*ValidationResult
 	// SignedAnnotations contains arbitrary metadata relating to the target
 	// artifact that was signed
 	SignedAnnotations map[string]string
@@ -151,7 +169,7 @@ type VerificationOutcome struct {
 type Verifier interface {
 	// Verify verifies the signature blob and returns the verified descriptor
 	// upon successful verification.
-	Verify(ctx context.Context, signature []byte, opts VerifyOptions, outcome *VerificationOutcome) (Descriptor, error)
+	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, *VerificationOutcome, error)
 
 	// TrustPolicyDocument gets the validated trust policy document.
 	TrustPolicyDocument() (*trustpolicy.Document, error)
@@ -205,6 +223,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		verificationOutcomes = append(verificationOutcomes, &VerificationOutcome{VerificationLevel: verificationLevel})
 		return Descriptor{}, verificationOutcomes, nil
 	}
+	opts.VerificationLevel = verificationLevel
 
 	// get signature manifests
 	var success bool
@@ -224,22 +243,19 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactRef, err.Error())}
 			}
-			outcome := &VerificationOutcome{
-				SignatureBlobDescriptor: &sigBlobDesc,
-				VerificationResults:     []*VerificationResult{},
-				VerificationLevel:       verificationLevel,
-			}
-			_, err = verifier.Verify(ctx, sigBlob, opts, outcome)
+			_, outcome, err := verifier.Verify(ctx, sigBlob, opts)
 			if err != nil {
 				if outcome != nil && outcome.Error != nil {
+					outcome.SignatureBlobDescriptor = &sigBlobDesc
 					verificationOutcomes = append(verificationOutcomes, outcome)
 				}
 				continue
 			}
+			outcome.SignatureBlobDescriptor = &sigBlobDesc
 			verificationOutcomes = append(verificationOutcomes, outcome)
 
 			// artifact digest must match the digest from the signature payload
-			payload := &Payload{}
+			payload := &payload{}
 			err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
 			if err != nil || !notationDescriptorFromOCI(artifactDescriptor).Equal(payload.TargetArtifact) {
 				outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDescriptor.Digest.String(), payload.TargetArtifact.Digest.String())
@@ -283,7 +299,7 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	if err != nil {
 		return nil, err
 	}
-	annotations[AnnotationX509ChainThumbprint] = string(val)
+	annotations[annotationX509ChainThumbprint] = string(val)
 
 	return annotations, nil
 }

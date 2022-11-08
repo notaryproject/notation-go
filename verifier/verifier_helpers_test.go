@@ -12,12 +12,12 @@ import (
 
 func TestIsCriticalFailure(t *testing.T) {
 	tests := []struct {
-		result          notation.VerificationResult
+		result          notation.ValidationResult
 		criticalFailure bool
 	}{
-		{notation.VerificationResult{Action: trustpolicy.ActionEnforce, Success: false}, true},
-		{notation.VerificationResult{Action: trustpolicy.ActionLog, Success: false}, false},
-		{notation.VerificationResult{Action: trustpolicy.ActionSkip, Success: false}, false},
+		{notation.ValidationResult{Action: trustpolicy.ActionEnforce, Success: false}, true},
+		{notation.ValidationResult{Action: trustpolicy.ActionLog, Success: false}, false},
+		{notation.ValidationResult{Action: trustpolicy.ActionSkip, Success: false}, false},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

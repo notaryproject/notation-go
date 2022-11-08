@@ -459,11 +459,11 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner) {
 	if payload.ContentType != envelope.MediaTypePayloadV1 {
 		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, envelope.MediaTypePayloadV1)
 	}
-	var gotPayload notation.Payload
+	var gotPayload envelope.Payload
 	if err := json.Unmarshal(payload.Content, &gotPayload); err != nil {
 		t.Fatalf("Signer.Sign() Unmarshal payload failed: %v", err)
 	}
-	expectedPayload := notation.Payload{
+	expectedPayload := envelope.Payload{
 		TargetArtifact: validSignDescriptor,
 	}
 	if !reflect.DeepEqual(expectedPayload, gotPayload) {
@@ -573,7 +573,7 @@ func newMockEnvelopeProvider(key crypto.PrivateKey, certs []*x509.Certificate, k
 				sigProvider:       internalProvider,
 				envelopeMediaType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
 			}
-			var payload notation.Payload
+			var payload envelope.Payload
 			if err := json.Unmarshal(r.(*plugin.GenerateEnvelopeRequest).Payload, &payload); err != nil {
 				return nil, err
 			}
