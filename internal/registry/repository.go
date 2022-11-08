@@ -55,7 +55,7 @@ func (c *RepositoryClient) ListSignatureManifests(ctx context.Context, manifestD
 	var signatureManifests []SignatureManifest
 	if err := c.Repository.Referrers(ctx, ocispec.Descriptor{
 		Digest: manifestDigest,
-	}, ArtifactTypeNotation, func(referrers []artifactspec.Descriptor) error {
+	}, ArtifactTypeNotation, func(referrers []ocispec.Descriptor) error {
 		for _, desc := range referrers {
 			if desc.MediaType != artifactspec.MediaTypeArtifactManifest {
 				continue
@@ -98,13 +98,13 @@ func (c *RepositoryClient) PutSignatureManifest(ctx context.Context, signature [
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
-	manifestDesc, err := c.uploadSignatureManifest(ctx, artifactDescriptorFromNotation(subjectManifest), signatureDesc, annotations)
+	manifestDesc, err := c.uploadSignatureManifest(ctx, ociDescriptorFromNotation(subjectManifest), signatureDesc, annotations)
 	if err != nil {
 		return notation.Descriptor{}, SignatureManifest{}, err
 	}
 
 	signatureManifest := SignatureManifest{
-		Blob:        notationDescriptorFromArtifact(signatureDesc),
+		Blob:        notationDescriptorFromOCI(signatureDesc),
 		Annotations: annotations,
 	}
 	return notationDescriptorFromOCI(manifestDesc), signatureManifest, nil
@@ -137,40 +137,32 @@ func (c *RepositoryClient) getArtifactManifest(ctx context.Context, manifestDige
 }
 
 // uploadSignature uploads the signature to the registry
-func (c *RepositoryClient) uploadSignature(ctx context.Context, signature []byte, signatureMediaType string) (artifactspec.Descriptor, error) {
+// uploadSignature uploads the signature envelope blob to the registry
+func (c *RepositoryClient) uploadSignature(ctx context.Context, blob []byte, mediaType string) (ocispec.Descriptor, error) {
 	desc := ocispec.Descriptor{
-		MediaType: signatureMediaType,
-		Digest:    digest.FromBytes(signature),
-		Size:      int64(len(signature)),
+		MediaType: mediaType,
+		Digest:    digest.FromBytes(blob),
+		Size:      int64(len(blob)),
 	}
-	if err := c.Repository.Blobs().Push(ctx, desc, bytes.NewReader(signature)); err != nil {
-		return artifactspec.Descriptor{}, err
+	if err := c.Repository.Blobs().Push(ctx, desc, bytes.NewReader(blob)); err != nil {
+		return ocispec.Descriptor{}, err
 	}
-	return artifactDescriptorFromOCI(desc), nil
+	return desc, nil
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, subjectManifest, signatureDesc artifactspec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
-	opts := oras.PackArtifactOptions{
-		Subject:             &subjectManifest,
+// uploadSignatureManifest uploads the signature manifest to the registry
+func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
+	opts := oras.PackOptions{
+		Subject:             &subject,
 		ManifestAnnotations: annotations,
 	}
 
-	return oras.PackArtifact(
-		ctx,
-		c.Repository.Manifests(),
-		ArtifactTypeNotation,
-		[]artifactspec.Descriptor{signatureDesc},
-		opts,
-	)
-}
-
-func artifactDescriptorFromNotation(desc notation.Descriptor) artifactspec.Descriptor {
-	return artifactspec.Descriptor{
-		MediaType: desc.MediaType,
-		Digest:    desc.Digest,
-		Size:      desc.Size,
+	manifestDesc, err := oras.Pack(ctx, c.Repository.Manifests(), ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	if err != nil {
+		return ocispec.Descriptor{}, err
 	}
+	return manifestDesc, nil
 }
 
 func notationDescriptorFromArtifact(desc artifactspec.Descriptor) notation.Descriptor {
@@ -181,16 +173,16 @@ func notationDescriptorFromArtifact(desc artifactspec.Descriptor) notation.Descr
 	}
 }
 
-func artifactDescriptorFromOCI(desc ocispec.Descriptor) artifactspec.Descriptor {
-	return artifactspec.Descriptor{
+func notationDescriptorFromOCI(desc ocispec.Descriptor) notation.Descriptor {
+	return notation.Descriptor{
 		MediaType: desc.MediaType,
 		Digest:    desc.Digest,
 		Size:      desc.Size,
 	}
 }
 
-func notationDescriptorFromOCI(desc ocispec.Descriptor) notation.Descriptor {
-	return notation.Descriptor{
+func ociDescriptorFromNotation(desc notation.Descriptor) ocispec.Descriptor {
+	return ocispec.Descriptor{
 		MediaType: desc.MediaType,
 		Digest:    desc.Digest,
 		Size:      desc.Size,
