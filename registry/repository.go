@@ -40,9 +40,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	return c.Repository.Referrers(ctx, ocispec.Descriptor{
-		Digest: desc.Digest,
-	}, ArtifactTypeNotation, func(referrers []ocispec.Descriptor) error {
+	return c.Repository.Referrers(ctx, desc, ArtifactTypeNotation, func(referrers []ocispec.Descriptor) error {
 		return fn(referrers)
 	})
 }
