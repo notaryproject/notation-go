@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/internal/policy"
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
@@ -73,7 +72,7 @@ func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 	if err != nil {
 		return notation.Descriptor{}, err
 	}
-	trustPolicy, err := policy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
+	trustPolicy, err := trustpolicy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
 	if err != nil {
 		return notation.Descriptor{}, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}

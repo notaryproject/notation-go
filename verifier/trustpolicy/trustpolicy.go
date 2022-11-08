@@ -9,13 +9,16 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
-// ValidationType is an enum for signature verification types such as Integrity, Authenticity, etc.
+// ValidationType is an enum for signature verification types such as Integrity,
+// Authenticity, etc.
 type ValidationType string
 
-// ValidationAction is an enum for signature verification actions such as Enforced, Logged, Skipped.
+// ValidationAction is an enum for signature verification actions such as
+// Enforced, Logged, Skipped.
 type ValidationAction string
 
-// VerificationLevel encapsulates the signature verification preset and it's actions for each verification type
+// VerificationLevel encapsulates the signature verification preset and its
+// actions for each verification type
 type VerificationLevel struct {
 	Name        string
 	Enforcement map[ValidationType]ValidationAction
@@ -160,7 +163,8 @@ func (policyDoc *Document) Validate() error {
 			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification.VerificationLevel)
 		}
 
-		// Any signature verification other than "skip" needs a trust store and trusted identities
+		// Any signature verification other than "skip" needs a trust store and
+		// trusted identities
 		if verificationLevel.Name == "skip" {
 			if len(statement.TrustStores) > 0 || len(statement.TrustedIdentities) > 0 {
 				return fmt.Errorf("trust policy statement %q is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped", statement.Name)
@@ -199,8 +203,8 @@ func (policyDoc *Document) Validate() error {
 	return nil
 }
 
-// GetVerificationLevel returns VerificationLevel struct for the given SignatureVerification struct
-// throws error if SignatureVerification is invalid
+// GetVerificationLevel returns VerificationLevel struct for the given
+// SignatureVerification struct throws error if SignatureVerification is invalid
 func GetVerificationLevel(signatureVerification SignatureVerification) (*VerificationLevel, error) {
 	var baseLevel *VerificationLevel
 	for _, l := range VerificationLevels {
@@ -226,7 +230,8 @@ func GetVerificationLevel(signatureVerification SignatureVerification) (*Verific
 		Enforcement: make(map[ValidationType]ValidationAction),
 	}
 
-	// populate the custom verification level with the base verification settings
+	// populate the custom verification level with the base verification
+	// settings
 	for k, v := range baseLevel.Enforcement {
 		customVerificationLevel.Enforcement[k] = v
 	}
@@ -266,7 +271,8 @@ func GetVerificationLevel(signatureVerification SignatureVerification) (*Verific
 	return customVerificationLevel, nil
 }
 
-// validateTrustStore validates if the policy statement is following the Notary V2 spec rules for truststores
+// validateTrustStore validates if the policy statement is following the
+// Notary V2 spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
 	for _, trustStore := range statement.TrustStores {
 		i := strings.Index(trustStore, ":")
@@ -278,10 +284,12 @@ func validateTrustStore(statement TrustPolicy) error {
 	return nil
 }
 
-// validateTrustedIdentities validates if the policy statement is following the Notary V2 spec rules for trusted identities
+// validateTrustedIdentities validates if the policy statement is following the
+// Notary V2 spec rules for trusted identities
 func validateTrustedIdentities(statement TrustPolicy) error {
 
-	// If there is a wildcard in trusted identies, there shouldn't be any other identities
+	// If there is a wildcard in trusted identies, there shouldn't be any other
+	//identities
 	if len(statement.TrustedIdentities) > 1 && common.IsPresent(common.Wildcard, statement.TrustedIdentities) {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
@@ -322,7 +330,8 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 	return nil
 }
 
-// validateRegistryScopes validates if the policy document is following the Notary V2 spec rules for registry scopes
+// validateRegistryScopes validates if the policy document is following the
+// Notary V2 spec rules for registry scopes
 func validateRegistryScopes(policyDoc *Document) error {
 	registryScopeCount := make(map[string]int)
 
@@ -367,7 +376,8 @@ func validateOverlappingDNs(policyName string, parsedDNs []common.ParsedDN) erro
 	return nil
 }
 
-// isValidTrustStoreType returns true if the given string is a valid truststore.Type, otherwise false.
+// isValidTrustStoreType returns true if the given string is a valid
+// truststore.Type, otherwise false.
 func isValidTrustStoreType(s string) bool {
 	for _, p := range truststore.Types {
 		if s == string(p) {
@@ -375,4 +385,64 @@ func isValidTrustStoreType(s string) bool {
 		}
 	}
 	return false
+}
+
+// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
+// statement that applies to the given registry URI. If no applicable trust
+// policy is found, returns an error
+// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+func GetApplicableTrustPolicy(trustPolicyDoc *Document, artifactReference string) (*TrustPolicy, error) {
+
+	artifactPath, err := getArtifactPathFromReference(artifactReference)
+	if err != nil {
+		return nil, err
+	}
+
+	var wildcardPolicy *TrustPolicy
+	var applicablePolicy *TrustPolicy
+	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
+		if common.IsPresent(common.Wildcard, policyStatement.RegistryScopes) {
+			// we need to deep copy because we can't use the loop variable
+			// address. see https://stackoverflow.com/a/45967429
+			wildcardPolicy = deepCopy(&policyStatement)
+		} else if common.IsPresent(artifactPath, policyStatement.RegistryScopes) {
+			applicablePolicy = deepCopy(&policyStatement)
+		}
+	}
+
+	if applicablePolicy != nil {
+		// a policy with exact match for registry URI takes precedence over
+		// a wildcard (*) policy.
+		return applicablePolicy, nil
+	} else if wildcardPolicy != nil {
+		return wildcardPolicy, nil
+	} else {
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
+	}
+}
+
+// deepCopy returns a pointer to the deeply copied TrustPolicy
+func deepCopy(t *TrustPolicy) *TrustPolicy {
+	return &TrustPolicy{
+		Name:                  t.Name,
+		SignatureVerification: t.SignatureVerification,
+		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
+		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
+		TrustStores:           append([]string(nil), t.TrustStores...),
+	}
+}
+
+func getArtifactPathFromReference(artifactReference string) (string, error) {
+	// TODO support more types of URI like "domain.com/repository",
+	// "domain.com/repository:tag"
+	i := strings.LastIndex(artifactReference, "@")
+	if i < 0 {
+		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
+	}
+
+	artifactPath := artifactReference[:i]
+	if err := common.ValidateRegistryScopeFormat(artifactPath); err != nil {
+		return "", err
+	}
+	return artifactPath, nil
 }

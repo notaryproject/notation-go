@@ -10,7 +10,6 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
-	"github.com/notaryproject/notation-go/internal/policy"
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
@@ -284,7 +283,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PluginManager:  pluginManager,
 	}
 	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err := policy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	trustPolicy, err := trustpolicy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
@@ -462,7 +461,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err = policy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	trustPolicy, err = trustpolicy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
@@ -490,7 +489,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err = policy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	trustPolicy, err = trustpolicy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
