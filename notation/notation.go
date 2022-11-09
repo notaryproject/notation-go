@@ -80,7 +80,7 @@ type payload struct {
 // and packing in various signature formats.
 type Signer interface {
 	// Sign signs the artifact described by its descriptor,
-	// and returns the signature, SignerInfo, and envelopeMediaType.
+	// and returns the signature and SignerInfo.
 	Sign(ctx context.Context, desc Descriptor, envelopeMediaType string, opts SignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
@@ -167,8 +167,8 @@ type VerificationOutcome struct {
 
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
-	// Verify verifies the signature blob and returns the verified descriptor
-	// upon successful verification.
+	// Verify verifies the signature blob and returns the signature blob
+	// descriptor upon successful verification.
 	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, *VerificationOutcome, error)
 
 	// TrustPolicyDocument gets the validated trust policy document.
