@@ -9,7 +9,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
-	orasRegistry "oras.land/oras-go/v2/registry"
+	"oras.land/oras-go/v2/registry"
 )
 
 const (
@@ -19,11 +19,11 @@ const (
 
 // repositoryClient implements Repository
 type repositoryClient struct {
-	orasRegistry.Repository
+	registry.Repository
 }
 
 // NewRepository returns a new Repository
-func NewRepository(repo orasRegistry.Repository) Repository {
+func NewRepository(repo registry.Repository) Repository {
 	return &repositoryClient{
 		Repository: repo,
 	}
@@ -31,13 +31,14 @@ func NewRepository(repo orasRegistry.Repository) Repository {
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	return c.Repository.Resolve(ctx, reference)
+	return c.Repository.Manifests().Resolve(ctx, reference)
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	refFinder, ok := c.Repository.(orasRegistry.ReferrerFinder)
+	// TODO: remove this part once oras v2.0.0-rc.5 is released
+	refFinder, ok := c.Repository.(registry.ReferrerFinder)
 	if !ok {
 		return errors.New("repo is not a orasRegistry.ReferrerFinder")
 	}
@@ -85,15 +86,13 @@ func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, media
 // getSignatureManifest returns signature manifest given signature manifest
 // descriptor
 func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifestDesc ocispec.Descriptor) (*ocispec.Artifact, error) {
-	repo := c.Repository
 	if sigManifestDesc.MediaType != ocispec.MediaTypeArtifactManifest {
 		return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q, got %q", ocispec.MediaTypeArtifactManifest, sigManifestDesc.MediaType)
 	}
-	store := repo.Manifests()
 	if sigManifestDesc.Size > maxManifestSizeLimit {
 		return nil, fmt.Errorf("manifest too large: %d", sigManifestDesc.Size)
 	}
-	manifestJSON, err := content.FetchAll(ctx, store, sigManifestDesc)
+	manifestJSON, err := content.FetchAll(ctx, c.Repository.Manifests(), sigManifestDesc)
 	if err != nil {
 		return nil, err
 	}
