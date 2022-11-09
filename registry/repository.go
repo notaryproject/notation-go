@@ -1,18 +1,15 @@
 package registry
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
-	"oras.land/oras-go/v2/registry/remote"
+	"oras.land/oras-go/v2/registry"
 )
 
 const (
@@ -22,11 +19,11 @@ const (
 
 // repositoryClient implements Repository
 type repositoryClient struct {
-	remote.Repository
+	registry.Repository
 }
 
 // NewRepository returns a new Repository
-func NewRepository(repo remote.Repository) Repository {
+func NewRepository(repo registry.Repository) Repository {
 	return &repositoryClient{
 		Repository: repo,
 	}
@@ -34,19 +31,18 @@ func NewRepository(repo remote.Repository) Repository {
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	return c.Repository.Resolve(ctx, reference)
+	return c.Repository.Manifests().Resolve(ctx, reference)
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	return c.Repository.Referrers(ctx, ocispec.Descriptor{
-		Digest: desc.Digest,
-	}, ArtifactTypeNotation, func(referrers []ocispec.Descriptor) error {
-		var sigManifestDesc []ocispec.Descriptor
-		sigManifestDesc = append(sigManifestDesc, referrers...)
-		return fn(sigManifestDesc)
-	})
+	// TODO: remove this part once oras v2.0.0-rc.5 is released
+	refFinder, ok := c.Repository.(registry.ReferrerFinder)
+	if !ok {
+		return errors.New("repo is not a orasRegistry.ReferrerFinder")
+	}
+	return refFinder.Referrers(ctx, desc, ArtifactTypeNotation, fn)
 }
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
@@ -56,10 +52,10 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
-	if len(sigManifest.Blobs) == 0 {
-		return nil, ocispec.Descriptor{}, errors.New("signature manifest missing signature envelope blob")
+	if len(sigManifest.Blobs) != 1 {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("signature manifest requries exactly one signature envelope blob, got %d", len(sigManifest.Blobs))
 	}
-	sigDesc := ociDescriptorFromArtifact(sigManifest.Blobs[0])
+	sigDesc := sigManifest.Blobs[0]
 	if sigDesc.Size > maxBlobSizeLimit {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d", sigDesc.Size)
 	}
@@ -74,7 +70,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
 func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
-	blobDesc, err = c.uploadSignature(ctx, blob, mediaType)
+	blobDesc, err = oras.PushBytes(ctx, c.Repository.Blobs(), mediaType, blob)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
@@ -89,40 +85,24 @@ func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, media
 
 // getSignatureManifest returns signature manifest given signature manifest
 // descriptor
-func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifestDesc ocispec.Descriptor) (*artifactspec.Manifest, error) {
-
-	repo := c.Repository
-	repo.ManifestMediaTypes = []string{
-		artifactspec.MediaTypeArtifactManifest,
+func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifestDesc ocispec.Descriptor) (*ocispec.Artifact, error) {
+	if sigManifestDesc.MediaType != ocispec.MediaTypeArtifactManifest {
+		return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q, got %q", ocispec.MediaTypeArtifactManifest, sigManifestDesc.MediaType)
 	}
-	store := repo.Manifests()
 	if sigManifestDesc.Size > maxManifestSizeLimit {
-		return &artifactspec.Manifest{}, fmt.Errorf("manifest too large: %d", sigManifestDesc.Size)
+		return nil, fmt.Errorf("manifest too large: %d", sigManifestDesc.Size)
 	}
-	manifestJSON, err := content.FetchAll(ctx, store, sigManifestDesc)
+	manifestJSON, err := content.FetchAll(ctx, c.Repository.Manifests(), sigManifestDesc)
 	if err != nil {
-		return &artifactspec.Manifest{}, err
+		return nil, err
 	}
 
-	var sigManifest artifactspec.Manifest
+	var sigManifest ocispec.Artifact
 	err = json.Unmarshal(manifestJSON, &sigManifest)
 	if err != nil {
-		return &artifactspec.Manifest{}, err
+		return nil, err
 	}
 	return &sigManifest, nil
-}
-
-// uploadSignature uploads the signature envelope blob to the registry
-func (c *repositoryClient) uploadSignature(ctx context.Context, blob []byte, mediaType string) (ocispec.Descriptor, error) {
-	desc := ocispec.Descriptor{
-		MediaType: mediaType,
-		Digest:    digest.FromBytes(blob),
-		Size:      int64(len(blob)),
-	}
-	if err := c.Repository.Blobs().Push(ctx, desc, bytes.NewReader(blob)); err != nil {
-		return ocispec.Descriptor{}, err
-	}
-	return desc, nil
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
@@ -132,17 +112,5 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		ManifestAnnotations: annotations,
 	}
 
-	manifestDesc, err := oras.Pack(ctx, c.Repository.Manifests(), ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
-	if err != nil {
-		return ocispec.Descriptor{}, err
-	}
-	return manifestDesc, nil
-}
-
-func ociDescriptorFromArtifact(desc artifactspec.Descriptor) ocispec.Descriptor {
-	return ocispec.Descriptor{
-		MediaType: desc.MediaType,
-		Digest:    desc.Digest,
-		Size:      desc.Size,
-	}
+	return oras.Pack(ctx, c.Repository.Manifests(), ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
 }

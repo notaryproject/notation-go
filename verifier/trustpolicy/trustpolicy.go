@@ -3,9 +3,11 @@ package trustpolicy
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
-	"github.com/notaryproject/notation-go/internal/common"
+	"github.com/notaryproject/notation-go/internal/pkix"
+	"github.com/notaryproject/notation-go/internal/slice"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
@@ -30,7 +32,9 @@ const (
 	TypeAuthenticTimestamp ValidationType = "authenticTimestamp"
 	TypeExpiry             ValidationType = "expiry"
 	TypeRevocation         ValidationType = "revocation"
+)
 
+const (
 	ActionEnforce ValidationAction = "enforce"
 	ActionLog     ValidationAction = "log"
 	ActionSkip    ValidationAction = "skip"
@@ -80,7 +84,9 @@ var (
 			TypeRevocation:         ActionSkip,
 		},
 	}
+)
 
+var (
 	ValidationTypes = []ValidationType{
 		TypeIntegrity,
 		TypeAuthenticity,
@@ -103,10 +109,13 @@ var (
 	}
 )
 
+var supportedPolicyVersions = []string{"1.0"}
+
 // Document represents a trustPolicy.json document
 type Document struct {
 	// Version of the policy document
 	Version string `json:"version"`
+
 	// TrustPolicies include each policy statement
 	TrustPolicies []TrustPolicy `json:"trustPolicies"`
 }
@@ -115,12 +124,16 @@ type Document struct {
 type TrustPolicy struct {
 	// Name of the policy statement
 	Name string `json:"name"`
+
 	// RegistryScopes that this policy statement affects
 	RegistryScopes []string `json:"registryScopes"`
+
 	// SignatureVerification setting for this policy statement
 	SignatureVerification SignatureVerification `json:"signatureVerification"`
+
 	// TrustStores this policy statement uses
 	TrustStores []string `json:"trustStores,omitempty"`
+
 	// TrustedIdentities this policy statement pins
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 }
@@ -134,11 +147,8 @@ type SignatureVerification struct {
 // Validate validates a policy document according to it's version's rule set.
 // if any rule is violated, returns an error
 func (policyDoc *Document) Validate() error {
-	// Constants
-	supportedPolicyVersions := []string{"1.0"}
-
 	// Validate Version
-	if !common.IsPresent(policyDoc.Version, supportedPolicyVersions) {
+	if !slice.Contains(policyDoc.Version, supportedPolicyVersions) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
@@ -290,18 +300,18 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
-	if len(statement.TrustedIdentities) > 1 && common.IsPresent(common.Wildcard, statement.TrustedIdentities) {
+	if len(statement.TrustedIdentities) > 1 && slice.Contains(slice.Wildcard, statement.TrustedIdentities) {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
 
-	var parsedDNs []common.ParsedDN
+	var parsedDNs []parsedDN
 	// If there are trusted identities, verify they are valid
 	for _, identity := range statement.TrustedIdentities {
 		if identity == "" {
 			return fmt.Errorf("trust policy statement %q has an empty trusted identity", statement.Name)
 		}
 
-		if identity != common.Wildcard {
+		if identity != slice.Wildcard {
 			i := strings.Index(identity, ":")
 			if i < 0 {
 				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity prefix", statement.Name, identity)
@@ -311,12 +321,12 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 			identityValue := identity[i+1:]
 
 			// notation natively supports x509.subject identities only
-			if identityPrefix == common.X509Subject {
-				dn, err := common.ParseDistinguishedName(identityValue)
+			if identityPrefix == slice.X509Subject {
+				dn, err := pkix.ParseDistinguishedName(identityValue)
 				if err != nil {
 					return err
 				}
-				parsedDNs = append(parsedDNs, common.ParsedDN{RawString: identity, ParsedMap: dn})
+				parsedDNs = append(parsedDNs, parsedDN{RawString: identity, ParsedMap: dn})
 			}
 		}
 	}
@@ -340,12 +350,12 @@ func validateRegistryScopes(policyDoc *Document) error {
 		if len(statement.RegistryScopes) == 0 {
 			return fmt.Errorf("trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
 		}
-		if len(statement.RegistryScopes) > 1 && common.IsPresent(common.Wildcard, statement.RegistryScopes) {
+		if len(statement.RegistryScopes) > 1 && slice.Contains(slice.Wildcard, statement.RegistryScopes) {
 			return fmt.Errorf("trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
 		}
 		for _, scope := range statement.RegistryScopes {
-			if scope != common.Wildcard {
-				if err := common.ValidateRegistryScopeFormat(scope); err != nil {
+			if scope != slice.Wildcard {
+				if err := validateRegistryScopeFormat(scope); err != nil {
 					return err
 				}
 			}
@@ -364,10 +374,10 @@ func validateRegistryScopes(policyDoc *Document) error {
 	return nil
 }
 
-func validateOverlappingDNs(policyName string, parsedDNs []common.ParsedDN) error {
+func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
 	for i, dn1 := range parsedDNs {
 		for j, dn2 := range parsedDNs {
-			if i != j && common.IsSubsetDN(dn1.ParsedMap, dn2.ParsedMap) {
+			if i != j && pkix.IsSubsetDN(dn1.ParsedMap, dn2.ParsedMap) {
 				return fmt.Errorf("trust policy statement %q has overlapping x509 trustedIdentities, %q overlaps with %q", policyName, dn1.RawString, dn2.RawString)
 			}
 		}
@@ -401,12 +411,12 @@ func GetApplicableTrustPolicy(trustPolicyDoc *Document, artifactReference string
 	var wildcardPolicy *TrustPolicy
 	var applicablePolicy *TrustPolicy
 	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
-		if common.IsPresent(common.Wildcard, policyStatement.RegistryScopes) {
+		if slice.Contains(slice.Wildcard, policyStatement.RegistryScopes) {
 			// we need to deep copy because we can't use the loop variable
 			// address. see https://stackoverflow.com/a/45967429
-			wildcardPolicy = deepCopy(&policyStatement)
-		} else if common.IsPresent(artifactPath, policyStatement.RegistryScopes) {
-			applicablePolicy = deepCopy(&policyStatement)
+			wildcardPolicy = (&policyStatement).clone()
+		} else if slice.Contains(artifactPath, policyStatement.RegistryScopes) {
+			applicablePolicy = (&policyStatement).clone()
 		}
 	}
 
@@ -421,8 +431,8 @@ func GetApplicableTrustPolicy(trustPolicyDoc *Document, artifactReference string
 	}
 }
 
-// deepCopy returns a pointer to the deeply copied TrustPolicy
-func deepCopy(t *TrustPolicy) *TrustPolicy {
+// clone returns a pointer to the deeply copied TrustPolicy
+func (t *TrustPolicy) clone() *TrustPolicy {
 	return &TrustPolicy{
 		Name:                  t.Name,
 		SignatureVerification: t.SignatureVerification,
@@ -441,8 +451,36 @@ func getArtifactPathFromReference(artifactReference string) (string, error) {
 	}
 
 	artifactPath := artifactReference[:i]
-	if err := common.ValidateRegistryScopeFormat(artifactPath); err != nil {
+	if err := validateRegistryScopeFormat(artifactPath); err != nil {
 		return "", err
 	}
 	return artifactPath, nil
+}
+
+// Internal type to hold raw and parsed Distinguished Names
+type parsedDN struct {
+	RawString string
+	ParsedMap map[string]string
+}
+
+// validateRegistryScopeFormat validates if a scope is following the format defined in distribution spec
+func validateRegistryScopeFormat(scope string) error {
+	// Domain and Repository regexes are adapted from distribution implementation
+	// https://github.com/distribution/distribution/blob/main/reference/regexp.go#L31
+	domainRegexp := regexp.MustCompile(`^(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?$`)
+	repositoryRegexp := regexp.MustCompile(`^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?$`)
+	errorMessage := "registry scope %q is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository"
+	firstSlash := strings.Index(scope, "/")
+	if firstSlash < 0 {
+		return fmt.Errorf(errorMessage, scope)
+	}
+	domain := scope[:firstSlash]
+	repository := scope[firstSlash+1:]
+
+	if domain == "" || repository == "" || !domainRegexp.MatchString(domain) || !repositoryRegexp.MatchString(repository) {
+		return fmt.Errorf(errorMessage, scope)
+	}
+
+	// No errors
+	return nil
 }

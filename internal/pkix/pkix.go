@@ -1,33 +1,10 @@
-package common
+package pkix
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 
 	ldapv3 "github.com/go-ldap/ldap/v3"
 )
-
-const (
-	Wildcard    = "*"
-	X509Subject = "x509.subject"
-)
-
-// isPresent is a utility function to check if a string exists in an array
-func IsPresent(val string, values []string) bool {
-	for _, v := range values {
-		if v == val {
-			return true
-		}
-	}
-	return false
-}
-
-// Internal type to hold raw and parsed Distinguished Names
-type ParsedDN struct {
-	RawString string
-	ParsedMap map[string]string
-}
 
 // ParseDistinguishedName parses a DN name and validates Notary V2 rules
 func ParseDistinguishedName(name string) (map[string]string, error) {
@@ -72,26 +49,4 @@ func IsSubsetDN(dn1 map[string]string, dn2 map[string]string) bool {
 		}
 	}
 	return true
-}
-
-// ValidateRegistryScopeFormat validates if a scope is following the format defined in distribution spec
-func ValidateRegistryScopeFormat(scope string) error {
-	// Domain and Repository regexes are adapted from distribution implementation
-	// https://github.com/distribution/distribution/blob/main/reference/regexp.go#L31
-	domainRegexp := regexp.MustCompile(`^(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?$`)
-	repositoryRegexp := regexp.MustCompile(`^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?$`)
-	errorMessage := "registry scope %q is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository"
-	firstSlash := strings.Index(scope, "/")
-	if firstSlash < 0 {
-		return fmt.Errorf(errorMessage, scope)
-	}
-	domain := scope[:firstSlash]
-	repository := scope[firstSlash+1:]
-
-	if domain == "" || repository == "" || !domainRegexp.MatchString(domain) || !repositoryRegexp.MatchString(repository) {
-		return fmt.Errorf(errorMessage, scope)
-	}
-
-	// No errors
-	return nil
 }

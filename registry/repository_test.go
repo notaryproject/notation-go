@@ -13,7 +13,6 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 )
@@ -351,7 +350,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
 				signatureManifestDesc: ocispec.Descriptor{
-					MediaType: artifactspec.MediaTypeArtifactManifest,
+					MediaType: ocispec.MediaTypeArtifactManifest,
 					Digest:    digest.Digest(invalidDigest),
 				},
 			},
@@ -366,7 +365,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
 				signatureManifestDesc: ocispec.Descriptor{
-					MediaType: artifactspec.MediaTypeArtifactManifest,
+					MediaType: ocispec.MediaTypeArtifactManifest,
 					Digest:    digest.Digest(validDigestWithAlgo3),
 				},
 			},
@@ -476,7 +475,7 @@ func TestPushSignature(t *testing.T) {
 // newRepositoryClient creates a new repository client.
 func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
 	return &repositoryClient{
-		Repository: remote.Repository{
+		Repository: &remote.Repository{
 			Client:    client,
 			Reference: ref,
 			PlainHTTP: plainHTTP,
