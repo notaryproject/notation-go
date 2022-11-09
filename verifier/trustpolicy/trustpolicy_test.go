@@ -381,7 +381,7 @@ func TestGetVerificationLevel(t *testing.T) {
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 
-			level, err := GetVerificationLevel(tt.verificationLevel)
+			level, err := tt.verificationLevel.GetVerificationLevel()
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestFindVerificationLevel Error: %q WantErr: %v", err, tt.wantErr)
@@ -428,7 +428,7 @@ func TestCustomVerificationLevel(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			level, err := GetVerificationLevel(tt.customVerification)
+			level, err := tt.customVerification.GetVerificationLevel()
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestCustomVerificationLevel Error: %q WantErr: %v", err, tt.wantErr)

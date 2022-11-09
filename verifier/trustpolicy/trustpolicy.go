@@ -168,7 +168,7 @@ func (policyDoc *Document) Validate() error {
 		policyStatementNameCount[statement.Name]++
 
 		// Verify signature verification level is valid
-		verificationLevel, err := GetVerificationLevel(statement.SignatureVerification)
+		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
 			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification.VerificationLevel)
 		}
@@ -215,7 +215,7 @@ func (policyDoc *Document) Validate() error {
 
 // GetVerificationLevel returns VerificationLevel struct for the given
 // SignatureVerification struct throws error if SignatureVerification is invalid
-func GetVerificationLevel(signatureVerification SignatureVerification) (*VerificationLevel, error) {
+func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
 	var baseLevel *VerificationLevel
 	for _, l := range VerificationLevels {
 		if l.Name == signatureVerification.VerificationLevel {

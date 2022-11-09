@@ -284,7 +284,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
-	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
+	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 	opts.VerificationLevel = verificationLevel
 	_, outcome, err := v.Verify(context.Background(), pluginSigEnv, opts)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "error while locating the verification plugin \"plugin-name\", make sure the plugin is installed successfully before verifying the signature. error: plugin not found" {
@@ -441,7 +441,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
-	verificationLevel, _ = trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
+	verificationLevel, _ = trustPolicy.SignatureVerification.GetVerificationLevel()
 	outcome = &notation.VerificationOutcome{
 		VerificationResults: []*notation.ValidationResult{},
 		VerificationLevel:   verificationLevel,
@@ -466,7 +466,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
-	verificationLevel, _ = trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
+	verificationLevel, _ = trustPolicy.SignatureVerification.GetVerificationLevel()
 	outcome = &notation.VerificationOutcome{
 		VerificationResults: []*notation.ValidationResult{},
 		VerificationLevel:   verificationLevel,

@@ -218,7 +218,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
 	// ignore the error since we already validated the policy document
-	verificationLevel, _ := trustpolicy.GetVerificationLevel(trustPolicy.SignatureVerification)
+	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
 		verificationOutcomes = append(verificationOutcomes, &VerificationOutcome{VerificationLevel: verificationLevel})
 		return Descriptor{}, verificationOutcomes, nil
