@@ -38,6 +38,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
 	// TODO: remove this part once oras v2.0.0-rc.5 is released
+	// https://github.com/notaryproject/notation-go/issues/195
 	refFinder, ok := c.Repository.(registry.ReferrerFinder)
 	if !ok {
 		return errors.New("repo is not a registry.ReferrerFinder")
