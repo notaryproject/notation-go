@@ -1,14 +1,9 @@
-package common
+package pkix
 
 import (
 	"fmt"
 
 	ldapv3 "github.com/go-ldap/ldap/v3"
-)
-
-const (
-	Wildcard    = "*"
-	X509Subject = "x509.subject"
 )
 
 // ParseDistinguishedName parses a DN name and validates Notary V2 rules
