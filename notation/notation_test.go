@@ -16,7 +16,7 @@ import (
 func TestRegistryResolveError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
 	errorMessage := "network error"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -33,39 +33,21 @@ func TestRegistryResolveError(t *testing.T) {
 
 func TestSkippedSignatureVerification(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
-	policyDocument.TrustPolicies[0].SignatureVerification.VerificationLevel = "skip"
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
 
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
 	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
 
-	if err != nil || outcomes[0].VerificationLevel != trustpolicy.LevelSkip {
+	if err != nil || outcomes[0].VerificationLevel.Name != trustpolicy.LevelSkip.Name {
 		t.Fatalf("\"skip\" verification level must pass overall signature verification")
-	}
-}
-
-func TestRegistryListSignaturesError(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
-	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true}
-	errorMessage := "network error"
-	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
-
-	// mock the repository
-	repo.ListSignaturesError = ErrorSignatureRetrievalFailed{Msg: "network error"}
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
-	_, _, err := Verify(context.Background(), &verifier, repo, opts)
-
-	if err == nil || !errors.Is(err, expectedErr) {
-		t.Fatalf("RegistryListSignatureManifests expected: %v got: %v", expectedErr, err)
 	}
 }
 
 func TestRegistryNoSignatureManifests(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 	errorMessage := fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
@@ -82,7 +64,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
@@ -116,20 +98,21 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 }
 
 type dummyVerifier struct {
-	TrustPolicyDoc *trustpolicy.Document
-	PluginManager  pluginManager
-	FailVerify     bool
+	TrustPolicyDoc    *trustpolicy.Document
+	PluginManager     pluginManager
+	FailVerify        bool
+	VerificationLevel trustpolicy.VerificationLevel
 }
 
-func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions) (Descriptor, *VerificationOutcome, error) {
+func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error) {
 	if v.FailVerify {
-		return Descriptor{}, nil, errors.New("failed verify")
+		return ocispec.Descriptor{}, nil, errors.New("failed verify")
 	}
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
-		VerificationLevel:   opts.VerificationLevel,
+		VerificationLevel:   &v.VerificationLevel,
 	}
-	return Descriptor{}, outcome, nil
+	return ocispec.Descriptor{}, outcome, nil
 }
 
 func (v *dummyVerifier) TrustPolicyDocument() (*trustpolicy.Document, error) {
