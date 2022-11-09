@@ -3,11 +3,9 @@ package notation
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -19,11 +17,6 @@ import (
 )
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
-
-// Equal reports whether d and t points to the same content.
-func Equal(d ocispec.Descriptor, t ocispec.Descriptor) bool {
-	return d.MediaType == t.MediaType && d.Digest == t.Digest && d.Size == t.Size && reflect.DeepEqual(d.Annotations, t.Annotations)
-}
 
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
@@ -41,14 +34,6 @@ type SignOptions struct {
 	// TSA is the TimeStamp Authority to timestamp the resulted signature if
 	// present.
 	TSA timestamp.Timestamper
-
-	// TSAVerifyOptions is the verify option to verify the fetched timestamp
-	// signature.
-	// The `Intermediates` in the verify options will be ignored and
-	// re-contrusted using the certificates in the fetched timestamp signature.
-	// An empty list of `KeyUsages` in the verify options implies
-	// ExtKeyUsageTimeStamping.
-	TSAVerifyOptions x509.VerifyOptions
 
 	// Sets or overrides the plugin configuration.
 	PluginConfig map[string]string
@@ -241,8 +226,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			// artifact digest must match the digest from the signature payload
 			payload := &payload{}
 			err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
-			if err != nil || Equal(artifactDescriptor, payload.TargetArtifact) {
-				outcome.Error = fmt.Errorf("given digest %q does not match the digest %q present in the digital signature", artifactDescriptor.Digest.String(), payload.TargetArtifact.Digest.String())
+			if err != nil {
+				outcome.Error = err
 				continue
 			}
 			outcome.SignedAnnotations = payload.TargetArtifact.Annotations
