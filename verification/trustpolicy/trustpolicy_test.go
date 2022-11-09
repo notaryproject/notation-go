@@ -381,7 +381,7 @@ func TestGetVerificationLevel(t *testing.T) {
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 
-			level, err := GetVerificationLevel(tt.verificationLevel)
+			level, err := tt.verificationLevel.GetVerificationLevel()
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestFindVerificationLevel Error: %q WantErr: %v", err, tt.wantErr)
@@ -428,7 +428,7 @@ func TestCustomVerificationLevel(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			level, err := GetVerificationLevel(tt.customVerification)
+			level, err := tt.customVerification.GetVerificationLevel()
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestCustomVerificationLevel Error: %q WantErr: %v", err, tt.wantErr)
@@ -461,13 +461,13 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		policyStatement,
 	}
 	// existing Registry Scope
-	policy, err := GetApplicableTrustPolicy(&policyDoc, registryUri)
+	policy, err := (&policyDoc).GetApplicableTrustPolicy(registryUri)
 	if policy.Name != policyStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return %q for registry scope %q", policyStatement.Name, registryScope)
 	}
 
 	// non-existing Registry Scope
-	policy, err = GetApplicableTrustPolicy(&policyDoc, "non.existing.scope/repo@sha256:hash")
+	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
 	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
@@ -484,7 +484,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		policyStatement,
 		wildcardStatement,
 	}
-	policy, err = GetApplicableTrustPolicy(&policyDoc, "some.registry.that/has.no.policy@sha256:hash")
+	policy, err = (&policyDoc).GetApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash")
 	if policy.Name != wildcardStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
 	}

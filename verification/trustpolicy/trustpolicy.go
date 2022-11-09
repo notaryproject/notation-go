@@ -8,6 +8,7 @@ import (
 
 	"github.com/notaryproject/notation-go/internal/pkix"
 	"github.com/notaryproject/notation-go/internal/slice"
+	"github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/verification/truststore"
 )
 
@@ -168,7 +169,7 @@ func (policyDoc *Document) Validate() error {
 		policyStatementNameCount[statement.Name]++
 
 		// Verify signature verification level is valid
-		verificationLevel, err := GetVerificationLevel(statement.SignatureVerification)
+		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
 			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification.VerificationLevel)
 		}
@@ -213,9 +214,43 @@ func (policyDoc *Document) Validate() error {
 	return nil
 }
 
+// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
+// statement that applies to the given registry URI. If no applicable trust
+// policy is found, returns an error
+// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
+
+	artifactPath, err := getArtifactPathFromReference(artifactReference)
+	if err != nil {
+		return nil, err
+	}
+
+	var wildcardPolicy *TrustPolicy
+	var applicablePolicy *TrustPolicy
+	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
+		if slice.ContainsString(trustpolicy.Wildcard, policyStatement.RegistryScopes) {
+			// we need to deep copy because we can't use the loop variable
+			// address. see https://stackoverflow.com/a/45967429
+			wildcardPolicy = (&policyStatement).clone()
+		} else if slice.ContainsString(artifactPath, policyStatement.RegistryScopes) {
+			applicablePolicy = (&policyStatement).clone()
+		}
+	}
+
+	if applicablePolicy != nil {
+		// a policy with exact match for registry URI takes precedence over
+		// a wildcard (*) policy.
+		return applicablePolicy, nil
+	} else if wildcardPolicy != nil {
+		return wildcardPolicy, nil
+	} else {
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
+	}
+}
+
 // GetVerificationLevel returns VerificationLevel struct for the given
 // SignatureVerification struct throws error if SignatureVerification is invalid
-func GetVerificationLevel(signatureVerification SignatureVerification) (*VerificationLevel, error) {
+func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
 	var baseLevel *VerificationLevel
 	for _, l := range VerificationLevels {
 		if l.Name == signatureVerification.VerificationLevel {
@@ -281,6 +316,17 @@ func GetVerificationLevel(signatureVerification SignatureVerification) (*Verific
 	return customVerificationLevel, nil
 }
 
+// clone returns a pointer to the deeply copied TrustPolicy
+func (t *TrustPolicy) clone() *TrustPolicy {
+	return &TrustPolicy{
+		Name:                  t.Name,
+		SignatureVerification: t.SignatureVerification,
+		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
+		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
+		TrustStores:           append([]string(nil), t.TrustStores...),
+	}
+}
+
 // validateTrustStore validates if the policy statement is following the
 // Notary V2 spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
@@ -300,7 +346,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
-	if len(statement.TrustedIdentities) > 1 && slice.ContainsString(slice.Wildcard, statement.TrustedIdentities) {
+	if len(statement.TrustedIdentities) > 1 && slice.ContainsString(trustpolicy.Wildcard, statement.TrustedIdentities) {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
 
@@ -311,7 +357,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 			return fmt.Errorf("trust policy statement %q has an empty trusted identity", statement.Name)
 		}
 
-		if identity != slice.Wildcard {
+		if identity != trustpolicy.Wildcard {
 			i := strings.Index(identity, ":")
 			if i < 0 {
 				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity prefix", statement.Name, identity)
@@ -321,7 +367,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 			identityValue := identity[i+1:]
 
 			// notation natively supports x509.subject identities only
-			if identityPrefix == slice.X509Subject {
+			if identityPrefix == trustpolicy.X509Subject {
 				dn, err := pkix.ParseDistinguishedName(identityValue)
 				if err != nil {
 					return err
@@ -332,7 +378,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 	}
 
 	// Verify there are no overlapping DNs
-	if err := hasOverlappingDNs(statement.Name, parsedDNs); err != nil {
+	if err := validateOverlappingDNs(statement.Name, parsedDNs); err != nil {
 		return err
 	}
 
@@ -350,11 +396,11 @@ func validateRegistryScopes(policyDoc *Document) error {
 		if len(statement.RegistryScopes) == 0 {
 			return fmt.Errorf("trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
 		}
-		if len(statement.RegistryScopes) > 1 && slice.ContainsString(slice.Wildcard, statement.RegistryScopes) {
+		if len(statement.RegistryScopes) > 1 && slice.ContainsString(trustpolicy.Wildcard, statement.RegistryScopes) {
 			return fmt.Errorf("trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
 		}
 		for _, scope := range statement.RegistryScopes {
-			if scope != slice.Wildcard {
+			if scope != trustpolicy.Wildcard {
 				if err := validateRegistryScopeFormat(scope); err != nil {
 					return err
 				}
@@ -374,7 +420,7 @@ func validateRegistryScopes(policyDoc *Document) error {
 	return nil
 }
 
-func hasOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
+func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
 	for i, dn1 := range parsedDNs {
 		for j, dn2 := range parsedDNs {
 			if i != j && pkix.IsSubsetDN(dn1.ParsedMap, dn2.ParsedMap) {
@@ -395,51 +441,6 @@ func isValidTrustStoreType(s string) bool {
 		}
 	}
 	return false
-}
-
-// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
-// statement that applies to the given registry URI. If no applicable trust
-// policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
-func GetApplicableTrustPolicy(trustPolicyDoc *Document, artifactReference string) (*TrustPolicy, error) {
-
-	artifactPath, err := getArtifactPathFromReference(artifactReference)
-	if err != nil {
-		return nil, err
-	}
-
-	var wildcardPolicy *TrustPolicy
-	var applicablePolicy *TrustPolicy
-	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
-		if slice.ContainsString(slice.Wildcard, policyStatement.RegistryScopes) {
-			// we need to deep copy because we can't use the loop variable
-			// address. see https://stackoverflow.com/a/45967429
-			wildcardPolicy = (&policyStatement).clone()
-		} else if slice.ContainsString(artifactPath, policyStatement.RegistryScopes) {
-			applicablePolicy = (&policyStatement).clone()
-		}
-	}
-
-	if applicablePolicy != nil {
-		// a policy with exact match for registry URI takes precedence over
-		// a wildcard (*) policy.
-		return applicablePolicy, nil
-	} else if wildcardPolicy != nil {
-		return wildcardPolicy, nil
-	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
-	}
-}
-
-// clone returns a pointer to the deeply copied TrustPolicy
-func (t *TrustPolicy) clone() *TrustPolicy {
-	return &TrustPolicy{
-		Name:                  t.Name,
-		SignatureVerification: t.SignatureVerification,
-		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
-		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
-		TrustStores:           append([]string(nil), t.TrustStores...),
-	}
 }
 
 func getArtifactPathFromReference(artifactReference string) (string, error) {

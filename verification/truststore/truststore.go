@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go/dir"
@@ -36,20 +37,23 @@ type X509TrustStore interface {
 	GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error)
 }
 
+// NewX509TrustStore generates a new X509TrustStore
+func NewX509TrustStore(trustStorefs dir.SysFS) X509TrustStore {
+	return &x509TrustStore{trustStorefs}
+}
+
 // x509TrustStore implements X509TrustStore
 type x509TrustStore struct {
 	trustStorefs dir.SysFS
 }
 
-// NewX509TrustStore generates a new X509TrustStore
-func NewX509TrustStore(trustStorefs dir.SysFS) X509TrustStore {
-	return x509TrustStore{trustStorefs}
-}
-
 // GetCertificates returns certificates under storeType/namedStore
-func (trustStore x509TrustStore) GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error) {
-	if storeType == "" || namedStore == "" {
-		return nil, errors.New("storeType and namedStore cannot be empty")
+func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error) {
+	if !isValidStoreType(storeType) {
+		return nil, fmt.Errorf("unsupported store type: %s", storeType)
+	}
+	if !isValidNamedStore(namedStore) {
+		return nil, errors.New("named store name needs to follow [a-zA-Z0-9_.-]+ format")
 	}
 	path, err := trustStore.trustStorefs.SysPath(dir.X509TrustStoreDir(string(storeType), namedStore))
 	if err != nil {
@@ -122,4 +126,19 @@ func validateCerts(certs []*x509.Certificate, path string) error {
 	}
 
 	return nil
+}
+
+// isValidStoreType checks if storeType is supported
+func isValidStoreType(storeType Type) bool {
+	for _, t := range Types {
+		if storeType == t {
+			return true
+		}
+	}
+	return false
+}
+
+// isValidFileName checks if a file name is cross-platform compatible
+func isValidNamedStore(namedStore string) bool {
+	return regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`).MatchString(namedStore)
 }
