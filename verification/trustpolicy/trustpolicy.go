@@ -116,6 +116,7 @@ var supportedPolicyVersions = []string{"1.0"}
 type Document struct {
 	// Version of the policy document
 	Version string `json:"version"`
+
 	// TrustPolicies include each policy statement
 	TrustPolicies []TrustPolicy `json:"trustPolicies"`
 }
