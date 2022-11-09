@@ -36,14 +36,14 @@ type X509TrustStore interface {
 	GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error)
 }
 
-// NewX509TrustStore generates a new X509TrustStore
-func NewX509TrustStore(trustStorefs dir.SysFS) X509TrustStore {
-	return x509TrustStore{trustStorefs}
-}
-
 // x509TrustStore implements X509TrustStore
 type x509TrustStore struct {
 	trustStorefs dir.SysFS
+}
+
+// NewX509TrustStore generates a new X509TrustStore
+func NewX509TrustStore(trustStorefs dir.SysFS) X509TrustStore {
+	return x509TrustStore{trustStorefs}
 }
 
 // GetCertificates returns certificates under storeType/namedStore
