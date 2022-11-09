@@ -79,9 +79,6 @@ func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, media
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
-	if manifestDesc.MediaType != ocispec.MediaTypeArtifactManifest {
-		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("manifestDesc.MediaType requires %q, got %q", ocispec.MediaTypeArtifactManifest, manifestDesc.MediaType)
-	}
 
 	return blobDesc, manifestDesc, nil
 }
