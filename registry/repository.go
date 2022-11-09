@@ -40,7 +40,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 	// TODO: remove this part once oras v2.0.0-rc.5 is released
 	refFinder, ok := c.Repository.(registry.ReferrerFinder)
 	if !ok {
-		return errors.New("repo is not a orasRegistry.ReferrerFinder")
+		return errors.New("repo is not a registry.ReferrerFinder")
 	}
 	return refFinder.Referrers(ctx, desc, ArtifactTypeNotation, fn)
 }
@@ -57,7 +57,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 	sigDesc := sigManifest.Blobs[0]
 	if sigDesc.Size > maxBlobSizeLimit {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d", sigDesc.Size)
+		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d bytes", sigDesc.Size)
 	}
 	sigBlob, err := content.FetchAll(ctx, c.Repository.Blobs(), sigDesc)
 	if err != nil {
@@ -79,6 +79,9 @@ func (c *repositoryClient) PushSignature(ctx context.Context, blob []byte, media
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
+	if manifestDesc.MediaType != ocispec.MediaTypeArtifactManifest {
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("manifestDesc.MediaType requires %q, got %q", ocispec.MediaTypeArtifactManifest, manifestDesc.MediaType)
+	}
 
 	return blobDesc, manifestDesc, nil
 }
@@ -90,7 +93,7 @@ func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifest
 		return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q, got %q", ocispec.MediaTypeArtifactManifest, sigManifestDesc.MediaType)
 	}
 	if sigManifestDesc.Size > maxManifestSizeLimit {
-		return nil, fmt.Errorf("manifest too large: %d", sigManifestDesc.Size)
+		return nil, fmt.Errorf("manifest too large: %d bytes", sigManifestDesc.Size)
 	}
 	manifestJSON, err := content.FetchAll(ctx, c.Repository.Manifests(), sigManifestDesc)
 	if err != nil {
