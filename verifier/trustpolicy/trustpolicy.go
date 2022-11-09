@@ -281,6 +281,17 @@ func (signatureVerification *SignatureVerification) GetVerificationLevel() (*Ver
 	return customVerificationLevel, nil
 }
 
+// clone returns a pointer to the deeply copied TrustPolicy
+func (t *TrustPolicy) clone() *TrustPolicy {
+	return &TrustPolicy{
+		Name:                  t.Name,
+		SignatureVerification: t.SignatureVerification,
+		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
+		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
+		TrustStores:           append([]string(nil), t.TrustStores...),
+	}
+}
+
 // validateTrustStore validates if the policy statement is following the
 // Notary V2 spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
@@ -428,17 +439,6 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 		return wildcardPolicy, nil
 	} else {
 		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
-	}
-}
-
-// clone returns a pointer to the deeply copied TrustPolicy
-func (t *TrustPolicy) clone() *TrustPolicy {
-	return &TrustPolicy{
-		Name:                  t.Name,
-		SignatureVerification: t.SignatureVerification,
-		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
-		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
-		TrustStores:           append([]string(nil), t.TrustStores...),
 	}
 }
 
