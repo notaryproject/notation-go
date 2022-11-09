@@ -13,6 +13,7 @@ import (
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/slice"
 )
 
 // Type is an enum for trust store types supported such as
@@ -59,16 +60,13 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 	if err != nil {
 		return nil, err
 	}
-	// check path is valid
-	if _, err := os.Stat(path); err != nil {
+
+	// throw error if path is not a directory or is a symlink or does not exist.
+	fileInfo, err := os.Lstat(path)
+	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("%q does not exist", path)
 		}
-	}
-
-	// throw error if path is not a directory or is a symlink
-	fileInfo, err := os.Lstat(path)
-	if err != nil {
 		return nil, err
 	}
 	mode := fileInfo.Mode()
@@ -130,12 +128,7 @@ func validateCerts(certs []*x509.Certificate, path string) error {
 
 // isValidStoreType checks if storeType is supported
 func isValidStoreType(storeType Type) bool {
-	for _, t := range Types {
-		if storeType == t {
-			return true
-		}
-	}
-	return false
+	return slice.Contains(Types, storeType)
 }
 
 // isValidFileName checks if a file name is cross-platform compatible
