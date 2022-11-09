@@ -149,7 +149,7 @@ type SignatureVerification struct {
 // if any rule is violated, returns an error
 func (policyDoc *Document) Validate() error {
 	// Validate Version
-	if !slice.ContainsString(policyDoc.Version, supportedPolicyVersions) {
+	if !slice.Contains(supportedPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
@@ -228,11 +228,11 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	var wildcardPolicy *TrustPolicy
 	var applicablePolicy *TrustPolicy
 	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
-		if slice.ContainsString(trustpolicy.Wildcard, policyStatement.RegistryScopes) {
+		if slice.Contains(policyStatement.RegistryScopes, trustpolicy.Wildcard) {
 			// we need to deep copy because we can't use the loop variable
 			// address. see https://stackoverflow.com/a/45967429
 			wildcardPolicy = (&policyStatement).clone()
-		} else if slice.ContainsString(artifactPath, policyStatement.RegistryScopes) {
+		} else if slice.Contains(policyStatement.RegistryScopes, artifactPath) {
 			applicablePolicy = (&policyStatement).clone()
 		}
 	}
@@ -346,7 +346,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
-	if len(statement.TrustedIdentities) > 1 && slice.ContainsString(trustpolicy.Wildcard, statement.TrustedIdentities) {
+	if len(statement.TrustedIdentities) > 1 && slice.Contains(statement.TrustedIdentities, trustpolicy.Wildcard) {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
 
@@ -396,7 +396,7 @@ func validateRegistryScopes(policyDoc *Document) error {
 		if len(statement.RegistryScopes) == 0 {
 			return fmt.Errorf("trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
 		}
-		if len(statement.RegistryScopes) > 1 && slice.ContainsString(trustpolicy.Wildcard, statement.RegistryScopes) {
+		if len(statement.RegistryScopes) > 1 && slice.Contains(statement.RegistryScopes, trustpolicy.Wildcard) {
 			return fmt.Errorf("trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
 		}
 		for _, scope := range statement.RegistryScopes {
