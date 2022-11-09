@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -39,11 +40,6 @@ type SignOptions struct {
 	PluginConfig map[string]string
 }
 
-// Payload describes the content that gets signed.
-type payload struct {
-	TargetArtifact ocispec.Descriptor `json:"targetArtifact"`
-}
-
 // Signer is a generic interface for signing an artifact.
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
@@ -61,8 +57,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	desc := notationDescriptorFromOCI(ociDesc)
-	sig, signerInfo, err := signer.Sign(ctx, desc, opts.SignatureMediaType, opts)
+	sig, signerInfo, err := signer.Sign(ctx, ociDesc, opts.SignatureMediaType, opts)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -75,7 +70,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 		return ocispec.Descriptor{}, err
 	}
 
-	return desc, nil
+	return ociDesc, nil
 }
 
 // VerifyOptions contains parameters for Verifier.Verify.
@@ -104,7 +99,7 @@ type ValidationResult struct {
 	// in the trust policy
 	Action trustpolicy.ValidationAction
 
-	// Err is set if there are any errors during the verification process
+	// Error is set if there are any errors during the verification process
 	Error error
 }
 
@@ -137,7 +132,7 @@ type VerificationOutcome struct {
 
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
-	// Verify verifies the signature blob and returns the signature blob
+	// Verify verifies the signature blob and returns the artifact
 	// descriptor upon successful verification.
 	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error)
 }
@@ -184,7 +179,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactRef, err.Error())}
 			}
-			_, outcome, err := verifier.Verify(ctx, sigBlob, opts)
+			targetArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
 			if err != nil {
 				if outcome != nil {
 					outcome.SignatureBlobDescriptor = &sigBlobDesc
@@ -194,16 +189,17 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				continue
 			}
 
+			//
+			if !equal(&targetArtifactDescriptor, &artifactDescriptor) {
+				outcome.SignatureBlobDescriptor = &sigBlobDesc
+				outcome.Error = err
+				verificationOutcomes = append(verificationOutcomes, outcome)
+				continue
+			}
+
 			// At this point, we've found a signature verified successfully
 			outcome.SignatureBlobDescriptor = &sigBlobDesc
 			verificationOutcomes = append(verificationOutcomes, outcome)
-			payload := &payload{}
-			err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
-			if err != nil {
-				outcome.Error = err
-				continue
-			}
-			outcome.SignedAnnotations = payload.TargetArtifact.Annotations
 			success = true
 			// Descriptor of the signature blob that gets verified successfully
 			verifiedSigBlobDesc = sigBlobDesc
@@ -221,7 +217,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if success {
 		// signature verification succeeds if there is at least one good
 		// signature
-		return notationDescriptorFromOCI(verifiedSigBlobDesc), verificationOutcomes, nil
+		return verifiedSigBlobDesc, verificationOutcomes, nil
 	}
 
 	return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
@@ -244,11 +240,10 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	return annotations, nil
 }
 
-func notationDescriptorFromOCI(desc ocispec.Descriptor) ocispec.Descriptor {
-	return ocispec.Descriptor{
-		MediaType:   desc.MediaType,
-		Digest:      desc.Digest,
-		Size:        desc.Size,
-		Annotations: desc.Annotations,
-	}
+// Equal reports whether d and t points to the same content.
+func equal(d *ocispec.Descriptor, t *ocispec.Descriptor) bool {
+	return d.MediaType == t.MediaType &&
+		d.Digest == t.Digest &&
+		d.Size == t.Size &&
+		reflect.DeepEqual(d.Annotations, t.Annotations)
 }
