@@ -185,18 +185,18 @@ type VerifySignatureRequest struct {
 // Signature represents a signature pulled from the envelope
 type Signature struct {
 	CriticalAttributes    CriticalAttributes `json:"criticalAttributes"`
-	UnprocessedAttributes []interface{}      `json:"unprocessedAttributes"`
+	UnprocessedAttributes []string           `json:"unprocessedAttributes"`
 	CertificateChain      [][]byte           `json:"certificateChain"`
 }
 
 // CriticalAttributes contains all Notary V2 defined critical
 // attributes and their values in the signature envelope
 type CriticalAttributes struct {
-	ContentType          string                      `json:"contentType"`
-	SigningScheme        string                      `json:"signingScheme"`
-	Expiry               *time.Time                  `json:"expiry,omitempty"`
-	AuthenticSigningTime *time.Time                  `json:"authenticSigningTime,omitempty"`
-	ExtendedAttributes   map[interface{}]interface{} `json:"extendedAttributes,omitempty"`
+	ContentType          string                 `json:"contentType"`
+	SigningScheme        string                 `json:"signingScheme"`
+	Expiry               *time.Time             `json:"expiry,omitempty"`
+	AuthenticSigningTime *time.Time             `json:"authenticSigningTime,omitempty"`
+	ExtendedAttributes   map[string]interface{} `json:"extendedAttributes,omitempty"`
 }
 
 // TrustPolicy represents trusted identities that sign the artifacts
