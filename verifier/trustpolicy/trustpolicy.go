@@ -8,6 +8,7 @@ import (
 
 	"github.com/notaryproject/notation-go/internal/pkix"
 	"github.com/notaryproject/notation-go/internal/slice"
+	"github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
@@ -148,7 +149,7 @@ type SignatureVerification struct {
 // if any rule is violated, returns an error
 func (policyDoc *Document) Validate() error {
 	// Validate Version
-	if !slice.Contains(policyDoc.Version, supportedPolicyVersions) {
+	if !slice.Contains(supportedPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
@@ -211,6 +212,40 @@ func (policyDoc *Document) Validate() error {
 
 	// No errors
 	return nil
+}
+
+// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
+// statement that applies to the given registry URI. If no applicable trust
+// policy is found, returns an error
+// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
+
+	artifactPath, err := getArtifactPathFromReference(artifactReference)
+	if err != nil {
+		return nil, err
+	}
+
+	var wildcardPolicy *TrustPolicy
+	var applicablePolicy *TrustPolicy
+	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
+		if slice.Contains(policyStatement.RegistryScopes, trustpolicy.Wildcard) {
+			// we need to deep copy because we can't use the loop variable
+			// address. see https://stackoverflow.com/a/45967429
+			wildcardPolicy = (&policyStatement).clone()
+		} else if slice.Contains(policyStatement.RegistryScopes, artifactPath) {
+			applicablePolicy = (&policyStatement).clone()
+		}
+	}
+
+	if applicablePolicy != nil {
+		// a policy with exact match for registry URI takes precedence over
+		// a wildcard (*) policy.
+		return applicablePolicy, nil
+	} else if wildcardPolicy != nil {
+		return wildcardPolicy, nil
+	} else {
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
+	}
 }
 
 // GetVerificationLevel returns VerificationLevel struct for the given
@@ -311,7 +346,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
-	if len(statement.TrustedIdentities) > 1 && slice.Contains(slice.Wildcard, statement.TrustedIdentities) {
+	if len(statement.TrustedIdentities) > 1 && slice.Contains(statement.TrustedIdentities, trustpolicy.Wildcard) {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
 
@@ -322,7 +357,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 			return fmt.Errorf("trust policy statement %q has an empty trusted identity", statement.Name)
 		}
 
-		if identity != slice.Wildcard {
+		if identity != trustpolicy.Wildcard {
 			i := strings.Index(identity, ":")
 			if i < 0 {
 				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity prefix", statement.Name, identity)
@@ -332,7 +367,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 			identityValue := identity[i+1:]
 
 			// notation natively supports x509.subject identities only
-			if identityPrefix == slice.X509Subject {
+			if identityPrefix == trustpolicy.X509Subject {
 				dn, err := pkix.ParseDistinguishedName(identityValue)
 				if err != nil {
 					return err
@@ -361,11 +396,11 @@ func validateRegistryScopes(policyDoc *Document) error {
 		if len(statement.RegistryScopes) == 0 {
 			return fmt.Errorf("trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
 		}
-		if len(statement.RegistryScopes) > 1 && slice.Contains(slice.Wildcard, statement.RegistryScopes) {
+		if len(statement.RegistryScopes) > 1 && slice.Contains(statement.RegistryScopes, trustpolicy.Wildcard) {
 			return fmt.Errorf("trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
 		}
 		for _, scope := range statement.RegistryScopes {
-			if scope != slice.Wildcard {
+			if scope != trustpolicy.Wildcard {
 				if err := validateRegistryScopeFormat(scope); err != nil {
 					return err
 				}
@@ -406,40 +441,6 @@ func isValidTrustStoreType(s string) bool {
 		}
 	}
 	return false
-}
-
-// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
-// statement that applies to the given registry URI. If no applicable trust
-// policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
-func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
-
-	artifactPath, err := getArtifactPathFromReference(artifactReference)
-	if err != nil {
-		return nil, err
-	}
-
-	var wildcardPolicy *TrustPolicy
-	var applicablePolicy *TrustPolicy
-	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
-		if slice.Contains(slice.Wildcard, policyStatement.RegistryScopes) {
-			// we need to deep copy because we can't use the loop variable
-			// address. see https://stackoverflow.com/a/45967429
-			wildcardPolicy = (&policyStatement).clone()
-		} else if slice.Contains(artifactPath, policyStatement.RegistryScopes) {
-			applicablePolicy = (&policyStatement).clone()
-		}
-	}
-
-	if applicablePolicy != nil {
-		// a policy with exact match for registry URI takes precedence over
-		// a wildcard (*) policy.
-		return applicablePolicy, nil
-	} else if wildcardPolicy != nil {
-		return wildcardPolicy, nil
-	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
-	}
 }
 
 func getArtifactPathFromReference(artifactReference string) (string, error) {

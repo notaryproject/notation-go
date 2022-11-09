@@ -12,6 +12,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/internal/pkix"
 	"github.com/notaryproject/notation-go/internal/slice"
+	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	sig "github.com/notaryproject/notation-go/signature"
@@ -220,7 +221,7 @@ func (v *verifier) verifyX509TrustedIdentities(trustPolicy *trustpolicy.TrustPol
 }
 
 func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
-	if slice.Contains(slice.Wildcard, trustPolicy.TrustedIdentities) {
+	if slice.Contains(trustpolicyInternal.Wildcard, trustPolicy.TrustedIdentities) {
 		return nil
 	}
 
@@ -231,7 +232,7 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 		identityPrefix := identity[:i]
 		identityValue := identity[i+1:]
 
-		if identityPrefix == slice.X509Subject {
+		if identityPrefix == trustpolicyInternal.X509Subject {
 			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
 			if err != nil {
 				return err
@@ -328,7 +329,7 @@ func getNonPluginExtendedCriticalAttributes(signerInfo *signature.SignerInfo) []
 	var criticalExtendedAttrs []signature.Attribute
 	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
 		attrStrKey, ok := attr.Key.(string)
-		if ok && !slice.Contains(attrStrKey, VerificationPluginHeaders) { // filter the plugin extended attributes
+		if ok && !slice.Contains(VerificationPluginHeaders, attrStrKey) { // filter the plugin extended attributes
 			// TODO support other attribute types (COSE attribute keys can be numbers)
 			criticalExtendedAttrs = append(criticalExtendedAttrs, attr)
 		}

@@ -39,7 +39,7 @@ type X509TrustStore interface {
 
 // NewX509TrustStore generates a new X509TrustStore
 func NewX509TrustStore(trustStorefs dir.SysFS) X509TrustStore {
-	return x509TrustStore{trustStorefs}
+	return &x509TrustStore{trustStorefs}
 }
 
 // x509TrustStore implements X509TrustStore
@@ -48,7 +48,7 @@ type x509TrustStore struct {
 }
 
 // GetCertificates returns certificates under storeType/namedStore
-func (trustStore x509TrustStore) GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error) {
+func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error) {
 	if !isValidStoreType(storeType) {
 		return nil, fmt.Errorf("unsupported store type: %s", storeType)
 	}
