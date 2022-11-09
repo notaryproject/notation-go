@@ -138,7 +138,7 @@ func (policyDoc *Document) Validate() error {
 	supportedPolicyVersions := []string{"1.0"}
 
 	// Validate Version
-	if !common.IsPresent(policyDoc.Version, supportedPolicyVersions) {
+	if !contains(policyDoc.Version, supportedPolicyVersions) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
@@ -290,7 +290,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
-	if len(statement.TrustedIdentities) > 1 && common.IsPresent(common.Wildcard, statement.TrustedIdentities) {
+	if len(statement.TrustedIdentities) > 1 && contains(common.Wildcard, statement.TrustedIdentities) {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
 
@@ -340,7 +340,7 @@ func validateRegistryScopes(policyDoc *Document) error {
 		if len(statement.RegistryScopes) == 0 {
 			return fmt.Errorf("trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
 		}
-		if len(statement.RegistryScopes) > 1 && common.IsPresent(common.Wildcard, statement.RegistryScopes) {
+		if len(statement.RegistryScopes) > 1 && contains(common.Wildcard, statement.RegistryScopes) {
 			return fmt.Errorf("trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
 		}
 		for _, scope := range statement.RegistryScopes {
@@ -401,11 +401,11 @@ func GetApplicableTrustPolicy(trustPolicyDoc *Document, artifactReference string
 	var wildcardPolicy *TrustPolicy
 	var applicablePolicy *TrustPolicy
 	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
-		if common.IsPresent(common.Wildcard, policyStatement.RegistryScopes) {
+		if contains(common.Wildcard, policyStatement.RegistryScopes) {
 			// we need to deep copy because we can't use the loop variable
 			// address. see https://stackoverflow.com/a/45967429
 			wildcardPolicy = deepCopy(&policyStatement)
-		} else if common.IsPresent(artifactPath, policyStatement.RegistryScopes) {
+		} else if contains(artifactPath, policyStatement.RegistryScopes) {
 			applicablePolicy = deepCopy(&policyStatement)
 		}
 	}
@@ -445,4 +445,14 @@ func getArtifactPathFromReference(artifactReference string) (string, error) {
 		return "", err
 	}
 	return artifactPath, nil
+}
+
+// contains is a utility function to check if a string exists in an array
+func contains(val string, values []string) bool {
+	for _, v := range values {
+		if v == val {
+			return true
+		}
+	}
+	return false
 }

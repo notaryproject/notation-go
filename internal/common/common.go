@@ -13,16 +13,6 @@ const (
 	X509Subject = "x509.subject"
 )
 
-// isPresent is a utility function to check if a string exists in an array
-func IsPresent(val string, values []string) bool {
-	for _, v := range values {
-		if v == val {
-			return true
-		}
-	}
-	return false
-}
-
 // Internal type to hold raw and parsed Distinguished Names
 type ParsedDN struct {
 	RawString string
