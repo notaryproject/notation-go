@@ -32,9 +32,6 @@ var (
 
 // X509TrustStore provide list and get behaviors for the trust store
 type X509TrustStore interface {
-	// List named stores under storeType
-	// List(ctx context.Context, storeType Type) ([]string, error)
-
 	// GetCertificates returns certificates under storeType/namedStore
 	GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error)
 }
@@ -59,8 +56,10 @@ func (trustStore x509TrustStore) GetCertificates(ctx context.Context, storeType 
 		return nil, err
 	}
 	// check path is valid
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("%q does not exist", path)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%q does not exist", path)
+		}
 	}
 
 	// throw error if path is not a directory or is a symlink
