@@ -91,10 +91,6 @@ type VerifyOptions struct {
 
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
-
-	// VerificationLevel encapsulates the signature verification preset and its
-	// actions for each verification type
-	VerificationLevel *trustpolicy.VerificationLevel
 }
 
 // ValidationResult encapsulates the verification result (passed or failed)
@@ -102,13 +98,13 @@ type VerifyOptions struct {
 //
 //	specified in the trust policy
 type ValidationResult struct {
-	// Success is set to true if the verification was successful
-	Success bool
 	// Type of verification that is performed
 	Type trustpolicy.ValidationType
+
 	// Action is the intended action for the given verification type as defined
 	// in the trust policy
 	Action trustpolicy.ValidationAction
+
 	// Err is set if there are any errors during the verification process
 	Error error
 }
@@ -117,19 +113,25 @@ type ValidationResult struct {
 // the verification level and results for each verification type that was
 // performed.
 type VerificationOutcome struct {
+	// SignatureBlobDescriptor is descriptor of the signature envelope blob
 	SignatureBlobDescriptor *ocispec.Descriptor
+
 	// EnvelopeContent contains the details of the digital signature and
 	// associated metadata
 	EnvelopeContent *signature.EnvelopeContent
+
 	// VerificationLevel describes what verification level was used for
 	// performing signature verification
 	VerificationLevel *trustpolicy.VerificationLevel
+
 	// VerificationResults contains the verifications performed on the signature
 	// and their results
 	VerificationResults []*ValidationResult
+
 	// SignedAnnotations contains arbitrary metadata relating to the target
 	// artifact that was signed
 	SignedAnnotations map[string]string
+
 	// Error that caused the verification to fail (if it fails)
 	Error error
 }
@@ -171,13 +173,7 @@ of `VerificationOutcome`.
 For more details on signature verification, see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
 */
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
-	var verificationOutcomes []*VerificationOutcome
 	artifactRef := opts.ArtifactReference
-	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
-	if err != nil {
-		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
-	}
-
 	trustpolicyDoc, err := verifier.TrustPolicyDocument()
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
@@ -186,17 +182,22 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
+
+	var verificationOutcomes []*VerificationOutcome
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
 		verificationOutcomes = append(verificationOutcomes, &VerificationOutcome{VerificationLevel: verificationLevel})
 		return ocispec.Descriptor{}, verificationOutcomes, nil
 	}
-	opts.VerificationLevel = verificationLevel
 
 	// get signature manifests
 	var success bool
 	var verifiedSigBlobDesc ocispec.Descriptor
+	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
+	}
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		if len(signatureManifests) < 1 {
 			return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
@@ -214,16 +215,17 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			}
 			_, outcome, err := verifier.Verify(ctx, sigBlob, opts)
 			if err != nil {
-				if outcome != nil && outcome.Error != nil {
+				if outcome != nil {
 					outcome.SignatureBlobDescriptor = &sigBlobDesc
+					outcome.Error = err
 					verificationOutcomes = append(verificationOutcomes, outcome)
 				}
 				continue
 			}
+
+			// At this point, we've found a signature verified successfully
 			outcome.SignatureBlobDescriptor = &sigBlobDesc
 			verificationOutcomes = append(verificationOutcomes, outcome)
-
-			// artifact digest must match the digest from the signature payload
 			payload := &payload{}
 			err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
 			if err != nil {
@@ -231,10 +233,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				continue
 			}
 			outcome.SignedAnnotations = payload.TargetArtifact.Annotations
-
-			// At this point, we've found a signature verified successfully
 			success = true
-			// Descriptor of the signature blob that get verified successfully
+			// Descriptor of the signature blob that gets verified successfully
 			verifiedSigBlobDesc = sigBlobDesc
 
 			return nil

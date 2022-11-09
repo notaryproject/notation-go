@@ -127,7 +127,6 @@ func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts Verif
 	}
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
-		VerificationLevel:   opts.VerificationLevel,
 	}
 	return ocispec.Descriptor{}, outcome, nil
 }
