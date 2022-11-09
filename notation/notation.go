@@ -199,13 +199,15 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
-		if len(signatureManifests) < 1 {
-			return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
-		}
 		// if already verified successfully, no need to continue
 		if success {
 			return nil
 		}
+
+		if len(signatureManifests) < 1 {
+			return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
+		}
+
 		// process signatures
 		for _, sigManifest := range signatureManifests {
 			// get signature envelope
