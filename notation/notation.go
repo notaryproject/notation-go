@@ -5,13 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-core-go/timestamp"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verification/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -31,10 +31,6 @@ type SignOptions struct {
 
 	// Expiry identifies the expiration time of the resulted signature.
 	Expiry time.Time
-
-	// TSA is the TimeStamp Authority to timestamp the resulted signature if
-	// present.
-	TSA timestamp.Timestamper
 
 	// Sets or overrides the plugin configuration.
 	PluginConfig map[string]string
@@ -145,7 +141,8 @@ type Verifier interface {
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	var verificationOutcomes []*VerificationOutcome
 	artifactRef := opts.ArtifactReference
-	_, outcome, err := verifier.Verify(ctx, nil, opts) // passing nil signature to
+	// passing nil signature to check 'skip'
+	_, outcome, err := verifier.Verify(ctx, nil, opts)
 	if outcome == nil {
 		return ocispec.Descriptor{}, nil, err
 	}
@@ -157,6 +154,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 
 	// get signature manifests
 	var success bool
+	doneVerification := errors.New("done verification")
 	var verifiedSigBlobDesc ocispec.Descriptor
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
@@ -179,21 +177,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactRef, err.Error())}
 			}
-			targetArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
+			payloadArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
+			if err == nil && !equal(&payloadArtifactDescriptor, &artifactDescriptor) {
+				err = errors.New("payloadArtifactDescriptor does not match artifactDescriptor")
+			}
 			if err != nil {
 				if outcome != nil {
 					outcome.SignatureBlobDescriptor = &sigBlobDesc
 					outcome.Error = err
 					verificationOutcomes = append(verificationOutcomes, outcome)
 				}
-				continue
-			}
-
-			//
-			if !equal(&targetArtifactDescriptor, &artifactDescriptor) {
-				outcome.SignatureBlobDescriptor = &sigBlobDesc
-				outcome.Error = err
-				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
 
@@ -204,12 +197,12 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			// Descriptor of the signature blob that gets verified successfully
 			verifiedSigBlobDesc = sigBlobDesc
 
-			return nil
+			return doneVerification
 		}
 		return nil
 	})
 
-	if err != nil {
+	if err != nil && !errors.Is(err, doneVerification) {
 		return ocispec.Descriptor{}, nil, err
 	}
 
