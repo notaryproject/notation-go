@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/internal/common"
+	"github.com/notaryproject/notation-go/internal/pkix"
+	"github.com/notaryproject/notation-go/internal/slice"
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	sig "github.com/notaryproject/notation-go/signature"
@@ -219,7 +220,7 @@ func (v *verifier) verifyX509TrustedIdentities(trustPolicy *trustpolicy.TrustPol
 }
 
 func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
-	if common.IsPresent(common.Wildcard, trustPolicy.TrustedIdentities) {
+	if slice.Contains(slice.Wildcard, trustPolicy.TrustedIdentities) {
 		return nil
 	}
 
@@ -230,8 +231,8 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 		identityPrefix := identity[:i]
 		identityValue := identity[i+1:]
 
-		if identityPrefix == common.X509Subject {
-			parsedSubject, err := common.ParseDistinguishedName(identityValue)
+		if identityPrefix == slice.X509Subject {
+			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
 			if err != nil {
 				return err
 			}
@@ -245,12 +246,12 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 
 	leafCert := certs[0] // trusted identities only supported on the leaf cert
 
-	leafCertDN, err := common.ParseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
+	leafCertDN, err := pkix.ParseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
 	if err != nil {
 		return fmt.Errorf("error while parsing the certificate subject from the digital signature. error : %q", err)
 	}
 	for _, trustedX509Identity := range trustedX509Identities {
-		if common.IsSubsetDN(trustedX509Identity, leafCertDN) {
+		if pkix.IsSubsetDN(trustedX509Identity, leafCertDN) {
 			return nil
 		}
 	}
@@ -327,7 +328,7 @@ func getNonPluginExtendedCriticalAttributes(signerInfo *signature.SignerInfo) []
 	var criticalExtendedAttrs []signature.Attribute
 	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
 		attrStrKey, ok := attr.Key.(string)
-		if ok && common.IsPresent(attrStrKey, VerificationPluginHeaders) { // filter the plugin extended attributes
+		if ok && slice.Contains(attrStrKey, VerificationPluginHeaders) { // filter the plugin extended attributes
 			continue
 		}
 		criticalExtendedAttrs = append(criticalExtendedAttrs, attr)

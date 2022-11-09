@@ -65,19 +65,19 @@ var (
 )
 
 type Repository struct {
-	ResolveResponse                ocispec.Descriptor
-	ResolveError                   error
-	ListSignatureManifestsResponse []ocispec.Descriptor
-	ListSignatureManifestsError    error
-	GetResponse                    []byte
-	GetError                       error
+	ResolveResponse            ocispec.Descriptor
+	ResolveError               error
+	ListSignaturesResponse     []ocispec.Descriptor
+	ListSignaturesError        error
+	FetchSignatureBlobResponse []byte
+	FetchSignatureBlobError    error
 }
 
 func NewRepository() Repository {
 	return Repository{
-		ResolveResponse:                ImageDescriptor,
-		ListSignatureManifestsResponse: []ocispec.Descriptor{SigManfiestDescriptor},
-		GetResponse:                    MockCaValidSigEnv,
+		ResolveResponse:            ImageDescriptor,
+		ListSignaturesResponse:     []ocispec.Descriptor{SigManfiestDescriptor},
+		FetchSignatureBlobResponse: MockCaValidSigEnv,
 	}
 }
 
@@ -86,15 +86,15 @@ func (t Repository) Resolve(ctx context.Context, reference string) (ocispec.Desc
 }
 
 func (t Repository) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	err := fn(t.ListSignatureManifestsResponse)
+	err := fn(t.ListSignaturesResponse)
 	if err != nil {
 		return err
 	}
-	return t.ListSignatureManifestsError
+	return t.ListSignaturesError
 }
 
 func (t Repository) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
-	return t.GetResponse, JwsSigEnvDescriptor, t.GetError
+	return t.FetchSignatureBlobResponse, JwsSigEnvDescriptor, t.FetchSignatureBlobError
 }
 
 func (t Repository) PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
