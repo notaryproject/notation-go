@@ -45,10 +45,6 @@ func (resp *GetMetadataResponse) Validate() error {
 	return nil
 }
 
-func (GetMetadataResponse) Command() Command {
-	return CommandGetMetadata
-}
-
 // HasCapability return true if the metadata states that the
 // capability is supported.
 // Returns true if capability is empty.
