@@ -1,28 +1,27 @@
+// Package registry provides access to signatures in a registry
 package registry
 
 import (
 	"context"
 
-	"github.com/notaryproject/notation-go"
-	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// SignatureRepository provides a storage for signatures
-type SignatureRepository interface {
-	// ListSignatureManifests returns all signature manifests given the manifest digest
-	ListSignatureManifests(ctx context.Context, manifestDigest digest.Digest) ([]SignatureManifest, error)
-
-	// GetBlob downloads the content of the specified digest's Blob
-	GetBlob(ctx context.Context, digest digest.Digest) ([]byte, error)
-
-	// PutSignatureManifest creates and uploads an signature artifact linking the manifest and the signature
-	PutSignatureManifest(ctx context.Context, signature []byte, signatureMediaType string, manifest notation.Descriptor, annotations map[string]string) (notation.Descriptor, SignatureManifest, error)
-}
-
-// Repository provides functions for verification and signing workflows
+// Repository provides registry functionalities for storage and retrieval
+// of signature.
 type Repository interface {
-	SignatureRepository
-
 	// Resolve resolves a reference(tag or digest) to a manifest descriptor
-	Resolve(ctx context.Context, reference string) (notation.Descriptor, error)
+	Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error)
+
+	// ListSignatures returns signature manifests filtered by fn given the
+	// artifact manifest descriptor
+	ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error
+
+	// FetchSignatureBlob returns signature envelope blob and descriptor for
+	// given signature manifest descriptor
+	FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error)
+
+	// PushSignature creates and uploads an signature manifest along with its
+	// linked signature envelope blob.
+	PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error)
 }
