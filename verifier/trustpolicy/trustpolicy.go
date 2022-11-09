@@ -401,7 +401,7 @@ func isValidTrustStoreType(s string) bool {
 // statement that applies to the given registry URI. If no applicable trust
 // policy is found, returns an error
 // see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
-func GetApplicableTrustPolicy(trustPolicyDoc *Document, artifactReference string) (*TrustPolicy, error) {
+func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
 
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {

@@ -73,7 +73,7 @@ func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 	if err != nil {
 		return notation.Descriptor{}, nil, err
 	}
-	trustPolicy, err := trustpolicy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
+	trustPolicy, err := trustpolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return notation.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}

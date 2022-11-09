@@ -213,7 +213,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if err != nil {
 		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	trustPolicy, err := trustpolicy.GetApplicableTrustPolicy(trustpolicyDoc, artifactRef)
+	trustPolicy, err := trustpolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}

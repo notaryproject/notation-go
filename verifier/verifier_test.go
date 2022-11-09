@@ -280,7 +280,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PluginManager:  pluginManager,
 	}
 	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err := trustpolicy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	trustPolicy, err := (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
@@ -437,7 +437,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err = trustpolicy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	trustPolicy, err = (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
@@ -462,7 +462,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		PluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err = trustpolicy.GetApplicableTrustPolicy(&policyDocument, opts.ArtifactReference)
+	trustPolicy, err = (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
