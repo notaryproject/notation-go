@@ -253,12 +253,12 @@ func (v *Verifier) executePlugin(ctx context.Context, trustPolicy *TrustPolicy, 
 	if err != nil {
 		return nil, err
 	}
-	var attributesToProcess []interface{}
-	extendedAttributes := make(map[interface{}]interface{})
+	var attributesToProcess []string
+	extendedAttributes := make(map[string]interface{})
 
 	for _, attr := range getNonPluginExtendedCriticalAttributes(signerInfo) {
-		extendedAttributes[attr.Key] = attr.Value
-		attributesToProcess = append(attributesToProcess, attr.Key)
+		extendedAttributes[attr.Key.(string)] = attr.Value
+		attributesToProcess = append(attributesToProcess, attr.Key.(string))
 	}
 
 	var certChain [][]byte
@@ -316,10 +316,10 @@ func getNonPluginExtendedCriticalAttributes(signerInfo *signature.SignerInfo) []
 	var criticalExtendedAttrs []signature.Attribute
 	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
 		attrStrKey, ok := attr.Key.(string)
-		if ok && isPresent(attrStrKey, VerificationPluginHeaders) { // filter the plugin extended attributes
-			continue
+		if ok && !isPresent(attrStrKey, VerificationPluginHeaders) { // filter the plugin extended attributes
+			// TODO support other attribute types (COSE attribute keys can be numbers)
+			criticalExtendedAttrs = append(criticalExtendedAttrs, attr)
 		}
-		criticalExtendedAttrs = append(criticalExtendedAttrs, attr)
 	}
 	return criticalExtendedAttrs
 }
