@@ -148,7 +148,7 @@ type SignatureVerification struct {
 // if any rule is violated, returns an error
 func (policyDoc *Document) Validate() error {
 	// Validate Version
-	if !slice.Contains(policyDoc.Version, supportedPolicyVersions) {
+	if !slice.ContainsString(policyDoc.Version, supportedPolicyVersions) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
@@ -300,7 +300,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
-	if len(statement.TrustedIdentities) > 1 && slice.Contains(slice.Wildcard, statement.TrustedIdentities) {
+	if len(statement.TrustedIdentities) > 1 && slice.ContainsString(slice.Wildcard, statement.TrustedIdentities) {
 		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", statement.Name)
 	}
 
@@ -332,7 +332,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 	}
 
 	// Verify there are no overlapping DNs
-	if err := validateOverlappingDNs(statement.Name, parsedDNs); err != nil {
+	if err := hasOverlappingDNs(statement.Name, parsedDNs); err != nil {
 		return err
 	}
 
@@ -350,7 +350,7 @@ func validateRegistryScopes(policyDoc *Document) error {
 		if len(statement.RegistryScopes) == 0 {
 			return fmt.Errorf("trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
 		}
-		if len(statement.RegistryScopes) > 1 && slice.Contains(slice.Wildcard, statement.RegistryScopes) {
+		if len(statement.RegistryScopes) > 1 && slice.ContainsString(slice.Wildcard, statement.RegistryScopes) {
 			return fmt.Errorf("trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
 		}
 		for _, scope := range statement.RegistryScopes {
@@ -374,7 +374,7 @@ func validateRegistryScopes(policyDoc *Document) error {
 	return nil
 }
 
-func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
+func hasOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
 	for i, dn1 := range parsedDNs {
 		for j, dn2 := range parsedDNs {
 			if i != j && pkix.IsSubsetDN(dn1.ParsedMap, dn2.ParsedMap) {
@@ -411,11 +411,11 @@ func GetApplicableTrustPolicy(trustPolicyDoc *Document, artifactReference string
 	var wildcardPolicy *TrustPolicy
 	var applicablePolicy *TrustPolicy
 	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
-		if slice.Contains(slice.Wildcard, policyStatement.RegistryScopes) {
+		if slice.ContainsString(slice.Wildcard, policyStatement.RegistryScopes) {
 			// we need to deep copy because we can't use the loop variable
 			// address. see https://stackoverflow.com/a/45967429
 			wildcardPolicy = (&policyStatement).clone()
-		} else if slice.Contains(artifactPath, policyStatement.RegistryScopes) {
+		} else if slice.ContainsString(artifactPath, policyStatement.RegistryScopes) {
 			applicablePolicy = (&policyStatement).clone()
 		}
 	}
