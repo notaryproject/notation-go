@@ -95,8 +95,7 @@ type VerifyOptions struct {
 
 // ValidationResult encapsulates the verification result (passed or failed)
 // for a verification type, including the desired verification action as
-//
-//	specified in the trust policy
+// specified in the trust policy
 type ValidationResult struct {
 	// Type of verification that is performed
 	Type trustpolicy.ValidationType
@@ -141,51 +140,21 @@ type Verifier interface {
 	// Verify verifies the signature blob and returns the signature blob
 	// descriptor upon successful verification.
 	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error)
-
-	// TrustPolicyDocument gets the validated trust policy document.
-	TrustPolicyDocument() (*trustpolicy.Document, error)
 }
 
-/*
-Verify performs signature verification on each of the notation supported
-verification types (like integrity, authenticity, etc.) and return the
-verification outcomes.
-
-Given an artifact reference, Verify will retrieve all the signatures associated
-with the reference and perform signature verification.
-A signature is considered not valid if verification fails due to any one of the
-following reasons
-
- 1. Artifact Reference is not associated with a signature i.e. unsigned
- 2. Registry is unavailable to retrieve the signature
- 3. Signature does not satisfy the verification rules configured in the trust
-    policy
- 4. Signature specifies a plugin for extended verification and that throws an
-    error
- 5. Digest in the signature does not match the digest present in the reference
-
-If each and every signature associated with the reference fail the verification,
-then Verify will return `ErrorVerificationFailed` error along with an array
-of `VerificationOutcome`.
-
-# Callers can pass the verification plugin config in VerifyOptions.PluginConfig
-
-For more details on signature verification, see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
-*/
+// Verify performs signature verification on each of the notation supported
+// verification types (like integrity, authenticity, etc.) and return the
+// verification outcomes.
+// For more details on signature verification, see
+// https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
-	artifactRef := opts.ArtifactReference
-	trustpolicyDoc, err := verifier.TrustPolicyDocument()
-	if err != nil {
-		return ocispec.Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
-	}
-	trustPolicy, err := trustpolicyDoc.GetApplicableTrustPolicy(artifactRef)
-	if err != nil {
-		return ocispec.Descriptor{}, nil, ErrorNoApplicableTrustPolicy{Msg: err.Error()}
-	}
-
 	var verificationOutcomes []*VerificationOutcome
-	// ignore the error since we already validated the policy document
-	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
+	artifactRef := opts.ArtifactReference
+	_, outcome, err := verifier.Verify(ctx, nil, opts) // passing nil signature to
+	if outcome == nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+	verificationLevel := outcome.VerificationLevel
 	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
 		verificationOutcomes = append(verificationOutcomes, &VerificationOutcome{VerificationLevel: verificationLevel})
 		return ocispec.Descriptor{}, verificationOutcomes, nil
