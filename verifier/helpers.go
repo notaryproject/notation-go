@@ -37,11 +37,11 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)
 	}
 
-	var namedStoreSet = make(map[string]struct{})
+	var processedStoreSet = make(map[string]struct{})
 	var certificates []*x509.Certificate
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 	for _, trustStore := range policy.TrustStores {
-		if _, ok := namedStoreSet[trustStore]; ok {
+		if _, ok := processedStoreSet[trustStore]; ok {
 			// we loaded this trust store already
 			continue
 		}
@@ -57,7 +57,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 			return nil, err
 		}
 		certificates = append(certificates, certs...)
-		namedStoreSet[trustStore] = struct{}{}
+		processedStoreSet[trustStore] = struct{}{}
 	}
 	return certificates, nil
 }

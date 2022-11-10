@@ -34,14 +34,7 @@ func New() (notation.Verifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = policyDocument.Validate(); err != nil {
-		return nil, err
-	}
-
-	return &verifier{
-		TrustPolicyDoc: policyDocument,
-		PluginManager:  manager.New(dir.PluginFS()),
-	}, nil
+	return NewVerifier(policyDocument, manager.New(dir.PluginFS()))
 }
 
 // NewVerifier creates a new verifier given trustPolicy and pluginManager
@@ -56,11 +49,8 @@ func NewVerifier(trustPolicy *trustpolicy.Document, pluginManager *manager.Manag
 }
 
 // TrustPolicyDocument gets the validated trust policy document.
-func (v *verifier) TrustPolicyDocument() (*trustpolicy.Document, error) {
-	if err := v.TrustPolicyDoc.Validate(); err != nil {
-		return nil, err
-	}
-	return v.TrustPolicyDoc, nil
+func (v *verifier) TrustPolicyDocument() *trustpolicy.Document {
+	return v.TrustPolicyDoc
 }
 
 // Verify verifies the signature blob and returns the verified descriptor
@@ -70,10 +60,7 @@ func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 	envelopeMediaType := opts.SignatureMediaType
 	pluginConfig := opts.PluginConfig
 
-	trustpolicyDoc, err := v.TrustPolicyDocument()
-	if err != nil {
-		return ocispec.Descriptor{}, nil, err
-	}
+	trustpolicyDoc := v.TrustPolicyDocument()
 	trustPolicy, err := trustpolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
