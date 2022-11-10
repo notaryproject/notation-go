@@ -7,17 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verification/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/content"
 )
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
+
+var errDoneVerification = errors.New("done verification")
 
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
@@ -49,11 +50,11 @@ type Signer interface {
 // remote.
 // The descriptor of the sign content is returned upon sucessful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts SignOptions) (ocispec.Descriptor, error) {
-	ociDesc, err := repo.Resolve(ctx, opts.ArtifactReference)
+	targetDesc, err := repo.Resolve(ctx, opts.ArtifactReference)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	sig, signerInfo, err := signer.Sign(ctx, ociDesc, opts.SignatureMediaType, opts)
+	sig, signerInfo, err := signer.Sign(ctx, targetDesc, opts.SignatureMediaType, opts)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -61,12 +62,12 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	_, _, err = repo.PushSignature(ctx, sig, opts.SignatureMediaType, ociDesc, annotations)
+	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
 
-	return ociDesc, nil
+	return targetDesc, nil
 }
 
 // VerifyOptions contains parameters for Verifier.Verify.
@@ -118,10 +119,6 @@ type VerificationOutcome struct {
 	// and their results
 	VerificationResults []*ValidationResult
 
-	// SignedAnnotations contains arbitrary metadata relating to the target
-	// artifact that was signed
-	SignedAnnotations map[string]string
-
 	// Error that caused the verification to fail (if it fails)
 	Error error
 }
@@ -130,6 +127,8 @@ type VerificationOutcome struct {
 type Verifier interface {
 	// Verify verifies the signature blob and returns the artifact
 	// descriptor upon successful verification.
+	// If signature == nil and the verification level is not 'skip', an error
+	// will be returned.
 	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error)
 }
 
@@ -137,48 +136,38 @@ type Verifier interface {
 // verification types (like integrity, authenticity, etc.) and return the
 // verification outcomes.
 // For more details on signature verification, see
-// https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#signature-verification
+// https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	var verificationOutcomes []*VerificationOutcome
 	artifactRef := opts.ArtifactReference
 	// passing nil signature to check 'skip'
 	_, outcome, err := verifier.Verify(ctx, nil, opts)
-	if outcome == nil {
-		return ocispec.Descriptor{}, nil, err
-	}
-	verificationLevel := outcome.VerificationLevel
-	if verificationLevel.Name == trustpolicy.LevelSkip.Name {
-		verificationOutcomes = append(verificationOutcomes, &VerificationOutcome{VerificationLevel: verificationLevel})
-		return ocispec.Descriptor{}, verificationOutcomes, nil
+	if err != nil {
+		if outcome == nil {
+			return ocispec.Descriptor{}, nil, err
+		}
+	} else if outcome.VerificationLevel.Name == trustpolicy.LevelSkip.Name {
+		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
 
 	// get signature manifests
 	var success bool
-	doneVerification := errors.New("done verification")
-	var verifiedSigBlobDesc ocispec.Descriptor
+
+	var targetArtifactDesc ocispec.Descriptor
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
-		// if already verified successfully, no need to continue
-		if success {
-			return nil
-		}
-
-		if len(signatureManifests) < 1 {
-			return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", artifactRef)}
-		}
-
 		// process signatures
-		for _, sigManifest := range signatureManifests {
+		for _, sigManifestDesc := range signatureManifests {
 			// get signature envelope
-			sigBlob, sigBlobDesc, err := repo.FetchSignatureBlob(ctx, sigManifest)
+			sigBlob, sigBlobDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactRef, err.Error())}
 			}
 			payloadArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
-			if err == nil && !equal(&payloadArtifactDescriptor, &artifactDescriptor) {
+			if err == nil && !content.Equal(payloadArtifactDescriptor, artifactDescriptor) {
 				err = errors.New("payloadArtifactDescriptor does not match artifactDescriptor")
 			}
 			if err != nil {
@@ -195,14 +184,14 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			verificationOutcomes = append(verificationOutcomes, outcome)
 			success = true
 			// Descriptor of the signature blob that gets verified successfully
-			verifiedSigBlobDesc = sigBlobDesc
+			targetArtifactDesc = payloadArtifactDescriptor
 
-			return doneVerification
+			return errDoneVerification
 		}
 		return nil
 	})
 
-	if err != nil && !errors.Is(err, doneVerification) {
+	if err != nil && !errors.Is(err, errDoneVerification) {
 		return ocispec.Descriptor{}, nil, err
 	}
 
@@ -210,33 +199,29 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if success {
 		// signature verification succeeds if there is at least one good
 		// signature
-		return verifiedSigBlobDesc, verificationOutcomes, nil
+		return targetArtifactDesc, verificationOutcomes, nil
+	}
+
+	// At this point, it means no signature is associated with the reference
+	if len(verificationOutcomes) == 0 {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", artifactRef)}
 	}
 
 	return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, error) {
-	annotations := make(map[string]string)
 	var thumbprints []string
-	certChain := signerInfo.CertificateChain
-	for _, cert := range certChain {
+	for _, cert := range signerInfo.CertificateChain {
 		checkSum := sha256.Sum256(cert.Raw)
-		thumbprints = append(thumbprints, strings.ToLower(hex.EncodeToString(checkSum[:])))
+		thumbprints = append(thumbprints, hex.EncodeToString(checkSum[:]))
 	}
 	val, err := json.Marshal(thumbprints)
 	if err != nil {
 		return nil, err
 	}
-	annotations[annotationX509ChainThumbprint] = string(val)
 
-	return annotations, nil
-}
-
-// Equal reports whether d and t points to the same content.
-func equal(d *ocispec.Descriptor, t *ocispec.Descriptor) bool {
-	return d.MediaType == t.MediaType &&
-		d.Digest == t.Digest &&
-		d.Size == t.Size &&
-		reflect.DeepEqual(d.Annotations, t.Annotations)
+	return map[string]string{
+		annotationX509ChainThumbprint: string(val),
+	}, nil
 }
