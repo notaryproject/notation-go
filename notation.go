@@ -200,16 +200,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		return ocispec.Descriptor{}, nil, err
 	}
 
+	// If there's no signature associated with the reference
+	if len(verificationOutcomes) == 0 {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", artifactRef)}
+	}
+
 	// check whether verification was successful or not
 	if verificationOutcomes[len(verificationOutcomes)-1].Error == nil {
 		// signature verification succeeds if there is at least one good
 		// signature
 		return targetArtifactDesc, verificationOutcomes, nil
-	}
-
-	// If there's no signature associated with the reference
-	if len(verificationOutcomes) == 0 {
-		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", artifactRef)}
 	}
 
 	return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
