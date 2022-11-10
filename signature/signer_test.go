@@ -22,6 +22,7 @@ import (
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type keyCertPair struct {
@@ -282,9 +283,9 @@ func TestExternalSigner_SignEnvelope(t *testing.T) {
 }
 
 // generateSigningContent generates common signing content with options for testing.
-func generateSigningContent(tsa *timestamptest.TSA) (notation.Descriptor, notation.SignOptions) {
+func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notation.SignOptions) {
 	content := "hello world"
-	desc := notation.Descriptor{
+	desc := ocispec.Descriptor{
 		MediaType: "test media type",
 		Digest:    digest.Canonical.FromString(content),
 		Size:      int64(len(content)),
@@ -297,10 +298,8 @@ func generateSigningContent(tsa *timestamptest.TSA) (notation.Descriptor, notati
 		Expiry: time.Now().UTC().Add(time.Hour),
 	}
 	if tsa != nil {
-		sOpts.TSA = tsa
 		tsaRoots := x509.NewCertPool()
 		tsaRoots.AddCert(tsa.Certificate())
-		sOpts.TSAVerifyOptions.Roots = tsaRoots
 	}
 	return desc, sOpts
 }

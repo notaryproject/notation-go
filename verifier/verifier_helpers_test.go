@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"errors"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -11,13 +12,14 @@ import (
 )
 
 func TestIsCriticalFailure(t *testing.T) {
+	var dummyError = errors.New("critical failure")
 	tests := []struct {
 		result          notation.ValidationResult
 		criticalFailure bool
 	}{
-		{notation.ValidationResult{Action: trustpolicy.ActionEnforce, Success: false}, true},
-		{notation.ValidationResult{Action: trustpolicy.ActionLog, Success: false}, false},
-		{notation.ValidationResult{Action: trustpolicy.ActionSkip, Success: false}, false},
+		{notation.ValidationResult{Action: trustpolicy.ActionEnforce, Error: dummyError}, true},
+		{notation.ValidationResult{Action: trustpolicy.ActionLog, Error: dummyError}, false},
+		{notation.ValidationResult{Action: trustpolicy.ActionSkip, Error: dummyError}, false},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

@@ -12,7 +12,11 @@ import (
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/plugin"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+// signingAgent is the unprotected header field used by signature.
+var signingAgent = "Notation/1.0.0"
 
 // pluginSigner signs artifacts and generates signatures.
 type pluginSigner struct {
@@ -45,7 +49,7 @@ func NewSignerPlugin(runner plugin.Runner, keyID string, pluginConfig map[string
 }
 
 // Sign signs the artifact described by its descriptor and returns the marshalled envelope.
-func (s *pluginSigner) Sign(ctx context.Context, desc notation.Descriptor, envelopeMediaType string, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, envelopeMediaType string, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	metadata, err := s.getMetadata(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -96,7 +100,7 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 	return resp, nil
 }
 
-func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	// for external plugin, pass keySpec and config before signing
 	if extProvider, ok := s.sigProvider.(*externalProvider); ok {
 		config := s.mergeConfig(opts.PluginConfig)
@@ -120,7 +124,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc notation.Desc
 	return generateSignatureEnvelope(ctx, s.envelopeMediaType, s.sigProvider, desc, opts)
 }
 
-func generateSignatureEnvelope(ctx context.Context, mediaType string, signer signature.Signer, desc notation.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func generateSignatureEnvelope(ctx context.Context, mediaType string, signer signature.Signer, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	// Generate payload to be signed.
 	payload := envelope.Payload{TargetArtifact: desc}
 	payloadBytes, err := json.Marshal(payload)
@@ -130,14 +134,14 @@ func generateSignatureEnvelope(ctx context.Context, mediaType string, signer sig
 
 	signReq := &signature.SignRequest{
 		Payload: signature.Payload{
-			ContentType: envelope.MediaTypePayloadV1,
+			ContentType: mediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
 		Signer:                   signer,
 		SigningTime:              time.Now(),
 		ExtendedSignedAttributes: nil,
 		SigningScheme:            signature.SigningSchemeX509,
-		SigningAgent:             envelope.SigningAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
+		SigningAgent:             signingAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
 	}
 
 	if !opts.Expiry.IsZero() {
@@ -180,7 +184,7 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 	return c
 }
 
-func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notation.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	payload := envelope.Payload{TargetArtifact: desc}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -192,7 +196,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 		KeyID:                 s.keyID,
 		Payload:               payloadBytes,
 		SignatureEnvelopeType: s.envelopeMediaType,
-		PayloadType:           envelope.MediaTypePayloadV1,
+		PayloadType:           mediaTypePayloadV1,
 		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
 	out, err := s.sigProvider.Run(ctx, req)
@@ -240,8 +244,8 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc notat
 
 // descriptorPartialEqual checks if the both descriptors point to the same resource
 // and that newDesc hasn't replaced or overridden existing annotations.
-func descriptorPartialEqual(original, newDesc notation.Descriptor) bool {
-	if !original.Equal(newDesc) {
+func descriptorPartialEqual(original, newDesc ocispec.Descriptor) bool {
+	if !equal(&original, &newDesc) {
 		return false
 	}
 	// Plugins may append additional annotations but not replace/override existing.
@@ -263,4 +267,11 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 		certs[i] = cert
 	}
 	return certs, nil
+}
+
+// Equal reports whether d and t points to the same content.
+func equal(d *ocispec.Descriptor, t *ocispec.Descriptor) bool {
+	return d.MediaType == t.MediaType &&
+		d.Digest == t.Digest &&
+		d.Size == t.Size
 }

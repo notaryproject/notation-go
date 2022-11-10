@@ -12,6 +12,7 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/manager"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // verifier implements notation.Verifier
@@ -64,35 +65,37 @@ func (v *verifier) TrustPolicyDocument() (*trustpolicy.Document, error) {
 
 // Verify verifies the signature blob and returns the verified descriptor
 // upon successful verification.
-func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (notation.Descriptor, *notation.VerificationOutcome, error) {
+func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (ocispec.Descriptor, *notation.VerificationOutcome, error) {
 	artifactRef := opts.ArtifactReference
 	envelopeMediaType := opts.SignatureMediaType
 	pluginConfig := opts.PluginConfig
 
 	trustpolicyDoc, err := v.TrustPolicyDocument()
 	if err != nil {
-		return notation.Descriptor{}, nil, err
+		return ocispec.Descriptor{}, nil, err
 	}
 	trustPolicy, err := trustpolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
-		return notation.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		return ocispec.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
+	// ignore the error since we already validated the policy document
+	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
 	outcome := &notation.VerificationOutcome{
 		VerificationResults: []*notation.ValidationResult{},
-		VerificationLevel:   opts.VerificationLevel,
+		VerificationLevel:   verificationLevel,
 	}
 	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
 	if err != nil {
 		outcome.Error = err
-		return notation.Descriptor{}, outcome, err
+		return ocispec.Descriptor{}, outcome, err
 	}
 
 	payload := &envelope.Payload{}
 	err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
 	if err != nil {
 		outcome.Error = err
-		return notation.Descriptor{}, outcome, err
+		return ocispec.Descriptor{}, outcome, err
 	}
 	outcome.SignedAnnotations = payload.TargetArtifact.Annotations
 
@@ -231,7 +234,6 @@ func (v *verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 					}
 				}
 
-				authenticityResult.Success = false
 				authenticityResult.Error = fmt.Errorf("trusted identify verification by plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason)
 
 				if isCriticalFailure(authenticityResult) {
@@ -242,16 +244,14 @@ func (v *verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 			var revocationResult *notation.ValidationResult
 			if !pluginResult.Success {
 				revocationResult = &notation.ValidationResult{
-					Success: false,
-					Error:   fmt.Errorf("revocation check by verification plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason),
-					Type:    trustpolicy.TypeRevocation,
-					Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+					Error:  fmt.Errorf("revocation check by verification plugin %q failed with reason %q", verificationPluginName, pluginResult.Reason),
+					Type:   trustpolicy.TypeRevocation,
+					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 				}
 			} else {
 				revocationResult = &notation.ValidationResult{
-					Success: true,
-					Type:    trustpolicy.TypeRevocation,
-					Action:  outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+					Type:   trustpolicy.TypeRevocation,
+					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 				}
 			}
 			outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
