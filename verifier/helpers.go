@@ -70,18 +70,3 @@ func isPresentAny(val interface{}, values []interface{}) bool {
 	}
 	return false
 }
-
-func getArtifactDigestFromReference(artifactReference string) (string, error) {
-	invalidUriErr := fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
-	i := strings.LastIndex(artifactReference, "@")
-	if i < 0 || i+1 == len(artifactReference) {
-		return "", invalidUriErr
-	}
-
-	j := strings.LastIndex(artifactReference[i+1:], ":")
-	if j < 0 || j+1 == len(artifactReference[i+1:]) {
-		return "", invalidUriErr
-	}
-
-	return artifactReference[i+1:], nil
-}

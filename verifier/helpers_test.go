@@ -3,9 +3,11 @@ package verifier
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -116,4 +118,19 @@ func TestLoadX509TrustStore(t *testing.T) {
 	if len(caCerts) != 3 || len(saCerts) != 3 {
 		t.Fatalf("Both of the named stores should have 3 certs")
 	}
+}
+
+func getArtifactDigestFromReference(artifactReference string) (string, error) {
+	invalidUriErr := fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
+	i := strings.LastIndex(artifactReference, "@")
+	if i < 0 || i+1 == len(artifactReference) {
+		return "", invalidUriErr
+	}
+
+	j := strings.LastIndex(artifactReference[i+1:], ":")
+	if j < 0 || j+1 == len(artifactReference[i+1:]) {
+		return "", invalidUriErr
+	}
+
+	return artifactReference[i+1:], nil
 }
