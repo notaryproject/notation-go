@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin"
 )
 
 func TestProvider_Builtin_NewProvider(t *testing.T) {

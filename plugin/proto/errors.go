@@ -1,4 +1,4 @@
-package plugin
+package proto
 
 import (
 	"encoding/json"

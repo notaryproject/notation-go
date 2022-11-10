@@ -18,8 +18,8 @@ func (s sysFSMock) SysPath(items ...string) (string, error) {
 	return filepath.Join(pathItems...), nil
 }
 
-func NewSysFSMock(fsys fs.FS, root string) dir.SysFS {
+func NewSysFSMock(fsys fs.FS) dir.SysFS {
 	return sysFSMock{
 		FS:   fsys,
-		root: root}
+		root: ""}
 }
