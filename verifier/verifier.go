@@ -6,19 +6,19 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	"github.com/notaryproject/notation-go/internal/plugin/manager"
-	"github.com/notaryproject/notation-go/notation"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // verifier implements notation.Verifier
 type verifier struct {
-	TrustPolicyDoc *trustpolicy.Document
-	PluginManager  pluginManager
+	trustPolicyDoc *trustpolicy.Document
+	pluginManager  pluginManager
 }
 
 // pluginManager is for mocking in unit tests
@@ -43,14 +43,9 @@ func NewVerifier(trustPolicy *trustpolicy.Document, pluginManager *manager.Manag
 		return nil, err
 	}
 	return &verifier{
-		TrustPolicyDoc: trustPolicy,
-		PluginManager:  pluginManager,
+		trustPolicyDoc: trustPolicy,
+		pluginManager:  pluginManager,
 	}, nil
-}
-
-// TrustPolicyDocument gets the validated trust policy document.
-func (v *verifier) TrustPolicyDocument() *trustpolicy.Document {
-	return v.TrustPolicyDoc
 }
 
 // Verify verifies the signature blob and returns the verified descriptor
@@ -60,8 +55,7 @@ func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 	envelopeMediaType := opts.SignatureMediaType
 	pluginConfig := opts.PluginConfig
 
-	trustpolicyDoc := v.TrustPolicyDocument()
-	trustPolicy, err := trustpolicyDoc.GetApplicableTrustPolicy(artifactRef)
+	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
@@ -84,7 +78,6 @@ func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 		outcome.Error = err
 		return ocispec.Descriptor{}, outcome, err
 	}
-	outcome.SignedAnnotations = payload.TargetArtifact.Annotations
 
 	return payload.TargetArtifact, outcome, nil
 }
@@ -107,7 +100,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		return err
 	}
 	if err == nil {
-		installedPlugin, err := v.PluginManager.Get(ctx, verificationPluginName)
+		installedPlugin, err := v.pluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}

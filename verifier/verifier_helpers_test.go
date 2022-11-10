@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
-	"github.com/notaryproject/notation-go/notation"
+	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 )
 

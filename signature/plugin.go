@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/plugin"
-	"github.com/notaryproject/notation-go/notation"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 

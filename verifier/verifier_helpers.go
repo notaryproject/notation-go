@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/pkix"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	"github.com/notaryproject/notation-go/internal/slice"
 	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
-	"github.com/notaryproject/notation-go/notation"
 	sig "github.com/notaryproject/notation-go/signature"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 )
@@ -293,7 +293,7 @@ func (v *verifier) executePlugin(ctx context.Context, trustPolicy *trustpolicy.T
 		TrustPolicy:     policy,
 		PluginConfig:    pluginConfig,
 	}
-	pluginRunner, err := v.PluginManager.Runner(verificationPluginName)
+	pluginRunner, err := v.pluginManager.Runner(verificationPluginName)
 	if err != nil {
 		return nil, notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while loading the verification plugin %q: %s", verificationPluginName, err)}
 	}

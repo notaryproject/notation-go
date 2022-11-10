@@ -48,7 +48,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
-	errorMessage := fmt.Sprintf("no signatures are associated with %q, make sure the image was signed successfully", mock.SampleArtifactUri)
+	errorMessage := fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
