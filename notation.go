@@ -176,6 +176,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 					outcome.Error = err
 					verificationOutcomes = append(verificationOutcomes, outcome)
 				}
+				// TODO: add log here to track when err != nil,
+				// but outcome == nil
 				continue
 			}
 
