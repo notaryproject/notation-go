@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -140,31 +141,32 @@ type Verifier interface {
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
-	var verificationOutcomes []*VerificationOutcome
-	artifactRef := opts.ArtifactReference
 	// passing nil signature to check 'skip'
 	_, outcome, err := verifier.Verify(ctx, nil, opts)
 	if err != nil {
 		if outcome == nil {
 			return ocispec.Descriptor{}, nil, err
 		}
-	} else if outcome.VerificationLevel.Name == trustpolicy.LevelSkip.Name {
+	} else if reflect.DeepEqual(outcome.VerificationLevel, trustpolicy.LevelSkip) {
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
-
 	// get signature manifests
-	var targetArtifactDesc ocispec.Descriptor
+	artifactRef := opts.ArtifactReference
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
+
+	var verificationOutcomes []*VerificationOutcome
+	var targetArtifactDesc ocispec.Descriptor
 	count := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
-		if count >= verificationSignatureNumLimit {
-			return fmt.Errorf("number of signatures attempted to be verified should be less than: %d", verificationSignatureNumLimit)
-		}
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
+			if count >= verificationSignatureNumLimit {
+				return ErrorVerificationFailed{Msg: fmt.Sprintf("number of signatures associated with an artifact should be less than: %d", verificationSignatureNumLimit)}
+			}
+			count++
 			// get signature envelope
 			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
@@ -186,7 +188,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			}
 
 			// At this point, we've found a signature verified successfully
-			outcome.RawSignature = sigBlob
 			verificationOutcomes = append(verificationOutcomes, outcome)
 			// Descriptor of the signature blob that gets verified successfully
 			targetArtifactDesc = payloadArtifactDescriptor
@@ -206,13 +207,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	// check whether verification was successful or not
-	if verificationOutcomes[len(verificationOutcomes)-1].Error == nil {
-		// signature verification succeeds if there is at least one good
-		// signature
-		return targetArtifactDesc, verificationOutcomes, nil
+	if verificationOutcomes[len(verificationOutcomes)-1].Error != nil {
+		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
-
-	return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
+	return targetArtifactDesc, verificationOutcomes, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, error) {
