@@ -18,6 +18,8 @@ import (
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
 
+const verificationSignatureNumLimit = 50
+
 var errDoneVerification = errors.New("done verification")
 
 // SignOptions contains parameters for Signer.Sign.
@@ -104,8 +106,8 @@ type ValidationResult struct {
 // the verification level and results for each verification type that was
 // performed.
 type VerificationOutcome struct {
-	// SignatureBlobDescriptor is descriptor of the signature envelope blob
-	SignatureBlobDescriptor *ocispec.Descriptor
+	// RawSignature is the signature envelope blob
+	RawSignature []byte
 
 	// EnvelopeContent contains the details of the digital signature and
 	// associated metadata
@@ -127,8 +129,8 @@ type VerificationOutcome struct {
 type Verifier interface {
 	// Verify verifies the signature blob and returns the artifact
 	// descriptor upon successful verification.
-	// If signature == nil and the verification level is not 'skip', an error
-	// will be returned.
+	// If nil signature is present and the verification level is not 'skip',
+	// an error will be returned.
 	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error)
 }
 
@@ -151,40 +153,41 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	// get signature manifests
-	var success bool
-
 	var targetArtifactDesc ocispec.Descriptor
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
+	count := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
+		if count >= verificationSignatureNumLimit {
+			return fmt.Errorf("number of signatures attempted to be verified should be less than: %d", verificationSignatureNumLimit)
+		}
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
 			// get signature envelope
-			sigBlob, sigBlobDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
+			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
-				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %s", sigBlobDesc.Digest, artifactRef, err.Error())}
+				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
 			payloadArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
-			if err == nil && !content.Equal(payloadArtifactDescriptor, artifactDescriptor) {
-				err = errors.New("payloadArtifactDescriptor does not match artifactDescriptor")
-			}
 			if err != nil {
-				if outcome != nil {
-					outcome.SignatureBlobDescriptor = &sigBlobDesc
-					outcome.Error = err
-					verificationOutcomes = append(verificationOutcomes, outcome)
+				if outcome == nil {
+					// TODO: log fatal error
+					return err
 				}
-				// TODO: add log here to track when err != nil,
-				// but outcome == nil
+				verificationOutcomes = append(verificationOutcomes, outcome)
+				continue
+			}
+			if !content.Equal(payloadArtifactDescriptor, artifactDescriptor) {
+				outcome.Error = errors.New("content descriptor mismatch")
+				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
 
 			// At this point, we've found a signature verified successfully
-			outcome.SignatureBlobDescriptor = &sigBlobDesc
+			outcome.RawSignature = sigBlob
 			verificationOutcomes = append(verificationOutcomes, outcome)
-			success = true
 			// Descriptor of the signature blob that gets verified successfully
 			targetArtifactDesc = payloadArtifactDescriptor
 
@@ -198,13 +201,13 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	// check whether verification was successful or not
-	if success {
+	if verificationOutcomes[len(verificationOutcomes)-1].Error == nil {
 		// signature verification succeeds if there is at least one good
 		// signature
 		return targetArtifactDesc, verificationOutcomes, nil
 	}
 
-	// At this point, it means no signature is associated with the reference
+	// If there's no signature associated with the reference
 	if len(verificationOutcomes) == 0 {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", artifactRef)}
 	}
