@@ -10,7 +10,7 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	notation "github.com/notaryproject/notation-go/internal"
-	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin"
 )
 
 // pluginSigner signs artifacts and generates signatures.
