@@ -11,9 +11,9 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/internal/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin/manager"
 	"github.com/notaryproject/notation-go/internal/registry"
-	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/manager"
 
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"

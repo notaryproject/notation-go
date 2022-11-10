@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/manager"
+	"github.com/notaryproject/notation-go/internal/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin/manager"
 )
 
 func preparePlugin(t *testing.T) string {
