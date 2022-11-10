@@ -50,6 +50,8 @@ func NewVerifier(trustPolicy *trustpolicy.Document, pluginManager *manager.Manag
 
 // Verify verifies the signature blob and returns the verified descriptor
 // upon successful verification.
+// Note: Verify only verifies the signature by design, end user should
+// compare the signature payload with the artifact target.
 func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (ocispec.Descriptor, *notation.VerificationOutcome, error) {
 	artifactRef := opts.ArtifactReference
 	envelopeMediaType := opts.SignatureMediaType
