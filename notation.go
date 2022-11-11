@@ -88,8 +88,8 @@ type VerifyOptions struct {
 	PluginConfig map[string]string
 
 	// MaxSignatureAttempts is the maximum number of signature envelopes that
-	// can be associated with the target artifact. If not set by user, it will
-	// be set to 50 by default.
+	// can be associated with the target artifact. If set to less than or equals
+	// to zero, value defaults to 50.
 	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
 	// for signle signature verification, and therefore, does not use it.
 	MaxSignatureAttempts int
@@ -170,7 +170,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		// Set MaxVerificationLimit to 50 as default
 		opts.MaxSignatureAttempts = maxVerificationLimitDefault
 	}
-	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
+	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
 	count := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
