@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -18,7 +19,7 @@ import (
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
 
-const verificationSignatureNumLimit = 50
+const maxVerificationLimitDefault = 50
 
 var errDoneVerification = errors.New("done verification")
 
@@ -85,6 +86,13 @@ type VerifyOptions struct {
 
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
+
+	// MaxSignatureAttempts is the maximum number of signature envelopes that
+	// can be associated with the target artifact. If set to less than or equals
+	// to zero, value defaults to 50.
+	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
+	// for signle signature verification, and therefore, does not use it.
+	MaxSignatureAttempts int
 }
 
 // ValidationResult encapsulates the verification result (passed or failed)
@@ -140,31 +148,37 @@ type Verifier interface {
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
-	var verificationOutcomes []*VerificationOutcome
-	artifactRef := opts.ArtifactReference
 	// passing nil signature to check 'skip'
 	_, outcome, err := verifier.Verify(ctx, nil, opts)
 	if err != nil {
 		if outcome == nil {
 			return ocispec.Descriptor{}, nil, err
 		}
-	} else if outcome.VerificationLevel.Name == trustpolicy.LevelSkip.Name {
+	} else if reflect.DeepEqual(outcome.VerificationLevel, trustpolicy.LevelSkip) {
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
-
 	// get signature manifests
-	var targetArtifactDesc ocispec.Descriptor
+	artifactRef := opts.ArtifactReference
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
+
+	var verificationOutcomes []*VerificationOutcome
+	var targetArtifactDesc ocispec.Descriptor
+	if opts.MaxSignatureAttempts <= 0 {
+		// Set MaxVerificationLimit to 50 as default
+		opts.MaxSignatureAttempts = maxVerificationLimitDefault
+	}
+	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
 	count := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
-		if count >= verificationSignatureNumLimit {
-			return fmt.Errorf("number of signatures attempted to be verified should be less than: %d", verificationSignatureNumLimit)
-		}
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
+			if count >= opts.MaxSignatureAttempts {
+				break
+			}
+			count++
 			// get signature envelope
 			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
@@ -186,17 +200,24 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			}
 
 			// At this point, we've found a signature verified successfully
-			outcome.RawSignature = sigBlob
 			verificationOutcomes = append(verificationOutcomes, outcome)
 			// Descriptor of the signature blob that gets verified successfully
 			targetArtifactDesc = payloadArtifactDescriptor
 
 			return errDoneVerification
 		}
+
+		if count >= opts.MaxSignatureAttempts {
+			return errExceededMaxVerificationLimit
+		}
+
 		return nil
 	})
 
 	if err != nil && !errors.Is(err, errDoneVerification) {
+		if errors.Is(err, errExceededMaxVerificationLimit) {
+			return ocispec.Descriptor{}, verificationOutcomes, err
+		}
 		return ocispec.Descriptor{}, nil, err
 	}
 
@@ -206,13 +227,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	// check whether verification was successful or not
-	if verificationOutcomes[len(verificationOutcomes)-1].Error == nil {
-		// signature verification succeeds if there is at least one good
-		// signature
-		return targetArtifactDesc, verificationOutcomes, nil
+	if verificationOutcomes[len(verificationOutcomes)-1].Error != nil {
+		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
 
-	return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
+	return targetArtifactDesc, verificationOutcomes, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, error) {
