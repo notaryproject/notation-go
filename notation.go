@@ -87,18 +87,12 @@ type VerifyOptions struct {
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
 
-	// MaxVerificationLimit is the maximum number of signature envelopes that
+	// MaxSignatureAttempts is the maximum number of signature envelopes that
 	// can be associated with the target artifact. If not set by user, it will
 	// be set to 50 by default.
 	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
 	// for signle signature verification, and therefore, does not use it.
-	MaxVerificationLimit int
-
-	// ReturnOnFirstSuccess determines whether to end the verification on the
-	// first succeeded signature verification. It is set to true by default.
-	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
-	// for signle signature verification, and therefore, does not use it.
-	ReturnOnFirstSuccess bool
+	MaxSignatureAttempts int
 }
 
 // ValidationResult encapsulates the verification result (passed or failed)
@@ -172,15 +166,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 
 	var verificationOutcomes []*VerificationOutcome
 	var targetArtifactDesc ocispec.Descriptor
-	if opts.MaxVerificationLimit <= 0 {
+	if opts.MaxSignatureAttempts <= 0 {
 		// Set MaxVerificationLimit to 50 as default
-		opts.MaxVerificationLimit = maxVerificationLimitDefault
+		opts.MaxSignatureAttempts = maxVerificationLimitDefault
 	}
+	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
 	count := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
-			if count >= opts.MaxVerificationLimit {
+			if count >= opts.MaxSignatureAttempts {
 				break
 			}
 			count++
@@ -212,14 +207,17 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			return errDoneVerification
 		}
 
-		if count >= opts.MaxVerificationLimit {
-			return ErrorVerificationFailed{Msg: fmt.Sprintf("number of signatures associated with an artifact should be less than: %d", opts.MaxVerificationLimit)}
+		if count >= opts.MaxSignatureAttempts {
+			return errExceededMaxVerificationLimit
 		}
 
 		return nil
 	})
 
 	if err != nil && !errors.Is(err, errDoneVerification) {
+		if errors.Is(err, errExceededMaxVerificationLimit) {
+			return ocispec.Descriptor{}, verificationOutcomes, err
+		}
 		return ocispec.Descriptor{}, nil, err
 	}
 
@@ -232,6 +230,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	if verificationOutcomes[len(verificationOutcomes)-1].Error != nil {
 		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
+
 	return targetArtifactDesc, verificationOutcomes, nil
 }
 
