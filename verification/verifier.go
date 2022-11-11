@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
+	notation "github.com/notaryproject/notation-go/internal"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	"github.com/notaryproject/notation-go/internal/plugin/manager"
 	"github.com/notaryproject/notation-go/internal/registry"

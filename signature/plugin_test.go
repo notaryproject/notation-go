@@ -15,7 +15,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
-	"github.com/notaryproject/notation-go"
+	notation "github.com/notaryproject/notation-go/internal"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	gcose "github.com/veraison/go-cose"
 )

@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/internal/mock"
+	notation "github.com/notaryproject/notation-go/internal"
+	mock "github.com/notaryproject/notation-go/internal/mock_origin"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	"github.com/notaryproject/notation-go/internal/plugin/manager"
 	"github.com/notaryproject/notation-go/internal/registry"

@@ -19,7 +19,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-core-go/timestamp/timestamptest"
-	"github.com/notaryproject/notation-go"
+	notation "github.com/notaryproject/notation-go/internal"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	"github.com/opencontainers/go-digest"
 )
