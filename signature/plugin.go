@@ -13,6 +13,7 @@ import (
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/content"
 )
 
 // signingAgent is the unprotected header field used by signature.
@@ -245,7 +246,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 // descriptorPartialEqual checks if the both descriptors point to the same resource
 // and that newDesc hasn't replaced or overridden existing annotations.
 func descriptorPartialEqual(original, newDesc ocispec.Descriptor) bool {
-	if !equal(&original, &newDesc) {
+	if !content.Equal(original, newDesc) {
 		return false
 	}
 	// Plugins may append additional annotations but not replace/override existing.
@@ -267,11 +268,4 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 		certs[i] = cert
 	}
 	return certs, nil
-}
-
-// Equal reports whether d and t points to the same content.
-func equal(d *ocispec.Descriptor, t *ocispec.Descriptor) bool {
-	return d.MediaType == t.MediaType &&
-		d.Digest == t.Digest &&
-		d.Size == t.Size
 }

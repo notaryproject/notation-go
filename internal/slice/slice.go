@@ -9,3 +9,13 @@ func Contains[E comparable](s []E, v E) bool {
 	}
 	return false
 }
+
+// ContainsAny reports whether val is present in values
+func ContainsAny(values []interface{}, val interface{}) bool {
+	for _, v := range values {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}

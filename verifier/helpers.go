@@ -3,7 +3,6 @@ package verifier
 import (
 	"context"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -13,27 +12,14 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
-func loadPolicyDocument() (*trustpolicy.Document, error) {
-	policyDocument := &trustpolicy.Document{}
-	jsonFile, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
-	if err != nil {
-		return nil, err
-	}
-	defer jsonFile.Close()
-	err = json.NewDecoder(jsonFile).Decode(policyDocument)
-	if err != nil {
-		return nil, err
-	}
-	return policyDocument, nil
-}
-
 func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy) ([]*x509.Certificate, error) {
 	var typeToLoad truststore.Type
-	if scheme == signature.SigningSchemeX509 {
+	switch scheme {
+	case signature.SigningSchemeX509:
 		typeToLoad = truststore.TypeCA
-	} else if scheme == signature.SigningSchemeX509SigningAuthority {
+	case signature.SigningSchemeX509SigningAuthority:
 		typeToLoad = truststore.TypeSigningAuthority
-	} else {
+	default:
 		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)
 	}
 
@@ -60,13 +46,4 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 		processedStoreSet[trustStore] = struct{}{}
 	}
 	return certificates, nil
-}
-
-func isPresentAny(val interface{}, values []interface{}) bool {
-	for _, v := range values {
-		if v == val {
-			return true
-		}
-	}
-	return false
 }

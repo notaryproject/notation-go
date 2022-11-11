@@ -104,15 +104,15 @@ type dummyVerifier struct {
 	VerificationLevel trustpolicy.VerificationLevel
 }
 
-func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error) {
+func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error) {
 	if v.FailVerify {
-		return ocispec.Descriptor{}, nil, errors.New("failed verify")
+		return nil, errors.New("failed verify")
 	}
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
 		VerificationLevel:   &v.VerificationLevel,
 	}
-	return ocispec.Descriptor{}, outcome, nil
+	return outcome, nil
 }
 
 func (v *dummyVerifier) TrustPolicyDocument() (*trustpolicy.Document, error) {

@@ -14,7 +14,6 @@ import (
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"oras.land/oras-go/v2/content"
 )
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
@@ -139,7 +138,7 @@ type Verifier interface {
 	// descriptor upon successful verification.
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
-	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error)
+	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error)
 }
 
 // Verify performs signature verification on each of the notation supported
@@ -149,7 +148,7 @@ type Verifier interface {
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	// passing nil signature to check 'skip'
-	_, outcome, err := verifier.Verify(ctx, nil, opts)
+	outcome, err := verifier.Verify(ctx, ocispec.Descriptor{}, nil, opts)
 	if err != nil {
 		if outcome == nil {
 			return ocispec.Descriptor{}, nil, err
@@ -165,7 +164,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	var verificationOutcomes []*VerificationOutcome
-	var targetArtifactDesc ocispec.Descriptor
 	if opts.MaxSignatureAttempts <= 0 {
 		// Set MaxVerificationLimit to 50 as default
 		opts.MaxSignatureAttempts = maxVerificationLimitDefault
@@ -184,7 +182,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
-			payloadArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
+			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
 				if outcome == nil {
 					// TODO: log fatal error
@@ -193,16 +191,9 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
-			if !content.Equal(payloadArtifactDescriptor, artifactDescriptor) {
-				outcome.Error = errors.New("content descriptor mismatch")
-				verificationOutcomes = append(verificationOutcomes, outcome)
-				continue
-			}
 
 			// At this point, we've found a signature verified successfully
 			verificationOutcomes = append(verificationOutcomes, outcome)
-			// Descriptor of the signature blob that gets verified successfully
-			targetArtifactDesc = payloadArtifactDescriptor
 
 			return errDoneVerification
 		}
@@ -231,7 +222,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
 
-	return targetArtifactDesc, verificationOutcomes, nil
+	return artifactDescriptor, verificationOutcomes, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, error) {

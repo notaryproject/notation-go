@@ -2,10 +2,7 @@ package verifier
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -59,44 +56,6 @@ func TestGetArtifactDigestFromUri(t *testing.T) {
 				t.Fatalf("TestGetArtifactDigestFromUri Want: %q Got: %v", tt.digest, digest)
 			}
 		})
-	}
-}
-
-func TestLoadPolicyDocument(t *testing.T) {
-	// non-existing policy file
-	tempRoot := t.TempDir()
-	dir.UserConfigDir = tempRoot
-	_, err := loadPolicyDocument()
-	if err == nil {
-		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
-	}
-
-	// existing invalid json file
-	tempRoot = t.TempDir()
-	dir.UserConfigDir = tempRoot
-	path := filepath.Join(tempRoot, "invalid.json")
-	err = os.WriteFile(path, []byte(`{"invalid`), 0644)
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
-	}
-	_, err = loadPolicyDocument()
-	if err == nil {
-		t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
-	}
-
-	// existing policy file
-	tempRoot = t.TempDir()
-	dir.UserConfigDir = tempRoot
-	path = filepath.Join(tempRoot, "trustpolicy.json")
-	policyDoc1 := dummyPolicyDocument()
-	policyJson, _ := json.Marshal(policyDoc1)
-	err = os.WriteFile(path, policyJson, 0644)
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
-	}
-	_, err = loadPolicyDocument()
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
 	}
 }
 

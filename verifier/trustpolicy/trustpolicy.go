@@ -1,11 +1,13 @@
 package trustpolicy
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/pkix"
 	"github.com/notaryproject/notation-go/internal/slice"
 	"github.com/notaryproject/notation-go/internal/trustpolicy"
@@ -246,6 +248,20 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	} else {
 		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
 	}
+}
+
+func LoadPolicyDocument() (*Document, error) {
+	jsonFile, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+	policyDocument := &Document{}
+	err = json.NewDecoder(jsonFile).Decode(policyDocument)
+	if err != nil {
+		return nil, err
+	}
+	return policyDocument, nil
 }
 
 // GetVerificationLevel returns VerificationLevel struct for the given

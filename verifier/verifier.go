@@ -4,6 +4,7 @@ package verifier
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/notaryproject/notation-go"
@@ -11,8 +12,10 @@ import (
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/plugin"
 	"github.com/notaryproject/notation-go/internal/plugin/manager"
+	"github.com/notaryproject/notation-go/internal/slice"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/content"
 )
 
 // verifier implements notation.Verifier
@@ -30,7 +33,7 @@ type pluginManager interface {
 // New a verifier based on local file system
 func New() (notation.Verifier, error) {
 	// load trust policy
-	policyDocument, err := loadPolicyDocument()
+	policyDocument, err := trustpolicy.LoadPolicyDocument()
 	if err != nil {
 		return nil, err
 	}
@@ -50,16 +53,14 @@ func NewVerifier(trustPolicy *trustpolicy.Document, pluginManager *manager.Manag
 
 // Verify verifies the signature blob and returns the verified descriptor
 // upon successful verification.
-// Note: Verify only verifies the signature by design, end user should
-// compare the signature payload with the artifact target.
-func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.VerifyOptions) (ocispec.Descriptor, *notation.VerificationOutcome, error) {
+func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifyOptions) (*notation.VerificationOutcome, error) {
 	artifactRef := opts.ArtifactReference
 	envelopeMediaType := opts.SignatureMediaType
 	pluginConfig := opts.PluginConfig
 
 	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
-		return ocispec.Descriptor{}, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
@@ -72,17 +73,23 @@ func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
 	if err != nil {
 		outcome.Error = err
-		return ocispec.Descriptor{}, outcome, err
+		return outcome, err
 	}
 
 	payload := &envelope.Payload{}
 	err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
 	if err != nil {
 		outcome.Error = err
-		return ocispec.Descriptor{}, outcome, err
+		return outcome, err
 	}
 
-	return payload.TargetArtifact, outcome, nil
+	if !content.Equal(payload.TargetArtifact, desc) {
+		outcome.Error = errors.New("content descriptor mismatch")
+		err = outcome.Error
+		return outcome, err
+	}
+
+	return outcome, nil
 }
 
 func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
@@ -194,7 +201,7 @@ func (v *verifier) processPluginResponse(capabilitiesToVerify []plugin.Verificat
 
 	// verify all extended critical attributes are processed by the plugin
 	for _, attr := range getNonPluginExtendedCriticalAttributes(&outcome.EnvelopeContent.SignerInfo) {
-		if !isPresentAny(attr.Key, response.ProcessedAttributes) {
+		if !slice.ContainsAny(response.ProcessedAttributes, attr.Key) {
 			return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
 		}
 	}
