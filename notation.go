@@ -93,6 +93,12 @@ type VerifyOptions struct {
 	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
 	// for signle signature verification, and therefore, does not use it.
 	MaxVerificationLimit int
+
+	// ReturnOnFirstSuccess determines whether to end the verification on the
+	// first succeeded signature verification. It is set to true by default.
+	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
+	// for signle signature verification, and therefore, does not use it.
+	ReturnOnFirstSuccess bool
 }
 
 // ValidationResult encapsulates the verification result (passed or failed)
