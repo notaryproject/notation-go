@@ -65,6 +65,7 @@ func (v *verifier) Verify(ctx context.Context, signature []byte, opts notation.V
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
 	outcome := &notation.VerificationOutcome{
+		RawSignature:        signature,
 		VerificationResults: []*notation.ValidationResult{},
 		VerificationLevel:   verificationLevel,
 	}
