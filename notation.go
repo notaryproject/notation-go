@@ -19,8 +19,6 @@ import (
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
 
-const verificationSignatureNumLimit = 50
-
 var errDoneVerification = errors.New("done verification")
 
 // SignOptions contains parameters for Signer.Sign.
@@ -86,6 +84,11 @@ type VerifyOptions struct {
 
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
+
+	// MaxVerificationLimit is the maximum number of signature envelopes that
+	// can be associated with the target artifact. If not set by user, it will
+	// be set to 50 by default.
+	MaxVerificationLimit int
 }
 
 // ValidationResult encapsulates the verification result (passed or failed)
@@ -160,11 +163,15 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	var verificationOutcomes []*VerificationOutcome
 	var targetArtifactDesc ocispec.Descriptor
 	count := 0
+	if opts.MaxVerificationLimit == 0 {
+		// Set MaxVerificationLimit to 50 as default
+		opts.MaxVerificationLimit = 50
+	}
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
-			if count >= verificationSignatureNumLimit {
-				return ErrorVerificationFailed{Msg: fmt.Sprintf("number of signatures associated with an artifact should be less than: %d", verificationSignatureNumLimit)}
+			if count >= opts.MaxVerificationLimit {
+				return ErrorVerificationFailed{Msg: fmt.Sprintf("number of signatures associated with an artifact should be less than: %d", opts.MaxVerificationLimit)}
 			}
 			count++
 			// get signature envelope
