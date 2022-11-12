@@ -2,12 +2,14 @@ package verifier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 )
@@ -76,6 +78,27 @@ func TestLoadX509TrustStore(t *testing.T) {
 	}
 	if len(caCerts) != 3 || len(saCerts) != 3 {
 		t.Fatalf("Both of the named stores should have 3 certs")
+	}
+}
+
+func TestIsCriticalFailure(t *testing.T) {
+	var dummyError = errors.New("critical failure")
+	tests := []struct {
+		result          notation.ValidationResult
+		criticalFailure bool
+	}{
+		{notation.ValidationResult{Action: trustpolicy.ActionEnforce, Error: dummyError}, true},
+		{notation.ValidationResult{Action: trustpolicy.ActionLog, Error: dummyError}, false},
+		{notation.ValidationResult{Action: trustpolicy.ActionSkip, Error: dummyError}, false},
+	}
+	for i, tt := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			endResult := isCriticalFailure(&tt.result)
+
+			if endResult != tt.criticalFailure {
+				t.Fatalf("TestIsCriticalFailure Expected: %v Got: %v", tt.criticalFailure, endResult)
+			}
+		})
 	}
 }
 

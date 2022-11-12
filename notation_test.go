@@ -7,8 +7,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-go/internal/mock"
-	"github.com/notaryproject/notation-go/internal/plugin"
-	"github.com/notaryproject/notation-go/internal/plugin/manager"
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -99,7 +98,7 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 
 type dummyVerifier struct {
 	TrustPolicyDoc    *trustpolicy.Document
-	PluginManager     pluginManager
+	PluginManager     plugin.Manager
 	FailVerify        bool
 	VerificationLevel trustpolicy.VerificationLevel
 }
@@ -117,10 +116,4 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 
 func (v *dummyVerifier) TrustPolicyDocument() (*trustpolicy.Document, error) {
 	return v.TrustPolicyDoc, nil
-}
-
-// pluginManager is for mocking in unit tests
-type pluginManager interface {
-	Get(ctx context.Context, name string) (*manager.Plugin, error)
-	Runner(name string) (plugin.Runner, error)
 }

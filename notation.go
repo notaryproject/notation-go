@@ -134,8 +134,8 @@ type VerificationOutcome struct {
 
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
-	// Verify verifies the signature blob and returns the artifact
-	// descriptor upon successful verification.
+	// Verify verifies the signature blob and returns the outcome upon
+	// successful verification.
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error)

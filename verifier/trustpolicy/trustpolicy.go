@@ -250,6 +250,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	}
 }
 
+// LoadPolicyDocument loads a trust policy document from a local file system
 func LoadPolicyDocument() (*Document, error) {
 	jsonFile, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
 	if err != nil {
