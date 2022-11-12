@@ -1,3 +1,5 @@
+// Package notation provides signer and verifier for notation Sign
+// and Verification.
 package notation
 
 import (

@@ -1,3 +1,5 @@
+// Package trustpolicy provides functionalities for trust policy document
+// and trust policy statements.
 package trustpolicy
 
 import (
