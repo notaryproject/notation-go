@@ -148,6 +148,7 @@ type Verifier interface {
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
+<<<<<<< HEAD:notation.go
 	// passing nil signature to check 'skip'
 	_, outcome, err := verifier.Verify(ctx, nil, opts)
 	if err != nil {
@@ -156,9 +157,23 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		}
 	} else if reflect.DeepEqual(outcome.VerificationLevel, trustpolicy.LevelSkip) {
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
+=======
+	var verificationOutcomes []*VerificationOutcome
+	artifactRef := opts.ArtifactReference
+	// passing nil signature to check 'skip'
+	_, outcome, err := verifier.Verify(ctx, nil, opts)
+	if outcome == nil {
+		return ocispec.Descriptor{}, nil, err
+>>>>>>> aeea620 (updated per code review):notation/notation.go
 	}
 	// get signature manifests
+<<<<<<< HEAD:notation.go
 	artifactRef := opts.ArtifactReference
+=======
+	var success bool
+	doneVerification := errors.New("done verification")
+	var verifiedSigBlobDesc ocispec.Descriptor
+>>>>>>> aeea620 (updated per code review):notation/notation.go
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
@@ -178,9 +193,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			if count >= opts.MaxSignatureAttempts {
 				break
 			}
+<<<<<<< HEAD:notation.go
 			count++
 			// get signature envelope
 			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
+=======
+			payloadArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
+			if err == nil && !equal(&payloadArtifactDescriptor, &artifactDescriptor) {
+				err = errors.New("payloadArtifactDescriptor does not match artifactDescriptor")
+			}
+>>>>>>> aeea620 (updated per code review):notation/notation.go
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
@@ -199,20 +221,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				continue
 			}
 
-			//
-			if !equal(&targetArtifactDescriptor, &artifactDescriptor) {
-				outcome.SignatureBlobDescriptor = &sigBlobDesc
-				outcome.Error = err
-				verificationOutcomes = append(verificationOutcomes, outcome)
-				continue
-			}
-
 			// At this point, we've found a signature verified successfully
 			verificationOutcomes = append(verificationOutcomes, outcome)
 			// Descriptor of the signature blob that gets verified successfully
 			targetArtifactDesc = payloadArtifactDescriptor
 
+<<<<<<< HEAD:notation.go
 			return errDoneVerification
+=======
+			return doneVerification
+>>>>>>> aeea620 (updated per code review):notation/notation.go
 		}
 
 		if count >= opts.MaxSignatureAttempts {
