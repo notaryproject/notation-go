@@ -145,7 +145,7 @@ type Verifier interface {
 
 // Verify performs signature verification on each of the notation supported
 // verification types (like integrity, authenticity, etc.) and return the
-// verification outcomes.
+// successful signature verification outcomes.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
@@ -171,14 +171,14 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		opts.MaxSignatureAttempts = maxVerificationLimitDefault
 	}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
-	count := 0
+	numOfSignatureProcessed := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
-			if count >= opts.MaxSignatureAttempts {
+			if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
 				break
 			}
-			count++
+			numOfSignatureProcessed++
 			// get signature envelope
 			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
@@ -190,17 +190,17 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 					// TODO: log fatal error
 					return err
 				}
-				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
 
-			// At this point, we've found a signature verified successfully
+			// At this point, the signature is verified successfully. Add
+			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
 
 			return errDoneVerification
 		}
 
-		if count >= opts.MaxSignatureAttempts {
+		if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
 			return errExceededMaxVerificationLimit
 		}
 
@@ -215,15 +215,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	// If there's no signature associated with the reference
-	if len(verificationOutcomes) == 0 {
+	if numOfSignatureProcessed == 0 {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", artifactRef)}
 	}
 
-	// check whether verification was successful or not
-	if verificationOutcomes[len(verificationOutcomes)-1].Error != nil {
+	// Verification Failed
+	if len(verificationOutcomes) == 0 {
 		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
 
+	// Verification Succeeded
 	return artifactDescriptor, verificationOutcomes, nil
 }
 
