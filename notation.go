@@ -199,6 +199,14 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				continue
 			}
 
+			//
+			if !equal(&targetArtifactDescriptor, &artifactDescriptor) {
+				outcome.SignatureBlobDescriptor = &sigBlobDesc
+				outcome.Error = err
+				verificationOutcomes = append(verificationOutcomes, outcome)
+				continue
+			}
+
 			// At this point, we've found a signature verified successfully
 			verificationOutcomes = append(verificationOutcomes, outcome)
 			// Descriptor of the signature blob that gets verified successfully
