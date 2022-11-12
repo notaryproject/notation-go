@@ -5,8 +5,8 @@ import (
 	_ "embed"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/manager"
+	"github.com/notaryproject/notation-go/internal/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin/manager"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -97,7 +97,7 @@ func (t Repository) FetchSignatureBlob(ctx context.Context, desc ocispec.Descrip
 	return t.FetchSignatureBlobResponse, JwsSigEnvDescriptor, t.FetchSignatureBlobError
 }
 
-func (t Repository) PushSignature(ctx context.Context, blob []byte, mediaType string, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
 	return ocispec.Descriptor{}, ocispec.Descriptor{}, nil
 }
 

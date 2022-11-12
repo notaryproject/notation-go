@@ -7,9 +7,9 @@ import (
 
 	"github.com/notaryproject/notation-go/dir"
 	notation "github.com/notaryproject/notation-go/internal"
+	"github.com/notaryproject/notation-go/internal/plugin"
+	"github.com/notaryproject/notation-go/internal/plugin/manager"
 	"github.com/notaryproject/notation-go/internal/registry"
-	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/manager"
 )
 
 type Verifier struct {

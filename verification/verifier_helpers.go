@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/internal/plugin"
 	"github.com/notaryproject/notation-go/internal/registry"
-	"github.com/notaryproject/notation-go/plugin"
-	sig "github.com/notaryproject/notation-go/signature"
+	"github.com/notaryproject/notation-go/signer"
 )
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
@@ -59,7 +59,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest registry.Signatur
 		}
 	}
 
-	if err := sig.ValidatePayloadContentType(&envContent.Payload); err != nil {
+	if err := signer.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, &VerificationResult{
 			Success: false,
 			Error:   err,
