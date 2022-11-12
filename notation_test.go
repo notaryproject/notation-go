@@ -110,10 +110,7 @@ func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts Verif
 	}
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
-<<<<<<< HEAD:notation_test.go
 		VerificationLevel:   &v.VerificationLevel,
-=======
->>>>>>> e1a4497 (update):notation/notation_test.go
 	}
 	return ocispec.Descriptor{}, outcome, nil
 }
