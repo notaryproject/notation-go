@@ -5,8 +5,8 @@ import (
 	_ "embed"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/internal/plugin"
-	"github.com/notaryproject/notation-go/internal/plugin/manager"
+	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -101,26 +101,46 @@ func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []
 	return ocispec.Descriptor{}, ocispec.Descriptor{}, nil
 }
 
+type PluginMock struct {
+	Metadata        proto.GetMetadataResponse
+	ExecuteResponse interface{}
+	ExecuteError    error
+}
+
+func (p *PluginMock) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
+	return &p.Metadata, nil
+}
+
+func (p *PluginMock) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
+	if resp, ok := p.ExecuteResponse.(*proto.VerifySignatureResponse); ok {
+		return resp, nil
+	}
+	return nil, p.ExecuteError
+}
+
+func (p *PluginMock) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (p *PluginMock) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (p *PluginMock) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
+	panic("not implemented") // TODO: Implement
+}
+
 type PluginManager struct {
-	PluginCapabilities          []plugin.Capability
+	PluginCapabilities          []proto.Capability
 	GetPluginError              error
 	PluginRunnerLoadError       error
 	PluginRunnerExecuteResponse interface{}
 	PluginRunnerExecuteError    error
 }
 
-type PluginRunner struct {
-	Response interface{}
-	Error    error
-}
-
-func (pr PluginRunner) Run(ctx context.Context, req plugin.Request) (interface{}, error) {
-	return pr.Response, pr.Error
-}
-
-func (pm PluginManager) Get(ctx context.Context, name string) (*manager.Plugin, error) {
-	return &manager.Plugin{
-		Metadata: plugin.Metadata{
+func (pm PluginManager) Get(ctx context.Context, name string) (plugin.Plugin, error) {
+	return &PluginMock{
+		Metadata: proto.GetMetadataResponse{
 			Name:                      "plugin-name",
 			Description:               "for mocking in unit tests",
 			Version:                   "1.0.0",
@@ -128,13 +148,11 @@ func (pm PluginManager) Get(ctx context.Context, name string) (*manager.Plugin, 
 			SupportedContractVersions: []string{"1.0"},
 			Capabilities:              pm.PluginCapabilities,
 		},
-		Path: ".",
-		Err:  nil,
+		ExecuteResponse: pm.PluginRunnerExecuteResponse,
+		ExecuteError:    pm.PluginRunnerExecuteError,
 	}, pm.GetPluginError
 }
-func (pm PluginManager) Runner(name string) (plugin.Runner, error) {
-	return PluginRunner{
-		Response: pm.PluginRunnerExecuteResponse,
-		Error:    pm.PluginRunnerExecuteError,
-	}, pm.PluginRunnerLoadError
+
+func (pm PluginManager) List(ctx context.Context) ([]string, error) {
+	panic("not implemented")
 }
