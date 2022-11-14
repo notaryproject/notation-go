@@ -1,7 +1,6 @@
 // Package log provides logging functionality to notation.
 // Users who want to enable logging option in notation should implement the
-// log.Logger interface and include it in context by calling the log.WithLogger
-// method.
+// log.Logger interface and include it in context by calling log.WithLogger.
 // 3rd party loggers that implement log.Logger: uber/zap.SugaredLogger and
 // sirupsen/logrus.Logger.
 package log
