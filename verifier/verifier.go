@@ -441,6 +441,7 @@ func verifyX509TrustedIdentities(trustPolicy *trustpolicy.TrustPolicy, outcome *
 }
 
 func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {
+	// sanity check
 	if installedPlugin == nil {
 		return nil, errors.New("installedPlugin cannot be nil")
 	}
