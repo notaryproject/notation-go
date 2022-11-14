@@ -1,8 +1,8 @@
 // Package log provides logging functionality to notation.
 // Users who want to enable logging option in notation should implement the
 // log.Logger interface and include it in context by calling log.WithLogger.
-// 3rd party loggers that implement log.Logger: uber/zap.SugaredLogger and
-// sirupsen/logrus.Logger.
+// 3rd party loggers that implement log.Logger: github.com/uber-go/zap.SugaredLogger
+// and github.com/sirupsen/logrus.Logger.
 package log
 
 import "context"
@@ -16,7 +16,8 @@ const loggerKey contextKey = iota
 var Discard Logger = &discardLogger{}
 
 // Logger is implemented by users and/or 3rd party loggers.
-// For example, uber/zap.SugaredLogger and sirupsen/logrus.Logger.
+// For example, github.com/uber-go/zap.SugaredLogger
+// and github.com/sirupsen/logrus.Logger.
 type Logger interface {
 	// Debug logs a debug level message.
 	Debug(args ...interface{})
