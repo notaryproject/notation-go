@@ -530,7 +530,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 				TrustStores:           []string{"ca:test-store"},
 				TrustedIdentities:     tt.x509Identities,
 			}
-			err := verifyX509TrustedIdentities(certs, &trustPolicy)
+			err := verifyX509TrustedIdentitiesCore(certs, &trustPolicy)
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestVerifyX509TrustedIdentities Error: %q WantErr: %v", err, tt.wantErr)

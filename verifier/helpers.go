@@ -26,6 +26,7 @@ const (
 	HeaderVerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
 )
 
+// VerificationPluginHeaders specifies headers of a verification plugin
 var VerificationPluginHeaders = []string{
 	HeaderVerificationPlugin,
 	HeaderVerificationPluginMinVersion,
@@ -46,6 +47,8 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)
 	}
 
+	// TODO: create a package at internal/container/set for a set implementation
+	// https://github.com/notaryproject/notation-go/issues/203
 	var processedStoreSet = make(map[string]struct{})
 	var certificates []*x509.Certificate
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
@@ -55,6 +58,8 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 			continue
 		}
 
+		// TODO: replace strings.Index() with Strings.Cut()
+		// https://github.com/notaryproject/notation-go/issues/204
 		i := strings.Index(trustStore, ":")
 		storeType := trustStore[:i]
 		if typeToLoad != truststore.Type(storeType) {
@@ -77,7 +82,7 @@ func isCriticalFailure(result *notation.ValidationResult) bool {
 	return result.Action == trustpolicy.ActionEnforce && result.Error != nil
 }
 
-func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
+func verifyX509TrustedIdentitiesCore(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
 	if slice.Contains(trustPolicy.TrustedIdentities, trustpolicyInternal.Wildcard) {
 		return nil
 	}

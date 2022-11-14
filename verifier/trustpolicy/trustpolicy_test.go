@@ -499,7 +499,7 @@ func TestLoadPolicyDocument(t *testing.T) {
 	// non-existing policy file
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
-	_, err := LoadPolicyDocument()
+	_, err := LoadDocument()
 	if err == nil {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
@@ -512,7 +512,7 @@ func TestLoadPolicyDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
 	}
-	_, err = LoadPolicyDocument()
+	_, err = LoadDocument()
 	if err == nil {
 		t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
 	}
@@ -527,7 +527,7 @@ func TestLoadPolicyDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
 	}
-	_, err = LoadPolicyDocument()
+	_, err = LoadDocument()
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
 	}
