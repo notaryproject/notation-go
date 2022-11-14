@@ -5,14 +5,15 @@
 // sirupsen/logrus.Logger.
 package log
 
-import (
-	"context"
-)
+import "context"
 
 type contextKey int
 
 // loggerKey is the associated key type for logger entry in context.
 const loggerKey contextKey = iota
+
+// Discard is a discardLogger that is used to disenable logging in notation.
+var Discard Logger = &discardLogger{}
 
 // Logger is implemented by users and/or 3rd party loggers.
 // For example, uber/zap.SugaredLogger and sirupsen/logrus.Logger.
@@ -23,7 +24,8 @@ type Logger interface {
 	// Debugf logs a debug level message with format.
 	Debugf(format string, args ...interface{})
 
-	// Debugln logs a debug level message with a newline appended.
+	// Debugln logs a debug level message. Spaces are always added between
+	// operands.
 	Debugln(args ...interface{})
 
 	// Info logs an info level message.
@@ -32,7 +34,8 @@ type Logger interface {
 	// Infof logs an info level message with format.
 	Infof(format string, args ...interface{})
 
-	// Infoln logs an info level message with a newline appended.
+	// Infoln logs an info level message. Spaces are always added between
+	// operands.
 	Infoln(args ...interface{})
 
 	// Warn logs a warn level message.
@@ -41,7 +44,8 @@ type Logger interface {
 	// Warnf logs a warn level message with format.
 	Warnf(format string, args ...interface{})
 
-	// Warnln logs a warn level message with a newline appended.
+	// Warnln logs a warn level message. Spaces are always added between
+	// operands.
 	Warnln(args ...interface{})
 
 	// Error logs an error level message.
@@ -50,7 +54,8 @@ type Logger interface {
 	// Errorf logs an error level message with format.
 	Errorf(format string, args ...interface{})
 
-	// Errorln logs an error level message with a newline appended.
+	// Errorln logs an error level message. Spaces are always added between
+	// operands.
 	Errorln(args ...interface{})
 }
 
@@ -65,11 +70,11 @@ func GetLogger(ctx context.Context) Logger {
 	if logger, ok := ctx.Value(loggerKey).(Logger); ok {
 		return logger
 	}
-	return &discardLogger{}
+	return Discard
 }
 
 // discardLogger implements Logger but logs nothing. It is used when user
-// disabled logging option in notation, i.e. loggerKey is not in the context.
+// disenabled logging option in notation, i.e. loggerKey is not in the context.
 type discardLogger struct{}
 
 func (dl *discardLogger) Debug(args ...interface{}) {
