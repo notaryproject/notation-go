@@ -104,6 +104,7 @@ func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []
 type PluginMock struct {
 	Metadata        proto.GetMetadataResponse
 	ExecuteResponse interface{}
+	ExecuteError    error
 }
 
 func (p *PluginMock) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
@@ -114,7 +115,7 @@ func (p *PluginMock) VerifySignature(ctx context.Context, req *proto.VerifySigna
 	if resp, ok := p.ExecuteResponse.(*proto.VerifySignatureResponse); ok {
 		return resp, nil
 	}
-	return nil, nil
+	return nil, p.ExecuteError
 }
 
 func (p *PluginMock) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
@@ -148,6 +149,7 @@ func (pm PluginManager) Get(ctx context.Context, name string) (plugin.Plugin, er
 			Capabilities:              pm.PluginCapabilities,
 		},
 		ExecuteResponse: pm.PluginRunnerExecuteResponse,
+		ExecuteError:    pm.PluginRunnerExecuteError,
 	}, pm.GetPluginError
 }
 
