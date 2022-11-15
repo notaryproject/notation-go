@@ -22,7 +22,7 @@ func TestRegistryResolveError(t *testing.T) {
 
 	// mock the repository
 	repo.ResolveError = errors.New(errorMessage)
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -35,7 +35,7 @@ func TestSkippedSignatureVerification(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
 
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err != nil || outcomes[0].VerificationLevel.Name != trustpolicy.LevelSkip.Name {
@@ -52,7 +52,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 
 	// mock the repository
 	repo.ListSignaturesResponse = []ocispec.Descriptor{}
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -69,7 +69,7 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 
 	// mock the repository
 	repo.FetchSignatureBlobError = errors.New("network error")
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {

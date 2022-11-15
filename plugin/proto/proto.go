@@ -63,14 +63,3 @@ const (
 	// capability for a plugin to support verifying revocation checks.
 	CapabilityRevocationCheckVerifier Capability = "SIGNATURE_VERIFIER.REVOCATION_CHECK"
 )
-
-// In returns true if the Capability is present in the given array of
-// capabilities.
-func (c Capability) In(capabilities []Capability) bool {
-	for _, capability := range capabilities {
-		if c == capability {
-			return true
-		}
-	}
-	return false
-}

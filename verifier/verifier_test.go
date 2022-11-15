@@ -231,7 +231,6 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 	for i, tt := range testCases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			tt.policyDocument.TrustPolicies[0].SignatureVerification.VerificationLevel = tt.verificationLevel.Name
-
 			expectedResult := notation.ValidationResult{
 				Type:   tt.verificationType,
 				Action: tt.verificationLevel.Enforcement[tt.verificationType],
@@ -530,7 +529,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 				TrustStores:           []string{"ca:test-store"},
 				TrustedIdentities:     tt.x509Identities,
 			}
-			err := verifyX509TrustedIdentitiesCore(certs, &trustPolicy)
+			err := verifyX509TrustedIdentities(certs, &trustPolicy)
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestVerifyX509TrustedIdentities Error: %q WantErr: %v", err, tt.wantErr)

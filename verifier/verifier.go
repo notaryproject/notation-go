@@ -3,17 +3,21 @@ package verifier
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
-	"github.com/notaryproject/notation-go/internal/slice"
+	"github.com/notaryproject/notation-go/internal/pkix"
+	"github.com/notaryproject/notation-go/internal/slices"
+	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	sig "github.com/notaryproject/notation-go/signature"
@@ -109,7 +113,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		return err
 	}
 	var installedPlugin plugin.Plugin
-	if err == nil {
+	if verificationPluginName != "" {
 		if _, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo); err != nil && err != errExtendedAttributeNotExist {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
@@ -122,7 +126,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		// filter the "verification" capabilities supported by the installed plugin
-		metadata, err := metadata(ctx, installedPlugin, pluginConfig)
+		metadata, err := getPluginMetadata(ctx, installedPlugin, pluginConfig)
 		if err != nil {
 			return err
 		}
@@ -146,8 +150,11 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 
 	// verify x509 trusted identity based authenticity (only if notation needs to perform this verification rather than a plugin)
-	if !proto.CapabilityTrustedIdentityVerifier.In(pluginCapabilities) {
-		verifyX509TrustedIdentities(trustPolicy, outcome, authenticityResult)
+	if !slices.Contains(pluginCapabilities, proto.CapabilityTrustedIdentityVerifier) {
+		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
+		if err != nil {
+			authenticityResult.Error = err
+		}
 		if isCriticalFailure(authenticityResult) {
 			return authenticityResult.Error
 		}
@@ -170,13 +177,13 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// verify revocation
 	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
-		!proto.CapabilityRevocationCheckVerifier.In(pluginCapabilities) {
+		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
 		// TODO perform X509 revocation check (not in RC1)
 		// https://github.com/notaryproject/notation-go/issues/110
 	}
 
 	// perform extended verification using verification plugin if present
-	if verificationPluginName != "" {
+	if installedPlugin != nil {
 		var capabilitiesToVerify []proto.Capability
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured to skip it
@@ -206,7 +213,7 @@ func processPluginResponse(capabilitiesToVerify []proto.Capability, response *pr
 
 	// verify all extended critical attributes are processed by the plugin
 	for _, attr := range getNonPluginExtendedCriticalAttributes(&outcome.EnvelopeContent.SignerInfo) {
-		if !slice.ContainsAny(response.ProcessedAttributes, attr.Key) {
+		if !slices.ContainsAny(response.ProcessedAttributes, attr.Key) {
 			return fmt.Errorf("extended critical attribute %q was not processed by the verification plugin %q (all extended critical attributes must be processed by the verification plugin)", attr.Key, verificationPluginName)
 		}
 	}
@@ -257,24 +264,6 @@ func processPluginResponse(capabilitiesToVerify []proto.Capability, response *pr
 	}
 
 	return nil
-}
-
-func metadata(ctx context.Context, installedPlugin plugin.Plugin, pluginConfig map[string]string) (*proto.GetMetadataResponse, error) {
-	req := &proto.GetMetadataRequest{
-		PluginConfig: pluginConfig,
-	}
-	metadata, err := installedPlugin.GetMetadata(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if !metadata.SupportsContract(proto.ContractVersion) {
-		return nil, fmt.Errorf(
-			"contract version %q is not in the list of the plugin supported versions %v",
-			proto.ContractVersion, metadata.SupportedContractVersions,
-		)
-	}
-
-	return metadata, nil
 }
 
 func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.ValidationResult) {
@@ -431,15 +420,6 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 	}
 }
 
-// verifyX509TrustedIdentities verified x509 trusted identities. This functions uses the VerificationResult from x509 trust store verification and modifies it
-func verifyX509TrustedIdentities(trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome, authenticityResult *notation.ValidationResult) {
-	// verify trusted identities
-	err := verifyX509TrustedIdentitiesCore(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
-	if err != nil {
-		authenticityResult.Error = err
-	}
-}
-
 func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {
 	// sanity check
 	if installedPlugin == nil {
@@ -491,4 +471,44 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 	}
 
 	return installedPlugin.VerifySignature(ctx, req)
+}
+
+func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
+	if slices.Contains(trustPolicy.TrustedIdentities, trustpolicyInternal.Wildcard) {
+		return nil
+	}
+
+	var trustedX509Identities []map[string]string
+	for _, identity := range trustPolicy.TrustedIdentities {
+		i := strings.Index(identity, ":")
+
+		identityPrefix := identity[:i]
+		identityValue := identity[i+1:]
+
+		if identityPrefix == trustpolicyInternal.X509Subject {
+			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
+			if err != nil {
+				return err
+			}
+			trustedX509Identities = append(trustedX509Identities, parsedSubject)
+		}
+	}
+
+	if len(trustedX509Identities) == 0 {
+		return fmt.Errorf("no x509 trusted identities are configured in the trust policy %q", trustPolicy.Name)
+	}
+
+	leafCert := certs[0] // trusted identities only supported on the leaf cert
+
+	leafCertDN, err := pkix.ParseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
+	if err != nil {
+		return fmt.Errorf("error while parsing the certificate subject from the digital signature. error : %q", err)
+	}
+	for _, trustedX509Identity := range trustedX509Identities {
+		if pkix.IsSubsetDN(trustedX509Identity, leafCertDN) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
 }

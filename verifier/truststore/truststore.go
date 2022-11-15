@@ -13,7 +13,7 @@ import (
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/internal/slice"
+	"github.com/notaryproject/notation-go/internal/slices"
 )
 
 // Type is an enum for trust store types supported such as
@@ -128,7 +128,7 @@ func validateCerts(certs []*x509.Certificate, path string) error {
 
 // isValidStoreType checks if storeType is supported
 func isValidStoreType(storeType Type) bool {
-	return slice.Contains(Types, storeType)
+	return slices.Contains(Types, storeType)
 }
 
 // isValidFileName checks if a file name is cross-platform compatible

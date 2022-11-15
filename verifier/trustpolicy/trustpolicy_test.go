@@ -495,7 +495,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	}
 }
 
-func TestLoadPolicyDocument(t *testing.T) {
+func TestLoadDocument(t *testing.T) {
 	// non-existing policy file
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot

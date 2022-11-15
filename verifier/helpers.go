@@ -11,9 +11,9 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/internal/pkix"
-	"github.com/notaryproject/notation-go/internal/slice"
-	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
+	"github.com/notaryproject/notation-go/internal/slices"
+	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
@@ -82,51 +82,11 @@ func isCriticalFailure(result *notation.ValidationResult) bool {
 	return result.Action == trustpolicy.ActionEnforce && result.Error != nil
 }
 
-func verifyX509TrustedIdentitiesCore(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
-	if slice.Contains(trustPolicy.TrustedIdentities, trustpolicyInternal.Wildcard) {
-		return nil
-	}
-
-	var trustedX509Identities []map[string]string
-	for _, identity := range trustPolicy.TrustedIdentities {
-		i := strings.Index(identity, ":")
-
-		identityPrefix := identity[:i]
-		identityValue := identity[i+1:]
-
-		if identityPrefix == trustpolicyInternal.X509Subject {
-			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
-			if err != nil {
-				return err
-			}
-			trustedX509Identities = append(trustedX509Identities, parsedSubject)
-		}
-	}
-
-	if len(trustedX509Identities) == 0 {
-		return fmt.Errorf("no x509 trusted identities are configured in the trust policy %q", trustPolicy.Name)
-	}
-
-	leafCert := certs[0] // trusted identities only supported on the leaf cert
-
-	leafCertDN, err := pkix.ParseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
-	if err != nil {
-		return fmt.Errorf("error while parsing the certificate subject from the digital signature. error : %q", err)
-	}
-	for _, trustedX509Identity := range trustedX509Identities {
-		if pkix.IsSubsetDN(trustedX509Identity, leafCertDN) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
-}
-
 func getNonPluginExtendedCriticalAttributes(signerInfo *signature.SignerInfo) []signature.Attribute {
 	var criticalExtendedAttrs []signature.Attribute
 	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
 		attrStrKey, ok := attr.Key.(string)
-		if ok && !slice.Contains(VerificationPluginHeaders, attrStrKey) { // filter the plugin extended attributes
+		if ok && !slices.Contains(VerificationPluginHeaders, attrStrKey) { // filter the plugin extended attributes
 			// TODO support other attribute types (COSE attribute keys can be numbers)
 			criticalExtendedAttrs = append(criticalExtendedAttrs, attr)
 		}
@@ -180,4 +140,23 @@ func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, 
 		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", HeaderVerificationPluginMinVersion)
 	}
 	return version, nil
+}
+
+// getPluginMetadata gets metadata of the plugin
+func getPluginMetadata(ctx context.Context, installedPlugin plugin.Plugin, pluginConfig map[string]string) (*proto.GetMetadataResponse, error) {
+	req := &proto.GetMetadataRequest{
+		PluginConfig: pluginConfig,
+	}
+	metadata, err := installedPlugin.GetMetadata(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if !metadata.SupportsContract(proto.ContractVersion) {
+		return nil, fmt.Errorf(
+			"contract version %q is not in the list of the plugin supported versions %v",
+			proto.ContractVersion, metadata.SupportedContractVersions,
+		)
+	}
+
+	return metadata, nil
 }
