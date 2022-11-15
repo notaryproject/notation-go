@@ -103,7 +103,7 @@ func generateSignatureBlob(ctx context.Context, signer signature.Signer, desc oc
 		signReq.Expiry = opts.Expiry
 	}
 
-	// perform signing using pluginSigProvider
+	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)
 	if err != nil {
 		return nil, nil, err
