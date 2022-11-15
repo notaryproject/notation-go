@@ -15,8 +15,10 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
-	notation "github.com/notaryproject/notation-go/internal"
+	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/plugin"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	gcose "github.com/veraison/go-cose"
 )
 
@@ -95,12 +97,6 @@ type runFunc func(context.Context, plugin.Request) (interface{}, error)
 func withMetaData(f runFunc) optionFunc {
 	return func(o *options) {
 		o.metaData = f
-	}
-}
-
-func withDescribeKey(f runFunc) optionFunc {
-	return func(o *options) {
-		o.describeKey = f
 	}
 }
 
@@ -234,7 +230,7 @@ func newTestBuiltInProvider(keyCertPair *keyCertPair) provider {
 
 func testSignerError(t *testing.T, signer pluginSigner, wantEr string) {
 	t.Helper()
-	_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
+	_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, signer.envelopeMediaType, notation.SignOptions{})
 	if err == nil || !strings.Contains(err.Error(), wantEr) {
 		t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
 	}
@@ -306,43 +302,6 @@ func TestSigner_Sign_RunMetadataFails(t *testing.T) {
 	})
 }
 
-func TestSigner_Sign_DescribeKeyFailed(t *testing.T) {
-	t.Run("run describe-key command failed", func(t *testing.T) {
-		p := newDefaultMockProvider(
-			withDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
-				return nil, errors.New("describle-key command failed")
-			}),
-		)
-		signer := pluginSigner{
-			sigProvider: p,
-		}
-		testSignerError(t, signer, "describe-key command failed")
-	})
-
-	t.Run("describe-key response type error", func(t *testing.T) {
-		p := newDefaultMockProvider(
-			withDescribeKey(func(ctx context.Context, r plugin.Request) (interface{}, error) {
-				return struct{}{}, nil
-			}),
-		)
-		signer := pluginSigner{
-			sigProvider: p,
-		}
-		testSignerError(t, signer, "plugin runner returned incorrect describe-key response type")
-	})
-}
-
-func TestSigner_Sign_DescribeKeyKeyIDMismatch(t *testing.T) {
-	reqKeyID, respKeyID := "1", "2"
-	p := newDefaultMockProvider()
-	p.keyID = respKeyID
-	signer := pluginSigner{
-		sigProvider: p,
-		keyID:       reqKeyID,
-	}
-	testSignerError(t, signer, fmt.Sprintf("keyID in describeKey response %q does not match request %q", respKeyID, reqKeyID))
-}
-
 func TestSigner_Sign_EnvelopeNotSupported(t *testing.T) {
 	signer := pluginSigner{
 		sigProvider:       newDefaultMockProvider(),
@@ -377,7 +336,7 @@ func TestSigner_Sign_ExpiryInValid(t *testing.T) {
 				sigProvider:       newDefaultMockProvider(),
 				envelopeMediaType: envelopeType,
 			}
-			_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100)})
+			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, signer.envelopeMediaType, notation.SignOptions{Expiry: time.Now().Add(-100)})
 			wantEr := "expiry cannot be equal or before the signing time"
 			if err == nil || !strings.Contains(err.Error(), wantEr) {
 				t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
@@ -427,7 +386,7 @@ func TestSigner_Sign_NoCertChain(t *testing.T) {
 				sigProvider:       p,
 				envelopeMediaType: envelopeType,
 			}
-			if _, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{}); err == nil {
+			if _, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, signer.envelopeMediaType, notation.SignOptions{}); err == nil {
 				t.Errorf("Signer.Sign() expect error")
 			}
 		})
@@ -480,7 +439,7 @@ func TestSigner_Sign_SignatureVerifyError(t *testing.T) {
 }
 
 func basicSignTest(t *testing.T, pluginSigner *pluginSigner) {
-	data, err := pluginSigner.Sign(context.Background(), validSignDescriptor, validSignOpts)
+	data, _, err := pluginSigner.Sign(context.Background(), validSignDescriptor, pluginSigner.envelopeMediaType, validSignOpts)
 	if err != nil {
 		t.Fatalf("Signer.Sign() error = %v, wantErr nil", err)
 	}
@@ -498,14 +457,14 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner) {
 	}
 
 	payload, signerInfo := envContent.Payload, envContent.SignerInfo
-	if payload.ContentType != notation.MediaTypePayloadV1 {
-		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, notation.MediaTypePayloadV1)
+	if payload.ContentType != mediaTypePayloadV1 {
+		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, mediaTypePayloadV1)
 	}
-	var gotPayload notation.Payload
+	var gotPayload envelope.Payload
 	if err := json.Unmarshal(payload.Content, &gotPayload); err != nil {
 		t.Fatalf("Signer.Sign() Unmarshal payload failed: %v", err)
 	}
-	expectedPayload := notation.Payload{
+	expectedPayload := envelope.Payload{
 		TargetArtifact: validSignDescriptor,
 	}
 	if !reflect.DeepEqual(expectedPayload, gotPayload) {
@@ -615,13 +574,14 @@ func newMockEnvelopeProvider(key crypto.PrivateKey, certs []*x509.Certificate, k
 				sigProvider:       internalProvider,
 				envelopeMediaType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
 			}
-			var payload notation.Payload
+			var payload envelope.Payload
 			if err := json.Unmarshal(r.(*plugin.GenerateEnvelopeRequest).Payload, &payload); err != nil {
 				return nil, err
 			}
-			data, err := sigGenerator.Sign(
+			data, _, err := sigGenerator.Sign(
 				context.Background(),
 				payload.TargetArtifact,
+				sigGenerator.envelopeMediaType,
 				validSignOpts)
 			if err != nil {
 				return nil, err
@@ -657,9 +617,10 @@ func TestPluginSigner_SignEnvelope_EmptyCert(t *testing.T) {
 							),
 							envelopeMediaType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
 						}
-						data, err := sigGenerator.Sign(
+						data, _, err := sigGenerator.Sign(
 							context.Background(),
 							validSignDescriptor,
+							sigGenerator.envelopeMediaType,
 							validSignOpts)
 						if err != nil {
 							return nil, err
@@ -672,7 +633,7 @@ func TestPluginSigner_SignEnvelope_EmptyCert(t *testing.T) {
 				),
 				envelopeMediaType: envelopeType,
 			}
-			if _, err := signer.Sign(context.Background(), validSignDescriptor, validSignOpts); err == nil {
+			if _, _, err := signer.Sign(context.Background(), validSignDescriptor, signer.envelopeMediaType, validSignOpts); err == nil {
 				t.Errorf("Signer.Sign() expect error")
 			}
 		})
@@ -697,9 +658,10 @@ func TestPluginSigner_SignEnvelope_MalformedCertChain(t *testing.T) {
 							),
 							envelopeMediaType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
 						}
-						data, err := sigGenerator.Sign(
+						data, _, err := sigGenerator.Sign(
 							context.Background(),
 							validSignDescriptor,
+							sigGenerator.envelopeMediaType,
 							validSignOpts)
 						if err != nil {
 							return nil, err
@@ -752,7 +714,7 @@ func TestPluginSigner_SignEnvelope_MalFormedEnvelope(t *testing.T) {
 				envelopeMediaType: envelopeType,
 			}
 			var expectedErr *signature.InvalidSignatureError
-			if _, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{}); err == nil || !errors.As(err, &expectedErr) {
+			if _, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, signer.envelopeMediaType, notation.SignOptions{}); err == nil || !errors.As(err, &expectedErr) {
 				t.Fatalf("Signer.Sign() error = %v, want MalformedSignatureError", err)
 			}
 		})
@@ -769,11 +731,12 @@ func TestPluginSigner_SignEnvelope_DescriptorChanged(t *testing.T) {
 							sigProvider:       newDefaultMockProvider(),
 							envelopeMediaType: r.(*plugin.GenerateEnvelopeRequest).SignatureEnvelopeType,
 						}
-						data, err := sigGenerator.Sign(
+						data, _, err := sigGenerator.Sign(
 							context.Background(),
-							notation.Descriptor{
+							ocispec.Descriptor{
 								MediaType: invalidMediaType,
 							},
+							sigGenerator.envelopeMediaType,
 							notation.SignOptions{})
 						if err != nil {
 							return nil, err
@@ -786,7 +749,7 @@ func TestPluginSigner_SignEnvelope_DescriptorChanged(t *testing.T) {
 				),
 				envelopeMediaType: envelopeType,
 			}
-			_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
+			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, signer.envelopeMediaType, notation.SignOptions{})
 			if err == nil || err.Error() != "descriptor subject has changed" {
 				t.Fatalf("Signer.Sign() error = %v, wnatErr descriptor subject has changed", err)
 			}
@@ -809,7 +772,7 @@ func TestPluginSigner_SignEnvelope_SignatureVerifyError(t *testing.T) {
 				sigProvider:       p,
 				envelopeMediaType: envelopeType,
 			}
-			_, err := signer.Sign(context.Background(), notation.Descriptor{}, notation.SignOptions{})
+			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, signer.envelopeMediaType, notation.SignOptions{})
 			if err == nil {
 				t.Fatalf("Signer.Sign() error = %v", err)
 			}

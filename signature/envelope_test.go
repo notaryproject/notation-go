@@ -7,7 +7,6 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
-	notation "github.com/notaryproject/notation-go/internal"
 	gcose "github.com/veraison/go-cose"
 )
 
@@ -69,7 +68,7 @@ func TestValidateEnvelopeMediaType(t *testing.T) {
 
 func TestValidatePayloadContentType(t *testing.T) {
 	payload := &signature.Payload{
-		ContentType: notation.MediaTypePayloadV1,
+		ContentType: mediaTypePayloadV1,
 	}
 	err := ValidatePayloadContentType(payload)
 	if !isErrEqual(nil, err) {

@@ -1,9 +1,14 @@
 package trustpolicy
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/notaryproject/notation-go/dir"
 )
 
 func dummyPolicyStatement() (policyStatement TrustPolicy) {
@@ -487,5 +492,43 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash")
 	if policy.Name != wildcardStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
+	}
+}
+
+func TestLoadDocument(t *testing.T) {
+	// non-existing policy file
+	tempRoot := t.TempDir()
+	dir.UserConfigDir = tempRoot
+	_, err := LoadDocument()
+	if err == nil {
+		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
+	}
+
+	// existing invalid json file
+	tempRoot = t.TempDir()
+	dir.UserConfigDir = tempRoot
+	path := filepath.Join(tempRoot, "invalid.json")
+	err = os.WriteFile(path, []byte(`{"invalid`), 0644)
+	if err != nil {
+		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
+	}
+	_, err = LoadDocument()
+	if err == nil {
+		t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
+	}
+
+	// existing policy file
+	tempRoot = t.TempDir()
+	dir.UserConfigDir = tempRoot
+	path = filepath.Join(tempRoot, "trustpolicy.json")
+	policyDoc1 := dummyPolicyDocument()
+	policyJson, _ := json.Marshal(policyDoc1)
+	err = os.WriteFile(path, policyJson, 0644)
+	if err != nil {
+		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
+	}
+	_, err = LoadDocument()
+	if err != nil {
+		t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
 	}
 }

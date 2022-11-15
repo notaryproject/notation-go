@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	notation "github.com/notaryproject/notation-go/internal"
+	"github.com/notaryproject/notation-go"
 )
 
 // NewSignerFromFiles creates a signer from key, certificate files

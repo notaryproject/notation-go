@@ -1,3 +1,5 @@
+// Package notation provides signer and verifier for notation Sign
+// and Verification.
 package notation
 
 import (
@@ -12,14 +14,11 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/registry"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"oras.land/oras-go/v2/content"
 )
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
-
-const maxVerificationLimitDefault = 50
 
 var errDoneVerification = errors.New("done verification")
 
@@ -89,7 +88,7 @@ type VerifyOptions struct {
 
 	// MaxSignatureAttempts is the maximum number of signature envelopes that
 	// can be associated with the target artifact. If set to less than or equals
-	// to zero, value defaults to 50.
+	// to zero, an error will be returned.
 	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
 	// for signle signature verification, and therefore, does not use it.
 	MaxSignatureAttempts int
@@ -135,21 +134,21 @@ type VerificationOutcome struct {
 
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
-	// Verify verifies the signature blob and returns the artifact
-	// descriptor upon successful verification.
+	// Verify verifies the signature blob and returns the outcome upon
+	// successful verification.
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
-	Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error)
+	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error)
 }
 
 // Verify performs signature verification on each of the notation supported
 // verification types (like integrity, authenticity, etc.) and return the
-// verification outcomes.
+// successful signature verification outcomes.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	// passing nil signature to check 'skip'
-	_, outcome, err := verifier.Verify(ctx, nil, opts)
+	outcome, err := verifier.Verify(ctx, ocispec.Descriptor{}, nil, opts)
 	if err != nil {
 		if outcome == nil {
 			return ocispec.Descriptor{}, nil, err
@@ -165,49 +164,40 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	var verificationOutcomes []*VerificationOutcome
-	var targetArtifactDesc ocispec.Descriptor
 	if opts.MaxSignatureAttempts <= 0 {
-		// Set MaxVerificationLimit to 50 as default
-		opts.MaxSignatureAttempts = maxVerificationLimitDefault
+		return ocispec.Descriptor{}, verificationOutcomes, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", opts.MaxSignatureAttempts)}
 	}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
-	count := 0
+	numOfSignatureProcessed := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
-			if count >= opts.MaxSignatureAttempts {
+			if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
 				break
 			}
-			count++
+			numOfSignatureProcessed++
 			// get signature envelope
 			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
-			payloadArtifactDescriptor, outcome, err := verifier.Verify(ctx, sigBlob, opts)
+			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
 				if outcome == nil {
 					// TODO: log fatal error
 					return err
 				}
-				verificationOutcomes = append(verificationOutcomes, outcome)
-				continue
-			}
-			if !content.Equal(payloadArtifactDescriptor, artifactDescriptor) {
-				outcome.Error = errors.New("content descriptor mismatch")
-				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
 
-			// At this point, we've found a signature verified successfully
+			// At this point, the signature is verified successfully. Add
+			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
-			// Descriptor of the signature blob that gets verified successfully
-			targetArtifactDesc = payloadArtifactDescriptor
 
 			return errDoneVerification
 		}
 
-		if count >= opts.MaxSignatureAttempts {
+		if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
 			return errExceededMaxVerificationLimit
 		}
 
@@ -222,16 +212,17 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	// If there's no signature associated with the reference
-	if len(verificationOutcomes) == 0 {
+	if numOfSignatureProcessed == 0 {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", artifactRef)}
 	}
 
-	// check whether verification was successful or not
-	if verificationOutcomes[len(verificationOutcomes)-1].Error != nil {
+	// Verification Failed
+	if len(verificationOutcomes) == 0 {
 		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
 
-	return targetArtifactDesc, verificationOutcomes, nil
+	// Verification Succeeded
+	return artifactDescriptor, verificationOutcomes, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, error) {
