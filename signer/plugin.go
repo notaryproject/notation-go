@@ -84,7 +84,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 	if s.keyID != key.KeyID {
 		return nil, nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.keyID)
 	}
-	ks, err := proto.DecodeKeySpec(proto.KeySpec(key.KeySpec))
+	ks, err := proto.DecodeKeySpec(key.KeySpec)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -18,7 +18,7 @@ type DescribeKeyResponse struct {
 
 	// One of following supported key types:
 	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
-	KeySpec string `json:"keySpec"`
+	KeySpec KeySpec `json:"keySpec"`
 }
 
 // GenerateSignatureRequest contains the parameters passed in a

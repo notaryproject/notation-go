@@ -8,7 +8,7 @@ import (
 
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/verification/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -22,7 +22,7 @@ func TestRegistryResolveError(t *testing.T) {
 
 	// mock the repository
 	repo.ResolveError = errors.New(errorMessage)
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -35,7 +35,7 @@ func TestSkippedSignatureVerification(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
 
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err != nil || outcomes[0].VerificationLevel.Name != trustpolicy.LevelSkip.Name {
@@ -52,7 +52,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 
 	// mock the repository
 	repo.ListSignaturesResponse = []ocispec.Descriptor{}
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -69,7 +69,7 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 
 	// mock the repository
 	repo.FetchSignatureBlobError = errors.New("network error")
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -103,15 +103,15 @@ type dummyVerifier struct {
 	VerificationLevel trustpolicy.VerificationLevel
 }
 
-func (v *dummyVerifier) Verify(ctx context.Context, signature []byte, opts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error) {
+func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error) {
 	if v.FailVerify {
-		return ocispec.Descriptor{}, nil, errors.New("failed verify")
+		return nil, errors.New("failed verify")
 	}
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
 		VerificationLevel:   &v.VerificationLevel,
 	}
-	return ocispec.Descriptor{}, outcome, nil
+	return outcome, nil
 }
 
 func (v *dummyVerifier) TrustPolicyDocument() (*trustpolicy.Document, error) {

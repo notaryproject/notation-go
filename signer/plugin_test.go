@@ -113,7 +113,7 @@ func (p *mockPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequ
 // DescribeKey returns the KeySpec of a key.
 func (p *mockPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
 	return &proto.DescribeKeyResponse{
-		KeySpec: string(proto.KeySpecRSA2048),
+		KeySpec: proto.KeySpecRSA2048,
 	}, nil
 }
 
