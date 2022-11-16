@@ -33,7 +33,7 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 		return nil, errors.New("nil plugin")
 	}
 	if keyID == "" {
-		return nil, errors.New("nil signing keyID")
+		return nil, errors.New("keyID not specified")
 	}
 	// remoteSigner implements signature.Signer
 	remoteSigner := &remoteSigner{
@@ -116,7 +116,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	}
 	resp, err := s.plugin.GenerateEnvelope(ctx, req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generate-envelope command failed: %w", err)
+		return nil, nil, fmt.Errorf("plugin failed to sign with following error: %w", err)
 	}
 
 	// Check signatureEnvelopeType is honored.
@@ -134,7 +134,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 
 	envContent, err := sigEnv.Verify()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("generated signature failed verification: %v", err)
 	}
 	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, nil, err
@@ -147,8 +147,8 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 
 	// TODO: Verify plugin did not add any additional top level payload
 	// attributes. https://github.com/notaryproject/notation-go/issues/80
-	if !descriptorPartialEqual(desc, signedPayload.TargetArtifact) {
-		return nil, nil, errors.New("descriptor subject has changed")
+	if !isDescriptorSubset(desc, signedPayload.TargetArtifact) {
+		return nil, nil, fmt.Errorf("during signing descriptor subject has changed from %+v to %+v", desc, signedPayload.TargetArtifact)
 	}
 
 	return resp.SignatureEnvelope, &envContent.SignerInfo, nil
@@ -181,9 +181,9 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 	return resp, nil
 }
 
-// descriptorPartialEqual checks if the both descriptors point to the same
+// isDescriptorSubset checks if the both descriptors point to the same
 // resource and that newDesc hasn't replaced or overridden existing annotations.
-func descriptorPartialEqual(original, newDesc ocispec.Descriptor) bool {
+func isDescriptorSubset(original, newDesc ocispec.Descriptor) bool {
 	if !content.Equal(original, newDesc) {
 		return false
 	}

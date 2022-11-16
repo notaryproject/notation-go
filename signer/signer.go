@@ -54,7 +54,7 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 		return nil, err
 	}
 	if len(cert.Certificate) == 0 {
-		return nil, fmt.Errorf("%q does not contain a signer certificate chain", certChainPath)
+		return nil, fmt.Errorf("%q does not contain certificate", certChainPath)
 	}
 
 	// parse cert
@@ -112,7 +112,7 @@ func generateSignatureBlob(signer signature.Signer, desc ocispec.Descriptor, opt
 
 	envContent, err := sigEnv.Verify()
 	if err != nil {
-		return nil, nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", err)
+		return nil, nil, fmt.Errorf("generated signature failed verification: %v", err)
 	}
 	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, nil, err
