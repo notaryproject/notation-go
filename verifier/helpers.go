@@ -10,7 +10,6 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
@@ -36,7 +35,7 @@ var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
 var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$`)
 
-func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy) ([]*x509.Certificate, error) {
+func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
 	var typeToLoad truststore.Type
 	switch scheme {
 	case signature.SigningSchemeX509:
@@ -51,7 +50,6 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 	// https://github.com/notaryproject/notation-go/issues/203
 	var processedStoreSet = make(map[string]struct{})
 	var certificates []*x509.Certificate
-	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 	for _, trustStore := range policy.TrustStores {
 		if _, ok := processedStoreSet[trustStore]; ok {
 			// we loaded this trust store already
