@@ -158,7 +158,7 @@ func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts nota
 }
 
 func TestNewFromPluginFailed(t *testing.T) {
-	wantErr := "nil signing keyID"
+	wantErr := "keyID not specified"
 	_, err := NewFromPlugin(&plugin.CLIPlugin{}, "", make(map[string]string))
 	if err == nil || err.Error() != wantErr {
 		t.Fatalf("TestNewFromPluginFailed expects error %q, got %q", wantErr, err.Error())
