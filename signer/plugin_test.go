@@ -272,13 +272,13 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string
 		t.Fatal(err)
 	}
 
-	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		t.Fatalf("verification failed. error = %v", err)
 	}
 
 	payload := envContent.Payload
-	if payload.ContentType != mediaTypePayloadV1 {
-		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, mediaTypePayloadV1)
+	if payload.ContentType != envelope.MediaTypePayloadV1 {
+		t.Fatalf("Signer.Sign() Payload content type changed, expect: %v, got: %v", payload.ContentType, envelope.MediaTypePayloadV1)
 	}
 	var gotPayload envelope.Payload
 	if err := json.Unmarshal(payload.Content, &gotPayload); err != nil {

@@ -19,9 +19,6 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// mediaTypePayloadV1 is the supported content type for signature's payload.
-const mediaTypePayloadV1 = "application/vnd.cncf.notary.payload.v1+json"
-
 // signingAgent is the unprotected header field used by signature.
 const signingAgent = "Notation/1.0.0"
 
@@ -81,7 +78,7 @@ func (s *builtinSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 
 func generateSignatureBlob(ctx context.Context, signer signature.Signer, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	// Generate payload to be signed.
-	payload := envelope.Payload{TargetArtifact: desc}
+	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(&desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
@@ -89,14 +86,13 @@ func generateSignatureBlob(ctx context.Context, signer signature.Signer, desc oc
 
 	signReq := &signature.SignRequest{
 		Payload: signature.Payload{
-			ContentType: mediaTypePayloadV1,
+			ContentType: envelope.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:                   signer,
-		SigningTime:              time.Now(),
-		ExtendedSignedAttributes: nil,
-		SigningScheme:            signature.SigningSchemeX509,
-		SigningAgent:             signingAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
+		Signer:        signer,
+		SigningTime:   time.Now(),
+		SigningScheme: signature.SigningSchemeX509,
+		SigningAgent:  signingAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
 	}
 
 	if !opts.Expiry.IsZero() {
@@ -118,7 +114,7 @@ func generateSignatureBlob(ctx context.Context, signer signature.Signer, desc oc
 	if err != nil {
 		return nil, nil, fmt.Errorf("signature returned by generateSignature cannot be verified: %v", err)
 	}
-	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, nil, err
 	}
 

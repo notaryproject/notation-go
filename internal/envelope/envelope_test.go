@@ -1,4 +1,4 @@
-package signer
+package envelope
 
 import (
 	"errors"
@@ -68,7 +68,7 @@ func TestValidateEnvelopeMediaType(t *testing.T) {
 
 func TestValidatePayloadContentType(t *testing.T) {
 	payload := &signature.Payload{
-		ContentType: mediaTypePayloadV1,
+		ContentType: MediaTypePayloadV1,
 	}
 	err := ValidatePayloadContentType(payload)
 	if !isErrEqual(nil, err) {

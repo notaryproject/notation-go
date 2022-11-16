@@ -99,7 +99,6 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	payload := envelope.Payload{TargetArtifact: desc}
-	fmt.Println(payload)
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
@@ -110,7 +109,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		KeyID:                 s.keyID,
 		Payload:               payloadBytes,
 		SignatureEnvelopeType: opts.SignatureMediaType,
-		PayloadType:           mediaTypePayloadV1,
+		PayloadType:           envelope.MediaTypePayloadV1,
 		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
 	resp, err := s.plugin.GenerateEnvelope(ctx, req)
@@ -135,7 +134,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, nil, err
 	}
 

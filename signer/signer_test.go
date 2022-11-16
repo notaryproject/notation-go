@@ -20,6 +20,7 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-core-go/timestamp/timestamptest"
 	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -286,7 +287,7 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 	if vErr != nil {
 		t.Fatalf("verification failed. error = %v", err)
 	}
-	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		t.Fatalf("verification failed. error = %v", err)
 	}
 
