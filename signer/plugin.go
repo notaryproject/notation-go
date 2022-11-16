@@ -52,7 +52,7 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 // Sign signs the artifact described by its descriptor and returns the marshalled envelope.
 func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	req := &proto.GetMetadataRequest{
-		PluginConfig: s.pluginConfig,
+		PluginConfig: s.mergeConfig(opts.PluginConfig),
 	}
 	metadata, err := s.plugin.GetMetadata(ctx, req)
 	if err != nil {
@@ -90,6 +90,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 	}
 
 	if remoteSigner, ok := s.signer.(*remoteSigner); ok {
+		remoteSigner.ctx = ctx
 		remoteSigner.keySpec = ks
 		remoteSigner.pluginConfig = config
 	}
@@ -98,7 +99,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
-	payload := envelope.Payload{TargetArtifact: desc}
+	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(&desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
@@ -207,6 +208,7 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 
 // remoteSigner implements signature.Signer
 type remoteSigner struct {
+	ctx          context.Context
 	plugin       plugin.SignPlugin
 	pluginConfig map[string]string
 	keySpec      signature.KeySpec
@@ -235,7 +237,7 @@ func (s *remoteSigner) Sign(payload []byte) ([]byte, []*x509.Certificate, error)
 		PluginConfig:    s.pluginConfig,
 	}
 
-	resp, err := s.plugin.GenerateSignature(context.Background(), req)
+	resp, err := s.plugin.GenerateSignature(s.ctx, req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate-signature command failed: %w", err)
 	}
