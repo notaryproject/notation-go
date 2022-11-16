@@ -73,12 +73,12 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 // Sign signs the artifact described by its descriptor and returns the
 // marshaled envelope.
 func (s *builtinSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
-	return generateSignatureBlob(ctx, s.LocalSigner, desc, opts)
+	return generateSignatureBlob(s.LocalSigner, desc, opts)
 }
 
-func generateSignatureBlob(ctx context.Context, signer signature.Signer, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func generateSignatureBlob(signer signature.Signer, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	// Generate payload to be signed.
-	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(&desc)}
+	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)

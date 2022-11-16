@@ -25,9 +25,9 @@ type pluginSigner struct {
 	signer       signature.Signer
 }
 
-// NewSignerPlugin creates a notation.Signer that signs artifacts and generates signatures
-// by delegating the one or more operations to the named plugin, as defined in
-// https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
+// NewSignerPlugin creates a notation.Signer that signs artifacts and generates
+// signatures by delegating the one or more operations to the named plugin,
+// as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
 	if plugin == nil {
 		return nil, errors.New("nil plugin")
@@ -49,7 +49,8 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 	}, nil
 }
 
-// Sign signs the artifact described by its descriptor and returns the marshalled envelope.
+// Sign signs the artifact described by its descriptor and returns the
+// marshalled envelope.
 func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	req := &proto.GetMetadataRequest{
 		PluginConfig: s.mergeConfig(opts.PluginConfig),
@@ -95,11 +96,11 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 		remoteSigner.pluginConfig = config
 	}
 
-	return generateSignatureBlob(ctx, s.signer, desc, opts)
+	return generateSignatureBlob(s.signer, desc, opts)
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
-	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(&desc)}
+	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
@@ -144,7 +145,8 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		return nil, nil, fmt.Errorf("signed envelope payload can't be unmarshaled: %w", err)
 	}
 
-	// TODO: Verify plugin did not add any additional top level payload attributes. https://github.com/notaryproject/notation-go/issues/80
+	// TODO: Verify plugin did not add any additional top level payload
+	// attributes. https://github.com/notaryproject/notation-go/issues/80
 	if !descriptorPartialEqual(desc, signedPayload.TargetArtifact) {
 		return nil, nil, errors.New("descriptor subject has changed")
 	}
@@ -179,13 +181,14 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 	return resp, nil
 }
 
-// descriptorPartialEqual checks if the both descriptors point to the same resource
-// and that newDesc hasn't replaced or overridden existing annotations.
+// descriptorPartialEqual checks if the both descriptors point to the same
+// resource and that newDesc hasn't replaced or overridden existing annotations.
 func descriptorPartialEqual(original, newDesc ocispec.Descriptor) bool {
 	if !content.Equal(original, newDesc) {
 		return false
 	}
-	// Plugins may append additional annotations but not replace/override existing.
+	// Plugins may append additional annotations but not replace/override
+	// existing.
 	for k, v := range original.Annotations {
 		if v2, ok := newDesc.Annotations[k]; !ok || v != v2 {
 			return false
@@ -254,7 +257,8 @@ func (s *remoteSigner) Sign(payload []byte) ([]byte, []*x509.Certificate, error)
 	return resp.Signature, certs, nil
 }
 
-// KeySpec returns the keySpec of a keyID by calling describeKey and do some keySpec validation.
+// KeySpec returns the keySpec of a keyID by calling describeKey and do some
+// keySpec validation.
 func (s *remoteSigner) KeySpec() (signature.KeySpec, error) {
 	return s.keySpec, nil
 }

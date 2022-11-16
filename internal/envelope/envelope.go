@@ -27,7 +27,7 @@ func ValidatePayloadContentType(payload *signature.Payload) error {
 
 // SanitizeTargetArtifact filters out unrelated ocispec.Descriptor fields based
 // on notation spec (https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#payload).
-func SanitizeTargetArtifact(targetArtifact *ocispec.Descriptor) ocispec.Descriptor {
+func SanitizeTargetArtifact(targetArtifact ocispec.Descriptor) ocispec.Descriptor {
 	return ocispec.Descriptor{
 		MediaType:   targetArtifact.MediaType,
 		Digest:      targetArtifact.Digest,

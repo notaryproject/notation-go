@@ -95,7 +95,8 @@ func isErrEqual(wanted, got error) bool {
 	return false
 }
 
-// validateEnvelopeMediaType validetes envelope media type is supported by notation-core-go.
+// validateEnvelopeMediaType validetes envelope media type is supported by
+// notation-core-go.
 func validateEnvelopeMediaType(mediaType string) error {
 	for _, types := range signature.RegisteredEnvelopeTypes() {
 		if mediaType == types {
