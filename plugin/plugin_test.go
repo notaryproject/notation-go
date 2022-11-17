@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/notaryproject/notation-go/plugin/proto"
@@ -145,4 +146,50 @@ func TestVerifySignature(t *testing.T) {
 			t.Fatalf("VerifySignature() error. got: %+v, want: %+v", resp, keyResp)
 		}
 	})
+}
+
+func TestValidateMetadata(t *testing.T) {
+	tests := []struct {
+		m       *proto.GetMetadataResponse
+		wantErr bool
+	}{
+		{&proto.GetMetadataResponse{}, true},
+		{&proto.GetMetadataResponse{Name: "name"}, true},
+		{&proto.GetMetadataResponse{Name: "name", Description: "friendly"}, true},
+		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1"}, true},
+		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com"}, true},
+		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", Capabilities: []proto.Capability{"cap"}}, true},
+		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}}, true},
+		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{"cap"}}, false},
+	}
+	for i, tt := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			if err := validate(tt.m); (err != nil) != tt.wantErr {
+				t.Errorf("GetMetadataResponse.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGetMetadataResponse_SupportsContract(t *testing.T) {
+	type args struct {
+		major string
+	}
+	tests := []struct {
+		name string
+		m    *proto.GetMetadataResponse
+		args args
+		want bool
+	}{
+		{"empty versions", &proto.GetMetadataResponse{}, args{"2"}, false},
+		{"other versions", &proto.GetMetadataResponse{SupportedContractVersions: []string{"1", "2"}}, args{"3"}, false},
+		{"found", &proto.GetMetadataResponse{SupportedContractVersions: []string{"1", "2"}}, args{"2"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := supportsContract(tt.args.major, tt.m); got != tt.want {
+				t.Errorf("GetMetadataResponse.SupportsContract() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

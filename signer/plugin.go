@@ -52,12 +52,6 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	if err != nil {
 		return nil, nil, err
 	}
-	if !metadata.SupportsContract(proto.ContractVersion) {
-		return nil, nil, fmt.Errorf(
-			"contract version %q is not in the list of the plugin supported versions %v",
-			proto.ContractVersion, metadata.SupportedContractVersions,
-		)
-	}
 	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts)
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {

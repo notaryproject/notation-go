@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -71,18 +72,22 @@ func NewCLIPlugin(ctx context.Context, name, path string, pluginConfig map[strin
 	if metadata.Name != name {
 		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(path))
 	}
-	if err = metadata.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid metadata: %w", err)
-	}
 
 	return &plugin, nil
 }
 
 // GetMetadata returns the metadata information of the plugin.
 func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
-	var resp proto.GetMetadataResponse
-	err := run(ctx, p.name, p.path, req, &resp)
-	return &resp, err
+	var metadata proto.GetMetadataResponse
+	err := run(ctx, p.name, p.path, req, &metadata)
+	if err != nil {
+		return nil, err
+	}
+	// validate metadata
+	if err = validate(&metadata); err != nil {
+		return nil, fmt.Errorf("invalid metadata: %w", err)
+	}
+	return &metadata, nil
 }
 
 // DescribeKey returns the KeySpec of a key.
@@ -167,4 +172,44 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 		return nil, stderr.Bytes(), err
 	}
 	return stdout.Bytes(), nil, nil
+}
+
+// validate checks if the metadata is correctly populated.
+func validate(metadata *proto.GetMetadataResponse) error {
+	if metadata.Name == "" {
+		return errors.New("empty name")
+	}
+	if metadata.Description == "" {
+		return errors.New("empty description")
+	}
+	if metadata.Version == "" {
+		return errors.New("empty version")
+	}
+	if metadata.URL == "" {
+		return errors.New("empty url")
+	}
+	if len(metadata.Capabilities) == 0 {
+		return errors.New("empty capabilities")
+	}
+	if len(metadata.SupportedContractVersions) == 0 {
+		return errors.New("empty supported contract versions")
+	}
+	if !supportsContract(proto.ContractVersion, metadata) {
+		return fmt.Errorf(
+			"contract version %q is not in the list of the plugin supported versions %v",
+			proto.ContractVersion, metadata.SupportedContractVersions,
+		)
+	}
+	return nil
+}
+
+// supportsContract return true if the metadata states that the
+// contract version is supported.
+func supportsContract(targetVer string, metadata *proto.GetMetadataResponse) bool {
+	for _, v := range metadata.SupportedContractVersions {
+		if v == targetVer {
+			return true
+		}
+	}
+	return false
 }
