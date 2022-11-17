@@ -22,7 +22,6 @@ type pluginSigner struct {
 	plugin       plugin.SignPlugin
 	keyID        string
 	pluginConfig map[string]string
-	signer       signature.Signer
 }
 
 // NewSignerPlugin creates a notation.Signer that signs artifacts and generates
@@ -35,17 +34,11 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 	if keyID == "" {
 		return nil, errors.New("keyID not specified")
 	}
-	// remoteSigner implements signature.Signer
-	remoteSigner := &remoteSigner{
-		plugin:       plugin,
-		pluginConfig: pluginConfig,
-		keyID:        keyID,
-	}
+
 	return &pluginSigner{
 		plugin:       plugin,
 		keyID:        keyID,
 		pluginConfig: pluginConfig,
-		signer:       remoteSigner,
 	}, nil
 }
 
@@ -90,20 +83,24 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 		return nil, nil, err
 	}
 
-	if remoteSigner, ok := s.signer.(*remoteSigner); ok {
-		remoteSigner.ctx = ctx
-		remoteSigner.keySpec = ks
-		remoteSigner.pluginConfig = config
+	genericSigner := genericSigner{
+		Signer: &pluginPrimitiveSigner{
+			ctx:          ctx,
+			plugin:       s.plugin,
+			pluginConfig: config,
+			keySpec:      ks,
+			keyID:        s.keyID,
+		},
 	}
 
-	return generateSignatureBlob(s.signer, desc, opts)
+	return generateSignatureBlob(genericSigner.Signer, desc, opts)
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
+		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
 	// Execute plugin sign command.
 	req := &proto.GenerateEnvelopeRequest{
@@ -142,7 +139,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 
 	var signedPayload envelope.Payload
 	if err = json.Unmarshal(envContent.Payload.Content, &signedPayload); err != nil {
-		return nil, nil, fmt.Errorf("signed envelope payload can't be unmarshaled: %w", err)
+		return nil, nil, fmt.Errorf("signed envelope payload can't be unmarshalled: %w", err)
 	}
 
 	// TODO: Verify plugin did not add any additional top level payload
@@ -209,8 +206,8 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-// remoteSigner implements signature.Signer
-type remoteSigner struct {
+// pluginPrimitiveSigner implements signature.Signer
+type pluginPrimitiveSigner struct {
 	ctx          context.Context
 	plugin       plugin.SignPlugin
 	pluginConfig map[string]string
@@ -219,7 +216,7 @@ type remoteSigner struct {
 }
 
 // Sign signs the digest by calling the underlying plugin.
-func (s *remoteSigner) Sign(payload []byte) ([]byte, []*x509.Certificate, error) {
+func (s *pluginPrimitiveSigner) Sign(payload []byte) ([]byte, []*x509.Certificate, error) {
 	// Execute plugin sign command.
 	keySpec, err := proto.EncodeKeySpec(s.keySpec)
 	if err != nil {
@@ -259,6 +256,6 @@ func (s *remoteSigner) Sign(payload []byte) ([]byte, []*x509.Certificate, error)
 
 // KeySpec returns the keySpec of a keyID by calling describeKey and do some
 // keySpec validation.
-func (s *remoteSigner) KeySpec() (signature.KeySpec, error) {
+func (s *pluginPrimitiveSigner) KeySpec() (signature.KeySpec, error) {
 	return s.keySpec, nil
 }

@@ -130,7 +130,7 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 	if p.wantEnvelope {
 		internalPluginSigner := pluginSigner{
 			plugin: newMockPlugin(),
-			signer: newMockRemoteSigner(p.key, p.certs, "", p.keySpec),
+			//signer: newMockRemoteSigner(p.key, p.certs, "", p.keySpec),
 		}
 		var payload envelope.Payload
 		if err := json.Unmarshal(req.Payload, &payload); err != nil {

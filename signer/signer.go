@@ -22,10 +22,9 @@ import (
 // signingAgent is the unprotected header field used by signature.
 const signingAgent = "Notation/1.0.0"
 
-// builtinSigner implements notation.Signer and wraps LocalSigner for signing
-// locally
-type builtinSigner struct {
-	signature.LocalSigner
+// genericSigner implements notation.Signer and embeds signature.Signer
+type genericSigner struct {
+	signature.Signer
 }
 
 // New returns a builtinSigner given key and cert chain
@@ -34,8 +33,8 @@ func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer,
 	if err != nil {
 		return nil, err
 	}
-	return &builtinSigner{
-		LocalSigner: localSigner,
+	return &genericSigner{
+		Signer: localSigner,
 	}, nil
 }
 
@@ -71,9 +70,9 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 }
 
 // Sign signs the artifact described by its descriptor and returns the
-// marshaled envelope.
-func (s *builtinSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
-	return generateSignatureBlob(s.LocalSigner, desc, opts)
+// marshalled envelope.
+func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+	return generateSignatureBlob(s.Signer, desc, opts)
 }
 
 func generateSignatureBlob(signer signature.Signer, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
@@ -81,7 +80,7 @@ func generateSignatureBlob(signer signature.Signer, desc ocispec.Descriptor, opt
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("envelope payload can't be marshaled: %w", err)
+		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
 
 	signReq := &signature.SignRequest{
