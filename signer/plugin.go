@@ -87,13 +87,13 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 		Signer: &pluginPrimitiveSigner{
 			ctx:          ctx,
 			plugin:       s.plugin,
+			keyID:        s.keyID,
 			pluginConfig: config,
 			keySpec:      ks,
-			keyID:        s.keyID,
 		},
 	}
 
-	return generateSignatureBlob(genericSigner.Signer, desc, opts)
+	return genericSigner.Sign(ctx, desc, opts)
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
@@ -210,9 +210,9 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 type pluginPrimitiveSigner struct {
 	ctx          context.Context
 	plugin       plugin.SignPlugin
+	keyID        string
 	pluginConfig map[string]string
 	keySpec      signature.KeySpec
-	keyID        string
 }
 
 // Sign signs the digest by calling the underlying plugin.

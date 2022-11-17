@@ -72,10 +72,6 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
 func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
-	return generateSignatureBlob(s.Signer, desc, opts)
-}
-
-func generateSignatureBlob(signer signature.Signer, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	// Generate payload to be signed.
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
@@ -88,7 +84,7 @@ func generateSignatureBlob(signer signature.Signer, desc ocispec.Descriptor, opt
 			ContentType: envelope.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:        signer,
+		Signer:        s.Signer,
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
 		SigningAgent:  signingAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
