@@ -1,6 +1,9 @@
 package proto
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // GetMetadataRequest contains the parameters passed in a get-plugin-metadata
 // request.
@@ -41,6 +44,12 @@ func (resp *GetMetadataResponse) Validate() error {
 	}
 	if len(resp.SupportedContractVersions) == 0 {
 		return errors.New("empty supported contract versions")
+	}
+	if !resp.SupportsContract(ContractVersion) {
+		return fmt.Errorf(
+			"contract version %q is not in the list of the plugin supported versions %v",
+			ContractVersion, resp.SupportedContractVersions,
+		)
 	}
 	return nil
 }

@@ -20,7 +20,7 @@ func main() {
 			URL                       string   `json:"url"`
 			SupportedContractVersions []string `json:"supportedContractVersions"`
 			Capabilities              []string `json:"capabilities"`
-		}{Name: "foo", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1"}, Capabilities: []string{"cap"}}
+		}{Name: "foo", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}, Capabilities: []string{"cap"}}
 		data, err := json.Marshal(&m)
 		if err != nil {
 			panic(err)

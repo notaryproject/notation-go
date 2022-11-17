@@ -57,14 +57,14 @@ type CLIPlugin struct {
 }
 
 // NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
-func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
+func NewCLIPlugin(ctx context.Context, name, path string, pluginConfig map[string]string) (*CLIPlugin, error) {
 	plugin := CLIPlugin{
 		name: name,
 		path: path,
 	}
 
 	// validate metadata
-	metadata, err := plugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+	metadata, err := plugin.GetMetadata(ctx, &proto.GetMetadataRequest{PluginConfig: pluginConfig})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
 	}
@@ -88,6 +88,7 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 // DescribeKey returns the KeySpec of a key.
 func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
 	var resp proto.DescribeKeyResponse
+	req.ContractVersion = proto.ContractVersion
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -95,6 +96,7 @@ func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyReque
 // GenerateSignature generates the raw signature based on the request.
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
 	var resp proto.GenerateSignatureResponse
+	req.ContractVersion = proto.ContractVersion
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -102,6 +104,7 @@ func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSi
 // GenerateEnvelope generates the Envelope with signature based on the request.
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
 	var resp proto.GenerateEnvelopeResponse
+	req.ContractVersion = proto.ContractVersion
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -109,6 +112,7 @@ func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnv
 // VerifySignature validates the signature based on the request.
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
 	var resp proto.VerifySignatureResponse
+	req.ContractVersion = proto.ContractVersion
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }

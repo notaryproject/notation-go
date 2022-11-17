@@ -18,7 +18,7 @@ var exampleMetadata = proto.GetMetadataResponse{
 	Description:               "friendly",
 	Version:                   "1",
 	URL:                       "example.com",
-	SupportedContractVersions: []string{"1"},
+	SupportedContractVersions: []string{"1.0"},
 	Capabilities:              []proto.Capability{"cap"}}
 
 func preparePlugin(t *testing.T) string {
@@ -74,7 +74,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// validate and create
-	plugin, err := mgr.Get(context.Background(), "foo")
+	plugin, err := mgr.Get(context.Background(), "foo", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

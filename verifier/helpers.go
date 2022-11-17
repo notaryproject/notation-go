@@ -12,8 +12,6 @@ import (
 	"github.com/notaryproject/notation-go"
 	set "github.com/notaryproject/notation-go/internal/container"
 	"github.com/notaryproject/notation-go/internal/slices"
-	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
@@ -137,23 +135,4 @@ func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, 
 		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", HeaderVerificationPluginMinVersion)
 	}
 	return version, nil
-}
-
-// getPluginMetadata gets metadata of the plugin
-func getPluginMetadata(ctx context.Context, installedPlugin plugin.Plugin, pluginConfig map[string]string) (*proto.GetMetadataResponse, error) {
-	req := &proto.GetMetadataRequest{
-		PluginConfig: pluginConfig,
-	}
-	metadata, err := installedPlugin.GetMetadata(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if !metadata.SupportsContract(proto.ContractVersion) {
-		return nil, fmt.Errorf(
-			"contract version %q is not in the list of the plugin supported versions %v",
-			proto.ContractVersion, metadata.SupportedContractVersions,
-		)
-	}
-
-	return metadata, nil
 }

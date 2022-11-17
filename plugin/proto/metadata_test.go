@@ -16,8 +16,8 @@ func TestGetMetadataResponse_Validate(t *testing.T) {
 		{&GetMetadataResponse{Name: "name", Description: "friendly", Version: "1"}, true},
 		{&GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com"}, true},
 		{&GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", Capabilities: []Capability{"cap"}}, true},
-		{&GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1"}}, true},
-		{&GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1"}, Capabilities: []Capability{"cap"}}, false},
+		{&GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}}, true},
+		{&GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}, Capabilities: []Capability{"cap"}}, false},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

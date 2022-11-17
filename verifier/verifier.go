@@ -130,13 +130,13 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if v.pluginManager == nil {
 			return notation.ErrorVerificationInconclusive{Msg: "plugin unsupported due to nil verifier.pluginManager"}
 		}
-		installedPlugin, err = v.pluginManager.Get(ctx, verificationPluginName)
+		installedPlugin, err = v.pluginManager.Get(ctx, verificationPluginName, pluginConfig)
 		if err != nil {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}
 
 		// filter the "verification" capabilities supported by the installed plugin
-		metadata, err := getPluginMetadata(ctx, installedPlugin, pluginConfig)
+		metadata, err := installedPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{PluginConfig: pluginConfig})
 		if err != nil {
 			return err
 		}
@@ -474,10 +474,9 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 	}
 
 	req := &proto.VerifySignatureRequest{
-		ContractVersion: proto.ContractVersion,
-		Signature:       signature,
-		TrustPolicy:     policy,
-		PluginConfig:    pluginConfig,
+		Signature:    signature,
+		TrustPolicy:  policy,
+		PluginConfig: pluginConfig,
 	}
 
 	return installedPlugin.VerifySignature(ctx, req)

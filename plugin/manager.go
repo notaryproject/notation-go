@@ -18,7 +18,7 @@ var ErrNotRegularFile = errors.New("not regular file")
 
 // Manager manages plugins installed on the system.
 type Manager interface {
-	Get(ctx context.Context, name string) (Plugin, error)
+	Get(ctx context.Context, name string, pluginConfig map[string]string) (Plugin, error)
 	List(ctx context.Context) ([]string, error)
 }
 
@@ -35,7 +35,7 @@ func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
 // Get returns a plugin on the system by its name.
 //
 // If the plugin is not found, the error is of type os.ErrNotExist.
-func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
+func (m *CLIManager) Get(ctx context.Context, name string, pluginConfig map[string]string) (Plugin, error) {
 	// validate file existence
 	pluginPath := path.Join(name, binName(name))
 	fi, err := fs.Stat(m.pluginFS, pluginPath)
@@ -56,7 +56,7 @@ func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 	}
 
 	// validate and create plugin
-	return NewCLIPlugin(ctx, name, path)
+	return NewCLIPlugin(ctx, name, path, pluginConfig)
 }
 
 // List produces a list of the plugin names on the system.
