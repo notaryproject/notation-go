@@ -22,6 +22,7 @@ import (
 	"github.com/notaryproject/notation-go/plugin/proto"
 	sig "github.com/notaryproject/notation-go/signature"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/content"
 )
@@ -29,27 +30,34 @@ import (
 // verifier implements notation.Verifier
 type verifier struct {
 	trustPolicyDoc *trustpolicy.Document
+	trustStore     truststore.X509TrustStore
 	pluginManager  plugin.Manager
 }
 
-// New returns a verifier based on local file system
-func New() (notation.Verifier, error) {
+// NewFromConfig returns a verifier based on local file system
+func NewFromConfig() (notation.Verifier, error) {
 	// load trust policy
 	policyDocument, err := trustpolicy.LoadDocument()
 	if err != nil {
 		return nil, err
 	}
+	// load trust store
+	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
-	return NewVerifier(policyDocument, plugin.NewCLIManager(dir.PluginFS()))
+	return New(policyDocument, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
 }
 
-// NewVerifier creates a new verifier given trustPolicy and pluginManager
-func NewVerifier(trustPolicy *trustpolicy.Document, pluginManager plugin.Manager) (notation.Verifier, error) {
+// New creates a new verifier given trustPolicy, trustStore and pluginManager
+func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
+	if trustPolicy == nil || trustStore == nil {
+		return nil, errors.New("trustPolicy or trustStore cannot be nil")
+	}
 	if err := trustPolicy.Validate(); err != nil {
 		return nil, err
 	}
 	return &verifier{
 		trustPolicyDoc: trustPolicy,
+		trustStore:     trustStore,
 		pluginManager:  pluginManager,
 	}, nil
 }
@@ -120,6 +128,9 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.HeaderVerificationPluginMinVersion`
 		// https://github.com/notaryproject/notation-go/issues/102
 
+		if v.pluginManager == nil {
+			return notation.ErrorVerificationInconclusive{Msg: "plugin unsupported due to nil verifier.pluginManager"}
+		}
 		installedPlugin, err = v.pluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
@@ -143,7 +154,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 
 	// verify x509 trust store based authenticity
-	authenticityResult := verifyAuthenticity(ctx, trustPolicy, outcome)
+	authenticityResult := verifyAuthenticity(ctx, trustPolicy, v.trustStore, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
 	if isCriticalFailure(authenticityResult) {
 		return authenticityResult.Error
@@ -312,9 +323,9 @@ func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation
 	}
 }
 
-func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	// verify authenticity
-	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy)
+	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
 
 	if err != nil {
 		return &notation.ValidationResult{

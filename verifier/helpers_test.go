@@ -12,6 +12,7 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
 func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
@@ -68,11 +69,12 @@ func TestLoadX509TrustStore(t *testing.T) {
 	dummyPolicy := dummyPolicyStatement()
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
 	dir.UserConfigDir = "testdata"
-	caCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, &dummyPolicy)
+	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
+	caCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, &dummyPolicy, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
-	saCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, &dummyPolicy)
+	saCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, &dummyPolicy, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
