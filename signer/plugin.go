@@ -131,7 +131,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 
 	envContent, err := sigEnv.Verify()
 	if err != nil {
-		return nil, nil, fmt.Errorf("generated signature failed verification: %v", err)
+		return nil, nil, fmt.Errorf("generated signature failed verification: %w", err)
 	}
 	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, nil, err
