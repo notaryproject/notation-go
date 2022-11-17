@@ -48,7 +48,7 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 func TestNewVerifier_Error(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	_, err := New(&policyDocument, nil, nil)
-	expectedErr := errors.New("trustPolicy and trustStore cannot be nil")
+	expectedErr := errors.New("trustPolicy or trustStore cannot be nil")
 	if err == nil || err.Error() != expectedErr.Error() {
 		t.Fatalf("TestNewVerifier_Error expected error %v, got %v", expectedErr, err)
 	}
