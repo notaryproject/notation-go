@@ -15,6 +15,7 @@ import (
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
@@ -41,6 +42,15 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 
 	if expectedResult.Action == trustpolicy.ActionEnforce && expectedErr != nil && outcome.Error.Error() != expectedErr.Error() {
 		t.Fatalf("assertion failed. expected : %v got : %v", expectedErr, outcome.Error)
+	}
+}
+
+func TestNewVerifier_Error(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	_, err := New(&policyDocument, nil, nil)
+	expectedErr := errors.New("trustPolicy or trustStore cannot be nil")
+	if err == nil || err.Error() != expectedErr.Error() {
+		t.Fatalf("TestNewVerifier_Error expected error %v, got %v", expectedErr, err)
 	}
 }
 
@@ -245,6 +255,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 			verifier := verifier{
 				trustPolicyDoc: &tt.policyDocument,
+				trustStore:     truststore.NewX509TrustStore(dir.ConfigFS()),
 				pluginManager:  pluginManager,
 			}
 			outcome, _ := verifier.Verify(context.Background(), ocispec.Descriptor{}, tt.signatureBlob, tt.opts)
@@ -268,6 +279,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	policyDocument := dummyPolicyDocument()
 	dir.UserConfigDir = "testdata"
+	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
 	// verification plugin is not installed
 	pluginManager := mock.PluginManager{}
@@ -275,6 +287,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v := verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -289,6 +302,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -311,6 +325,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -334,6 +349,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -356,6 +372,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -379,6 +396,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -404,6 +422,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -420,6 +439,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -445,6 +465,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -476,6 +497,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
@@ -494,6 +516,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	v = verifier{
 		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
