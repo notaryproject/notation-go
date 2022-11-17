@@ -1,4 +1,4 @@
-package signature
+package envelope
 
 import (
 	"errors"
@@ -59,7 +59,7 @@ func TestValidateEnvelopeMediaType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateEnvelopeMediaType(tt.mediaType); !checkErrorEqual(tt.expectedErr, err) {
+			if err := validateEnvelopeMediaType(tt.mediaType); !checkErrorEqual(tt.expectedErr, err) {
 				t.Fatalf("expected validate envelope media type err: %v, got: %v", tt.expectedErr, err)
 			}
 		})
@@ -68,7 +68,7 @@ func TestValidateEnvelopeMediaType(t *testing.T) {
 
 func TestValidatePayloadContentType(t *testing.T) {
 	payload := &signature.Payload{
-		ContentType: mediaTypePayloadV1,
+		ContentType: MediaTypePayloadV1,
 	}
 	err := ValidatePayloadContentType(payload)
 	if !isErrEqual(nil, err) {
@@ -93,4 +93,15 @@ func isErrEqual(wanted, got error) bool {
 		return wanted.Error() == got.Error()
 	}
 	return false
+}
+
+// validateEnvelopeMediaType validetes envelope media type is supported by
+// notation-core-go.
+func validateEnvelopeMediaType(mediaType string) error {
+	for _, types := range signature.RegisteredEnvelopeTypes() {
+		if mediaType == types {
+			return nil
+		}
+	}
+	return errors.New("invalid envelope media type")
 }

@@ -1,4 +1,4 @@
-package signature
+package signer
 
 import (
 	"context"
@@ -20,7 +20,8 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-core-go/timestamp/timestamptest"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/internal/plugin"
+	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -33,8 +34,6 @@ type keyCertPair struct {
 
 var keyCertPairCollections []*keyCertPair
 
-const testKeyID = "testKeyID"
-
 // setUpKeyCertPairCollections setups all combinations of private key and certificates.
 func setUpKeyCertPairCollections() []*keyCertPair {
 	// rsa
@@ -46,8 +45,13 @@ func setUpKeyCertPairCollections() []*keyCertPair {
 		if err != nil {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
+		ks, err := proto.EncodeKeySpec(keySpec)
+		if err != nil {
+			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
+		}
+
 		keyCertPairs = append(keyCertPairs, &keyCertPair{
-			keySpecName: plugin.KeySpecString(keySpec),
+			keySpecName: string(ks),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, rsaRoot.Cert},
 		})
@@ -61,8 +65,12 @@ func setUpKeyCertPairCollections() []*keyCertPair {
 		if err != nil {
 			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
 		}
+		ks, err := proto.EncodeKeySpec(keySpec)
+		if err != nil {
+			panic(fmt.Sprintf("setUpKeyCertPairCollections() failed, invalid keySpec: %v", err))
+		}
 		keyCertPairs = append(keyCertPairs, &keyCertPair{
-			keySpecName: plugin.KeySpecString(keySpec),
+			keySpecName: string(ks),
 			key:         certTuple.PrivateKey,
 			certs:       []*x509.Certificate{certTuple.Cert, ecdsaRoot.Cert},
 		})
@@ -119,12 +127,13 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 	if err != nil {
 		t.Fatalf("prepareTestKeyCertFile() failed: %v", err)
 	}
-	s, err := NewSignerFromFiles(keyPath, certPath, envelopeType)
+	s, err := NewFromFiles(keyPath, certPath)
 	if err != nil {
 		t.Fatalf("NewSignerFromFiles() failed: %v", err)
 	}
 	desc, opts := generateSigningContent(nil)
-	sig, _, err := s.Sign(context.Background(), desc, envelopeType, opts)
+	opts.SignatureMediaType = envelopeType
+	sig, _, err := s.Sign(context.Background(), desc, opts)
 	if err != nil {
 		t.Fatalf("Sign() failed: %v", err)
 	}
@@ -132,7 +141,7 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1])
 }
 
-func TestNewSignerFromFiles(t *testing.T) {
+func TestNewFromFiles(t *testing.T) {
 	// sign with key
 	dir := t.TempDir()
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
@@ -162,7 +171,7 @@ func TestSignWithTimestamp(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
+				s, err := New(keyCert.key, keyCert.certs)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -176,7 +185,8 @@ func TestSignWithTimestamp(t *testing.T) {
 				// sign content
 				ctx := context.Background()
 				desc, sOpts := generateSigningContent(tsa)
-				sig, _, err := s.Sign(ctx, desc, envelopeType, sOpts)
+				sOpts.SignatureMediaType = envelopeType
+				sig, _, err := s.Sign(ctx, desc, sOpts)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
 				}
@@ -193,7 +203,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := NewSigner(keyCert.key, keyCert.certs, envelopeType)
+				s, err := New(keyCert.key, keyCert.certs)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -201,7 +211,8 @@ func TestSignWithoutExpiry(t *testing.T) {
 				ctx := context.Background()
 				desc, sOpts := generateSigningContent(nil)
 				sOpts.Expiry = time.Time{} // reset expiry
-				sig, _, err := s.Sign(ctx, desc, envelopeType, sOpts)
+				sOpts.SignatureMediaType = envelopeType
+				sig, _, err := s.Sign(ctx, desc, sOpts)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
 				}
@@ -243,45 +254,6 @@ func localSign(payload []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, 
 	}
 }
 
-func TestExternalSigner_Sign(t *testing.T) {
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			externalRunner := newMockProvider(keyCert.key, keyCert.certs, testKeyID)
-			s, err := NewSignerPlugin(externalRunner, testKeyID, nil, envelopeType)
-			if err != nil {
-				t.Fatalf("NewSigner() error = %v", err)
-			}
-			sig, _, err := s.Sign(context.Background(), validSignDescriptor, envelopeType, validSignOpts)
-			if err != nil {
-				t.Fatalf("Sign() error = %v", err)
-			}
-			// basic verification
-			basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1])
-		}
-	}
-}
-
-func TestExternalSigner_SignEnvelope(t *testing.T) {
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				externalRunner := newMockEnvelopeProvider(keyCert.key, keyCert.certs, testKeyID)
-				p := newExternalProvider(externalRunner, testKeyID)
-				s, err := NewSignerPlugin(p, testKeyID, nil, envelopeType)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
-				sig, _, err := s.Sign(context.Background(), validSignDescriptor, envelopeType, validSignOpts)
-				if err != nil {
-					t.Fatalf("Sign() error = %v", err)
-				}
-				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1])
-			})
-		}
-	}
-}
-
 // generateSigningContent generates common signing content with options for testing.
 func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notation.SignOptions) {
 	content := "hello world"
@@ -304,16 +276,6 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 	return desc, sOpts
 }
 
-func generateKeyCertPair() (crypto.PrivateKey, []*x509.Certificate, error) {
-	rsaRoot := testhelper.GetRSARootCertificate()
-	pk, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, nil, err
-	}
-	certTuple := testhelper.GetRSACertTupleWithPK(pk, "tempCert", &rsaRoot)
-	return pk, []*x509.Certificate{certTuple.Cert, rsaRoot.Cert}, nil
-}
-
 func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate) {
 	// basic verification
 	sigEnv, err := signature.ParseEnvelope(envelopeType, sig)
@@ -325,7 +287,7 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 	if vErr != nil {
 		t.Fatalf("verification failed. error = %v", err)
 	}
-	if err := ValidatePayloadContentType(&envContent.Payload); err != nil {
+	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		t.Fatalf("verification failed. error = %v", err)
 	}
 
@@ -337,14 +299,15 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 }
 
 func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate) {
-	s, err := NewSigner(key, certs, envelopeType)
+	s, err := New(key, certs)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
 	}
 
 	ctx := context.Background()
 	desc, sOpts := generateSigningContent(nil)
-	sig, _, err := s.Sign(ctx, desc, envelopeType, sOpts)
+	sOpts.SignatureMediaType = envelopeType
+	sig, _, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
 	}

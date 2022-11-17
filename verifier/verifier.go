@@ -20,7 +20,6 @@ import (
 	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
-	sig "github.com/notaryproject/notation-go/signature"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -308,7 +307,7 @@ func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation
 		}
 	}
 
-	if err := sig.ValidatePayloadContentType(&envContent.Payload); err != nil {
+	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, &notation.ValidationResult{
 			Error:  err,
 			Type:   trustpolicy.TypeIntegrity,

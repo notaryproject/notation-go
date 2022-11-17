@@ -45,7 +45,7 @@ type SignOptions struct {
 type Signer interface {
 	// Sign signs the artifact described by its descriptor,
 	// and returns the signature and SignerInfo.
-	Sign(ctx context.Context, desc ocispec.Descriptor, envelopeMediaType string, opts SignOptions) ([]byte, *signature.SignerInfo, error)
+	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
 // Sign signs the artifact in the remote registry and push the signature to the
@@ -56,7 +56,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	sig, signerInfo, err := signer.Sign(ctx, targetDesc, opts.SignatureMediaType, opts)
+	sig, signerInfo, err := signer.Sign(ctx, targetDesc, opts)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
