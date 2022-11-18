@@ -74,7 +74,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// validate and create
-	plugin, err := mgr.Get(context.Background(), "foo", nil)
+	plugin, err := mgr.Get(context.Background(), "foo")
 	if err != nil {
 		t.Fatal(err)
 	}

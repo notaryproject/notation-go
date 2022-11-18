@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -59,21 +60,24 @@ type CLIPlugin struct {
 }
 
 // NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
-func NewCLIPlugin(ctx context.Context, name, path string, pluginConfig map[string]string) (*CLIPlugin, error) {
+func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
+	// validate file existence
+	fi, err := os.Stat(path)
+	if err != nil {
+		// Ignore any file which we cannot Stat
+		// (e.g. due to permissions or anything else).
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		// Ignore non-regular files.
+		return nil, ErrNotRegularFile
+	}
+
+	// generate plugin
 	plugin := CLIPlugin{
 		name: name,
 		path: path,
 	}
-
-	// validate metadata
-	metadata, err := plugin.GetMetadata(ctx, &proto.GetMetadataRequest{PluginConfig: pluginConfig})
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch metadata: %w", err)
-	}
-	if metadata.Name != name {
-		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(path))
-	}
-
 	return &plugin, nil
 }
 
@@ -87,6 +91,9 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	// validate metadata
 	if err = validate(&metadata); err != nil {
 		return nil, fmt.Errorf("invalid metadata: %w", err)
+	}
+	if metadata.Name != p.name {
+		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
 	}
 	return &metadata, nil
 }

@@ -138,7 +138,7 @@ type PluginManager struct {
 	PluginRunnerExecuteError    error
 }
 
-func (pm PluginManager) Get(ctx context.Context, name string, pluginConfig map[string]string) (plugin.Plugin, error) {
+func (pm PluginManager) Get(ctx context.Context, name string) (plugin.Plugin, error) {
 	return &PluginMock{
 		Metadata: proto.GetMetadataResponse{
 			Name:                      "plugin-name",

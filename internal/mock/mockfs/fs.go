@@ -23,3 +23,9 @@ func NewSysFSMock(fsys fs.FS) dir.SysFS {
 		FS:   fsys,
 		root: ""}
 }
+
+func NewSysFSWithPathMock(fsys fs.FS, root string) dir.SysFS {
+	return sysFSMock{
+		FS:   fsys,
+		root: root}
+}

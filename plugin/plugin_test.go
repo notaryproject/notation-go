@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/notaryproject/notation-go/plugin/proto"
@@ -169,4 +171,89 @@ func TestValidateMetadata(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewCLIPlugin_PathError(t *testing.T) {
+	ctx := context.Background()
+	t.Run("plugin directory exists without executable.", func(t *testing.T) {
+		p, err := NewCLIPlugin(ctx, "emptyplugin", "./testdata/plugins/emptyplugin/notation-emptyplugin")
+		if !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("NewCLIPlugin() error = %v, want %v", err, os.ErrNotExist)
+		}
+		if p != nil {
+			t.Errorf("NewCLIPlugin() plugin = %v, want nil", p)
+		}
+	})
+
+	t.Run("plugin is not a regular file", func(t *testing.T) {
+		p, err := NewCLIPlugin(ctx, "badplugin", "./testdata/plugins/badplugin/notation-badplugin")
+		if !errors.Is(err, ErrNotRegularFile) {
+			t.Errorf("NewCLIPlugin() error = %v, want %v", err, ErrNotRegularFile)
+		}
+		if p != nil {
+			t.Errorf("NewCLIPlugin() plugin = %v, want nil", p)
+		}
+	})
+}
+
+func TestNewCLIPlugin_ValidError(t *testing.T) {
+	ctx := context.Background()
+	p, err := NewCLIPlugin(ctx, "foo", "./testdata/plugins/foo/notation-foo")
+	if err != nil {
+		t.Fatal("should no error.")
+	}
+	t.Run("command no response", func(t *testing.T) {
+		executor = testCommander{}
+		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		if !strings.Contains(err.Error(), ErrNotCompliant.Error()) {
+			t.Fatal("should fail the operation.")
+		}
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		executor = testCommander{stdout: []byte("content")}
+		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		if !strings.Contains(err.Error(), ErrNotCompliant.Error()) {
+			t.Fatal("should fail the operation.")
+		}
+	})
+
+	t.Run("invalid metadata name", func(t *testing.T) {
+		executor = testCommander{stdout: metadataJSON(invalidMetadataName)}
+		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		if !strings.Contains(err.Error(), "executable name must be") {
+			t.Fatal("should fail the operation.")
+		}
+	})
+
+	t.Run("invalid metadata content", func(t *testing.T) {
+		executor = testCommander{stdout: metadataJSON(proto.GetMetadataResponse{Name: "foo"})}
+		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		if !strings.Contains(err.Error(), "invalid metadata") {
+			t.Fatal("should fail the operation.")
+		}
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		executor = testCommander{stdout: metadataJSON(validMetadata)}
+		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		if err != nil {
+			t.Fatalf("should valid. got err = %v", err)
+		}
+		metadata, err := p.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+		if err != nil {
+			t.Fatalf("should valid. got err = %v", err)
+		}
+		if !reflect.DeepEqual(metadata, &validMetadata) {
+			t.Fatalf("should be equal. got metadata = %+v, want %+v", metadata, validMetadata)
+		}
+	})
+
+	t.Run("invalid contract version", func(t *testing.T) {
+		executor = testCommander{stdout: metadataJSON(invalidContractVersionMetadata)}
+		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		if err == nil {
+			t.Fatal("should have an invalid contract version error")
+		}
+	})
 }

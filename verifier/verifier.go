@@ -130,7 +130,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if v.pluginManager == nil {
 			return notation.ErrorVerificationInconclusive{Msg: "plugin unsupported due to nil verifier.pluginManager"}
 		}
-		installedPlugin, err = v.pluginManager.Get(ctx, verificationPluginName, pluginConfig)
+		installedPlugin, err = v.pluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}
