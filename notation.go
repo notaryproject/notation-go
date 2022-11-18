@@ -177,10 +177,19 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			}
 			numOfSignatureProcessed++
 			// get signature envelope
-			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
+			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
+			// opts.SignatureMediaType is non-emtpy but does not match the
+			// sigDesc.MediaType, skip the current signature.
+			if opts.SignatureMediaType != "" && opts.SignatureMediaType != sigDesc.MediaType {
+				continue
+			}
+			// Otherwise, use the MediaType fetched from repo
+			opts.SignatureMediaType = sigDesc.MediaType
+
+			// Verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
 				if outcome == nil {
@@ -194,6 +203,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
 
+			// Early break on success
 			return errDoneVerification
 		}
 
