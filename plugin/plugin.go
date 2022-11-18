@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
@@ -194,22 +195,11 @@ func validate(metadata *proto.GetMetadataResponse) error {
 	if len(metadata.SupportedContractVersions) == 0 {
 		return errors.New("empty supported contract versions")
 	}
-	if !supportsContract(proto.ContractVersion, metadata) {
+	if !slices.Contains(metadata.SupportedContractVersions, proto.ContractVersion) {
 		return fmt.Errorf(
 			"contract version %q is not in the list of the plugin supported versions %v",
 			proto.ContractVersion, metadata.SupportedContractVersions,
 		)
 	}
 	return nil
-}
-
-// supportsContract return true if the metadata states that the
-// contract version is supported.
-func supportsContract(targetVer string, metadata *proto.GetMetadataResponse) bool {
-	for _, v := range metadata.SupportedContractVersions {
-		if v == targetVer {
-			return true
-		}
-	}
-	return false
 }

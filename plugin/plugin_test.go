@@ -170,26 +170,3 @@ func TestValidateMetadata(t *testing.T) {
 		})
 	}
 }
-
-func TestGetMetadataResponse_SupportsContract(t *testing.T) {
-	type args struct {
-		major string
-	}
-	tests := []struct {
-		name string
-		m    *proto.GetMetadataResponse
-		args args
-		want bool
-	}{
-		{"empty versions", &proto.GetMetadataResponse{}, args{"2"}, false},
-		{"other versions", &proto.GetMetadataResponse{SupportedContractVersions: []string{"1", "2"}}, args{"3"}, false},
-		{"found", &proto.GetMetadataResponse{SupportedContractVersions: []string{"1", "2"}}, args{"2"}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := supportsContract(tt.args.major, tt.m); got != tt.want {
-				t.Errorf("GetMetadataResponse.SupportsContract() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
