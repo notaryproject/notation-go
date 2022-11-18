@@ -169,6 +169,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
+	userSignaureMediaType := opts.SignatureMediaType
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
@@ -181,9 +182,9 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
-			// opts.SignatureMediaType is non-emtpy but does not match the
+			// user specified SignaureMediaType is non-emtpy but does not match the
 			// sigDesc.MediaType, skip the current signature.
-			if opts.SignatureMediaType != "" && opts.SignatureMediaType != sigDesc.MediaType {
+			if userSignaureMediaType != "" && userSignaureMediaType != sigDesc.MediaType {
 				continue
 			}
 			// Otherwise, use the MediaType fetched from repo
