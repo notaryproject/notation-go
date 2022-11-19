@@ -44,7 +44,7 @@ var invalidContractVersionMetadata = proto.GetMetadataResponse{
 
 func TestManager_Get(t *testing.T) {
 	executor = testCommander{stdout: metadataJSON(validMetadata)}
-	mgr := NewCLIManager(mockfs.NewSysFSWithPathMock(fstest.MapFS{}, "./testdata/plugins"))
+	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "./testdata/plugins"))
 	_, err := mgr.Get(context.Background(), "foo")
 	if err != nil {
 		t.Errorf("Manager.Get() err %v, want nil", err)

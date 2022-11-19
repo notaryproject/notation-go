@@ -101,7 +101,9 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 // DescribeKey returns the KeySpec of a key.
 func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
 	var resp proto.DescribeKeyResponse
-	req.ContractVersion = proto.ContractVersion
+	if req.ContractVersion == "" {
+		req.ContractVersion = proto.ContractVersion
+	}
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -109,7 +111,9 @@ func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyReque
 // GenerateSignature generates the raw signature based on the request.
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
 	var resp proto.GenerateSignatureResponse
-	req.ContractVersion = proto.ContractVersion
+	if req.ContractVersion == "" {
+		req.ContractVersion = proto.ContractVersion
+	}
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -117,7 +121,9 @@ func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSi
 // GenerateEnvelope generates the Envelope with signature based on the request.
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
 	var resp proto.GenerateEnvelopeResponse
-	req.ContractVersion = proto.ContractVersion
+	if req.ContractVersion == "" {
+		req.ContractVersion = proto.ContractVersion
+	}
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -125,7 +131,9 @@ func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnv
 // VerifySignature validates the signature based on the request.
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
 	var resp proto.VerifySignatureResponse
-	req.ContractVersion = proto.ContractVersion
+	if req.ContractVersion == "" {
+		req.ContractVersion = proto.ContractVersion
+	}
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -200,7 +208,7 @@ func validate(metadata *proto.GetMetadataResponse) error {
 		return errors.New("empty capabilities")
 	}
 	if len(metadata.SupportedContractVersions) == 0 {
-		return errors.New("empty supported contract versions")
+		return errors.New("supported contract versions not specified")
 	}
 	if !slices.Contains(metadata.SupportedContractVersions, proto.ContractVersion) {
 		return fmt.Errorf(
