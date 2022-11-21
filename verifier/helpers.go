@@ -50,7 +50,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 	processedStoreSet := set.New[string]()
 	var certificates []*x509.Certificate
 	for _, trustStore := range policy.TrustStores {
-		if _, ok := processedStoreSet[trustStore]; ok {
+		if processedStoreSet.Contains(trustStore) {
 			// we loaded this trust store already
 			continue
 		}
