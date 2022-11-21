@@ -73,7 +73,35 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
-		t.Fatalf("RegistryGetBlob expected: %v got: %v", expectedErr, err)
+		t.Fatalf("RegistryFetchSignatureBlob expected: %v got: %v", expectedErr, err)
+	}
+}
+
+func TestSignaureMediaTypeMismatch(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	expectedErr := ErrorVerificationFailed{}
+
+	// mock the repository
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/cose", MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", expectedErr, err)
+	}
+}
+func TestVerifyValid(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
+	// mock the repository
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err != nil {
+		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", nil, err)
 	}
 }
 
