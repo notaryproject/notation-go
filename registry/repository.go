@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -37,13 +36,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	// TODO: remove this part once oras v2.0.0-rc.5 is released
-	// https://github.com/notaryproject/notation-go/issues/195
-	refFinder, ok := c.Repository.(registry.ReferrerFinder)
-	if !ok {
-		return errors.New("repo is not a registry.ReferrerFinder")
-	}
-	return refFinder.Referrers(ctx, desc, ArtifactTypeNotation, fn)
+	return c.Repository.Referrers(ctx, desc, ArtifactTypeNotation, fn)
 }
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
