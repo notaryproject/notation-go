@@ -10,11 +10,9 @@ func (s Set[T]) Add(elem T) {
 
 // Contains checks if element exists in the Set.
 func (s Set[T]) Contains(elem T) bool {
-	if _, ok := s[elem]; ok {
-		return true
-	}
+	_, ok := s[elem]
 
-	return false
+	return ok
 }
 
 // New creats an empty Set for elements of type T.
