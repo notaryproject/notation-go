@@ -56,14 +56,14 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 			continue
 		}
 
-		// TODO: replace strings.Index() with Strings.Cut()
-		// https://github.com/notaryproject/notation-go/issues/204
-		i := strings.Index(trustStore, ":")
-		storeType := trustStore[:i]
+		storeType, name, found := strings.Cut(trustStore, ":")
+		if !found {
+			return nil, fmt.Errorf("trust policy statement %q is missing separator in trust store value %q", policy.Name, trustStore)
+		}
 		if typeToLoad != truststore.Type(storeType) {
 			continue
 		}
-		name := trustStore[i+1:]
+
 		certs, err := x509TrustStore.GetCertificates(ctx, typeToLoad, name)
 		if err != nil {
 			return nil, err

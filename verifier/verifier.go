@@ -490,12 +490,17 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 
 	var trustedX509Identities []map[string]string
 	for _, identity := range trustPolicy.TrustedIdentities {
-		i := strings.Index(identity, ":")
+		identityPrefix, identityValue, found := strings.Cut(identity, ":")
+		if !found {
+			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", trustPolicy.Name, identity)
+		}
 
-		identityPrefix := identity[:i]
-		identityValue := identity[i+1:]
-
+		// notation natively supports x509.subject identities only
 		if identityPrefix == trustpolicyInternal.X509Subject {
+			// identityValue cannot be empty
+			if identityValue == "" {
+				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", trustPolicy.Name, identity)
+			}
 			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
 			if err != nil {
 				return err
