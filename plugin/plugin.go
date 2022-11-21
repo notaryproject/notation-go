@@ -99,6 +99,8 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 }
 
 // DescribeKey returns the KeySpec of a key.
+//
+// if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
 	var resp proto.DescribeKeyResponse
 	if req.ContractVersion == "" {
@@ -109,6 +111,8 @@ func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyReque
 }
 
 // GenerateSignature generates the raw signature based on the request.
+//
+// if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
 	var resp proto.GenerateSignatureResponse
 	if req.ContractVersion == "" {
@@ -119,6 +123,8 @@ func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSi
 }
 
 // GenerateEnvelope generates the Envelope with signature based on the request.
+//
+// if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
 	var resp proto.GenerateEnvelopeResponse
 	if req.ContractVersion == "" {
@@ -129,6 +135,8 @@ func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnv
 }
 
 // VerifySignature validates the signature based on the request.
+//
+// if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
 	var resp proto.VerifySignatureResponse
 	if req.ContractVersion == "" {
