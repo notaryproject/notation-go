@@ -172,7 +172,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			// user specifies a positive opts.MaxSignatureAttempts
 			// Tracked by issue: https://github.com/notaryproject/notation-go/issues/212
 			if opts.MaxSignatureAttempts > 0 && numOfSignatureProcessed >= opts.MaxSignatureAttempts {
-				break
+				return errExceededMaxVerificationLimit
 			}
 			numOfSignatureProcessed++
 			// get signature envelope
@@ -194,10 +194,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			verificationOutcomes = append(verificationOutcomes, outcome)
 
 			return errDoneVerification
-		}
-
-		if opts.MaxSignatureAttempts > 0 && numOfSignatureProcessed >= opts.MaxSignatureAttempts {
-			return errExceededMaxVerificationLimit
 		}
 
 		return nil
