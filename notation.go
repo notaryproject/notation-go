@@ -170,6 +170,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
 			// user specifies a positive opts.MaxSignatureAttempts
+			// Tracked by issue: https://github.com/notaryproject/notation-go/issues/212
 			if opts.MaxSignatureAttempts > 0 && numOfSignatureProcessed >= opts.MaxSignatureAttempts {
 				break
 			}
