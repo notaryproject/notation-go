@@ -164,15 +164,13 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	}
 
 	var verificationOutcomes []*VerificationOutcome
-	if opts.MaxSignatureAttempts <= 0 {
-		return ocispec.Descriptor{}, verificationOutcomes, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", opts.MaxSignatureAttempts)}
-	}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
-			if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
+			// user specifies a positive opts.MaxSignatureAttempts
+			if opts.MaxSignatureAttempts > 0 && numOfSignatureProcessed >= opts.MaxSignatureAttempts {
 				break
 			}
 			numOfSignatureProcessed++
@@ -197,7 +195,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 			return errDoneVerification
 		}
 
-		if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
+		if opts.MaxSignatureAttempts > 0 && numOfSignatureProcessed >= opts.MaxSignatureAttempts {
 			return errExceededMaxVerificationLimit
 		}
 
