@@ -93,6 +93,21 @@ func TestMaxSignatureAttemptsError(t *testing.T) {
 	}
 }
 
+func TestVerificationFailedError(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, *trustpolicy.LevelStrict, false, true}
+	expectedErr := ErrorVerificationFailed{}
+
+	// mock the repository
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+	}
+}
+
 func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
 	policyDoc = trustpolicy.Document{
 		Version:       "1.0",
