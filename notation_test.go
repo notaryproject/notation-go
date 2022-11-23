@@ -77,7 +77,7 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	}
 }
 
-func TestSignaureMediaTypeMismatch(t *testing.T) {
+func TestSignaureMediaType(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
@@ -88,9 +88,10 @@ func TestSignaureMediaTypeMismatch(t *testing.T) {
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
-		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", expectedErr, err)
+		t.Fatalf("SignaureMediaType expected: %v got: %v", expectedErr, err)
 	}
 }
+
 func TestVerifyValid(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
