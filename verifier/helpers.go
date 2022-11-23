@@ -10,6 +10,7 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
+	set "github.com/notaryproject/notation-go/internal/container"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
@@ -46,12 +47,10 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)
 	}
 
-	// TODO: create a package at internal/container/set for a set implementation
-	// https://github.com/notaryproject/notation-go/issues/203
-	var processedStoreSet = make(map[string]struct{})
+	processedStoreSet := set.New[string]()
 	var certificates []*x509.Certificate
 	for _, trustStore := range policy.TrustStores {
-		if _, ok := processedStoreSet[trustStore]; ok {
+		if processedStoreSet.Contains(trustStore) {
 			// we loaded this trust store already
 			continue
 		}
@@ -69,7 +68,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 			return nil, err
 		}
 		certificates = append(certificates, certs...)
-		processedStoreSet[trustStore] = struct{}{}
+		processedStoreSet.Add(trustStore)
 	}
 	return certificates, nil
 }
