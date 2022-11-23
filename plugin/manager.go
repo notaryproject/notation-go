@@ -36,20 +36,7 @@ func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
 //
 // If the plugin is not found, the error is of type os.ErrNotExist.
 func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
-	// validate file existence
 	pluginPath := path.Join(name, binName(name))
-	fi, err := fs.Stat(m.pluginFS, pluginPath)
-	if err != nil {
-		// Ignore any file which we cannot Stat
-		// (e.g. due to permissions or anything else).
-		return nil, err
-	}
-	if !fi.Mode().IsRegular() {
-		// Ignore non-regular files.
-		return nil, ErrNotRegularFile
-	}
-
-	// get path
 	path, err := m.pluginFS.SysPath(pluginPath)
 	if err != nil {
 		return nil, err

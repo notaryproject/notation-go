@@ -136,7 +136,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		// filter the "verification" capabilities supported by the installed plugin
-		metadata, err := getPluginMetadata(ctx, installedPlugin, pluginConfig)
+		metadata, err := installedPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{PluginConfig: pluginConfig})
 		if err != nil {
 			return err
 		}
@@ -474,10 +474,9 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 	}
 
 	req := &proto.VerifySignatureRequest{
-		ContractVersion: proto.ContractVersion,
-		Signature:       signature,
-		TrustPolicy:     policy,
-		PluginConfig:    pluginConfig,
+		Signature:    signature,
+		TrustPolicy:  policy,
+		PluginConfig: pluginConfig,
 	}
 
 	return installedPlugin.VerifySignature(ctx, req)
