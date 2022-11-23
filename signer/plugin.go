@@ -52,12 +52,6 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	if err != nil {
 		return nil, nil, err
 	}
-	if !metadata.SupportsContract(proto.ContractVersion) {
-		return nil, nil, fmt.Errorf(
-			"contract version %q is not in the list of the plugin supported versions %v",
-			proto.ContractVersion, metadata.SupportedContractVersions,
-		)
-	}
 	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts)
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
@@ -104,7 +98,6 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	}
 	// Execute plugin sign command.
 	req := &proto.GenerateEnvelopeRequest{
-		ContractVersion:       proto.ContractVersion,
 		KeyID:                 s.keyID,
 		Payload:               payloadBytes,
 		SignatureEnvelopeType: opts.SignatureMediaType,
@@ -166,9 +159,8 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 
 func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string) (*proto.DescribeKeyResponse, error) {
 	req := &proto.DescribeKeyRequest{
-		ContractVersion: proto.ContractVersion,
-		KeyID:           s.keyID,
-		PluginConfig:    config,
+		KeyID:        s.keyID,
+		PluginConfig: config,
 	}
 	resp, err := s.plugin.DescribeKey(ctx, req)
 	if err != nil {
@@ -229,12 +221,11 @@ func (s *pluginPrimitiveSigner) Sign(payload []byte) ([]byte, []*x509.Certificat
 	}
 
 	req := &proto.GenerateSignatureRequest{
-		ContractVersion: proto.ContractVersion,
-		KeyID:           s.keyID,
-		KeySpec:         keySpec,
-		Hash:            keySpecHash,
-		Payload:         payload,
-		PluginConfig:    s.pluginConfig,
+		KeyID:        s.keyID,
+		KeySpec:      keySpec,
+		Hash:         keySpecHash,
+		Payload:      payload,
+		PluginConfig: s.pluginConfig,
 	}
 
 	resp, err := s.plugin.GenerateSignature(s.ctx, req)
