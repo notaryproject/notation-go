@@ -9,10 +9,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/slices"
 )
 
@@ -53,7 +53,7 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 	if !isValidStoreType(storeType) {
 		return nil, fmt.Errorf("unsupported store type: %s", storeType)
 	}
-	if !isValidNamedStore(namedStore) {
+	if !file.IsValidFileName(namedStore) {
 		return nil, errors.New("named store name needs to follow [a-zA-Z0-9_.-]+ format")
 	}
 	path, err := trustStore.trustStorefs.SysPath(dir.X509TrustStoreDir(string(storeType), namedStore))
@@ -129,9 +129,4 @@ func validateCerts(certs []*x509.Certificate, path string) error {
 // isValidStoreType checks if storeType is supported
 func isValidStoreType(storeType Type) bool {
 	return slices.Contains(Types, storeType)
-}
-
-// isValidFileName checks if a file name is cross-platform compatible
-func isValidNamedStore(namedStore string) bool {
-	return regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`).MatchString(namedStore)
 }
