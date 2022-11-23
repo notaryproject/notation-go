@@ -15,7 +15,7 @@ func (s Set[T]) Contains(elem T) bool {
 	return ok
 }
 
-// New creats an empty Set for elements of type T.
+// New creates an empty Set for elements of type T.
 func New[T comparable]() Set[T] {
 	return make(map[T]struct{})
 }
