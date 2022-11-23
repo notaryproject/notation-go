@@ -82,8 +82,8 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{"C=US, ST=WA, O=wabbit-network.io, OU=org1"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err := policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"C=US, ST=WA, O=wabbit-network.io, OU=org1\" without an identity prefix" {
-		t.Fatalf("trusted identity without a prefix should return error")
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"C=US, ST=WA, O=wabbit-network.io, OU=org1\" missing separator" {
+		t.Fatalf("trusted identity without separator should return error")
 	}
 
 	// Accept unknown identity prefixes
@@ -328,6 +328,26 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 		t.Fatalf("policy statement with empty trusted identity should return error")
 	}
 
+	// Trusted Identity without spearator should throw error
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	policyStatement.TrustedIdentities = []string{"x509.subject"}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = policyDoc.Validate()
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator" {
+		t.Fatalf("policy statement with trusted identity missing separator should return error")
+	}
+
+	// Empty Trusted Identity value should throw error
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	policyStatement.TrustedIdentities = []string{"x509.subject:"}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = policyDoc.Validate()
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value" {
+		t.Fatalf("policy statement with trusted identity missing identity value should return error")
+	}
+
 	// trust store/trusted identites are optional for skip SignatureVerification
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
@@ -339,6 +359,16 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 		t.Fatalf("skip SignatureVerification should not require a trust store or trusted identities")
 	}
 
+	// Trust Store missing separator
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	policyStatement.TrustStores = []string{"ca"}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = policyDoc.Validate()
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is missing separator in trust store value \"ca\"" {
+		t.Fatalf("policy statement with trust store missing separator should return error")
+	}
+
 	// Invalid Trust Store type
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
@@ -347,6 +377,16 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses an unsupported trust store type \"invalid\" in trust store value \"invalid:test-trust-store\"" {
 		t.Fatalf("policy statement with invalid trust store type should return error")
+	}
+
+	// Empty Named Store
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	policyStatement.TrustStores = []string{"ca:"}
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = policyDoc.Validate()
+	if err == nil || err.Error() != "named store name needs to follow [a-zA-Z0-9_.-]+ format" {
+		t.Fatalf("policy statement with trust store missing named store should return error")
 	}
 
 	// trusted identities with a wildcard
