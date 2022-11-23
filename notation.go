@@ -73,43 +73,6 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	return targetDesc, nil
 }
 
-// RemoteVerifyOptions contains parameters for notation.Verify.
-type RemoteVerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is been
-	// verified against to.
-	ArtifactReference string
-
-	// SignatureMediaTypes contains envelope types of the signature.
-	// Currently both `application/jose+json` and `application/cose` are
-	// supported.
-	SignatureMediaTypes []string
-
-	// PluginConfig is a map of plugin configs.
-	PluginConfig map[string]string
-
-	// MaxSignatureAttempts is the maximum number of signature envelopes that
-	// can be associated with the target artifact. If set to less than or equals
-	// to zero, an error will be returned.
-	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
-	// for signle signature verification, and therefore, does not use it.
-	MaxSignatureAttempts int
-}
-
-// VerifyOptions contains parameters for verifier.Verify.
-type VerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is been
-	// verified against to.
-	ArtifactReference string
-
-	// SignatureMediaType is the envelope type of the signature.
-	// Currently both `application/jose+json` and `application/cose` are
-	// supported.
-	SignatureMediaType string
-
-	// PluginConfig is a map of plugin configs.
-	PluginConfig map[string]string
-}
-
 // ValidationResult encapsulates the verification result (passed or failed)
 // for a verification type, including the desired verification action as
 // specified in the trust policy
@@ -148,6 +111,21 @@ type VerificationOutcome struct {
 	Error error
 }
 
+// VerifyOptions contains parameters for Verifier.Verify.
+type VerifyOptions struct {
+	// ArtifactReference is the reference of the artifact that is been
+	// verified against to.
+	ArtifactReference string
+
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaType string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+}
+
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
 	// Verify verifies the signature blob and returns the outcome upon
@@ -155,6 +133,27 @@ type Verifier interface {
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error)
+}
+
+// RemoteVerifyOptions contains parameters for notation.Verify.
+type RemoteVerifyOptions struct {
+	// ArtifactReference is the reference of the artifact that is been
+	// verified against to.
+	ArtifactReference string
+
+	// SignatureMediaTypes specifies the supported signature envelope types.
+	// If an empty list is present, all types are attempted.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaTypes []string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+
+	// MaxSignatureAttempts is the maximum number of signature envelopes that
+	// can be associated with the target artifact. If set to less than or equals
+	// to zero, an error will be returned.
+	MaxSignatureAttempts int
 }
 
 // Verify performs signature verification on each of the notation supported
@@ -204,6 +203,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
+			// checking the media type after fetching the blob is slow
+			// created an issue to track this: https://github.com/notaryproject/notation-go/issues/215
 			if len(remoteOpts.SignatureMediaTypes) != 0 && !slices.Contains(remoteOpts.SignatureMediaTypes, sigDesc.MediaType) {
 				continue
 			}
