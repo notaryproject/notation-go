@@ -197,11 +197,56 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 		})
 	}
 
+	// Authenticity Failure with trust store missing separator
+	for _, level := range verificationLevels {
+		policyDocument := dummyPolicyDocument()
+		policyDocument.TrustPolicies[0].TrustStores = []string{"ca:valid-trust-store-2", "signingAuthority"}
+		expectedErr := fmt.Errorf("error while loading the trust store, trust policy statement \"test-statement-name\" is missing separator in trust store value \"signingAuthority\"")
+		testCases = append(testCases, testCase{
+			signatureBlob:     validSigEnv,
+			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationLevel: level,
+			policyDocument:    policyDocument,
+			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			expectedErr:       expectedErr,
+		})
+	}
+
 	// TrustedIdentity Failure
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		policyDocument.TrustPolicies[0].TrustedIdentities = []string{"x509.subject:CN=LOL,O=DummyOrg,L=Hyderabad,ST=TG,C=IN"} // configure policy to not trust "CN=Notation Test Leaf Cert,O=Notary,L=Seattle,ST=WA,C=US" which is the subject of the signature's signing certificate
 		expectedErr := fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities [map[\"C\":\"IN\" \"CN\":\"LOL\" \"L\":\"Hyderabad\" \"O\":\"DummyOrg\" \"ST\":\"TG\"]] defined in the trust policy \"test-statement-name\"")
+		testCases = append(testCases, testCase{
+			signatureBlob:     validSigEnv,
+			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationLevel: level,
+			policyDocument:    policyDocument,
+			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			expectedErr:       expectedErr,
+		})
+	}
+
+	// TrustedIdentity Failure without separator
+	for _, level := range verificationLevels {
+		policyDocument := dummyPolicyDocument()
+		policyDocument.TrustPolicies[0].TrustedIdentities = []string{"x509.subject"}
+		expectedErr := fmt.Errorf("trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator")
+		testCases = append(testCases, testCase{
+			signatureBlob:     validSigEnv,
+			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationLevel: level,
+			policyDocument:    policyDocument,
+			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			expectedErr:       expectedErr,
+		})
+	}
+
+	// TrustedIdentity Failure with empty value
+	for _, level := range verificationLevels {
+		policyDocument := dummyPolicyDocument()
+		policyDocument.TrustPolicies[0].TrustedIdentities = []string{"x509.subject:"}
+		expectedErr := fmt.Errorf("trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
 			verificationType:  trustpolicy.TypeAuthenticity,

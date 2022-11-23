@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/pkix"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/internal/trustpolicy"
@@ -350,9 +351,15 @@ func (t *TrustPolicy) clone() *TrustPolicy {
 // Notary V2 spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
 	for _, trustStore := range statement.TrustStores {
-		i := strings.Index(trustStore, ":")
-		if i < 0 || !isValidTrustStoreType(trustStore[:i]) {
-			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, trustStore[:i], trustStore)
+		storeType, namedStore, found := strings.Cut(trustStore, ":")
+		if !found {
+			return fmt.Errorf("trust policy statement %q is missing separator in trust store value %q", statement.Name, trustStore)
+		}
+		if !isValidTrustStoreType(storeType) {
+			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, storeType, trustStore)
+		}
+		if !file.IsValidFileName(namedStore) {
+			return errors.New("named store name needs to follow [a-zA-Z0-9_.-]+ format")
 		}
 	}
 
@@ -377,16 +384,17 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 		}
 
 		if identity != trustpolicy.Wildcard {
-			i := strings.Index(identity, ":")
-			if i < 0 {
-				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity prefix", statement.Name, identity)
+			identityPrefix, identityValue, found := strings.Cut(identity, ":")
+			if !found {
+				return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", statement.Name, identity)
 			}
-
-			identityPrefix := identity[:i]
-			identityValue := identity[i+1:]
 
 			// notation natively supports x509.subject identities only
 			if identityPrefix == trustpolicy.X509Subject {
+				// identityValue cannot be empty
+				if identityValue == "" {
+					return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", statement.Name, identity)
+				}
 				dn, err := pkix.ParseDistinguishedName(identityValue)
 				if err != nil {
 					return err
@@ -490,12 +498,10 @@ func validateRegistryScopeFormat(scope string) error {
 	domainRegexp := regexp.MustCompile(`^(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?$`)
 	repositoryRegexp := regexp.MustCompile(`^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?$`)
 	errorMessage := "registry scope %q is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository"
-	firstSlash := strings.Index(scope, "/")
-	if firstSlash < 0 {
+	domain, repository, found := strings.Cut(scope, "/")
+	if !found {
 		return fmt.Errorf(errorMessage, scope)
 	}
-	domain := scope[:firstSlash]
-	repository := scope[firstSlash+1:]
 
 	if domain == "" || repository == "" || !domainRegexp.MatchString(domain) || !repositoryRegexp.MatchString(repository) {
 		return fmt.Errorf(errorMessage, scope)
