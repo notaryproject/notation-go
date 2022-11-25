@@ -548,7 +548,7 @@ func TestLoadDocument(t *testing.T) {
 	tempRoot = t.TempDir()
 	dir.UserConfigDir = tempRoot
 	path := filepath.Join(tempRoot, "invalid.json")
-	err = os.WriteFile(path, []byte(`{"invalid`), 0644)
+	err = os.WriteFile(path, []byte(`{"invalid`), 0600)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
 	}
@@ -563,7 +563,7 @@ func TestLoadDocument(t *testing.T) {
 	path = filepath.Join(tempRoot, "trustpolicy.json")
 	policyDoc1 := dummyPolicyDocument()
 	policyJson, _ := json.Marshal(policyDoc1)
-	err = os.WriteFile(path, policyJson, 0644)
+	err = os.WriteFile(path, policyJson, 0600)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
 	}

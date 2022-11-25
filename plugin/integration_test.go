@@ -38,11 +38,11 @@ func preparePlugin(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile(filepath.Join(root, "go.mod"), []byte("module main"), 0666)
+	err = os.WriteFile(filepath.Join(root, "go.mod"), []byte("module main"), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Mkdir(filepath.Join(root, "foo"), 0755)
+	err = os.Mkdir(filepath.Join(root, "foo"), 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
