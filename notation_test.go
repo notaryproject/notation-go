@@ -22,7 +22,7 @@ func TestRegistryResolveError(t *testing.T) {
 
 	// mock the repository
 	repo.ResolveError = errors.New(errorMessage)
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -35,7 +35,7 @@ func TestSkippedSignatureVerification(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
 
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err != nil || outcomes[0].VerificationLevel.Name != trustpolicy.LevelSkip.Name {
@@ -52,7 +52,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 
 	// mock the repository
 	repo.ListSignaturesResponse = []ocispec.Descriptor{}
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -69,11 +69,55 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 
 	// mock the repository
 	repo.FetchSignatureBlobError = errors.New("network error")
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
-		t.Fatalf("RegistryGetBlob expected: %v got: %v", expectedErr, err)
+		t.Fatalf("RegistryFetchSignatureBlob expected: %v got: %v", expectedErr, err)
+	}
+}
+
+func TestVerifyValid(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
+	// mock the repository
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err != nil {
+		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", nil, err)
+	}
+}
+
+func TestMaxSignatureAttemptsMissing(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	expectedErr := ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", 0)}
+
+	// mock the repository
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+	}
+}
+
+func TestVerifyFailed(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
+	expectedErr := ErrorVerificationFailed{}
+
+	// mock the repository
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
 	}
 }
 
@@ -104,12 +148,12 @@ type dummyVerifier struct {
 }
 
 func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error) {
-	if v.FailVerify {
-		return nil, errors.New("failed verify")
-	}
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
 		VerificationLevel:   &v.VerificationLevel,
+	}
+	if v.FailVerify {
+		return outcome, errors.New("failed verify")
 	}
 	return outcome, nil
 }
