@@ -144,7 +144,7 @@ type RemoteVerifyOptions struct {
 	PluginConfig map[string]string
 
 	// MaxSignatureAttempts is the maximum number of signature envelopes that
-	// can be associated with the target artifact. If set to less than or equals
+	// will be processed for verification. If set to less than or equals
 	// to zero, an error will be returned.
 	MaxSignatureAttempts int
 }
@@ -171,6 +171,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
 
+	// check MaxSignatureAttempts
+	if remoteOpts.MaxSignatureAttempts <= 0 {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", remoteOpts.MaxSignatureAttempts)}
+	}
+
 	// get signature manifests
 	artifactRef := remoteOpts.ArtifactReference
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
@@ -179,9 +184,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	}
 
 	var verificationOutcomes []*VerificationOutcome
-	if remoteOpts.MaxSignatureAttempts <= 0 {
-		return ocispec.Descriptor{}, verificationOutcomes, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", remoteOpts.MaxSignatureAttempts)}
-	}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", remoteOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
