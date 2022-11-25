@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -140,6 +141,13 @@ type RemoteVerifyOptions struct {
 	// verified against to.
 	ArtifactReference string
 
+	// SignatureMediaTypes specifies the supported signature envelope types.
+	// If an empty list is present, all types are attempted.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
+	// This field is tracked by issue: https://github.com/notaryproject/notation-go/issues/217
+	SignatureMediaTypes []string
+
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
 
@@ -197,6 +205,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
+			}
+			// checking the media type after fetching the blob is slow.
+			// created an issue to track this: https://github.com/notaryproject/notation-go/issues/215
+			if len(remoteOpts.SignatureMediaTypes) != 0 && !slices.Contains(remoteOpts.SignatureMediaTypes, sigDesc.MediaType) {
+				continue
 			}
 			// using signature media type fetched from registry
 			opts.SignatureMediaType = sigDesc.MediaType
