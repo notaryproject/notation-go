@@ -77,17 +77,18 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	}
 }
 
-func TestVerifyValid(t *testing.T) {
+func TestSignaureMediaType(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	expectedErr := ErrorVerificationFailed{}
 
 	// mock the repository
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaTypes: []string{"application/cose"}, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
-	if err != nil {
-		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", nil, err)
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("SignaureMediaType expected: %v got: %v", expectedErr, err)
 	}
 }
 
@@ -118,6 +119,20 @@ func TestVerifyFailed(t *testing.T) {
 
 	if err == nil || !errors.Is(err, expectedErr) {
 		t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+	}
+}
+
+func TestVerifyValid(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
+	// mock the repository
+	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err != nil {
+		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", nil, err)
 	}
 }
 
