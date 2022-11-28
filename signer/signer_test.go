@@ -113,10 +113,10 @@ func prepareTestKeyCertFile(keyCert *keyCertPair, envelopeType, dir string) (str
 		certBytes = append(certBytes, generateCertPem(cert)...)
 	}
 
-	if err := os.WriteFile(keyPath, keyBytes, 0666); err != nil {
+	if err := os.WriteFile(keyPath, keyBytes, 0600); err != nil {
 		return "", "", err
 	}
-	if err := os.WriteFile(certPath, certBytes, 0666); err != nil {
+	if err := os.WriteFile(certPath, certBytes, 0600); err != nil {
 		return "", "", err
 	}
 	return keyPath, certPath, nil
