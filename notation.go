@@ -72,28 +72,6 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	return targetDesc, nil
 }
 
-// VerifyOptions contains parameters for Verifier.Verify.
-type VerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is been
-	// verified against to.
-	ArtifactReference string
-
-	// SignatureMediaType is the envelope type of the signature.
-	// Currently both `application/jose+json` and `application/cose` are
-	// supported.
-	SignatureMediaType string
-
-	// PluginConfig is a map of plugin configs.
-	PluginConfig map[string]string
-
-	// MaxSignatureAttempts is the maximum number of signature envelopes that
-	// can be associated with the target artifact. If set to less than or equals
-	// to zero, an error will be returned.
-	// Note: this option is scoped to notation.Verify(). verifier.Verify() is
-	// for signle signature verification, and therefore, does not use it.
-	MaxSignatureAttempts int
-}
-
 // ValidationResult encapsulates the verification result (passed or failed)
 // for a verification type, including the desired verification action as
 // specified in the trust policy
@@ -132,6 +110,21 @@ type VerificationOutcome struct {
 	Error error
 }
 
+// VerifyOptions contains parameters for Verifier.Verify.
+type VerifyOptions struct {
+	// ArtifactReference is the reference of the artifact that is been
+	// verified against to.
+	ArtifactReference string
+
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaType string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+}
+
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
 	// Verify verifies the signature blob and returns the outcome upon
@@ -141,12 +134,33 @@ type Verifier interface {
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error)
 }
 
+// RemoteVerifyOptions contains parameters for notation.Verify.
+type RemoteVerifyOptions struct {
+	// ArtifactReference is the reference of the artifact that is been
+	// verified against to.
+	ArtifactReference string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+
+	// MaxSignatureAttempts is the maximum number of signature envelopes that
+	// will be processed for verification. If set to less than or equals
+	// to zero, an error will be returned.
+	MaxSignatureAttempts int
+}
+
 // Verify performs signature verification on each of the notation supported
 // verification types (like integrity, authenticity, etc.) and return the
 // successful signature verification outcomes.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
-func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, opts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
+func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, remoteOpts RemoteVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
+	// opts to be passed in verifier.Verify()
+	opts := VerifyOptions{
+		ArtifactReference: remoteOpts.ArtifactReference,
+		PluginConfig:      remoteOpts.PluginConfig,
+	}
+
 	// passing nil signature to check 'skip'
 	outcome, err := verifier.Verify(ctx, ocispec.Descriptor{}, nil, opts)
 	if err != nil {
@@ -156,31 +170,38 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 	} else if reflect.DeepEqual(outcome.VerificationLevel, trustpolicy.LevelSkip) {
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
+
+	// check MaxSignatureAttempts
+	if remoteOpts.MaxSignatureAttempts <= 0 {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", remoteOpts.MaxSignatureAttempts)}
+	}
+
 	// get signature manifests
-	artifactRef := opts.ArtifactReference
+	artifactRef := remoteOpts.ArtifactReference
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 
 	var verificationOutcomes []*VerificationOutcome
-	if opts.MaxSignatureAttempts <= 0 {
-		return ocispec.Descriptor{}, verificationOutcomes, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", opts.MaxSignatureAttempts)}
-	}
-	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", opts.MaxSignatureAttempts)}
+	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", remoteOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
-			if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
+			if numOfSignatureProcessed >= remoteOpts.MaxSignatureAttempts {
 				break
 			}
 			numOfSignatureProcessed++
 			// get signature envelope
-			sigBlob, _, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
+			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
+			// using signature media type fetched from registry
+			opts.SignatureMediaType = sigDesc.MediaType
+
+			// verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
 				if outcome == nil {
@@ -190,14 +211,15 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, op
 				continue
 			}
 
-			// At this point, the signature is verified successfully. Add
+			// at this point, the signature is verified successfully. Add
 			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
 
+			// early break on success
 			return errDoneVerification
 		}
 
-		if numOfSignatureProcessed >= opts.MaxSignatureAttempts {
+		if numOfSignatureProcessed >= remoteOpts.MaxSignatureAttempts {
 			return errExceededMaxVerificationLimit
 		}
 
