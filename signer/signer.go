@@ -90,8 +90,9 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		SigningAgent:  signingAgent, // TODO: include external signing plugin's name and version. https://github.com/notaryproject/notation-go/issues/80
 	}
 
-	if !opts.Expiry.IsZero() {
-		signReq.Expiry = opts.Expiry
+	// Add expiry only if ExpiryDuration is not nil and its value is not zero
+	if opts.ExpiryDuration != nil && opts.ExpiryDuration.Seconds() != 0 {
+		signReq.Expiry = signReq.SigningTime.Add(*opts.ExpiryDuration)
 	}
 
 	// perform signing

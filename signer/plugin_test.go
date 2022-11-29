@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	_ "github.com/notaryproject/notation-core-go/signature/cose"
+	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin"
@@ -80,8 +82,9 @@ func (p *mockPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequ
 
 // DescribeKey returns the KeySpec of a key.
 func (p *mockPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
+	ks, _ := proto.EncodeKeySpec(p.keySpec)
 	return &proto.DescribeKeyResponse{
-		KeySpec: proto.KeySpecRSA2048,
+		KeySpec: ks,
 	}, nil
 }
 
@@ -152,7 +155,7 @@ func TestNewFromPluginFailed(t *testing.T) {
 
 func TestSigner_Sign_EnvelopeNotSupported(t *testing.T) {
 	signer := pluginSigner{
-		plugin: newMockPlugin(false, false, false, false, nil, nil, signature.KeySpec{}),
+		plugin: newMockPlugin(false, false, false, false, nil, nil, signature.KeySpec{Type: signature.KeyTypeRSA, Size: 2048}),
 	}
 	opts := notation.SignOptions{SignatureMediaType: "unsupported"}
 	testSignerError(t, signer, fmt.Sprintf("signature envelope format with media type %q is not supported", opts.SignatureMediaType), opts)
@@ -178,7 +181,8 @@ func TestSigner_Sign_ExpiryInValid(t *testing.T) {
 			signer := pluginSigner{
 				plugin: newMockPlugin(false, false, false, false, keyCertPairCollections[0].key, keyCertPairCollections[0].certs, ks),
 			}
-			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100), SignatureMediaType: envelopeType})
+			exp := -24 * time.Hour
+			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignOptions{ExpiryDuration: &exp, SignatureMediaType: envelopeType})
 			wantEr := "expiry cannot be equal or before the signing time"
 			if err == nil || !strings.Contains(err.Error(), wantEr) {
 				t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
@@ -204,7 +208,7 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 			signer := pluginSigner{
 				plugin: newMockPlugin(false, false, true, false, defaultKeyCert.key, defaultKeyCert.certs, defaultKeySpec),
 			}
-			testSignerError(t, signer, "signature returned by generateSignature cannot be verified", notation.SignOptions{SignatureMediaType: envelopeType})
+			testSignerError(t, signer, "signature is invalid", notation.SignOptions{SignatureMediaType: envelopeType})
 		})
 	}
 }
@@ -233,7 +237,7 @@ func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
 			signer := pluginSigner{
 				plugin: p,
 			}
-			testSignerError(t, signer, "generate-envelope command failed: failed GenerateEnvelope", notation.SignOptions{SignatureMediaType: envelopeType})
+			testSignerError(t, signer, "failed GenerateEnvelope", notation.SignOptions{SignatureMediaType: envelopeType})
 		})
 	}
 }
@@ -300,8 +304,8 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string
 	if mockPlugin.keySpec.SignatureAlgorithm() != signerInfo.SignatureAlgorithm {
 		t.Fatalf("Signer.Sign() signing algorithm changed")
 	}
-	if validSignOpts.Expiry.Unix() != signerInfo.SignedAttributes.Expiry.Unix() {
-		t.Fatalf("Signer.Sign() expiry changed")
+	if *validSignOpts.ExpiryDuration != signerInfo.SignedAttributes.Expiry.Sub(signerInfo.SignedAttributes.SigningTime) {
+		t.Fatalf("Signer.Sign() expiry duration changed")
 	}
 	if !reflect.DeepEqual(mockPlugin.certs, signerInfo.CertificateChain) {
 		t.Fatalf(" Signer.Sign() cert chain changed")

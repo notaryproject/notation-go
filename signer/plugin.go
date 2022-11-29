@@ -104,6 +104,12 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		PayloadType:           envelope.MediaTypePayloadV1,
 		PluginConfig:          s.mergeConfig(opts.PluginConfig),
 	}
+
+	if opts.ExpiryDuration != nil {
+		// expiry duration will always be a positive value
+		req.ExpiryDurationInSeconds = uint64(opts.ExpiryDuration.Seconds())
+	}
+
 	resp, err := s.plugin.GenerateEnvelope(ctx, req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("plugin failed to sign with following error: %w", err)

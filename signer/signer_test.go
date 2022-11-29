@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	_ "github.com/notaryproject/notation-core-go/signature/cose"
+	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-core-go/timestamp/timestamptest"
 	"github.com/notaryproject/notation-go"
@@ -210,7 +212,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 
 				ctx := context.Background()
 				desc, sOpts := generateSigningContent(nil)
-				sOpts.Expiry = time.Time{} // reset expiry
+				sOpts.ExpiryDuration = nil // reset expiry
 				sOpts.SignatureMediaType = envelopeType
 				sig, _, err := s.Sign(ctx, desc, sOpts)
 				if err != nil {
@@ -266,9 +268,8 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 			"foo":      "bar",
 		},
 	}
-	sOpts := notation.SignOptions{
-		Expiry: time.Now().UTC().Add(time.Hour),
-	}
+	expDuration := 24 * time.Hour
+	sOpts := notation.SignOptions{ExpiryDuration: &expDuration}
 	if tsa != nil {
 		tsaRoots := x509.NewCertPool()
 		tsaRoots.AddCert(tsa.Certificate())

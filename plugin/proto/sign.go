@@ -50,12 +50,13 @@ type GenerateSignatureResponse struct {
 // GenerateEnvelopeRequest contains the parameters passed in a generate-envelope
 // request.
 type GenerateEnvelopeRequest struct {
-	ContractVersion       string            `json:"contractVersion"`
-	KeyID                 string            `json:"keyId"`
-	PayloadType           string            `json:"payloadType"`
-	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
-	Payload               []byte            `json:"payload"`
-	PluginConfig          map[string]string `json:"pluginConfig,omitempty"`
+	ContractVersion         string            `json:"contractVersion"`
+	KeyID                   string            `json:"keyId"`
+	PayloadType             string            `json:"payloadType"`
+	SignatureEnvelopeType   string            `json:"signatureEnvelopeType"`
+	Payload                 []byte            `json:"payload"`
+	ExpiryDurationInSeconds uint64            `json:"expiryDurationInSeconds,omitempty"`
+	PluginConfig            map[string]string `json:"pluginConfig,omitempty"`
 }
 
 func (GenerateEnvelopeRequest) Command() Command {
