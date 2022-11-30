@@ -246,6 +246,18 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 			// verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
+			// process verification items
+			for _, result := range outcome.VerificationResults {
+				if result.Error == nil {
+					continue
+				}
+				switch result.Action {
+				case trustpolicy.ActionLog:
+					logger.Warnf("verification failed on %v validation for signature %v but set to pass by verification action \"logged\". Reason: %v", result.Type, sigManifestDesc.Digest, result.Error)
+				case trustpolicy.ActionEnforce:
+					logger.Errorf("verification failed on %v validation for signature %v. Reason: %v", result.Type, sigManifestDesc.Digest, result.Error)
+				}
+			}
 			if err != nil {
 				if outcome == nil {
 					// TODO: log fatal error
