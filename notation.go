@@ -56,7 +56,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if opts.ExpiryDuration != nil {
 		expDurInSec := opts.ExpiryDuration.Seconds()
 		if expDurInSec != float64(int64(expDurInSec)) {
-			return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granulaity of second")
+			return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granularity of second")
 		}
 		if expDurInSec <= 0 {
 			return ocispec.Descriptor{}, fmt.Errorf("expiry duration cannot be zero or negative")
