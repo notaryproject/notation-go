@@ -212,7 +212,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 
 				ctx := context.Background()
 				desc, sOpts := generateSigningContent(nil)
-				sOpts.ExpiryDuration = nil // reset expiry
+				sOpts.ExpiryDuration = 0 // reset expiry
 				sOpts.SignatureMediaType = envelopeType
 				sig, _, err := s.Sign(ctx, desc, sOpts)
 				if err != nil {
@@ -268,8 +268,7 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 			"foo":      "bar",
 		},
 	}
-	expDuration := 24 * time.Hour
-	sOpts := notation.SignOptions{ExpiryDuration: &expDuration}
+	sOpts := notation.SignOptions{ExpiryDuration: 24 * time.Hour}
 	if tsa != nil {
 		tsaRoots := x509.NewCertPool()
 		tsaRoots.AddCert(tsa.Certificate())

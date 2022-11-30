@@ -32,8 +32,9 @@ type SignOptions struct {
 	// supported.
 	SignatureMediaType string
 
-	// ExpiryDuration identifies the expiry duration of the resulted signature.
-	ExpiryDuration *time.Duration
+	// ExpiryDuration identifies the expiry duration of the resulted signature. Zero value
+	// represents no expiry duration.
+	ExpiryDuration time.Duration
 
 	// Sets or overrides the plugin configuration.
 	PluginConfig map[string]string
@@ -53,14 +54,12 @@ type Signer interface {
 // The descriptor of the sign content is returned upon sucessful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts SignOptions) (ocispec.Descriptor, error) {
 	// Input validation for expiry duration
-	if opts.ExpiryDuration != nil {
-		expDurInSec := opts.ExpiryDuration.Seconds()
-		if expDurInSec != float64(int64(expDurInSec)) {
-			return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granularity of second")
-		}
-		if expDurInSec <= 0 {
-			return ocispec.Descriptor{}, fmt.Errorf("expiry duration cannot be zero or negative")
-		}
+	if opts.ExpiryDuration < 0 {
+		return ocispec.Descriptor{}, fmt.Errorf("expiry duration cannot be a negative value")
+	}
+
+	if opts.ExpiryDuration%time.Second != 0 {
+		return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granularity of seconds")
 	}
 
 	targetDesc, err := repo.Resolve(ctx, opts.ArtifactReference)

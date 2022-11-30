@@ -16,9 +16,21 @@ import (
 
 func TestSignSuccess(t *testing.T) {
 	repo := mock.NewRepository()
-	_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{})
-	if err != nil {
-		t.Fatalf("Sign failed with error: %v", err)
+	testCases := []struct {
+		name string
+		dur  time.Duration
+	}{
+		{"expiryInHours", 24 * time.Hour},
+		{"oneSecondExpiry", 1 * time.Second},
+		{"zeroExpiry", 0},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(b *testing.T) {
+			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{ExpiryDuration: tc.dur})
+			if err != nil {
+				t.Fatalf("Sign failed with error: %v", err)
+			}
+		})
 	}
 }
 
@@ -29,12 +41,11 @@ func TestSignWithInvalidExpiry(t *testing.T) {
 		dur  time.Duration
 	}{
 		{"negativeExpiry", -24 * time.Hour},
-		{"zeroExpiry", 0},
-		{"ExpiryInMillisecond", 100 * time.Millisecond},
+		{"splitSecondExpiry", 1 * time.Millisecond},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{ExpiryDuration: &tc.dur})
+			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{ExpiryDuration: tc.dur})
 			if err == nil {
 				t.Fatalf("Expected error but not found")
 			}

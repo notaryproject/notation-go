@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
@@ -98,18 +99,13 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	}
 	// Execute plugin sign command.
 	req := &proto.GenerateEnvelopeRequest{
-		KeyID:                 s.keyID,
-		Payload:               payloadBytes,
-		SignatureEnvelopeType: opts.SignatureMediaType,
-		PayloadType:           envelope.MediaTypePayloadV1,
-		PluginConfig:          s.mergeConfig(opts.PluginConfig),
+		KeyID:                   s.keyID,
+		Payload:                 payloadBytes,
+		SignatureEnvelopeType:   opts.SignatureMediaType,
+		PayloadType:             envelope.MediaTypePayloadV1,
+		ExpiryDurationInSeconds: uint64(opts.ExpiryDuration / time.Second),
+		PluginConfig:            s.mergeConfig(opts.PluginConfig),
 	}
-
-	if opts.ExpiryDuration != nil {
-		// expiry duration will always be a positive value
-		req.ExpiryDurationInSeconds = uint64(opts.ExpiryDuration.Seconds())
-	}
-
 	resp, err := s.plugin.GenerateEnvelope(ctx, req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("plugin failed to sign with following error: %w", err)
