@@ -85,6 +85,19 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		return outcome, nil
 	}
 	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+	// log verification result
+	logger := log.GetLogger(ctx)
+	for _, result := range outcome.VerificationResults {
+		if result.Error == nil {
+			continue
+		}
+		switch result.Action {
+		case trustpolicy.ActionLog:
+			logger.Warnf("  %v validation failed with verification action set to \"logged\". Failure reason: %v", result.Type, result.Error)
+		case trustpolicy.ActionEnforce:
+			logger.Errorf("  %v validation failed. Failure reason: %v", result.Type, result.Error)
+		}
+	}
 	if err != nil {
 		outcome.Error = err
 		return outcome, err
@@ -205,28 +218,14 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		if len(capabilitiesToVerify) > 0 {
-			var response *proto.VerifySignatureResponse
-			response, err = executePlugin(ctx, installedPlugin, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
+			response, err := executePlugin(ctx, installedPlugin, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
 			if err != nil {
 				return err
 			}
-			err = processPluginResponse(capabilitiesToVerify, response, outcome)
+			return processPluginResponse(capabilitiesToVerify, response, outcome)
 		}
 	}
-	// log verification result
-	logger := log.GetLogger(ctx)
-	for _, result := range outcome.VerificationResults {
-		if result.Error == nil {
-			continue
-		}
-		switch result.Action {
-		case trustpolicy.ActionLog:
-			logger.Warnf("  %v validation failed but is set to verification action \"logged\". Failure reason: %v", result.Type, result.Error)
-		case trustpolicy.ActionEnforce:
-			logger.Errorf("  %v validation failed. Failure reason: %v", result.Type, result.Error)
-		}
-	}
-	return err
+	return nil
 }
 
 func processPluginResponse(capabilitiesToVerify []proto.Capability, response *proto.VerifySignatureResponse, outcome *notation.VerificationOutcome) error {

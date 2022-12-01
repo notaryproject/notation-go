@@ -236,7 +236,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				break
 			}
 			numOfSignatureProcessed++
-			logger.Infof("Processing signature: %v", sigManifestDesc.Digest)
+			logger.Infof("Processing signature with digest: %v", sigManifestDesc.Digest)
 			// get signature envelope
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
@@ -254,10 +254,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				}
 				continue
 			}
-			logger.Debugf("Signature %v verify successfully.", sigManifestDesc.Digest)
 			// at this point, the signature is verified successfully. Add
 			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
+			logger.Debugf("Successfully verified signature with digest %v", sigManifestDesc.Digest)
 
 			// early break on success
 			return errDoneVerification
