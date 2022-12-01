@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -62,14 +61,17 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	if !isDigestReference(artifactRef) {
+	ref, err := orasRegistry.ParseReference(artifactRef)
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	if ref.Reference == "" {
+		return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
+	}
+	if ref.ValidateReferenceAsDigest() != nil {
 		// artifactRef is not a digest reference
-		ref, err := orasRegistry.ParseReference(artifactRef)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.ReferenceOrDefault())
-		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.ReferenceOrDefault(), targetDesc.Digest.String())
+		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
 	}
 
 	sig, signerInfo, err := signer.Sign(ctx, targetDesc, opts)
@@ -200,13 +202,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
-	if !isDigestReference(artifactRef) {
+	ref, err := orasRegistry.ParseReference(artifactRef)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
+	}
+	if ref.Reference == "" {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: "reference is missing digest or tag"}
+	}
+	if ref.ValidateReferenceAsDigest() != nil {
 		// artifactRef is not a digest reference
-		ref, err := orasRegistry.ParseReference(artifactRef)
-		if err != nil {
-			return ocispec.Descriptor{}, nil, err
-		}
-		logger.Infof("Resolved artifact tag `%s` to digest `%s` before verification", ref.ReferenceOrDefault(), artifactDescriptor.Digest.String())
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before verification", ref.Reference, artifactDescriptor.Digest.String())
 		logger.Warn("The resolved digest may not point to the same signed artifact, since tags are mutable")
 	}
 
@@ -290,14 +295,4 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	return map[string]string{
 		annotationX509ChainThumbprint: string(val),
 	}, nil
-}
-
-func isDigestReference(reference string) bool {
-	parts := strings.SplitN(reference, "/", 2)
-	if len(parts) == 1 {
-		return false
-	}
-
-	_, _, found := strings.Cut(parts[1], "@")
-	return found
 }

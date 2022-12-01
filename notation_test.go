@@ -30,18 +30,35 @@ func TestRegistryResolveError(t *testing.T) {
 	}
 }
 
+func TestVerifyEmptyReference(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
+	errorMessage := "reference is missing digest or tag"
+	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
+
+	// mock the repository
+	opts := RemoteVerifyOptions{ArtifactReference: "localhost/test", MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("VerifyTagReference expected: %v got: %v", expectedErr, err)
+	}
+}
+
 func TestVerifyTagReferenceFailed(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
 	errorMessage := "invalid reference: invalid repository"
+	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
 	opts := RemoteVerifyOptions{ArtifactReference: "localhost/UPPERCASE/test", MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
-	if err == nil || err.Error() != errorMessage {
-		t.Fatalf("VerifyTagReference expected: %q, got: %q", errorMessage, err.Error())
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("VerifyTagReference expected: %v got: %v", expectedErr, err)
 	}
 }
 
