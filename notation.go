@@ -57,16 +57,16 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	logger := log.GetLogger(ctx)
 
 	artifactRef := opts.ArtifactReference
-	targetDesc, err := repo.Resolve(ctx, artifactRef)
-	if err != nil {
-		return ocispec.Descriptor{}, err
-	}
 	ref, err := orasRegistry.ParseReference(artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
 	if ref.Reference == "" {
 		return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
+	}
+	targetDesc, err := repo.Resolve(ctx, artifactRef)
+	if err != nil {
+		return ocispec.Descriptor{}, err
 	}
 	if ref.ValidateReferenceAsDigest() != nil {
 		// artifactRef is not a digest reference
@@ -198,16 +198,16 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 	// get artifact descriptor
 	artifactRef := remoteOpts.ArtifactReference
-	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
-	if err != nil {
-		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
-	}
 	ref, err := orasRegistry.ParseReference(artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 	if ref.Reference == "" {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: "reference is missing digest or tag"}
+	}
+	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 	if ref.ValidateReferenceAsDigest() != nil {
 		// artifactRef is not a digest reference
