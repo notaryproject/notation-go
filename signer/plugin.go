@@ -11,6 +11,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -46,6 +47,9 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
 func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+	logger := log.GetLogger(ctx)
+	logger.Debugf("plugin signing for %v", desc.Digest)
+
 	req := &proto.GetMetadataRequest{
 		PluginConfig: s.mergeConfig(opts.PluginConfig),
 	}
@@ -53,6 +57,8 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	if err != nil {
 		return nil, nil, err
 	}
+
+	logger.Debugf("plugin capabilities %v", metadata.Capabilities)
 	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts)
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
@@ -62,6 +68,8 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 }
 
 func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+	logger := log.GetLogger(ctx)
+	logger.Debug("generating signature by plugin")
 	config := s.mergeConfig(opts.PluginConfig)
 	// Get key info.
 	key, err := s.describeKey(ctx, config)
@@ -87,11 +95,13 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 			keySpec:      ks,
 		},
 	}
-
+	logger.Debugf("generated genericSigner %+v", genericSigner)
 	return genericSigner.Sign(ctx, desc, opts)
 }
 
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+	logger := log.GetLogger(ctx)
+	logger.Debug("generating signature envelope by plugin")
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -106,10 +116,12 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		ExpiryDurationInSeconds: uint64(opts.ExpiryDuration / time.Second),
 		PluginConfig:            s.mergeConfig(opts.PluginConfig),
 	}
+	logger.Debugf("plugin GenerateEnvelopeRequest %+v", req)
 	resp, err := s.plugin.GenerateEnvelope(ctx, req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("plugin failed to sign with following error: %w", err)
 	}
+	logger.Debugf("plugin GenerateEnvelopeResponse %+v", resp)
 
 	// Check signatureEnvelopeType is honored.
 	if resp.SignatureEnvelopeType != req.SignatureEnvelopeType {
@@ -119,6 +131,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		)
 	}
 
+	logger.Debug("verify plugin generated signature envelope")
 	sigEnv, err := signature.ParseEnvelope(opts.SignatureMediaType, resp.SignatureEnvelope)
 	if err != nil {
 		return nil, nil, err

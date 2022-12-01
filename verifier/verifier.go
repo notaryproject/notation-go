@@ -165,8 +165,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// verify x509 trust store based authenticity
 	logger.Debug("verify cert chain")
 	authenticityResult := verifyAuthenticity(ctx, trustPolicy, v.trustStore, outcome)
-	logVerificationResult(logger, authenticityResult)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
+	logVerificationResult(logger, authenticityResult)
 	if isCriticalFailure(authenticityResult) {
 		return authenticityResult.Error
 	}
@@ -187,8 +187,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// verify expiry
 	logger.Debug("verify expiry")
 	expiryResult := verifyExpiry(outcome)
-	logVerificationResult(logger, expiryResult)
 	outcome.VerificationResults = append(outcome.VerificationResults, expiryResult)
+	logVerificationResult(logger, expiryResult)
 	if isCriticalFailure(expiryResult) {
 		return expiryResult.Error
 	}
@@ -196,8 +196,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// verify authentic timestamp
 	logger.Debug("verify authentic timestamp")
 	authenticTimestampResult := verifyAuthenticTimestamp(outcome)
-	logVerificationResult(logger, authenticTimestampResult)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
+	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
 		return authenticTimestampResult.Error
 	}
@@ -217,6 +217,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured to skip it
 			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == proto.CapabilityRevocationCheckVerifier {
+				logger.Debugf("skip the verification capability %v because of verification action setting as skipped", pc)
 				continue
 			}
 			capabilitiesToVerify = append(capabilitiesToVerify, pc)
@@ -228,6 +229,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 			if err != nil {
 				return err
 			}
+
+			logger.Debugf("plugin VerifySignatureResponse: %+v", response)
 			return processPluginResponse(logger, capabilitiesToVerify, response, outcome)
 		}
 	}
@@ -450,6 +453,7 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 }
 
 func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {
+	logger := log.GetLogger(ctx)
 	// sanity check
 	if installedPlugin == nil {
 		return nil, errors.New("installedPlugin cannot be nil")
@@ -463,6 +467,7 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 		extendedAttributes[attr.Key.(string)] = attr.Value
 		attributesToProcess = append(attributesToProcess, attr.Key.(string))
 	}
+	logger.Debugf("added plugin attributes to be processed %v", attributesToProcess)
 
 	var certChain [][]byte
 	for _, cert := range signerInfo.CertificateChain {
@@ -497,7 +502,7 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 		TrustPolicy:  policy,
 		PluginConfig: pluginConfig,
 	}
-
+	logger.Debugf("plugin VerifySignatureRequest: %+v", req)
 	return installedPlugin.VerifySignature(ctx, req)
 }
 
@@ -547,7 +552,6 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 }
 
 func logVerificationResult(logger log.Logger, result *notation.ValidationResult) {
-	// log verification result
 	if result.Error == nil {
 		return
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/log"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -72,6 +73,8 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
 func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+	logger := log.GetLogger(ctx)
+	logger.Debugf("local signing for %v", desc.Digest)
 	// Generate payload to be signed.
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
@@ -94,6 +97,12 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	if opts.ExpiryDuration != 0 {
 		signReq.Expiry = signReq.SigningTime.Add(opts.ExpiryDuration)
 	}
+	logger.Debugf("sign request:")
+	logger.Debugf("  ContentType: %v", signReq.Payload.ContentType)
+	logger.Debugf("  Content: %s", string(signReq.Payload.Content))
+	logger.Debugf("  SigningTime: %v", signReq.SigningTime)
+	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
+	logger.Debugf("  SigningAgent: %v", signReq.SigningAgent)
 
 	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)
