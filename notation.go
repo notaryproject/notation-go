@@ -201,7 +201,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 	if !isDigestReference(artifactRef) {
-		fmt.Println("here")
 		// artifactRef is not a digest reference
 		ref, err := orasRegistry.ParseReference(artifactRef)
 		if err != nil {
