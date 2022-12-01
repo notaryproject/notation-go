@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	_ "github.com/notaryproject/notation-core-go/signature/cose"
+	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-core-go/timestamp/timestamptest"
 	"github.com/notaryproject/notation-go"
