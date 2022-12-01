@@ -40,7 +40,6 @@ func TestVerifyTagReferenceFailed(t *testing.T) {
 	// mock the repository
 	opts := RemoteVerifyOptions{ArtifactReference: "localhost/UPPERCASE/test", MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
-	fmt.Println(err)
 	if err == nil || err.Error() != errorMessage {
 		t.Fatalf("VerifyTagReference expected: %q, got: %q", errorMessage, err.Error())
 	}
