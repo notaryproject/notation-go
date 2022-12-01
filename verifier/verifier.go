@@ -18,6 +18,7 @@ import (
 	"github.com/notaryproject/notation-go/internal/pkix"
 	"github.com/notaryproject/notation-go/internal/slices"
 	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
@@ -204,15 +205,28 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		if len(capabilitiesToVerify) > 0 {
-			response, err := executePlugin(ctx, installedPlugin, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
+			var response *proto.VerifySignatureResponse
+			response, err = executePlugin(ctx, installedPlugin, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
 			if err != nil {
 				return err
 			}
-			return processPluginResponse(capabilitiesToVerify, response, outcome)
+			err = processPluginResponse(capabilitiesToVerify, response, outcome)
 		}
 	}
-
-	return nil
+	// log verification result
+	logger := log.GetLogger(ctx)
+	for _, result := range outcome.VerificationResults {
+		if result.Error == nil {
+			continue
+		}
+		switch result.Action {
+		case trustpolicy.ActionLog:
+			logger.Warnf("  %v validation failed but is set to verification action \"logged\". Failure reason: %v", result.Type, result.Error)
+		case trustpolicy.ActionEnforce:
+			logger.Errorf("  %v validation failed. Failure reason: %v", result.Type, result.Error)
+		}
+	}
+	return err
 }
 
 func processPluginResponse(capabilitiesToVerify []proto.Capability, response *proto.VerifySignatureResponse, outcome *notation.VerificationOutcome) error {

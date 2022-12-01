@@ -236,6 +236,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				break
 			}
 			numOfSignatureProcessed++
+			logger.Infof("Processing signature: %v", sigManifestDesc.Digest)
 			// get signature envelope
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
@@ -246,18 +247,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 			// verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
-			// process verification items
-			for _, result := range outcome.VerificationResults {
-				if result.Error == nil {
-					continue
-				}
-				switch result.Action {
-				case trustpolicy.ActionLog:
-					logger.Warnf("verification failed on %v validation for signature %v but set to pass by verification action \"logged\". Reason: %v", result.Type, sigManifestDesc.Digest, result.Error)
-				case trustpolicy.ActionEnforce:
-					logger.Errorf("verification failed on %v validation for signature %v. Reason: %v", result.Type, sigManifestDesc.Digest, result.Error)
-				}
-			}
 			if err != nil {
 				if outcome == nil {
 					// TODO: log fatal error
@@ -265,7 +254,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				}
 				continue
 			}
-
+			logger.Debugf("Signature %v verify successfully.", sigManifestDesc.Digest)
 			// at this point, the signature is verified successfully. Add
 			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
