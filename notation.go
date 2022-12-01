@@ -189,6 +189,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 		ArtifactReference: remoteOpts.ArtifactReference,
 		PluginConfig:      remoteOpts.PluginConfig,
 	}
+	logger := log.GetLogger(ctx)
 
 	// passing nil signature to check 'skip'
 	outcome, err := verifier.Verify(ctx, ocispec.Descriptor{}, nil, opts)
