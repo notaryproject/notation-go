@@ -10,12 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	orasRegistry "oras.land/oras-go/v2/registry"
 )
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
@@ -52,10 +55,23 @@ type Signer interface {
 // remote.
 // The descriptor of the sign content is returned upon sucessful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts SignOptions) (ocispec.Descriptor, error) {
-	targetDesc, err := repo.Resolve(ctx, opts.ArtifactReference)
+	logger := log.GetLogger(ctx)
+
+	artifactRef := opts.ArtifactReference
+	targetDesc, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
+	if !isDigestReference(artifactRef) {
+		// artifactRef is not a digest reference
+		ref, err := orasRegistry.ParseReference(artifactRef)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.ReferenceOrDefault())
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.ReferenceOrDefault(), targetDesc.Digest.String())
+	}
+
 	sig, signerInfo, err := signer.Sign(ctx, targetDesc, opts)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -155,6 +171,8 @@ type RemoteVerifyOptions struct {
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, remoteOpts RemoteVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
+	logger := log.GetLogger(ctx)
+
 	// opts to be passed in verifier.Verify()
 	opts := VerifyOptions{
 		ArtifactReference: remoteOpts.ArtifactReference,
@@ -176,16 +194,28 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", remoteOpts.MaxSignatureAttempts)}
 	}
 
-	// get signature manifests
+	// get artifact descriptor
 	artifactRef := remoteOpts.ArtifactReference
 	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
+	if !isDigestReference(artifactRef) {
+		fmt.Println("here")
+		// artifactRef is not a digest reference
+		ref, err := orasRegistry.ParseReference(artifactRef)
+		if err != nil {
+			return ocispec.Descriptor{}, nil, err
+		}
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before verification", ref.ReferenceOrDefault(), artifactDescriptor.Digest.String())
+		logger.Warn("The resolved digest may not point to the same signed artifact, since tags are mutable")
+	}
 
 	var verificationOutcomes []*VerificationOutcome
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", remoteOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
+
+	// get signature manifests
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
@@ -261,4 +291,14 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	return map[string]string{
 		annotationX509ChainThumbprint: string(val),
 	}, nil
+}
+
+func isDigestReference(reference string) bool {
+	parts := strings.SplitN(reference, "/", 2)
+	if len(parts) == 1 {
+		return false
+	}
+
+	_, _, found := strings.Cut(parts[1], "@")
+	return found
 }

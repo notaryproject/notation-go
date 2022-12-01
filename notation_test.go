@@ -30,6 +30,22 @@ func TestRegistryResolveError(t *testing.T) {
 	}
 }
 
+func TestVerifyTagReferenceFailed(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
+	errorMessage := "invalid reference: invalid repository"
+
+	// mock the repository
+	opts := RemoteVerifyOptions{ArtifactReference: "localhost/UPPERCASE/test", MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+	fmt.Println(err)
+	if err == nil || err.Error() != errorMessage {
+		t.Fatalf("VerifyTagReference expected: %q, got: %q", errorMessage, err.Error())
+	}
+}
+
 func TestSkippedSignatureVerification(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
