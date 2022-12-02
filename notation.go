@@ -264,7 +264,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			// at this point, the signature is verified successfully. Add
 			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
-			logger.Debugf("Signature verification succeeded for signature with digest %v", sigManifestDesc.Digest)
+			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 
 			// early break on success
 			return errDoneVerification
