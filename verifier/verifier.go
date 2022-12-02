@@ -70,14 +70,14 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	pluginConfig := opts.PluginConfig
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("verify signature against artifact %v referenced as %s", desc.Digest, artifactRef)
+	logger.Debugf("Verify signature against artifact %v referenced as %s", desc.Digest, artifactRef)
 	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
-	logger.Debugf("verification level: %+v", *verificationLevel)
+	logger.Debugf("Verification level: %+v", *verificationLevel)
 
 	outcome := &notation.VerificationOutcome{
 		RawSignature:      signature,
@@ -85,7 +85,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	}
 	// verificationLevel is skip
 	if reflect.DeepEqual(verificationLevel, trustpolicy.LevelSkip) {
-		logger.Debug("verification skipped")
+		logger.Debug("Verification skipped")
 		return outcome, nil
 	}
 	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
@@ -129,7 +129,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 	var installedPlugin plugin.Plugin
 	if verificationPluginName != "" {
-		logger.Debugf("try getting verification plugin %s", verificationPluginName)
+		logger.Debugf("Try getting verification plugin %s", verificationPluginName)
 		if _, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo); err != nil && err != errExtendedAttributeNotExist {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
@@ -149,7 +149,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if err != nil {
 			return err
 		}
-		logger.Debugf("plugin capabilities: %v", metadata.Capabilities)
+		logger.Debugf("Plugin capabilities: %v", metadata.Capabilities)
 
 		for _, capability := range metadata.Capabilities {
 			if capability == proto.CapabilityRevocationCheckVerifier || capability == proto.CapabilityTrustedIdentityVerifier {
@@ -163,7 +163,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 
 	// verify x509 trust store based authenticity
-	logger.Debug("verify cert chain")
+	logger.Debug("Verify cert chain")
 	authenticityResult := verifyAuthenticity(ctx, trustPolicy, v.trustStore, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
 	logVerificationResult(logger, authenticityResult)
@@ -173,7 +173,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify x509 trusted identity based authenticity (only if notation needs to perform this verification rather than a plugin)
 	if !slices.Contains(pluginCapabilities, proto.CapabilityTrustedIdentityVerifier) {
-		logger.Debug("verify trust identity")
+		logger.Debug("Verify trust identity")
 		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
 		if err != nil {
 			authenticityResult.Error = err
@@ -185,7 +185,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 
 	// verify expiry
-	logger.Debug("verify expiry")
+	logger.Debug("Verify expiry")
 	expiryResult := verifyExpiry(outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, expiryResult)
 	logVerificationResult(logger, expiryResult)
@@ -194,7 +194,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 
 	// verify authentic timestamp
-	logger.Debug("verify authentic timestamp")
+	logger.Debug("Verify authentic timestamp")
 	authenticTimestampResult := verifyAuthenticTimestamp(outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
@@ -206,7 +206,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
 		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
-		logger.Debugf("verify revocation (not implemented)")
+		logger.Debugf("Verify revocation (not implemented)")
 		// TODO perform X509 revocation check (not in RC1)
 		// https://github.com/notaryproject/notation-go/issues/110
 	}
@@ -217,20 +217,20 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured to skip it
 			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == proto.CapabilityRevocationCheckVerifier {
-				logger.Debugf("skip the verification capability %v because of verification action setting as skipped", pc)
+				logger.Debugf("Skip the verification capability %v because of verification action setting as skipped", pc)
 				continue
 			}
 			capabilitiesToVerify = append(capabilitiesToVerify, pc)
 		}
 
 		if len(capabilitiesToVerify) > 0 {
-			logger.Debugf("execute verification plugin with capabilities %v", capabilitiesToVerify)
+			logger.Debugf("Execute verification plugin with capabilities %v", capabilitiesToVerify)
 			response, err := executePlugin(ctx, installedPlugin, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
 			if err != nil {
 				return err
 			}
 
-			logger.Debugf("plugin VerifySignatureResponse: %+v", *response)
+			logger.Debugf("Plugin VerifySignatureResponse: %+v", *response)
 			return processPluginResponse(logger, capabilitiesToVerify, response, outcome)
 		}
 	}
@@ -467,7 +467,7 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 		extendedAttributes[attr.Key.(string)] = attr.Value
 		attributesToProcess = append(attributesToProcess, attr.Key.(string))
 	}
-	logger.Debugf("added plugin attributes to be processed %v", attributesToProcess)
+	logger.Debugf("Added plugin attributes to be processed %v", attributesToProcess)
 
 	var certChain [][]byte
 	for _, cert := range signerInfo.CertificateChain {
@@ -502,7 +502,7 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 		TrustPolicy:  policy,
 		PluginConfig: pluginConfig,
 	}
-	logger.Debugf("plugin VerifySignatureRequest: %+v", *req)
+	logger.Debugf("Plugin VerifySignatureRequest: %+v", *req)
 	return installedPlugin.VerifySignature(ctx, req)
 }
 

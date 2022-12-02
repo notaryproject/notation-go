@@ -87,13 +87,13 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	logger.Debug("generating annotation")
+	logger.Debug("Generating annotation")
 	annotations, err := generateAnnotations(signerInfo)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	logger.Debugf("generated annotations: %+v", annotations)
-	logger.Debugf("pushing signature  of artifact descriptor: %+v", targetDesc)
+	logger.Debugf("Generated annotations: %+v", annotations)
+	logger.Debugf("Pushing signature of artifact descriptor: %+v", targetDesc)
 	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -201,7 +201,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			return ocispec.Descriptor{}, nil, err
 		}
 	} else if reflect.DeepEqual(outcome.VerificationLevel, trustpolicy.LevelSkip) {
-		logger.Infoln("verification skipped for", remoteOpts.ArtifactReference)
+		logger.Infoln("Verification skipped for", remoteOpts.ArtifactReference)
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
 	logger.Info("Trust policy is not configured to skip signature verification")
@@ -235,7 +235,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	numOfSignatureProcessed := 0
 
 	// get signature manifests
-	logger.Debug("fetching signature manifest")
+	logger.Debug("Fetching signature manifest")
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
@@ -243,7 +243,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				break
 			}
 			numOfSignatureProcessed++
-			logger.Infof("processing signature with digest: %v", sigManifestDesc.Digest)
+			logger.Infof("Processing signature with digest: %v", sigManifestDesc.Digest)
 			// get signature envelope
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
