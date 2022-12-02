@@ -244,7 +244,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			numOfSignatureProcessed++
 			logger.Infof("processing signature with digest: %v", sigManifestDesc.Digest)
 			// get signature envelope
-			logger.Debugf("fetch signature blob for signature manifest %v", sigManifestDesc.Digest)
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
@@ -291,9 +290,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 	// Verification Failed
 	if len(verificationOutcomes) == 0 {
-		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{
-			Msg: fmt.Sprintf("Signature verification failed for all the signatures associated with digest %v", artifactDescriptor.Digest),
-		}
+		logger.Debugf("Signature verification failed for all the signatures associated with digest %v", artifactDescriptor.Digest)
+		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
 
 	// Verification Succeeded

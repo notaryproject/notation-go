@@ -100,6 +100,7 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger.Debugf("sign request:")
 	logger.Debugf("  ContentType: %v", signReq.Payload.ContentType)
 	logger.Debugf("  Content: %s", string(signReq.Payload.Content))
+	logger.Debugf("  Expiry: %v", signReq.Expiry)
 	logger.Debugf("  SigningTime: %v", signReq.SigningTime)
 	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
 	logger.Debugf("  SigningAgent: %v", signReq.SigningAgent)

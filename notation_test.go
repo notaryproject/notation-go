@@ -187,7 +187,7 @@ func TestVerifyFailed(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
-	expectedErr := ErrorVerificationFailed{Msg: "Signature verification failed for all the signatures associated with digest sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"}
+	expectedErr := ErrorVerificationFailed{}
 
 	// mock the repository
 	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
