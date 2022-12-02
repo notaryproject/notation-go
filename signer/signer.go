@@ -74,7 +74,7 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 // marshalled envelope.
 func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
-	logger.Debugf("local signing for %v", desc.Digest)
+	logger.Debugf("generic signing for %v", desc.Digest)
 	// Generate payload to be signed.
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)

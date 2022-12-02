@@ -95,7 +95,6 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 			keySpec:      ks,
 		},
 	}
-	logger.Debugf("generated genericSigner %+v", genericSigner)
 	return genericSigner.Sign(ctx, desc, opts)
 }
 
