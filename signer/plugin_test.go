@@ -181,7 +181,7 @@ func TestSigner_Sign_ExpiryInValid(t *testing.T) {
 			signer := pluginSigner{
 				plugin: newMockPlugin(false, false, false, false, keyCertPairCollections[0].key, keyCertPairCollections[0].certs, ks),
 			}
-			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignOptions{Expiry: time.Now().Add(-100), SignatureMediaType: envelopeType})
+			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignOptions{ExpiryDuration: -24 * time.Hour, SignatureMediaType: envelopeType})
 			wantEr := "expiry cannot be equal or before the signing time"
 			if err == nil || !strings.Contains(err.Error(), wantEr) {
 				t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
@@ -303,8 +303,8 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string
 	if mockPlugin.keySpec.SignatureAlgorithm() != signerInfo.SignatureAlgorithm {
 		t.Fatalf("Signer.Sign() signing algorithm changed")
 	}
-	if validSignOpts.Expiry.Unix() != signerInfo.SignedAttributes.Expiry.Unix() {
-		t.Fatalf("Signer.Sign() expiry changed")
+	if validSignOpts.ExpiryDuration != signerInfo.SignedAttributes.Expiry.Sub(signerInfo.SignedAttributes.SigningTime) {
+		t.Fatalf("Signer.Sign() expiry duration changed")
 	}
 	if !reflect.DeepEqual(mockPlugin.certs, signerInfo.CertificateChain) {
 		t.Fatalf(" Signer.Sign() cert chain changed")

@@ -5,12 +5,57 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+func TestSignSuccess(t *testing.T) {
+	repo := mock.NewRepository()
+	testCases := []struct {
+		name string
+		dur  time.Duration
+	}{
+		{"expiryInHours", 24 * time.Hour},
+		{"oneSecondExpiry", 1 * time.Second},
+		{"zeroExpiry", 0},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(b *testing.T) {
+			opts := SignOptions{
+				ExpiryDuration:    tc.dur,
+				ArtifactReference: mock.SampleArtifactUri,
+			}
+			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+			if err != nil {
+				b.Fatalf("Sign failed with error: %v", err)
+			}
+		})
+	}
+}
+
+func TestSignWithInvalidExpiry(t *testing.T) {
+	repo := mock.NewRepository()
+	testCases := []struct {
+		name string
+		dur  time.Duration
+	}{
+		{"negativeExpiry", -24 * time.Hour},
+		{"splitSecondExpiry", 1 * time.Millisecond},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(b *testing.T) {
+			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{ExpiryDuration: tc.dur})
+			if err == nil {
+				b.Fatalf("Expected error but not found")
+			}
+		})
+	}
+}
 
 func TestRegistryResolveError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
@@ -170,6 +215,12 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
 	}
 	return
+}
+
+type dummySigner struct{}
+
+func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
+	return []byte("ABC"), &signature.SignerInfo{}, nil
 }
 
 type dummyVerifier struct {
