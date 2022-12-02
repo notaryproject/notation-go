@@ -87,12 +87,13 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	logger.Debug("generate annotation")
+	logger.Debug("generating annotation")
 	annotations, err := generateAnnotations(signerInfo)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	logger.Debugf("push signature, artifact descriptor: %+v, annotations: %+v", targetDesc, annotations)
+	logger.Debugf("generated annotations: %+v", annotations)
+	logger.Debugf("pushing signature  of artifact descriptor: %+v", targetDesc)
 	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -193,7 +194,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	}
 
 	// passing nil signature to check 'skip'
-	logger.Info("passing a nil signature to check 'skip' level")
+	logger.Info("Checking whether signature verification should be skipped or not")
 	outcome, err := verifier.Verify(ctx, ocispec.Descriptor{}, nil, opts)
 	if err != nil {
 		if outcome == nil {
@@ -203,7 +204,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 		logger.Infoln("verification skipped for", remoteOpts.ArtifactReference)
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
-	logger.Info("check over. not 'skip' level")
+	logger.Info("Trust policy is not configured to skip signature verification")
 
 	// check MaxSignatureAttempts
 	if remoteOpts.MaxSignatureAttempts <= 0 {
@@ -234,7 +235,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	numOfSignatureProcessed := 0
 
 	// get signature manifests
-	logger.Debug("fetch signature manifest")
+	logger.Debug("fetching signature manifest")
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
@@ -263,7 +264,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			// at this point, the signature is verified successfully. Add
 			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
-			logger.Debugf("successfully verified signature with digest %v", sigManifestDesc.Digest)
+			logger.Debugf("Signature verification succeeded for signature with digest %v", sigManifestDesc.Digest)
 
 			// early break on success
 			return errDoneVerification
