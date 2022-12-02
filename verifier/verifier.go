@@ -77,7 +77,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	}
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
-	logger.Debugf("verification level: %+v", verificationLevel)
+	logger.Debugf("verification level: %+v", *verificationLevel)
 
 	outcome := &notation.VerificationOutcome{
 		RawSignature:      signature,
@@ -230,7 +230,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 				return err
 			}
 
-			logger.Debugf("plugin VerifySignatureResponse: %+v", response)
+			logger.Debugf("plugin VerifySignatureResponse: %+v", *response)
 			return processPluginResponse(logger, capabilitiesToVerify, response, outcome)
 		}
 	}
@@ -502,7 +502,7 @@ func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPoli
 		TrustPolicy:  policy,
 		PluginConfig: pluginConfig,
 	}
-	logger.Debugf("plugin VerifySignatureRequest: %+v", req)
+	logger.Debugf("plugin VerifySignatureRequest: %+v", *req)
 	return installedPlugin.VerifySignature(ctx, req)
 }
 
