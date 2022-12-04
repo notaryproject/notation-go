@@ -149,7 +149,6 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if err != nil {
 			return err
 		}
-		logger.Debugf("Plugin capabilities: %v", metadata.Capabilities)
 
 		for _, capability := range metadata.Capabilities {
 			if capability == proto.CapabilityRevocationCheckVerifier || capability == proto.CapabilityTrustedIdentityVerifier {
@@ -230,7 +229,6 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 				return err
 			}
 
-			logger.Debugf("Plugin VerifySignatureResponse: %+v", *response)
 			return processPluginResponse(logger, capabilitiesToVerify, response, outcome)
 		}
 	}

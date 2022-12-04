@@ -114,12 +114,10 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		ExpiryDurationInSeconds: uint64(opts.ExpiryDuration / time.Second),
 		PluginConfig:            s.mergeConfig(opts.PluginConfig),
 	}
-	logger.Debugf("Plugin GenerateEnvelopeRequest %+v", req)
 	resp, err := s.plugin.GenerateEnvelope(ctx, req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("plugin failed to sign with following error: %w", err)
 	}
-	logger.Debugf("Plugin GenerateEnvelopeResponse %+v", resp)
 
 	// Check signatureEnvelopeType is honored.
 	if resp.SignatureEnvelopeType != req.SignatureEnvelopeType {
