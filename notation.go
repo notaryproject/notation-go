@@ -235,7 +235,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	numOfSignatureProcessed := 0
 
 	// get signature manifests
-	logger.Debug("Fetching signature manifest")
+	logger.Debug("Fetching signature manifests using referrers API")
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
@@ -291,7 +291,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 	// Verification Failed
 	if len(verificationOutcomes) == 0 {
-		logger.Debugf("Signature verification failed for all the signatures associated with digest %v", artifactDescriptor.Digest)
+		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
 		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
 
