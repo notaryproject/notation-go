@@ -70,7 +70,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	pluginConfig := opts.PluginConfig
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("Verify signature against artifact %v referenced as %s", desc.Digest, artifactRef)
+	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, opts.SignatureMediaType)
 	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
@@ -554,8 +554,8 @@ func logVerificationResult(logger log.Logger, result *notation.ValidationResult)
 	}
 	switch result.Action {
 	case trustpolicy.ActionLog:
-		logger.Warnf("%v validation failed with validation action set to \"logged\". Failure reason: %v", strings.Title(string(result.Type)), result.Error)
+		logger.Warnf("%v validation failed with validation action set to \"logged\". Failure reason: %v", result.Type, result.Error)
 	case trustpolicy.ActionEnforce:
-		logger.Errorf("%v validation failed. Failure reason: %v", strings.Title(string(result.Type)), result.Error)
+		logger.Errorf("%v validation failed. Failure reason: %v", result.Type, result.Error)
 	}
 }

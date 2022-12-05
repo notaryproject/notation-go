@@ -57,7 +57,7 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 		return nil, nil, err
 	}
 
-	logger.Debugf("Using plugin %v with capabilities %v to sign artifact %v", metadata.Name, metadata.Capabilities, desc.Digest)
+	logger.Debugf("Using plugin %v with capabilities %v to sign artifact %v in signature media type %v", metadata.Name, metadata.Capabilities, desc.Digest, opts.SignatureMediaType)
 	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts)
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {

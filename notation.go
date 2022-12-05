@@ -249,7 +249,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
-			logger.Debugf("signature media type: %v", sigDesc.MediaType)
 
 			// using signature media type fetched from registry
 			opts.SignatureMediaType = sigDesc.MediaType
