@@ -26,7 +26,7 @@ var errDoneVerification = errors.New("done verification")
 
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
-	// Reference of the artifact that needs to be signed.
+	// ArtifactReference sets the reference of the artifact that needs to be signed.
 	ArtifactReference string
 
 	// SignatureMediaType is the envelope type of the signature.
@@ -38,8 +38,11 @@ type SignOptions struct {
 	// represents no expiry duration.
 	ExpiryDuration time.Duration
 
-	// Sets or overrides the plugin configuration.
+	// PluginConfig sets or overrides the plugin configuration.
 	PluginConfig map[string]string
+
+	// SigningAgent sets the signing agent name
+	SigningAgent string
 }
 
 // Signer is a generic interface for signing an artifact.
