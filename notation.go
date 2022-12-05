@@ -87,10 +87,13 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
+	logger.Debug("Generating annotation")
 	annotations, err := generateAnnotations(signerInfo)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
+	logger.Debugf("Generated annotations: %+v", annotations)
+	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, opts.SignatureMediaType)
 	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -191,14 +194,17 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	}
 
 	// passing nil signature to check 'skip'
+	logger.Info("Checking whether signature verification should be skipped or not")
 	outcome, err := verifier.Verify(ctx, ocispec.Descriptor{}, nil, opts)
 	if err != nil {
 		if outcome == nil {
 			return ocispec.Descriptor{}, nil, err
 		}
 	} else if reflect.DeepEqual(outcome.VerificationLevel, trustpolicy.LevelSkip) {
+		logger.Infoln("Verification skipped for", remoteOpts.ArtifactReference)
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
+	logger.Info("Check over. Trust policy is not configured to skip signature verification")
 
 	// check MaxSignatureAttempts
 	if remoteOpts.MaxSignatureAttempts <= 0 {
@@ -229,6 +235,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	numOfSignatureProcessed := 0
 
 	// get signature manifests
+	logger.Debug("Fetching signature manifests using referrers API")
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
@@ -236,11 +243,13 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				break
 			}
 			numOfSignatureProcessed++
+			logger.Infof("Processing signature with digest: %v", sigManifestDesc.Digest)
 			// get signature envelope
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
+
 			// using signature media type fetched from registry
 			opts.SignatureMediaType = sigDesc.MediaType
 
@@ -253,10 +262,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				}
 				continue
 			}
-
 			// at this point, the signature is verified successfully. Add
 			// it to the verificationOutcomes.
 			verificationOutcomes = append(verificationOutcomes, outcome)
+			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 
 			// early break on success
 			return errDoneVerification
@@ -283,6 +292,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 	// Verification Failed
 	if len(verificationOutcomes) == 0 {
+		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
 		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
 	}
 
