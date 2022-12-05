@@ -62,6 +62,27 @@ func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore
 	}, nil
 }
 
+// SkipVerify validates whether the verification level is skip.
+func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *trustpolicy.VerificationLevel, error) {
+	logger := log.GetLogger(ctx)
+
+	logger.Debugf("Check verification level against artifact %v", artifactRef)
+	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
+	if err != nil {
+		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+	}
+	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
+	// ignore the error since we already validated the policy document
+	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
+
+	// verificationLevel is skip
+	if reflect.DeepEqual(verificationLevel, trustpolicy.LevelSkip) {
+		logger.Debug("Skipping signature verification")
+		return true, verificationLevel, nil
+	}
+	return false, verificationLevel, nil
+}
+
 // Verify verifies the signature blob and returns the verified descriptor
 // upon successful verification.
 func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifyOptions) (*notation.VerificationOutcome, error) {

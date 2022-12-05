@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -182,6 +181,11 @@ type RemoteVerifyOptions struct {
 	MaxSignatureAttempts int
 }
 
+type skipVerifier interface {
+	// SkipVerify validates whether the verification level is skip.
+	SkipVerify(ctx context.Context, artifactRef string) (bool, *trustpolicy.VerificationLevel, error)
+}
+
 // Verify performs signature verification on each of the notation supported
 // verification types (like integrity, authenticity, etc.) and return the
 // successful signature verification outcomes.
@@ -197,17 +201,18 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	}
 
 	// passing nil signature to check 'skip'
-	logger.Info("Checking whether signature verification should be skipped or not")
-	outcome, err := verifier.Verify(ctx, ocispec.Descriptor{}, nil, opts)
-	if err != nil {
-		if outcome == nil {
+	if skipChecker, ok := verifier.(skipVerifier); ok {
+		logger.Info("Checking whether signature verification should be skipped or not")
+		skip, verificationLevel, err := skipChecker.SkipVerify(ctx, opts.ArtifactReference)
+		if err != nil {
 			return ocispec.Descriptor{}, nil, err
 		}
-	} else if reflect.DeepEqual(outcome.VerificationLevel, trustpolicy.LevelSkip) {
-		logger.Infoln("Verification skipped for", remoteOpts.ArtifactReference)
-		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
+		if skip {
+			logger.Infoln("Verification skipped for", remoteOpts.ArtifactReference)
+			return ocispec.Descriptor{}, []*VerificationOutcome{{VerificationLevel: verificationLevel}}, nil
+		}
+		logger.Info("Check over. Trust policy is not configured to skip signature verification")
 	}
-	logger.Info("Check over. Trust policy is not configured to skip signature verification")
 
 	// check MaxSignatureAttempts
 	if remoteOpts.MaxSignatureAttempts <= 0 {
