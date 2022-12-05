@@ -204,7 +204,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 		logger.Infoln("Verification skipped for", remoteOpts.ArtifactReference)
 		return ocispec.Descriptor{}, []*VerificationOutcome{outcome}, nil
 	}
-	logger.Info("Trust policy is not configured to skip signature verification")
+	logger.Info("Check over. Trust policy is not configured to skip signature verification")
 
 	// check MaxSignatureAttempts
 	if remoteOpts.MaxSignatureAttempts <= 0 {
