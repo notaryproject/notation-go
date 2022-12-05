@@ -93,7 +93,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 		return ocispec.Descriptor{}, err
 	}
 	logger.Debugf("Generated annotations: %+v", annotations)
-	logger.Debugf("Pushing signature of artifact descriptor: %+v", targetDesc)
+	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, opts.SignatureMediaType)
 	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -249,6 +249,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			if err != nil {
 				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : %v", sigManifestDesc.Digest, artifactRef, err.Error())}
 			}
+			logger.Debugf("signature media type: %v", sigDesc.MediaType)
+
 			// using signature media type fetched from registry
 			opts.SignatureMediaType = sigDesc.MediaType
 

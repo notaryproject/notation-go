@@ -223,7 +223,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		if len(capabilitiesToVerify) > 0 {
-			logger.Debugf("Executing verification plugin with capabilities %v", capabilitiesToVerify)
+			logger.Debugf("Executing verification plugin %q with capabilities %v", verificationPluginName, capabilitiesToVerify)
 			response, err := executePlugin(ctx, installedPlugin, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
 			if err != nil {
 				return err
@@ -554,8 +554,8 @@ func logVerificationResult(logger log.Logger, result *notation.ValidationResult)
 	}
 	switch result.Action {
 	case trustpolicy.ActionLog:
-		logger.Warnf("%v validation failed with validation action set to \"logged\". Failure reason: %v", result.Type, result.Error)
+		logger.Warnf("%v validation failed with validation action set to \"logged\". Failure reason: %v", strings.Title(string(result.Type)), result.Error)
 	case trustpolicy.ActionEnforce:
-		logger.Errorf("%v validation failed. Failure reason: %v", result.Type, result.Error)
+		logger.Errorf("%v validation failed. Failure reason: %v", strings.Title(string(result.Type)), result.Error)
 	}
 }
