@@ -48,7 +48,7 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 // marshalled envelope.
 func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
-	logger.Debugf("Invoking plugin's get-plugin-metadata command")
+	logger.Debug("Invoking plugin's get-plugin-metadata command")
 	req := &proto.GetMetadataRequest{
 		PluginConfig: s.mergeConfig(opts.PluginConfig),
 	}

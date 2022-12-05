@@ -216,7 +216,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured to skip it
 			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == proto.CapabilityRevocationCheckVerifier {
-				logger.Debugf("Skipping the  %v validation", pc)
+				logger.Debugf("Skipping the %v validation", pc)
 				continue
 			}
 			capabilitiesToVerify = append(capabilitiesToVerify, pc)

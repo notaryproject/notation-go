@@ -122,7 +122,7 @@ func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyReque
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
 	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin generate-signature request: %+v", req)
+	logger.Debugf("Plugin generate-signature request: {ContractVersion: %v, KeyID: %v, KeySpec: %v, Hash: %v, PluginConfig: %v}", req.ContractVersion, req.KeyID, req.KeySpec, req.Hash, req.PluginConfig)
 	var resp proto.GenerateSignatureResponse
 	if req.ContractVersion == "" {
 		req.ContractVersion = proto.ContractVersion
@@ -137,7 +137,7 @@ func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSi
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
 	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin generate-envelope request: %+v", req)
+	logger.Debugf("Plugin generate-envelope request: {ContractVersion: %v, KeyID: %v, PayloadType: %v, SignatureEnvelope: %v, ExpiryDurationInSeconds: %v, PluginConfig: %v}", req.ContractVersion, req.KeyID, req.PayloadType, req.SignatureEnvelopeType, req.ExpiryDurationInSeconds, req.PluginConfig)
 	var resp proto.GenerateEnvelopeResponse
 	if req.ContractVersion == "" {
 		req.ContractVersion = proto.ContractVersion
@@ -152,7 +152,7 @@ func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnv
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
 	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin verify-signature request: %+v", req)
+	logger.Debugf("Plugin verify-signature request: {ContractVersion: %v, TrustPolicy: %v, PluginConfig: %v, Signature: {CriticalAttributes: %v, UnprocessedAttributes: %v}}", req.ContractVersion, req.TrustPolicy, req.PluginConfig, req.Signature.CriticalAttributes, req.Signature.UnprocessedAttributes)
 	var resp proto.VerifySignatureResponse
 	if req.ContractVersion == "" {
 		req.ContractVersion = proto.ContractVersion
