@@ -164,14 +164,11 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// execute request
 	stdout, stderr, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
-		logger.Debugf("Plugin %s returned error", req.Command())
-		if exitError, ok := err.(*exec.ExitError); ok {
-			logger.Debugf("Plugin %s exit code: %s", req.Command(), exitError.ExitCode())
-		}
+		logger.Debugf("plugin %s execution status: %v", req.Command(), err)
+		logger.Debugf("Plugin %s returned error: %s", req.Command(), string(stderr))
 		var re proto.RequestError
 		jsonErr := json.Unmarshal(stderr, &re)
 		if jsonErr != nil {
-			logger.Debugf("Plugin %s error response: %s", req.Command(), jsonErr)
 			return proto.RequestError{
 				Code: proto.ErrorCodeGeneric,
 				Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", err, stderr)}
@@ -179,7 +176,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		return re
 	}
 
-	logger.Debugf("Plugin %s response: %+v", req.Command(), string(stdout))
+	logger.Debugf("Plugin %s response: %s", req.Command(), string(stdout))
 	// deserialize response
 	err = json.Unmarshal(stdout, resp)
 	if err != nil {
