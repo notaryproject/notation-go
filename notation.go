@@ -200,7 +200,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 		PluginConfig:      remoteOpts.PluginConfig,
 	}
 
-	// passing nil signature to check 'skip'
 	if skipChecker, ok := verifier.(skipVerifier); ok {
 		logger.Info("Checking whether signature verification should be skipped or not")
 		skip, verificationLevel, err := skipChecker.SkipVerify(ctx, opts.ArtifactReference)
