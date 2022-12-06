@@ -160,7 +160,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		return fmt.Errorf("%s: failed to marshal request object: %w", pluginName, err)
 	}
 
-	logger.Debugf("Plugin %s request: %+v", req.Command(), string(data))
+	logger.Debugf("Plugin %s request: %s", req.Command(), string(data))
 	// execute request
 	stdout, stderr, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
@@ -171,7 +171,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		var re proto.RequestError
 		jsonErr := json.Unmarshal(stderr, &re)
 		if jsonErr != nil {
-			logger.Debugf("Plugin %s error response: %+v", req.Command(), jsonErr)
+			logger.Debugf("Plugin %s error response: %s", req.Command(), jsonErr)
 			return proto.RequestError{
 				Code: proto.ErrorCodeGeneric,
 				Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", err, stderr)}
@@ -179,9 +179,9 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		return re
 	}
 
+	logger.Debugf("Plugin %s response: %+v", req.Command(), string(stdout))
 	// deserialize response
 	err = json.Unmarshal(stdout, resp)
-	logger.Debugf("Plugin %s response: %+v", req.Command(), string(stdout))
 	if err != nil {
 		return fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
 	}
