@@ -84,8 +84,6 @@ func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 
 // GetMetadata returns the metadata information of the plugin.
 func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
-	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin get-plugin-metadata request: %+v", req)
 	var metadata proto.GetMetadataResponse
 	err := run(ctx, p.name, p.path, req, &metadata)
 	if err != nil {
@@ -98,7 +96,6 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	if metadata.Name != p.name {
 		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
 	}
-	logger.Debugf("Plugin get-plugin-metadata response: %+v", metadata)
 	return &metadata, nil
 }
 
@@ -106,14 +103,12 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 //
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
-	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin describe-key request: %+v", req)
-	var resp proto.DescribeKeyResponse
 	if req.ContractVersion == "" {
 		req.ContractVersion = proto.ContractVersion
 	}
+
+	var resp proto.DescribeKeyResponse
 	err := run(ctx, p.name, p.path, req, &resp)
-	logger.Debugf("Plugin describe-key response: %+v", resp)
 	return &resp, err
 }
 
@@ -121,14 +116,12 @@ func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyReque
 //
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
-	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin generate-signature request: {ContractVersion: %v, KeyID: %v, KeySpec: %v, Hash: %v, PluginConfig: %v}", req.ContractVersion, req.KeyID, req.KeySpec, req.Hash, req.PluginConfig)
-	var resp proto.GenerateSignatureResponse
 	if req.ContractVersion == "" {
 		req.ContractVersion = proto.ContractVersion
 	}
+
+	var resp proto.GenerateSignatureResponse
 	err := run(ctx, p.name, p.path, req, &resp)
-	logger.Debugf("Plugin generate-signature response: {keyId: %v, SigningAlgorithm: %v}", resp.KeyID, resp.SigningAlgorithm)
 	return &resp, err
 }
 
@@ -136,14 +129,12 @@ func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSi
 //
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
-	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin generate-envelope request: {ContractVersion: %v, KeyID: %v, PayloadType: %v, SignatureEnvelope: %v, ExpiryDurationInSeconds: %v, PluginConfig: %v}", req.ContractVersion, req.KeyID, req.PayloadType, req.SignatureEnvelopeType, req.ExpiryDurationInSeconds, req.PluginConfig)
-	var resp proto.GenerateEnvelopeResponse
 	if req.ContractVersion == "" {
 		req.ContractVersion = proto.ContractVersion
 	}
+
+	var resp proto.GenerateEnvelopeResponse
 	err := run(ctx, p.name, p.path, req, &resp)
-	logger.Debugf("Plugin generate-envelope response: {SignatureEnvelopeType: %v, Annotations:%v}", resp.SignatureEnvelopeType, resp.Annotations)
 	return &resp, err
 }
 
@@ -151,30 +142,36 @@ func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnv
 //
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
-	logger := log.GetLogger(ctx)
-	logger.Debugf("Plugin verify-signature request: {ContractVersion: %v, TrustPolicy: %v, PluginConfig: %v, Signature: {CriticalAttributes: %v, UnprocessedAttributes: %v}}", req.ContractVersion, req.TrustPolicy, req.PluginConfig, req.Signature.CriticalAttributes, req.Signature.UnprocessedAttributes)
-	var resp proto.VerifySignatureResponse
 	if req.ContractVersion == "" {
 		req.ContractVersion = proto.ContractVersion
 	}
+
+	var resp proto.VerifySignatureResponse
 	err := run(ctx, p.name, p.path, req, &resp)
-	logger.Debugf("Plugin verify-signature response: %+v", resp)
 	return &resp, err
 }
 
 func run(ctx context.Context, pluginName string, pluginPath string, req proto.Request, resp interface{}) error {
+	logger := log.GetLogger(ctx)
+
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("%s: failed to marshal request object: %w", pluginName, err)
 	}
 
+	logger.Debugf("Plugin %s request: %+v", req.Command(), string(data))
 	// execute request
 	stdout, stderr, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
+		logger.Debugf("Plugin %s returned error", req.Command())
+		if exitError, ok := err.(*exec.ExitError); ok {
+			logger.Debugf("Plugin %s exit code: %s", req.Command(), exitError.ExitCode())
+		}
 		var re proto.RequestError
 		jsonErr := json.Unmarshal(stderr, &re)
 		if jsonErr != nil {
+			logger.Debugf("Plugin %s error response: %+v", req.Command(), jsonErr)
 			return proto.RequestError{
 				Code: proto.ErrorCodeGeneric,
 				Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", err, stderr)}
@@ -184,6 +181,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 
 	// deserialize response
 	err = json.Unmarshal(stdout, resp)
+	logger.Debugf("Plugin %s response: %+v", req.Command(), string(stdout))
 	if err != nil {
 		return fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
 	}
