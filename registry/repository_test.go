@@ -62,7 +62,7 @@ const (
 		"references": [{}],
 		"referrers": [
 			{
-				"artifactType": "application/vnd.cncf.notary.v2.signature",
+				"artifactType": "application/vnd.cncf.notary.signature",
 				"mediaType": "application/vnd.cncf.oras.artifact.manifest.v1+json",
 				"digest": "localhost:5000/test@57f2c47061dae97063dc46598168a80a9f89302c1f24fe2a422a1ec0aba3017a"
 			}
@@ -73,7 +73,7 @@ const (
 		"references": [{}],
 		"referrers": [
 			{
-				"artifactType": "application/vnd.cncf.notary.v2.signature",
+				"artifactType": "application/vnd.cncf.notary.signature",
 				"mediaType": "application/vnd.cncf.oras.artifact.manifest.invalid",
 				"digest": "localhost:5000/test@1834876dcfb05cb167a5c24953eba58c4ac89b1adf57f28f2f9d09af107ee8f2"
 			}
@@ -84,7 +84,7 @@ const (
 		"references": [{}],
 		"referrers": [
 			{
-				"artifactType": "application/vnd.cncf.notary.v2.signature",
+				"artifactType": "application/vnd.cncf.notary.signature",
 				"mediaType": "application/vnd.cncf.oras.artifact.manifest.v1+json",
 				"digest": "localhost:5000/test@9834876dcfb05cb167a5c24953eba58c4ac89b1adf57f28f2f9d09af107ee8f0"
 			}
