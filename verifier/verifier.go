@@ -78,7 +78,7 @@ func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *t
 	// verificationLevel is skip
 	if reflect.DeepEqual(verificationLevel, trustpolicy.LevelSkip) {
 		logger.Debug("Skipping signature verification")
-		return true, verificationLevel, nil
+		return true, trustpolicy.LevelSkip, nil
 	}
 	return false, verificationLevel, nil
 }
