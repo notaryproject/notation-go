@@ -98,6 +98,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, opts.SignatureMediaType)
 	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
+		logger.Debug("Failed to push the signature")
 		return ocispec.Descriptor{}, err
 	}
 
@@ -159,7 +160,8 @@ type VerifyOptions struct {
 
 // Verifier is a generic interface for verifying an artifact.
 type Verifier interface {
-	// Verify verifies the signature blob and returns the outcome upon
+	// Verify verifies the signature blob `signature` against the target OCI
+	// artifact with manifest descriptor `desc`, and returns the outcome upon
 	// successful verification.
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
@@ -188,7 +190,7 @@ type skipVerifier interface {
 
 // Verify performs signature verification on each of the notation supported
 // verification types (like integrity, authenticity, etc.) and return the
-// successful signature verification outcomes.
+// successful signature verification outcome.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, remoteOpts RemoteVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
@@ -263,8 +265,9 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			// verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
+				logger.Infof("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
 				if outcome == nil {
-					// TODO: log fatal error
+					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
 				continue
