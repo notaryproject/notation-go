@@ -268,9 +268,9 @@ func LoadDocument() (*Document, error) {
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return nil, errors.New("empty trustpolicy.json file. For a valid trustpolicy.json example, please refer to https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#trust-policy")
+			return nil, errors.New("empty trustpolicy.json file. See a valid trustpolicy.json example at https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#trust-policy")
 		}
-		return nil, errors.New("invalid trustpolicy.json file. For a valid trustpolicy.json example, please refer to https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#trust-policy")
+		return nil, errors.New("invalid trustpolicy.json file. See a valid trustpolicy.json example at https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#trust-policy")
 	}
 	return policyDocument, nil
 }
