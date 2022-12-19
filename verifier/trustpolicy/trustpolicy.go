@@ -353,13 +353,13 @@ func validateTrustStore(statement TrustPolicy) error {
 	for _, trustStore := range statement.TrustStores {
 		storeType, namedStore, found := strings.Cut(trustStore, ":")
 		if !found {
-			return fmt.Errorf("trust policy statement %q is missing separator in trust store value %q", statement.Name, trustStore)
+			return fmt.Errorf("trust policy statement %q has malformed trust store value %q. Format <TrustStoreType>:<TrustStoreName> is required", statement.Name, trustStore)
 		}
 		if !isValidTrustStoreType(storeType) {
 			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", statement.Name, storeType, trustStore)
 		}
 		if !file.IsValidFileName(namedStore) {
-			return errors.New("named store name needs to follow [a-zA-Z0-9_.-]+ format")
+			return fmt.Errorf("trust policy statement %q uses an unsupported trust store name %q in trust store value %q. Named store name needs to follow [a-zA-Z0-9_.-]+ format", statement.Name, namedStore, trustStore)
 		}
 	}
 
