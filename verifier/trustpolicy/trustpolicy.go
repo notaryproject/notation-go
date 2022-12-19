@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"regexp"
 	"strings"
 
@@ -180,7 +179,7 @@ func (policyDoc *Document) Validate() error {
 		// Verify signature verification is valid
 		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
-			return fmt.Errorf("trust policy statement %q has invalid signatureVerification with error: %v", statement.Name, err)
+			return fmt.Errorf("trust policy statement %q has invalid signatureVerification with error: %w", statement.Name, err)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and
@@ -267,10 +266,7 @@ func LoadDocument() (*Document, error) {
 	policyDocument := &Document{}
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil, errors.New("empty trustpolicy.json file. See a valid trustpolicy.json example at https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#trust-policy")
-		}
-		return nil, errors.New("invalid trustpolicy.json file. See a valid trustpolicy.json example at https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#trust-policy")
+		return nil, errors.New("invalid trustpolicy.json file. See a valid trustpolicy.json example at https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-policy")
 	}
 	return policyDocument, nil
 }
