@@ -98,7 +98,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, opts.SignatureMediaType)
 	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
-		logger.Debug("Failed to push the signature")
+		logger.Error("Failed to push the signature")
 		return ocispec.Descriptor{}, err
 	}
 

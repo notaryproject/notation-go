@@ -122,14 +122,14 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	payload := &envelope.Payload{}
 	err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
 	if err != nil {
-		logger.Debug("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
+		logger.Error("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
 		outcome.Error = err
 		return outcome, err
 	}
 
 	if !content.Equal(payload.TargetArtifact, desc) {
-		logger.Debugf("payload.TargetArtifact in signature: %+v", payload.TargetArtifact)
-		logger.Debugf("Target artifact that want to be verified: %+v", desc)
+		logger.Infof("payload.TargetArtifact in signature: %+v", payload.TargetArtifact)
+		logger.Infof("Target artifact that want to be verified: %+v", desc)
 		outcome.Error = errors.New("content descriptor mismatch")
 	}
 	return outcome, outcome.Error
