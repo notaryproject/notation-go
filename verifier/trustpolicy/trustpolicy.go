@@ -153,6 +153,11 @@ type SignatureVerification struct {
 // Validate validates a policy document according to its version's rule set.
 // if any rule is violated, returns an error
 func (policyDoc *Document) Validate() error {
+	// sanity check
+	if policyDoc == nil {
+		return errors.New("trust policy document cannot be nil")
+	}
+
 	// Validate Version
 	if policyDoc.Version == "" {
 		return errors.New("trust policy document is missing or has empty version, it must be specified")

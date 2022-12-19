@@ -220,11 +220,17 @@ func TestValidRegistryScopes(t *testing.T) {
 // TestValidatePolicyDocument calls policyDoc.Validate()
 // and tests various validations on policy eliments
 func TestValidateInvalidPolicyDocument(t *testing.T) {
+	// Sanity check
+	var nilPolicyDoc *Document
+	err := nilPolicyDoc.Validate()
+	if err == nil || err.Error() != "trust policy document cannot be nil" {
+		t.Fatalf("nil policyDoc should return error")
+	}
 
 	// Invalid Version
 	policyDoc := dummyPolicyDocument()
 	policyDoc.Version = "invalid"
-	err := policyDoc.Validate()
+	err = policyDoc.Validate()
 	if err == nil || err.Error() != "trust policy document uses unsupported version \"invalid\"" {
 		t.Fatalf("invalid version should return error")
 	}
