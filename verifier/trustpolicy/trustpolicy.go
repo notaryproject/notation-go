@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 
@@ -150,10 +151,13 @@ type SignatureVerification struct {
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
 }
 
-// Validate validates a policy document according to it's version's rule set.
+// Validate validates a policy document according to its version's rule set.
 // if any rule is violated, returns an error
 func (policyDoc *Document) Validate() error {
 	// Validate Version
+	if policyDoc.Version == "" {
+		return errors.New("trust policy document is missing or has empty version, it must be specified")
+	}
 	if !slices.Contains(supportedPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
@@ -173,10 +177,10 @@ func (policyDoc *Document) Validate() error {
 		}
 		policyStatementNameCount[statement.Name]++
 
-		// Verify signature verification level is valid
+		// Verify signature verification is valid
 		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
-			return fmt.Errorf("trust policy statement %q uses invalid signatureVerification value %q", statement.Name, statement.SignatureVerification.VerificationLevel)
+			return fmt.Errorf("trust policy statement %q has invalid signatureVerification with error: %v", statement.Name, err)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and
@@ -263,7 +267,10 @@ func LoadDocument() (*Document, error) {
 	policyDocument := &Document{}
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, io.EOF) {
+			return nil, errors.New("empty trustpolicy.json file")
+		}
+		return nil, errors.New("invalid trustpolicy.json file. For a valid trustpolicy.json example, please refer https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#trust-policy")
 	}
 	return policyDocument, nil
 }
@@ -271,6 +278,10 @@ func LoadDocument() (*Document, error) {
 // GetVerificationLevel returns VerificationLevel struct for the given
 // SignatureVerification struct throws error if SignatureVerification is invalid
 func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
+	if signatureVerification.VerificationLevel == "" {
+		return nil, errors.New("trust policy statement is missing or has empty signature verification level, it must be specified")
+	}
+
 	var baseLevel *VerificationLevel
 	for _, l := range VerificationLevels {
 		if l.Name == signatureVerification.VerificationLevel {
@@ -278,7 +289,7 @@ func (signatureVerification *SignatureVerification) GetVerificationLevel() (*Ver
 		}
 	}
 	if baseLevel == nil {
-		return nil, fmt.Errorf("invalid signature verification %q", signatureVerification.VerificationLevel)
+		return nil, fmt.Errorf("invalid signature verification level %q", signatureVerification.VerificationLevel)
 	}
 
 	if len(signatureVerification.Override) == 0 {
@@ -287,7 +298,7 @@ func (signatureVerification *SignatureVerification) GetVerificationLevel() (*Ver
 	}
 
 	if baseLevel == LevelSkip {
-		return nil, fmt.Errorf("signature verification %q can't be used to customize signature verification", baseLevel.Name)
+		return nil, fmt.Errorf("signature verification level %q can't be used to customize signature verification", baseLevel.Name)
 	}
 
 	customVerificationLevel := &VerificationLevel{

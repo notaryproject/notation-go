@@ -284,7 +284,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "invalid"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses invalid signatureVerification value \"invalid\"" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has invalid signatureVerification with error: invalid signature verification level \"invalid\"" {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
