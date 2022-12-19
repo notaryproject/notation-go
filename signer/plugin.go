@@ -230,7 +230,7 @@ func areUnknownAttributesAdded(content []byte) []string {
 
 func getKeySet(inputMap map[string]interface{}) []string {
 	keySet := make([]string, 0, len(inputMap))
-	for k, _ := range inputMap {
+	for k := range inputMap {
 		keySet = append(keySet, k)
 	}
 	return keySet
