@@ -267,6 +267,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			// checking the media type after fetching the blob is slow.
 			// created an issue to track this: https://github.com/notaryproject/notation-go/issues/215
 			if len(remoteOpts.SignatureMediaTypes) != 0 && !slices.Contains(remoteOpts.SignatureMediaTypes, sigDesc.MediaType) {
+				logger.Infof("Signature has media type %q, which is not in remoteOpts.SignatureMediaTypes. Signature is skipped", sigDesc.MediaType)
 				continue
 			}
 			// using signature media type fetched from registry
