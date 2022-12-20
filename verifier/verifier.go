@@ -27,7 +27,7 @@ import (
 	"oras.land/oras-go/v2/content"
 )
 
-// verifier implements notation.Verifier
+// verifier implements notation.Verifier and notation.skipVerifier
 type verifier struct {
 	trustPolicyDoc *trustpolicy.Document
 	trustStore     truststore.X509TrustStore
@@ -83,8 +83,11 @@ func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *t
 	return false, verificationLevel, nil
 }
 
-// Verify verifies the signature blob and returns the verified descriptor
-// upon successful verification.
+// Verify verifies the signature blob `signature` against the target OCI
+// artifact with manifest descriptor `desc`, and returns the outcome upon
+// successful verification.
+// If nil signature is present and the verification level is not 'skip',
+// an error will be returned.
 func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifyOptions) (*notation.VerificationOutcome, error) {
 	artifactRef := opts.ArtifactReference
 	envelopeMediaType := opts.SignatureMediaType
@@ -119,11 +122,14 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	payload := &envelope.Payload{}
 	err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
 	if err != nil {
+		logger.Error("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
 		outcome.Error = err
 		return outcome, err
 	}
 
 	if !content.Equal(payload.TargetArtifact, desc) {
+		logger.Infof("payload.TargetArtifact in signature: %+v", payload.TargetArtifact)
+		logger.Infof("Target artifact that want to be verified: %+v", desc)
 		outcome.Error = errors.New("content descriptor mismatch")
 	}
 	return outcome, outcome.Error

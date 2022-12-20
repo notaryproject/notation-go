@@ -220,11 +220,17 @@ func TestValidRegistryScopes(t *testing.T) {
 // TestValidatePolicyDocument calls policyDoc.Validate()
 // and tests various validations on policy eliments
 func TestValidateInvalidPolicyDocument(t *testing.T) {
+	// Sanity check
+	var nilPolicyDoc *Document
+	err := nilPolicyDoc.Validate()
+	if err == nil || err.Error() != "trust policy document cannot be nil" {
+		t.Fatalf("nil policyDoc should return error")
+	}
 
 	// Invalid Version
 	policyDoc := dummyPolicyDocument()
 	policyDoc.Version = "invalid"
-	err := policyDoc.Validate()
+	err = policyDoc.Validate()
 	if err == nil || err.Error() != "trust policy document uses unsupported version \"invalid\"" {
 		t.Fatalf("invalid version should return error")
 	}
@@ -284,7 +290,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "invalid"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses invalid signatureVerification value \"invalid\"" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has invalid signatureVerification. Error: invalid signature verification level \"invalid\"" {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
@@ -365,7 +371,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustStores = []string{"ca"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is missing separator in trust store value \"ca\"" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". Format <TrustStoreType>:<TrustStoreName> is required" {
 		t.Fatalf("policy statement with trust store missing separator should return error")
 	}
 
@@ -385,7 +391,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustStores = []string{"ca:"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "named store name needs to follow [a-zA-Z0-9_.-]+ format" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses an unsupported trust store name \"\" in trust store value \"ca:\". Named store name needs to follow [a-zA-Z0-9_.-]+ format" {
 		t.Fatalf("policy statement with trust store missing named store should return error")
 	}
 
