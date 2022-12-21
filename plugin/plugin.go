@@ -171,7 +171,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		if jsonErr != nil {
 			return proto.RequestError{
 				Code: proto.ErrorCodeGeneric,
-				Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", err, stderr)}
+				Err:  fmt.Errorf("response is not in JSON format. error: %v, stderr: %s", err, string(stderr))}
 		}
 		return re
 	}
