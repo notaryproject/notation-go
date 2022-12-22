@@ -17,10 +17,10 @@ import (
 func TestGetMetadata(t *testing.T) {
 	t.Run("plugin error is in invalid json format", func(t *testing.T) {
 		exitErr := errors.New("unknown error")
-		stderr := []byte("{}")
+		stderr := []byte("sad")
 		wantErr := proto.RequestError{
 			Code: proto.ErrorCodeGeneric,
-			Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", exitErr, stderr)}
+			Err:  fmt.Errorf("response is not in JSON format. error: %v, stderr: %s", exitErr, string(stderr))}
 		plugin := CLIPlugin{}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
@@ -47,7 +47,7 @@ func TestGetMetadata(t *testing.T) {
 		stderr := []byte("")
 		wantErr := proto.RequestError{
 			Code: proto.ErrorCodeGeneric,
-			Err:  fmt.Errorf("response is not in JSON format. error: %v stderr: %v", exitErr, stderr)}
+			Err:  fmt.Errorf("response is not in JSON format. error: %v, stderr: %s", exitErr, string(stderr))}
 		plugin := CLIPlugin{}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
