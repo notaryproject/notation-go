@@ -24,7 +24,7 @@ var (
 )
 
 func Example_localVerify() {
-	dir.UserConfigDir = "testdata"
+	dir.UserConfigDir = "./verifier/testdata"
 	exampleVerifier, err := verifier.New(&examplePolicyDocument, truststore.NewX509TrustStore(dir.ConfigFS()), nil)
 	if err != nil {
 		panic(err) // Handle error
