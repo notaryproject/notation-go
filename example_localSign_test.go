@@ -11,26 +11,31 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// Example_localSign demonstrates how to use signer.Sign to sign an artifact
+// at local (without using a registry.Repository).
 func Example_localSign() {
-	// exampleSigner is a notation.Signer given key and cert chain
+	// exampleSigner is a notation.Signer given key and X509 certificate chain.
 	exampleSigner, err := signer.New(exampleCertTuple.PrivateKey, exampleCerts)
 	if err != nil {
 		panic(err) // Handle error
 	}
 
-	// exampleDesc is the OCI artifact manifest descriptor of the target content
+	// exampleDesc is the OCI artifact manifest descriptor of the target
+	// content.
 	exampleDesc := ocispec.Descriptor{
 		MediaType: exampleMediaType,
 		Digest:    exampleDigest,
 		Size:      exampleSize,
 	}
 
-	// exampleSignOptions is an example of notation.SignOptions
+	// exampleSignOptions is an example of notation.SignOptions.
 	exampleSignOptions := notation.SignOptions{
 		SignatureMediaType: exampleSignatureMediaType,
-		SigningAgent:       "test signing agent",
+		SigningAgent:       "example signing agent",
 	}
 
+	// local sign core process
+	// upon successful signing, signature envelope and signerInfo are returned.
 	_, signerInfo, err := exampleSigner.Sign(context.Background(), exampleDesc, exampleSignOptions)
 	if err != nil {
 		panic(err) // Handle error
@@ -41,5 +46,5 @@ func Example_localSign() {
 
 	// Output:
 	// Successfully signed
-	// signerInfo SigningAgent: test signing agent
+	// signerInfo SigningAgent: example signing agent
 }
