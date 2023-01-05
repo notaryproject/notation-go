@@ -25,6 +25,7 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/content"
+	"golang.org/x/mod/semver"
 )
 
 // verifier implements notation.Verifier and notation.skipVerifier
@@ -160,8 +161,6 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if _, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo); err != nil && err != errExtendedAttributeNotExist {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
-		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.HeaderVerificationPluginMinVersion`
-		// https://github.com/notaryproject/notation-go/issues/102
 
 		if v.pluginManager == nil {
 			return notation.ErrorVerificationInconclusive{Msg: "plugin unsupported due to nil verifier.pluginManager"}
@@ -176,6 +175,11 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if err != nil {
 			return err
 		}
+        pluginVersion := metadata.Version
+        verificationPluginMinVersion, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
+        if versionCompare(verificationPluginMinVersion, pluginVersion) == 1{
+             return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin Version lower than the minimum compatible version")}
+             }
 
 		for _, capability := range metadata.Capabilities {
 			if capability == proto.CapabilityRevocationCheckVerifier || capability == proto.CapabilityTrustedIdentityVerifier {
@@ -585,4 +589,9 @@ func logVerificationResult(logger log.Logger, result *notation.ValidationResult)
 	case trustpolicy.ActionEnforce:
 		logger.Errorf("%v validation failed. Failure reason: %v", result.Type, result.Error)
 	}
+}
+
+func versionCompare(minVer string, pluginVer string) int{
+    pluginVer = "v" + pluginVer
+    return semver.Compare(minVer, pluginVer)
 }
