@@ -27,7 +27,7 @@ var (
 	}
 )
 
-// Example_localVerify demonstrates how to use verifier.Verify to verify a
+// ExampleLocalVerify demonstrates how to use verifier.Verify to verify a
 // signature of the target artifact at local (without using a
 // registry.Repository).
 func Example_localVerify() {
@@ -63,6 +63,9 @@ func Example_localVerify() {
 	// a peek of the payload inside the signature envelope
 	payload := &envelope.Payload{}
 	err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
+	if err != nil {
+		panic(err) // Handle error
+	}
 
 	fmt.Println("payload content type:", outcome.EnvelopeContent.Payload.ContentType)
 

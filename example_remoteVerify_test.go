@@ -37,7 +37,7 @@ var (
 	}
 )
 
-// Example_remoteVerify demonstrates how to use notation.Verify to verify
+// ExampleRemoteVerify demonstrates how to use notation.Verify to verify
 // signatures of an artifact in the remote registry.
 func Example_remoteVerify() {
 	// changing the path of the trust store for demo purpose only.

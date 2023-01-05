@@ -29,7 +29,7 @@ var (
 	exampleCerts     = []*x509.Certificate{exampleCertTuple.Cert, exampleRSARoot.Cert}
 )
 
-// Example_remoteSign demonstrates how to use notation.Sign to sign an artifact
+// ExampleRemoteSign demonstrates how to use notation.Sign to sign an artifact
 // in the remote registry and push the signature to the remote.
 func Example_remoteSign() {
 	// exampleSigner is a notation.Signer given key and X509 certificate chain.

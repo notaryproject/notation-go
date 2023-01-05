@@ -11,7 +11,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// Example_localSign demonstrates how to use signer.Sign to sign an artifact
+// ExampleLocalSign demonstrates how to use signer.Sign to sign an artifact
 // at local (without using a registry.Repository).
 func Example_localSign() {
 	// exampleSigner is a notation.Signer given key and X509 certificate chain.
