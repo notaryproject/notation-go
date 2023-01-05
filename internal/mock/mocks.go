@@ -35,6 +35,9 @@ var MockSaExpiredSigEnv []byte
 //go:embed testdata/sa_plugin_sig_env.json
 var MockSaPluginSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
 
+//go:embed testdata/sig_env_with_metadata.json
+var MockSigEnvWithMetadata []byte
+
 var (
 	SampleArtifactUri = "registry.acme-rockets.io/software/net-monitor@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
 	SampleDigest      = digest.Digest("sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e")
@@ -61,6 +64,12 @@ var (
 		Key:      "SomeKey",
 		Critical: true,
 		Value:    "SomeValue",
+	}
+	MetadataSigEnvDescriptor = ocispec.Descriptor{
+		MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:      digest.Digest("sha256:5a07385af4e6b6af81b0ebfd435aedccdfa3507f0609c658209e1aba57159b2b"),
+		Size:        942,
+		Annotations: map[string]string{"io.wabbit-networks.buildId": "123", "io.wabbit-networks.buildTime": "1672944615"},
 	}
 )
 

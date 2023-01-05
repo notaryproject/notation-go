@@ -103,6 +103,12 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature envelope by plugin")
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
+
+	err := addUserMetadataToPayload(ctx, &payload, opts.UserMetadata)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error adding user metadata: %w", err)
+	}
+
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)

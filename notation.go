@@ -13,6 +13,7 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/log"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -39,6 +40,9 @@ type SignOptions struct {
 
 	// PluginConfig sets or overrides the plugin configuration.
 	PluginConfig map[string]string
+
+	// UserMetadata contains key-value pairs that are added to the signature payload
+	UserMetadata map[string]string
 
 	// SigningAgent sets the signing agent name
 	SigningAgent string
@@ -156,6 +160,9 @@ type VerifyOptions struct {
 
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
+
+	// UserMetadata contains key-value pairs that must be present in the signature
+	UserMetadata map[string]string
 }
 
 // Verifier is a generic interface for verifying an artifact.
@@ -181,6 +188,9 @@ type RemoteVerifyOptions struct {
 	// will be processed for verification. If set to less than or equals
 	// to zero, an error will be returned.
 	MaxSignatureAttempts int
+
+	// UserMetadata contains key-value pairs that must be present in the signature
+	UserMetadata map[string]string
 }
 
 type skipVerifier interface {
@@ -200,6 +210,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	opts := VerifyOptions{
 		ArtifactReference: remoteOpts.ArtifactReference,
 		PluginConfig:      remoteOpts.PluginConfig,
+		UserMetadata:      remoteOpts.UserMetadata,
 	}
 
 	if skipChecker, ok := verifier.(skipVerifier); ok {
@@ -324,4 +335,14 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	return map[string]string{
 		annotationX509ChainThumbprint: string(val),
 	}, nil
+}
+
+func (outcome *VerificationOutcome) GetUserMetadata() (map[string]string, error) {
+	var payload envelope.Payload
+	err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, &payload)
+	if err != nil {
+		return nil, errors.New("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
+	}
+
+	return payload.TargetArtifact.Annotations, nil
 }

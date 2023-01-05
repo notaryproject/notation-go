@@ -112,7 +112,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome, opts.UserMetadata)
 
 	if err != nil {
 		outcome.Error = err
@@ -135,16 +135,25 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome, userMetadata map[string]string) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
-	envContent, integrityResult := verifyIntegrity(sigBlob, envelopeMediaType, outcome)
+	envContent, integrityResult := verifyIntegrity(ctx, sigBlob, envelopeMediaType, outcome)
 	outcome.EnvelopeContent = envContent
 	outcome.VerificationResults = append(outcome.VerificationResults, integrityResult)
 	if integrityResult.Error != nil {
 		logVerificationResult(logger, integrityResult)
 		return integrityResult.Error
+	}
+
+	// verify user metadata
+	if len(userMetadata) > 0 {
+		logger.Info("User Metadata flag is present. Checking signature metadata for specified values.")
+		err := verifyUserMetadata(logger, envContent, userMetadata)
+		if err != nil {
+			return err
+		}
 	}
 
 	// check if we need to verify using a plugin
@@ -323,7 +332,7 @@ func processPluginResponse(logger log.Logger, capabilitiesToVerify []proto.Capab
 	return nil
 }
 
-func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.ValidationResult) {
+func verifyIntegrity(ctx context.Context, sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.ValidationResult) {
 	// parse the signature
 	sigEnv, err := signature.ParseEnvelope(envelopeMediaType, sigBlob)
 	if err != nil {
@@ -410,6 +419,28 @@ func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolic
 		Type:   trustpolicy.TypeAuthenticity,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 	}
+}
+
+func verifyUserMetadata(logger log.Logger, envContent *signature.EnvelopeContent, userMetadata map[string]string) error {
+	logger.Debugf("Verifying that metadata %v is present in signature", userMetadata)
+
+	var payload envelope.Payload
+	err := json.Unmarshal(envContent.Payload.Content, &payload)
+	if err != nil {
+		logger.Error("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
+		return err
+	}
+
+	logger.Debugf("Signature metadata: %v", payload.TargetArtifact.Annotations)
+
+	for k, v := range userMetadata {
+		if payload.TargetArtifact.Annotations[k] != v {
+			logger.Debug("Error: specified metadata is not present in the signature")
+			return errors.New("unable to find specified metadata in the signature")
+		}
+	}
+
+	return nil
 }
 
 func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationResult {
