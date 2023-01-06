@@ -50,7 +50,7 @@ func Example_localVerify() {
 
 	// changing the path of the trust store for demo purpose only.
 	// Users are recommended to keep the default value, i.e. os.UserConfigDir.
-	//dir.UserConfigDir = "./tmp/notation"
+	dir.UserConfigDir = "./verifier/testdata"
 
 	exampleSignatureEnvelope := []byte(`{
 		"payload": "eyJ0YXJnZXRBcnRpZmFjdCI6eyJtZWRpYVR5cGUiOiJhcHBsaWNhdGlvbi92bmQuZG9ja2VyLmRpc3RyaWJ1dGlvbi5tYW5pZmVzdC52Mitqc29uIiwiZGlnZXN0Ijoic2hhMjU2OjYwMDQzY2Y0NWVhZWJjNGMwODY3ZmVhNDg1YTAzOWI1OThmNTJmZDA5ZmQ1YjA3YjBiMmQyZjg4ZmFkOWQ3NGUiLCJzaXplIjo1Mjh9fQ",
