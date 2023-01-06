@@ -14,9 +14,19 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
-var (
+// ExampleRemoteVerify demonstrates how to use notation.Verify to verify
+// signatures of an artifact in the remote registry.
+func Example_remoteVerify() {
+	exampleArtifactReference := "registry.acme-rockets.io/software/net-monitor@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
+
+	// exampleRemoteVerifyOptions is an example of notation.RemoteVerifyOptions.
+	exampleRemoteVerifyOptions := notation.RemoteVerifyOptions{
+		ArtifactReference:    exampleArtifactReference,
+		MaxSignatureAttempts: 50,
+	}
+
 	// examplePolicyStatement is an example of a valid trust policy statement.
-	examplePolicyStatement = trustpolicy.TrustPolicy{
+	examplePolicyStatement := trustpolicy.TrustPolicy{
 		Name:                  "test-statement-name",
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 		SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
@@ -25,21 +35,11 @@ var (
 	}
 
 	// examplePolicyDocument is an example of a valid trust policy document.
-	examplePolicyDocument = trustpolicy.Document{
+	examplePolicyDocument := trustpolicy.Document{
 		Version:       "1.0",
 		TrustPolicies: []trustpolicy.TrustPolicy{examplePolicyStatement},
 	}
 
-	// exampleRemoteVerifyOptions is an example of notation.RemoteVerifyOptions.
-	exampleRemoteVerifyOptions = notation.RemoteVerifyOptions{
-		ArtifactReference:    exampleArtifactReference,
-		MaxSignatureAttempts: 50,
-	}
-)
-
-// ExampleRemoteVerify demonstrates how to use notation.Verify to verify
-// signatures of an artifact in the remote registry.
-func Example_remoteVerify() {
 	// changing the path of the trust store for demo purpose only.
 	// Users should keep the default value, i.e. os.UserConfigDir.
 	dir.UserConfigDir = "./verifier/testdata"
