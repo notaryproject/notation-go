@@ -114,6 +114,8 @@ func createTrustStore() {
 	dir.UserConfigDir = "tmp"
 
 	// an example of a valid X509 self-signed certificate for demo purpose ONLY.
+	// (This self-signed cert contains the public key of the private key used to
+	// generate exampleSignatureEnvelope.)
 	// Users should bring their own full certificate chain following the
 	// Notary certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements
