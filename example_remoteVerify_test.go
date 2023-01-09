@@ -30,18 +30,20 @@ func Example_remoteVerify() {
 		Name:                  "test-statement-name",
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 		SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
-		TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
+		TrustStores:           []string{"ca:valid-trust-store"},
 		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
 	}
 
 	// examplePolicyDocument is an example of a valid trust policy document.
+	// trust policy document should follow this spec:
+	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-policy
 	examplePolicyDocument := trustpolicy.Document{
 		Version:       "1.0",
 		TrustPolicies: []trustpolicy.TrustPolicy{examplePolicyStatement},
 	}
 
-	// changing the path of the trust store for demo purpose only.
-	// Users should keep the default value, i.e. os.UserConfigDir.
+	// changing the path of the trust store for demo purpose ONLY.
+	// Users could keep the default value, i.e. os.UserConfigDir.
 	dir.UserConfigDir = "./verifier/testdata"
 
 	// exampleVerifier is an example of notation.Verifier given
@@ -51,9 +53,9 @@ func Example_remoteVerify() {
 		panic(err) // Handle error
 	}
 
-	// exampleRepo is a dummy registry.Repository for demo purpose only.
+	// exampleRepo is a dummy registry.Repository for demo purpose ONLY.
 	// Users are recommended to use registry.NewRepository() for implementation
-	// of registry.Repository. (https://github.com/notaryproject/notation-go/blob/main/registry/repository.go#L25)
+	// of registry.Repository. (https://github.com/notaryproject/notation-go/blob/v1.0.0-rc.1/registry/repository.go#L25)
 	exampleRepo := mock.NewRepository()
 
 	// remote verify core process

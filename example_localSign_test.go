@@ -5,8 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	_ "github.com/notaryproject/notation-core-go/signature/cose"
-	_ "github.com/notaryproject/notation-core-go/signature/jws"
+	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/signer"
@@ -16,15 +15,20 @@ import (
 
 var (
 	exampleMediaType = "application/vnd.docker.distribution.manifest.v2+json"
-	exampleDigest    = digest.Digest("sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e")
+	exampleDigest    = digest.Digest("c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c")
 	exampleSize      = int64(528)
 
 	// Both COSE ("application/cose") and JWS ("application/jose+json")
 	// signature mediaTypes are supported.
 	exampleSignatureMediaType = "application/cose"
 
-	exampleCertTuple = testhelper.GetRSACertTuple(3072)
-	exampleCerts     = []*x509.Certificate{exampleCertTuple.Cert, testhelper.GetRSARootCertificate().Cert}
+	// exampleCertTuple contains a RSA privateKey and a self-signed X509
+	// certificate generated for demo purpose ONLY.
+	// Users should bring their own full certificate chain following the
+	// Notary certificate requirements:
+	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements
+	exampleCertTuple = testhelper.GetRSASelfSignedSigningCertTuple("Notation Example self-signed")
+	exampleCerts     = []*x509.Certificate{exampleCertTuple.Cert}
 )
 
 // ExampleLocalSign demonstrates how to use signer.Sign to sign an artifact
@@ -52,15 +56,25 @@ func Example_localSign() {
 
 	// local sign core process
 	// upon successful signing, signature envelope and signerInfo are returned.
-	_, signerInfo, err := exampleSigner.Sign(context.Background(), exampleDesc, exampleSignOptions)
+	// signatureEnvelope can be used in a verification process later on.
+	signatureEnvelope, signerInfo, err := exampleSigner.Sign(context.Background(), exampleDesc, exampleSignOptions)
 	if err != nil {
 		panic(err) // Handle error
 	}
 
 	fmt.Println("Successfully signed")
-	fmt.Println("signerInfo SigningAgent:", signerInfo.UnsignedAttributes.SigningAgent)
 
-	// Output:
-	// Successfully signed
-	// signerInfo SigningAgent: example signing agent
+	// a peek of the signature envelope generated from Sign
+	// for JWS format, this should be `jws.ParseEnvelope(signatureEnvelope)`
+	sigBlob, err := cose.ParseEnvelope(signatureEnvelope)
+	if err != nil {
+		panic(err) // Handle error
+	}
+	sigContent, err := sigBlob.Content()
+	if err != nil {
+		panic(err) // Handle error
+	}
+	fmt.Println("signature Payload ContentType:", sigContent.Payload.ContentType)
+
+	fmt.Println("signerInfo SigningAgent:", signerInfo.UnsignedAttributes.SigningAgent)
 }

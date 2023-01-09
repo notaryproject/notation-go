@@ -22,8 +22,13 @@ func Example_remoteSign() {
 	// signature mediaTypes are supported.
 	exampleSignatureMediaType := "application/cose"
 
-	exampleCertTuple := testhelper.GetRSACertTuple(3072)
-	exampleCerts := []*x509.Certificate{exampleCertTuple.Cert, testhelper.GetRSARootCertificate().Cert}
+	// exampleCertTuple contains a RSA privateKey and a self-signed X509
+	// certificate generated for demo purpose ONLY.
+	// Users should bring their own full certificate chain following the
+	// Notary certificate requirements:
+	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements
+	exampleCertTuple = testhelper.GetRSASelfSignedSigningCertTuple("Notation Example self-signed")
+	exampleCerts = []*x509.Certificate{exampleCertTuple.Cert}
 
 	// exampleSigner is a notation.Signer given key and X509 certificate chain.
 	exampleSigner, err := signer.New(exampleCertTuple.PrivateKey, exampleCerts)
@@ -31,9 +36,9 @@ func Example_remoteSign() {
 		panic(err) // Handle error
 	}
 
-	// exampleRepo is a dummy registry.Repository for demo purpose only.
+	// exampleRepo is a dummy registry.Repository for demo purpose ONLY.
 	// Users are recommended to use registry.NewRepository() for implementation
-	// of registry.Repository. (https://github.com/notaryproject/notation-go/blob/main/registry/repository.go#L25)
+	// of registry.Repository. (https://github.com/notaryproject/notation-go/blob/v1.0.0-rc.1/registry/repository.go#L25)
 	exampleRepo := mock.NewRepository()
 
 	// exampleSignOptions is an example of notation.SignOptions.
@@ -43,7 +48,8 @@ func Example_remoteSign() {
 	}
 
 	// remote sign core process
-	// upon successful signing, descriptor of the sign content is returned.
+	// upon successful signing, descriptor of the sign content is returned and
+	// the generated signature is pushed into remote registry.
 	targetDesc, err := notation.Sign(context.Background(), exampleSigner, exampleRepo, exampleSignOptions)
 	if err != nil {
 		panic(err) // Handle error
