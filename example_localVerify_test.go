@@ -45,6 +45,14 @@ func Example_localVerify() {
 	// signature mediaTypes are supported.
 	exampleSignatureMediaType := "application/cose"
 
+	// exampleTargetDescriptor is an example of the target OCI artifact manifest
+	// descriptor.
+	exampleTargetDescriptor := ocispec.Descriptor{
+		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:    digest.Digest("sha256:c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c"),
+		Size:      int64(528),
+	}
+
 	// exampleSignatureEnvelope is a valid signature envelope in COSE format.
 	// it is generated in a previous Sign process.
 	// Users should replace it with their own signature envelope.
@@ -67,14 +75,6 @@ func Example_localVerify() {
 	exampleVerifier, err := verifier.New(&examplePolicyDocument, truststore.NewX509TrustStore(dir.ConfigFS()), nil)
 	if err != nil {
 		panic(err) // Handle error
-	}
-
-	// exampleTargetDescriptor is an example of the target OCI artifact manifest
-	// descriptor.
-	exampleTargetDescriptor := ocispec.Descriptor{
-		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
-		Digest:    digest.Digest("sha256:c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c"),
-		Size:      int64(528),
 	}
 
 	// local verify core process
@@ -107,9 +107,9 @@ func createTrustStore() {
 	dir.UserConfigDir = "tmp"
 
 	// an example of a valid X509 self-signed certificate for demo purpose ONLY.
-	// (This self-signed cert contains the public key of the private key used to
-	// generate the exampleSignatureEnvelope above.)
-	// Users should replace `exampleX509Certificate`` with their own trusted
+	// (This self-signed cert is paired with the private key used to
+	// generate the `exampleSignatureEnvelope` above.)
+	// Users should replace `exampleX509Certificate` with their own trusted
 	// certificate and add to the trust store, following the
 	// Notary certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements

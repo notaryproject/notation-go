@@ -14,8 +14,7 @@ import (
 )
 
 var (
-	// exampleDesc is the OCI artifact manifest descriptor of the target
-	// content.
+	// exampleDesc is an example of the target OCI artifact manifest descriptor.
 	exampleDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:    digest.Digest("c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c"),

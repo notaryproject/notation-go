@@ -19,6 +19,7 @@ import (
 // ExampleRemoteVerify demonstrates how to use notation.Verify to verify
 // signatures of an artifact in the remote registry.
 func Example_remoteVerify() {
+	// exampleArtifactReference is an example of the target artifact reference
 	exampleArtifactReference := "localhost:5000/software@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
 
 	// examplePolicyDocument is an example of a valid trust policy document.
@@ -83,9 +84,7 @@ func generateTrustStore() {
 	dir.UserConfigDir = "tmp"
 
 	// an example of a valid X509 self-signed certificate for demo purpose ONLY.
-	// (This self-signed cert contains the public key of the private key used to
-	// generate the exampleSignatureEnvelope above.)
-	// Users should replace `exampleX509Certificate`` with their own trusted
+	// Users should replace `exampleX509Certificate` with their own trusted
 	// certificate and add to the trust store, following the
 	// Notary certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements
