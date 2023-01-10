@@ -135,12 +135,10 @@ GLAfj/jSf9OH9VLTPHOS8/N0Ka4=
 -----END CERTIFICATE-----`
 
 	// Adding the certificate into the trust store.
-	err := os.MkdirAll("tmp/truststore/x509/ca/valid-trust-store", 0700)
-	if err != nil {
+	if err := os.MkdirAll("tmp/truststore/x509/ca/valid-trust-store", 0700); err != nil {
 		panic(err) // Handle error
 	}
-	err = os.WriteFile("tmp/truststore/x509/ca/valid-trust-store/NotationLocalExample.pem", []byte(exampleX509Certificate), 0600)
-	if err != nil {
+	if err := os.WriteFile("tmp/truststore/x509/ca/valid-trust-store/NotationLocalExample.pem", []byte(exampleX509Certificate), 0600); err != nil {
 		panic(err) // Handle error
 	}
 }
