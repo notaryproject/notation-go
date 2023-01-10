@@ -607,31 +607,30 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 }
 
 func TestVersionCompare(t *testing.T) {
-    var testMinVer1 string = "v0.0.9"
-    var testMinVer2 string = "v1.0.1"
-    var testMinVer3 string = "v1.0.0"
-    var testMinVer4 string = "v1.0.0-alpha"
-    var testMinVer5 string = "v1-pre+meta"
-    var testPlugVer string = "1.0.0"
-
-    err := versionCompare(testMinVer1, testPlugVer)
-    if err != -1{
-        t.Fatalf("TestVersionCompare Error: %d WantErr: -1", err)
-    }
-    err1 := versionCompare(testMinVer2, testPlugVer)
-    if err1 != 1{
-        t.Fatalf("TestVersionCompare Error: %d WantErr: 1", err)
-    }
-    err2 := versionCompare(testMinVer3, testPlugVer)
-    if err2 != 0{
-        t.Fatalf("TestVersionCompare Error: %d WantErr: 0", err)
-    }
-    err3 := versionCompare(testMinVer4, testPlugVer)
-    if err3 != -1{
-        t.Fatalf("TestVersionCompare Error: %d WantErr: -1", err)
-    }
-    err4 := versionCompare(testMinVer5, testPlugVer)
-        if err4 != -1{
-            t.Fatalf("TestVersionCompare Error: %d WantErr: -1", err4)
-        }
+	var testMinVer1 string = "0.0.9"
+	var testMinVer2 string = "1.0.1"
+	var testMinVer3 string = "1.0.0"
+	var testMinVer4 string = "1.0.0-alpha"
+	var testMinVer5 string = "1-pre+meta"
+	var testPlugVer string = "1.0.0"
+	val := versionCompare(testMinVer1, testPlugVer)
+	if val != true {
+		t.Errorf("TestVersionCompare Error: %v WantErr: true", val)
+	}
+	val1 := versionCompare(testMinVer2, testPlugVer)
+	if val1 != false {
+		t.Errorf("TestVersionCompare Error: %v WantErr: false", val1)
+	}
+	val2 := versionCompare(testMinVer3, testPlugVer)
+	if val2 != true {
+		t.Errorf("TestVersionCompare Error: %v WantErr: true", val2)
+	}
+	val3 := versionCompare(testMinVer4, testPlugVer)
+	if val3 != true {
+		t.Errorf("TestVersionCompare Error: %v WantErr: true", val3)
+	}
+	val4 := versionCompare(testMinVer5, testPlugVer)
+	if val4 != true {
+		t.Errorf("TestVersionCompare Error: %v WantErr: true", val4)
+	}
 }

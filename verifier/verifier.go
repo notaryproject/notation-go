@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,8 +25,8 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"oras.land/oras-go/v2/content"
 	"golang.org/x/mod/semver"
+	"oras.land/oras-go/v2/content"
 )
 
 // verifier implements notation.Verifier and notation.skipVerifier
@@ -138,7 +139,6 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 
 func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
-
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
 	envContent, integrityResult := verifyIntegrity(sigBlob, envelopeMediaType, outcome)
 	outcome.EnvelopeContent = envContent
@@ -155,10 +155,12 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	if err != nil && err != errExtendedAttributeNotExist {
 		return err
 	}
+
 	var installedPlugin plugin.Plugin
 	if verificationPluginName != "" {
 		logger.Debugf("Finding verification plugin %s", verificationPluginName)
-		if _, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo); err != nil && err != errExtendedAttributeNotExist {
+		verificationPluginMinVersion, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
+		if err != nil && err != errExtendedAttributeNotExist {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
 
@@ -175,11 +177,18 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if err != nil {
 			return err
 		}
-        pluginVersion := metadata.Version
-        verificationPluginMinVersion, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
-        if versionCompare(verificationPluginMinVersion, pluginVersion) == 1{
-             return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin Version lower than the minimum compatible version")}
-             }
+
+		pluginVersion := metadata.Version
+		var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
+
+		//checking if the plugin version is in valid semver format
+		if !semVerRegEx.MatchString(pluginVersion) {
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
+		}
+
+		if versionCompare(verificationPluginMinVersion, pluginVersion) == false {
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("found plugin %s with version %s but signature verification needs version greater than or equal to %s", verificationPluginName, pluginVersion, verificationPluginMinVersion)}
+		}
 
 		for _, capability := range metadata.Capabilities {
 			if capability == proto.CapabilityRevocationCheckVerifier || capability == proto.CapabilityTrustedIdentityVerifier {
@@ -591,7 +600,11 @@ func logVerificationResult(logger log.Logger, result *notation.ValidationResult)
 	}
 }
 
-func versionCompare(minVer string, pluginVer string) int{
-    pluginVer = "v" + pluginVer
-    return semver.Compare(minVer, pluginVer)
+func versionCompare(minPluginVer string, pluginVer string) bool {
+	pluginVer = "v" + pluginVer
+	minPluginVer = "v" + minPluginVer
+	if semver.Compare(minPluginVer, pluginVer) == 1 {
+		return false
+	}
+	return true
 }
