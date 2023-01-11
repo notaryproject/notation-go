@@ -80,9 +80,6 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 // getSignatureManifest returns signature manifest given signature manifest
 // descriptor
 func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifestDesc ocispec.Descriptor) (*ocispec.Artifact, error) {
-	if sigManifestDesc.MediaType != ocispec.MediaTypeArtifactManifest {
-		return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q, got %q", ocispec.MediaTypeArtifactManifest, sigManifestDesc.MediaType)
-	}
 	if sigManifestDesc.Size > maxManifestSizeLimit {
 		return nil, fmt.Errorf("manifest too large: %d bytes", sigManifestDesc.Size)
 	}
@@ -92,10 +89,26 @@ func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifest
 	}
 
 	var sigManifest ocispec.Artifact
-	err = json.Unmarshal(manifestJSON, &sigManifest)
-	if err != nil {
-		return nil, err
+	if sigManifestDesc.MediaType == ocispec.MediaTypeArtifactManifest {
+		err = json.Unmarshal(manifestJSON, &sigManifest)
+		if err != nil {
+			return nil, err
+		}
+	} else if sigManifestDesc.MediaType == ocispec.MediaTypeImageManifest {
+		var imageManifest ocispec.Manifest
+		err = json.Unmarshal(manifestJSON, &imageManifest)
+		if err != nil {
+			return nil, err
+		}
+		sigManifest.MediaType = ocispec.MediaTypeArtifactManifest
+		sigManifest.ArtifactType = sigManifestDesc.ArtifactType
+		sigManifest.Blobs = imageManifest.Layers
+		sigManifest.Subject = imageManifest.Subject
+		sigManifest.Annotations = imageManifest.Annotations
+	} else {
+		return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
 	}
+
 	return &sigManifest, nil
 }
 
