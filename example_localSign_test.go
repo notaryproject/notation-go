@@ -70,7 +70,6 @@ func Example_localSign() {
 		panic(err) // Handle error
 	}
 	fmt.Println("signature Payload ContentType:", sigContent.Payload.ContentType)
-
 	fmt.Println("signerInfo SigningAgent:", signerInfo.UnsignedAttributes.SigningAgent)
 
 	// Output:
