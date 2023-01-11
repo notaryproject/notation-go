@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
@@ -60,8 +61,7 @@ func Example_localSign() {
 	fmt.Println("Successfully signed")
 
 	// a peek of the signature envelope generated from Sign
-	// for JWS format, this should be `jws.ParseEnvelope(signatureEnvelope)`
-	sigBlob, err := cose.ParseEnvelope(signatureEnvelope)
+	sigBlob, err := signature.ParseEnvelope(exampleSignatureMediaType, signatureEnvelope)
 	if err != nil {
 		panic(err) // Handle error
 	}
