@@ -63,13 +63,13 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // PushSignature creates and uploads an signature manifest along with its
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
-func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string, ociImageManifest bool) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
 	blobDesc, err = oras.PushBytes(ctx, c.Repository.Blobs(), mediaType, blob)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 
-	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations)
+	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations, ociImageManifest)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
@@ -100,10 +100,20 @@ func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifest
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
+func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string, ociImageManifest bool) (ocispec.Descriptor, error) {
 	opts := oras.PackOptions{
 		Subject:             &subject,
 		ManifestAnnotations: annotations,
+	}
+
+	// user wants to use OCI Image Manifest to store signatures
+	if ociImageManifest {
+		opts.PackImageManifest = true
+		opts.ConfigDescriptor = &ocispec.Descriptor{
+			MediaType: ArtifactTypeNotation,
+			Digest:    subject.Digest,
+			Size:      subject.Size,
+		}
 	}
 
 	return oras.Pack(ctx, c.Repository.Manifests(), ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)

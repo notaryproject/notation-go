@@ -42,6 +42,17 @@ type SignOptions struct {
 
 	// SigningAgent sets the signing agent name
 	SigningAgent string
+
+	// OCIImageManifest is the flag to specify if user wants to use OCI image
+	// manifest to store signatures in remote registries.
+	// By default, Notation will use OCI artifact manifest to store signatures.
+	// If OCIImageManifest flag is set to true, Notation will instead use
+	// OCI image manifest to store signatures.
+	// Note, Notation will not automatically convert between these two types
+	// on any occasion.
+	// OCI artifact manifest: https://github.com/opencontainers/image-spec/blob/v1.1.0-rc2/artifact.md
+	// OCI image manifest: https://github.com/opencontainers/image-spec/blob/v1.1.0-rc2/manifest.md
+	OCIImageManifest bool
 }
 
 // Signer is a generic interface for signing an artifact.
@@ -96,7 +107,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	}
 	logger.Debugf("Generated annotations: %+v", annotations)
 	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, opts.SignatureMediaType)
-	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
+	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations, opts.OCIImageManifest)
 	if err != nil {
 		logger.Error("Failed to push the signature")
 		return ocispec.Descriptor{}, err

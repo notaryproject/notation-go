@@ -461,7 +461,7 @@ func TestPushSignature(t *testing.T) {
 			ref, _ := registry.ParseReference(args.reference)
 			client := newRepositoryClient(args.remoteClient, ref, args.plainHttp)
 
-			des, _, err := client.PushSignature(args.ctx, args.signatureMediaType, args.signature, args.subjectManifest, args.annotations)
+			des, _, err := client.PushSignature(args.ctx, args.signatureMediaType, args.signature, args.subjectManifest, args.annotations, false)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("error = %v, expectErr = %v", err, tt.expectErr)
 			}
