@@ -31,18 +31,20 @@ func Example_remoteVerify() {
 			{
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"*"},
-				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
 				TrustStores:           []string{"ca:valid-trust-store"},
 				TrustedIdentities:     []string{"*"},
 			},
 		},
 	}
 
-	// generateTrustStore creates a trust store directory for demo purpose.
+	// generateTrustStore generates a trust store directory for demo purpose.
 	// Users could use the default trust store from Notary and add trusted
 	// certificates into it following the trust store spec:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-store
-	generateTrustStore()
+	if err := generateTrustStore(); err != nil {
+		panic(err) // Handle error
+	}
 
 	// exampleVerifier is an example of notation.Verifier given
 	// trust policy document and X509 trust store.
@@ -78,7 +80,7 @@ func Example_remoteVerify() {
 	fmt.Println("targetDesc Size:", targetDesc.Size)
 }
 
-func generateTrustStore() {
+func generateTrustStore() error {
 	// changing the path of the trust store for demo purpose.
 	// Users could keep the default value, i.e. os.UserConfigDir.
 	dir.UserConfigDir = "tmp"
@@ -111,9 +113,7 @@ GLAfj/jSf9OH9VLTPHOS8/N0Ka4=
 
 	// Adding the certificate into the trust store.
 	if err := os.MkdirAll("tmp/truststore/x509/ca/valid-trust-store", 0700); err != nil {
-		panic(err) // Handle error
+		return err
 	}
-	if err := os.WriteFile("tmp/truststore/x509/ca/valid-trust-store/NotationExample.pem", []byte(exampleX509Certificate), 0600); err != nil {
-		panic(err) // Handle error
-	}
+	return os.WriteFile("tmp/truststore/x509/ca/valid-trust-store/NotationExample.pem", []byte(exampleX509Certificate), 0600)
 }

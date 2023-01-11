@@ -9,7 +9,6 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/signer"
-	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -17,8 +16,8 @@ var (
 	// exampleDesc is an example of the target OCI artifact manifest descriptor.
 	exampleDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
-		Digest:    digest.Digest("c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c"),
-		Size:      int64(528),
+		Digest:    "sha256:c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c",
+		Size:      528,
 	}
 
 	// Both COSE ("application/cose") and JWS ("application/jose+json")
