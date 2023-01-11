@@ -20,10 +20,6 @@ var (
 		Size:      528,
 	}
 
-	// Both COSE ("application/cose") and JWS ("application/jose+json")
-	// signature mediaTypes are supported.
-	exampleSignatureMediaType = "application/cose"
-
 	// exampleCertTuple contains a RSA privateKey and a self-signed X509
 	// certificate generated for demo purpose ONLY.
 	exampleCertTuple = testhelper.GetRSASelfSignedSigningCertTuple("Notation Example self-signed")
@@ -42,6 +38,10 @@ func Example_localSign() {
 	if err != nil {
 		panic(err) // Handle error
 	}
+
+	// Both COSE ("application/cose") and JWS ("application/jose+json")
+	// signature mediaTypes are supported.
+	exampleSignatureMediaType := cose.MediaTypeEnvelope
 
 	// exampleSignOptions is an example of notation.SignOptions.
 	exampleSignOptions := notation.SignOptions{

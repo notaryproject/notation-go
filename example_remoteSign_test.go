@@ -5,8 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	_ "github.com/notaryproject/notation-core-go/signature/cose"
-	_ "github.com/notaryproject/notation-core-go/signature/jws"
+	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/registry"
@@ -14,15 +13,15 @@ import (
 	"oras.land/oras-go/v2/registry/remote"
 )
 
-// exampleArtifactReference is an example of the target artifact reference
-var exampleArtifactReference = "localhost:5000/software@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
+// Both COSE ("application/cose") and JWS ("application/jose+json")
+// signature mediaTypes are supported.
+var exampleSignatureMediaType = cose.MediaTypeEnvelope
 
 // ExampleRemoteSign demonstrates how to use notation.Sign to sign an artifact
 // in the remote registry and push the signature to the remote.
 func Example_remoteSign() {
-	// Both COSE ("application/cose") and JWS ("application/jose+json")
-	// signature mediaTypes are supported.
-	exampleSignatureMediaType := "application/cose"
+	// exampleArtifactReference is an example of the target artifact reference
+	var exampleArtifactReference = "localhost:5000/software@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
 
 	// exampleCertTuple contains a RSA privateKey and a self-signed X509
 	// certificate generated for demo purpose ONLY.

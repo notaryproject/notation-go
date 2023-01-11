@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	_ "github.com/notaryproject/notation-core-go/signature/cose"
-	_ "github.com/notaryproject/notation-core-go/signature/jws"
+	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/verifier"
@@ -17,23 +16,21 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-var (
-	// examplePolicyDocument is an example of a valid trust policy document.
-	// trust policy document should follow this spec:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-policy
-	examplePolicyDocument = trustpolicy.Document{
-		Version: "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{
-			{
-				Name:                  "test-statement-name",
-				RegistryScopes:        []string{"example/software"},
-				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
-				TrustStores:           []string{"ca:valid-trust-store"},
-				TrustedIdentities:     []string{"*"},
-			},
+// examplePolicyDocument is an example of a valid trust policy document.
+// trust policy document should follow this spec:
+// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-policy
+var examplePolicyDocument = trustpolicy.Document{
+	Version: "1.0",
+	TrustPolicies: []trustpolicy.TrustPolicy{
+		{
+			Name:                  "test-statement-name",
+			RegistryScopes:        []string{"example/software"},
+			SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
+			TrustStores:           []string{"ca:valid-trust-store"},
+			TrustedIdentities:     []string{"*"},
 		},
-	}
-)
+	},
+}
 
 // ExampleLocalVerify demonstrates how to use verifier.Verify to verify a
 // signature of the target artifact at local (without using a
@@ -44,7 +41,7 @@ func Example_localVerify() {
 
 	// Both COSE ("application/cose") and JWS ("application/jose+json")
 	// signature mediaTypes are supported.
-	exampleSignatureMediaType := "application/cose"
+	exampleSignatureMediaType := cose.MediaTypeEnvelope
 
 	// exampleTargetDescriptor is an example of the target OCI artifact manifest
 	// descriptor.
