@@ -109,11 +109,6 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 	// user wants to use OCI Image Manifest to store signatures
 	if ociImageManifest {
 		opts.PackImageManifest = true
-		opts.ConfigDescriptor = &ocispec.Descriptor{
-			MediaType: ArtifactTypeNotation,
-			Digest:    subject.Digest,
-			Size:      subject.Size,
-		}
 	}
 
 	return oras.Pack(ctx, c.Repository.Manifests(), ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
