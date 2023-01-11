@@ -55,10 +55,7 @@ func Example_localVerify() {
 	}
 
 	// exampleSignatureEnvelope is a valid signature envelope.
-	exampleSignatureEnvelope, err := generateExampleSignatureEnvelope()
-	if err != nil {
-		panic(err) // Handle error
-	}
+	exampleSignatureEnvelope := generateExampleSignatureEnvelope()
 
 	// exampleVerifyOptions is an example of notation.VerifyOptions
 	exampleVerifyOptions := notation.VerifyOptions{
@@ -105,13 +102,14 @@ func Example_localVerify() {
 	// payload Content: {"targetArtifact":{"mediaType":"application/vnd.docker.distribution.manifest.v2+json","digest":"sha256:c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c","size":528}}
 }
 
-func generateExampleSignatureEnvelope() ([]byte, error) {
-	// exampleSignatureEnvelopePem is a valid signature envelope in COSE format.
-	// It is generated in a previous Sign process and encoded into a pem block.
+func generateExampleSignatureEnvelope() []byte {
+	// exampleSignatureEnvelopePem is a valid signature envelope in COSE format
+	// wrapped by a PEM block.
+	// The signature envelope is generated in a previous Sign process.
 	// Users should replace it with their own signature envelope.
 	// Regarding how to generate such signature envelopes, users could refer to
 	// `example_localSign_test.go`.
-	exampleSignatureEnvelopePem := `-----BEGIN SIGNATURE ENVELOPE-----
+	exampleSignatureEnvelopePem := `-----BEGIN EXAMPLE SIGNATURE ENVELOPE-----
 0oRYnqUBOCQCgXgcaW8uY25jZi5ub3Rhcnkuc2lnbmluZ1NjaGVtZQN4K2FwcGxp
 Y2F0aW9uL3ZuZC5jbmNmLm5vdGFyeS5wYXlsb2FkLnYxK2pzb254GmlvLmNuY2Yu
 bm90YXJ5LnNpZ25pbmdUaW1lwRpju22GeBxpby5jbmNmLm5vdGFyeS5zaWduaW5n
@@ -144,15 +142,15 @@ RPYaORrnfTc5wIs4XxeqprmrLimMMNn+u82Uadtc57tbHbY8Vh4XEKP++hBJJNvQ
 E60X5aWKIS2RnOEc4n9T7LdN0bOL1OoM1lW4iTFMhzfcy/VmF8PrOStFS9LllX3J
 69V0WwHbmD33cjtVBDCF44UXRWgLQGbE6yaaVmdxEUBGKqSUeHf8Gp7WoZ/YaFmz
 xQr/
------END SIGNATURE ENVELOPE-----`
+-----END EXAMPLE SIGNATURE ENVELOPE-----`
 
 	block, _ := pem.Decode([]byte(exampleSignatureEnvelopePem))
 	if block == nil {
-		return nil, errors.New("invalid signature envelope pem block")
+		panic(errors.New("invalid signature envelope pem block"))
 	}
 
 	// block.Bytes contains the binary of the signature envelope.
-	return block.Bytes, nil
+	return block.Bytes
 }
 
 func createTrustStore() error {

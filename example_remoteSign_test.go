@@ -11,18 +11,15 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/signer"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry/remote"
 )
 
-var targetDesc ocispec.Descriptor
+// exampleArtifactReference is an example of the target artifact reference
+var exampleArtifactReference = "localhost:5000/software@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
 
 // ExampleRemoteSign demonstrates how to use notation.Sign to sign an artifact
 // in the remote registry and push the signature to the remote.
 func Example_remoteSign() {
-	// exampleArtifactReference is an example of the target artifact reference
-	exampleArtifactReference := "localhost:5000/software@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
-
 	// Both COSE ("application/cose") and JWS ("application/jose+json")
 	// signature mediaTypes are supported.
 	exampleSignatureMediaType := "application/cose"
@@ -58,7 +55,7 @@ func Example_remoteSign() {
 	// remote sign core process
 	// upon successful signing, descriptor of the sign content is returned and
 	// the generated signature is pushed into remote registry.
-	targetDesc, err = notation.Sign(context.Background(), exampleSigner, exampleRepo, exampleSignOptions)
+	targetDesc, err := notation.Sign(context.Background(), exampleSigner, exampleRepo, exampleSignOptions)
 	if err != nil {
 		panic(err) // Handle error
 	}
