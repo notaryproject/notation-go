@@ -139,6 +139,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 
 func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
+
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
 	envContent, integrityResult := verifyIntegrity(sigBlob, envelopeMediaType, outcome)
 	outcome.EnvelopeContent = envContent
@@ -186,8 +187,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
 		}
 
-		if versionCompare(verificationPluginMinVersion, pluginVersion) == false {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("found plugin %s with version %s but signature verification needs version greater than or equal to %s", verificationPluginName, pluginVersion, verificationPluginMinVersion)}
+		if !isRequiredVerificationPluginVer(pluginVersion, verificationPluginMinVersion) {
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("found plugin %s with version %s but signature verification needs plugin version greater than or equal to %s", verificationPluginName, pluginVersion, verificationPluginMinVersion)}
 		}
 
 		for _, capability := range metadata.Capabilities {
@@ -600,11 +601,6 @@ func logVerificationResult(logger log.Logger, result *notation.ValidationResult)
 	}
 }
 
-func versionCompare(minPluginVer string, pluginVer string) bool {
-	pluginVer = "v" + pluginVer
-	minPluginVer = "v" + minPluginVer
-	if semver.Compare(minPluginVer, pluginVer) == 1 {
-		return false
-	}
-	return true
+func isRequiredVerificationPluginVer(pluginVer string, minPluginVer string) bool {
+	return semver.Compare("v"+pluginVer, "v"+minPluginVer) != -1
 }

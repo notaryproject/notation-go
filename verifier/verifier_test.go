@@ -606,31 +606,83 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 	}
 }
 
-func TestVersionCompare(t *testing.T) {
-	var testMinVer1 string = "0.0.9"
-	var testMinVer2 string = "1.0.1"
-	var testMinVer3 string = "1.0.0"
-	var testMinVer4 string = "1.0.0-alpha"
-	var testMinVer5 string = "1-pre+meta"
+func TestPluginVersionCompatibility(t *testing.T) {
+	var semverSigEnv1 []byte
+	var semverSigEnv2 []byte
+	var semverSigEnv3 []byte
+	var semverSigEnv4 []byte
+	var semverSigEnv5 []byte
+	var semverSigEnv6 []byte
+
+	semverSigEnv1 = mock.MockCaMinVerSigEnv1
+	semverSigEnv2 = mock.MockCaMinVerSigEnv2
+	semverSigEnv3 = mock.MockCaMinVerSigEnv3
+	semverSigEnv4 = mock.MockCaMinVerSigEnv4
+	semverSigEnv5 = mock.MockCaMinVerSigEnv5
+	semverSigEnv6 = mock.MockCaMinVerSigEnv6
+
+	policyDocument := dummyPolicyDocument()
+
+	v := verifier{
+		trustPolicyDoc: &policyDocument,
+		pluginManager:  mock.PluginManager{},
+	}
+	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	envelopeMediaType := opts.SignatureMediaType
+	trustPolicy, _ := v.trustPolicyDoc.GetApplicableTrustPolicy(mock.SampleArtifactUri)
+	pluginConfig := opts.PluginConfig
+	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
+
+	testSignatureArrHigh := [][]byte{semverSigEnv1, semverSigEnv2, semverSigEnv3}
+	testSignatureArrLow := [][]byte{semverSigEnv4, semverSigEnv5, semverSigEnv6}
+
+	for _, testSemSigEnv := range testSignatureArrHigh {
+		outcome := &notation.VerificationOutcome{
+			RawSignature:      testSemSigEnv,
+			VerificationLevel: verificationLevel,
+		}
+		err := v.processSignature(context.Background(), testSemSigEnv, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+		verificationPluginMinVersion, _ := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
+		outcome.Error = err
+		var errMsg string = "found plugin io.cncf.notary.plugin.unittest.mock with version 1.0.0 but signature verification needs plugin version greater than or equal to " + verificationPluginMinVersion
+		if outcome.Error == nil || outcome.Error.Error() != errMsg {
+			t.Errorf("TestPluginVersionCompatibility Error is %s", outcome.Error.Error())
+		}
+	}
+
+	for _, testSemSigEnv := range testSignatureArrLow {
+		outcome := &notation.VerificationOutcome{
+			RawSignature:      testSemSigEnv,
+			VerificationLevel: verificationLevel,
+		}
+		err := v.processSignature(context.Background(), testSemSigEnv, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+		verificationPluginMinVersion, _ := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
+		outcome.Error = err
+		var errMsg string = "found plugin io.cncf.notary.plugin.unittest.mock with version 1.0.0 but signature verification needs plugin version greater than or equal to " + verificationPluginMinVersion
+		if outcome.Error.Error() == errMsg {
+			t.Errorf("TestPluginVersionCompatibility Error is %s", outcome.Error.Error())
+		}
+	}
+}
+
+func TestIsRequiredVerificationPluginVer(t *testing.T) {
+
 	var testPlugVer string = "1.0.0"
-	val := versionCompare(testMinVer1, testPlugVer)
-	if val != true {
-		t.Errorf("TestVersionCompare Error: %v WantErr: true", val)
+
+	testArrLow := []string{"0.0.9", "1.0.0", "1.0.0-alpha", "1-pre+meta"}
+	testArrHigh := []string{"1.0.1", "1.1.0", "1.1.1", "1.2.0"}
+
+	for _, testMinVer := range testArrLow {
+		val := isRequiredVerificationPluginVer(testPlugVer, testMinVer)
+		if !val {
+			t.Errorf("TestVersionCompare Error: Error with version compare function, version %s has to be higher than %s, but the output is lower, function error: %v WantErr: true", testPlugVer, testMinVer, val)
+		}
 	}
-	val1 := versionCompare(testMinVer2, testPlugVer)
-	if val1 != false {
-		t.Errorf("TestVersionCompare Error: %v WantErr: false", val1)
-	}
-	val2 := versionCompare(testMinVer3, testPlugVer)
-	if val2 != true {
-		t.Errorf("TestVersionCompare Error: %v WantErr: true", val2)
-	}
-	val3 := versionCompare(testMinVer4, testPlugVer)
-	if val3 != true {
-		t.Errorf("TestVersionCompare Error: %v WantErr: true", val3)
-	}
-	val4 := versionCompare(testMinVer5, testPlugVer)
-	if val4 != true {
-		t.Errorf("TestVersionCompare Error: %v WantErr: true", val4)
+
+	for _, testMinVer := range testArrHigh {
+		val := isRequiredVerificationPluginVer(testPlugVer, testMinVer)
+		if val {
+			t.Errorf("TestVersionCompare Error: Error with version compare function, version %s has to be higher than %s, but the output is lower, function error: %v WantErr: true", testMinVer, testPlugVer, val)
+		}
 	}
 }
