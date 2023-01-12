@@ -42,14 +42,14 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 // FetchSignatureBlob returns signature envelope blob and descriptor given
 // signature manifest descriptor
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
-	sigManifest, err := c.getSignatureManifest(ctx, desc)
+	signatureBlobs, err := c.getSignatureBlobsDesc(ctx, desc)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
-	if len(sigManifest.Blobs) != 1 {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("signature manifest requries exactly one signature envelope blob, got %d", len(sigManifest.Blobs))
+	if len(signatureBlobs) != 1 {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("signature manifest requries exactly one signature envelope blob, got %d", len(signatureBlobs))
 	}
-	sigDesc := sigManifest.Blobs[0]
+	sigDesc := signatureBlobs[0]
 	if sigDesc.Size > maxBlobSizeLimit {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d bytes", sigDesc.Size)
 	}
@@ -77,39 +77,34 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 	return blobDesc, manifestDesc, nil
 }
 
-// getSignatureManifest returns signature manifest given signature manifest
-// descriptor
-func (c *repositoryClient) getSignatureManifest(ctx context.Context, sigManifestDesc ocispec.Descriptor) (*ocispec.Artifact, error) {
+// getSignatureBlobsDesc returns signature blob descriptor from
+// signature manifest blobs or layers given signature manifest descriptor
+func (c *repositoryClient) getSignatureBlobsDesc(ctx context.Context, sigManifestDesc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 	if sigManifestDesc.Size > maxManifestSizeLimit {
-		return nil, fmt.Errorf("manifest too large: %d bytes", sigManifestDesc.Size)
+		return nil, fmt.Errorf("signature manifest too large: %d bytes", sigManifestDesc.Size)
 	}
 	manifestJSON, err := content.FetchAll(ctx, c.Repository.Manifests(), sigManifestDesc)
 	if err != nil {
 		return nil, err
 	}
 
-	var sigManifest ocispec.Artifact
 	if sigManifestDesc.MediaType == ocispec.MediaTypeArtifactManifest {
+		var sigManifest ocispec.Artifact
 		err = json.Unmarshal(manifestJSON, &sigManifest)
 		if err != nil {
 			return nil, err
 		}
+		return sigManifest.Blobs, nil
 	} else if sigManifestDesc.MediaType == ocispec.MediaTypeImageManifest {
-		var imageManifest ocispec.Manifest
-		err = json.Unmarshal(manifestJSON, &imageManifest)
+		var sigManifest ocispec.Manifest
+		err = json.Unmarshal(manifestJSON, &sigManifest)
 		if err != nil {
 			return nil, err
 		}
-		sigManifest.MediaType = ocispec.MediaTypeArtifactManifest
-		sigManifest.ArtifactType = sigManifestDesc.ArtifactType
-		sigManifest.Blobs = imageManifest.Layers
-		sigManifest.Subject = imageManifest.Subject
-		sigManifest.Annotations = imageManifest.Annotations
-	} else {
-		return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
+		return sigManifest.Layers, nil
 	}
 
-	return &sigManifest, nil
+	return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
