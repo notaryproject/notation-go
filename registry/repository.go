@@ -42,7 +42,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 // FetchSignatureBlob returns signature envelope blob and descriptor given
 // signature manifest descriptor
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
-	signatureBlobs, err := c.getSignatureBlobsDesc(ctx, desc)
+	signatureBlobs, err := c.getSignatureBlobDesc(ctx, desc)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
@@ -77,9 +77,12 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 	return blobDesc, manifestDesc, nil
 }
 
-// getSignatureBlobsDesc returns signature blob descriptor from
+// getSignatureBlobDesc returns signature blob descriptor from
 // signature manifest blobs or layers given signature manifest descriptor
-func (c *repositoryClient) getSignatureBlobsDesc(ctx context.Context, sigManifestDesc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifestDesc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	if sigManifestDesc.MediaType != ocispec.MediaTypeArtifactManifest && sigManifestDesc.MediaType != ocispec.MediaTypeImageManifest {
+		return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
+	}
 	if sigManifestDesc.Size > maxManifestSizeLimit {
 		return nil, fmt.Errorf("signature manifest too large: %d bytes", sigManifestDesc.Size)
 	}
@@ -88,23 +91,21 @@ func (c *repositoryClient) getSignatureBlobsDesc(ctx context.Context, sigManifes
 		return nil, err
 	}
 
-	if sigManifestDesc.MediaType == ocispec.MediaTypeArtifactManifest {
-		var sigManifest ocispec.Artifact
-		err = json.Unmarshal(manifestJSON, &sigManifest)
-		if err != nil {
-			return nil, err
-		}
-		return sigManifest.Blobs, nil
-	} else if sigManifestDesc.MediaType == ocispec.MediaTypeImageManifest {
+	// OCI image manifest
+	if sigManifestDesc.MediaType == ocispec.MediaTypeImageManifest {
 		var sigManifest ocispec.Manifest
-		err = json.Unmarshal(manifestJSON, &sigManifest)
-		if err != nil {
+		if err := json.Unmarshal(manifestJSON, &sigManifest); err != nil {
 			return nil, err
 		}
 		return sigManifest.Layers, nil
 	}
 
-	return nil, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
+	// OCI artifact manifest
+	var sigManifest ocispec.Artifact
+	if err := json.Unmarshal(manifestJSON, &sigManifest); err != nil {
+		return nil, err
+	}
+	return sigManifest.Blobs, nil
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
@@ -114,10 +115,10 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		ManifestAnnotations: annotations,
 	}
 
-	// user wants to use OCI Image Manifest to store signatures
+	// use OCI image manifest to store signatures
 	if ociImageManifest {
 		opts.PackImageManifest = true
 	}
 
-	return oras.Pack(ctx, c.Repository.Manifests(), ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	return oras.Pack(ctx, c.Repository, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
 }
