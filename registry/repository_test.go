@@ -468,10 +468,8 @@ func TestPushSignature(t *testing.T) {
 		expectErr      bool
 	}{
 		{
-			name:           "failed to upload signature",
-			expectErr:      true,
-			expectDes:      ocispec.Descriptor{},
-			expectManifest: ocispec.Descriptor{},
+			name:      "failed to upload signature",
+			expectErr: true,
 			args: args{
 				reference:    referenceWithInvalidHost,
 				signature:    make([]byte, 0),
