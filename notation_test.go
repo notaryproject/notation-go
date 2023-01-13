@@ -255,7 +255,3 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 	}
 	return outcome, nil
 }
-
-func (v *dummyVerifier) TrustPolicyDocument() (*trustpolicy.Document, error) {
-	return v.TrustPolicyDoc, nil
-}
