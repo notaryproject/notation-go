@@ -112,7 +112,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome, opts.UserMetadata)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err
@@ -132,10 +132,18 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Infof("Target artifact that want to be verified: %+v", desc)
 		outcome.Error = errors.New("content descriptor mismatch")
 	}
+
+	if len(opts.UserMetadata) > 0 {
+		err := verifyUserMetadata(logger, payload, opts.UserMetadata)
+		if err != nil {
+			outcome.Error = err
+		}
+	}
+
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome, userMetadata map[string]string) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
@@ -145,15 +153,6 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	if integrityResult.Error != nil {
 		logVerificationResult(logger, integrityResult)
 		return integrityResult.Error
-	}
-
-	// verify user metadata
-	if len(userMetadata) > 0 {
-		logger.Info("User Metadata flag is present. Checking signature metadata for specified values.")
-		err := verifyUserMetadata(logger, envContent, userMetadata)
-		if err != nil {
-			return err
-		}
 	}
 
 	// check if we need to verify using a plugin
@@ -421,22 +420,14 @@ func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolic
 	}
 }
 
-func verifyUserMetadata(logger log.Logger, envContent *signature.EnvelopeContent, userMetadata map[string]string) error {
+func verifyUserMetadata(logger log.Logger, payload *envelope.Payload, userMetadata map[string]string) error {
 	logger.Debugf("Verifying that metadata %v is present in signature", userMetadata)
-
-	var payload envelope.Payload
-	err := json.Unmarshal(envContent.Payload.Content, &payload)
-	if err != nil {
-		logger.Error("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
-		return err
-	}
-
 	logger.Debugf("Signature metadata: %v", payload.TargetArtifact.Annotations)
 
 	for k, v := range userMetadata {
 		if payload.TargetArtifact.Annotations[k] != v {
-			logger.Debug("Error: specified metadata is not present in the signature")
-			return errors.New("unable to find specified metadata in the signature")
+			logger.Infof("Error: specified metadata %s=%s is not present in the signature", k, v)
+			return notation.ErrorUserMetadataVerificationFailed{}
 		}
 	}
 

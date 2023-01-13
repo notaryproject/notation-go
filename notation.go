@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -251,6 +251,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	}
 
 	var verificationOutcomes []*VerificationOutcome
+	var failedOutcomes []*VerificationOutcome
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", remoteOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 
@@ -281,6 +282,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
+				failedOutcomes = append(failedOutcomes, outcome)
 				continue
 			}
 			// at this point, the signature is verified successfully. Add
@@ -314,7 +316,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	// Verification Failed
 	if len(verificationOutcomes) == 0 {
 		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
-		return ocispec.Descriptor{}, verificationOutcomes, ErrorVerificationFailed{}
+		return ocispec.Descriptor{}, verificationOutcomes, getFinalVerificationError(failedOutcomes)
 	}
 
 	// Verification Succeeded
@@ -344,5 +346,21 @@ func (outcome *VerificationOutcome) GetUserMetadata() (map[string]string, error)
 		return nil, errors.New("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
 	}
 
+	if payload.TargetArtifact.Annotations == nil {
+		return map[string]string{}, nil
+	}
+
 	return payload.TargetArtifact.Annotations, nil
+}
+
+func getFinalVerificationError(outcomes []*VerificationOutcome) error {
+	err := ErrorVerificationFailed{}
+
+	for _, outcome := range outcomes {
+		if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
+			return outcome.Error
+		}
+	}
+
+	return err
 }

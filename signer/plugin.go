@@ -104,7 +104,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	logger.Debug("Generating signature envelope by plugin")
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 
-	err := addUserMetadataToPayload(ctx, &payload, opts.UserMetadata)
+	err := addUserMetadataToDescriptor(ctx, &payload.TargetArtifact, opts.UserMetadata)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error adding user metadata: %w", err)
 	}

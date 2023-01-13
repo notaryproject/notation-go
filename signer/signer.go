@@ -86,7 +86,7 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	// Generate payload to be signed.
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 
-	err := addUserMetadataToPayload(ctx, &payload, opts.UserMetadata)
+	err := addUserMetadataToDescriptor(ctx, &payload.TargetArtifact, opts.UserMetadata)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error adding user metadata: %w", err)
 	}
@@ -148,11 +148,11 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	return sig, &envContent.SignerInfo, nil
 }
 
-func addUserMetadataToPayload(ctx context.Context, payload *envelope.Payload, userMetadata map[string]string) error {
+func addUserMetadataToDescriptor(ctx context.Context, desc *ocispec.Descriptor, userMetadata map[string]string) error {
 	logger := log.GetLogger(ctx)
 
-	if payload.TargetArtifact.Annotations == nil {
-		payload.TargetArtifact.Annotations = map[string]string{}
+	if desc.Annotations == nil && len(userMetadata) > 0 {
+		desc.Annotations = map[string]string{}
 	}
 
 	for k, v := range userMetadata {
@@ -164,7 +164,7 @@ func addUserMetadataToPayload(ctx context.Context, payload *envelope.Payload, us
 			}
 		}
 
-		payload.TargetArtifact.Annotations[k] = v
+		desc.Annotations[k] = v
 	}
 
 	return nil
