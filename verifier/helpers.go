@@ -32,7 +32,7 @@ var VerificationPluginHeaders = []string{
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
-// regex is takenfrom https://semver.org/#:~:text=Python%20and%20Go.-,See,-%3A%20https%3A//regex101
+// regex is takenfrom https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
 var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 
 func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {

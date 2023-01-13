@@ -35,23 +35,23 @@ var MockSaExpiredSigEnv []byte
 //go:embed testdata/sa_plugin_sig_env.json
 var MockSaPluginSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
 
-//go:embed testdata/ca_minver_sig_env1.json
-var MockCaMinVerSigEnv1 []byte
+//go:embed testdata/ca_invalid_minver_sig_env1.json
+var MockCaInvalidMinVerSigEnv1 []byte
 
-//go:embed testdata/ca_minver_sig_env2.json
-var MockCaMinVerSigEnv2 []byte
+//go:embed testdata/ca_invalid_minver_sig_env2.json
+var MockCaInvalidMinVerSigEnv2 []byte
 
-//go:embed testdata/ca_minver_sig_env3.json
-var MockCaMinVerSigEnv3 []byte
+//go:embed testdata/ca_invalid_minver_sig_env3.json
+var MockCaInvalidMinVerSigEnv3 []byte
 
-//go:embed testdata/ca_minver_sig_env4.json
-var MockCaMinVerSigEnv4 []byte
+//go:embed testdata/ca_valid_minver_sig_env1.json
+var MockCaValidMinVerSigEnv1 []byte
 
-//go:embed testdata/ca_minver_sig_env5.json
-var MockCaMinVerSigEnv5 []byte
+//go:embed testdata/ca_valid_minver_sig_env2.json
+var MockCaValidMinVerSigEnv2 []byte
 
-//go:embed testdata/ca_minver_sig_env6.json
-var MockCaMinVerSigEnv6 []byte
+//go:embed testdata/ca_valid_minver_sig_env3.json
+var MockCaValidMinVerSigEnv3 []byte
 
 var (
 	SampleArtifactUri = "registry.acme-rockets.io/software/net-monitor@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
