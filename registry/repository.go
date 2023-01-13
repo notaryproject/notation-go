@@ -18,16 +18,16 @@ const (
 
 // RepositoryOptions provides user options when creating a Repository
 type RepositoryOptions struct {
-	// OCIimageManifest specifies if user wants to use OCI image manifest
+	// OCIImageManifest specifies if user wants to use OCI image manifest
 	// to store signatures in remote registries.
 	// By default, Notation will use OCI artifact manifest to store signatures.
-	// If OCIimageManifest flag is set to true, Notation will instead use
+	// If OCIImageManifest flag is set to true, Notation will instead use
 	// OCI image manifest.
 	// Note, Notation will not automatically convert between these two types
 	// on any occasion.
 	// OCI artifact manifest: https://github.com/opencontainers/image-spec/blob/v1.1.0-rc2/artifact.md
 	// OCI image manifest: https://github.com/opencontainers/image-spec/blob/v1.1.0-rc2/manifest.md
-	OCIimageManifest bool
+	OCIImageManifest bool
 }
 
 // repositoryClient implements Repository
@@ -36,7 +36,15 @@ type repositoryClient struct {
 	RepositoryOptions
 }
 
-// NewRepositoryWithOptions returns a new Repository.
+// NewRepository returns a new Repository
+func NewRepository(repo registry.Repository) Repository {
+	return &repositoryClient{
+		Repository: repo,
+	}
+}
+
+// NewRepositoryWithOptions returns a new Repository with user specified
+// options.
 func NewRepositoryWithOptions(repo registry.Repository, opts RepositoryOptions) Repository {
 	return &repositoryClient{
 		Repository:        repo,
@@ -81,7 +89,7 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 
-	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations, c.OCIimageManifest)
+	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
@@ -128,11 +136,11 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string, ociImageManifest bool) (ocispec.Descriptor, error) {
+func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
 	opts := oras.PackOptions{
 		Subject:             &subject,
 		ManifestAnnotations: annotations,
-		PackImageManifest:   ociImageManifest,
+		PackImageManifest:   c.OCIImageManifest,
 	}
 
 	return oras.Pack(ctx, c.Repository, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
