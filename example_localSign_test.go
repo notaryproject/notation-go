@@ -70,10 +70,12 @@ func Example_localSign() {
 		panic(err) // Handle error
 	}
 	fmt.Println("signature Payload ContentType:", sigContent.Payload.ContentType)
+	fmt.Println("signature Payload Content:", string(sigContent.Payload.Content))
 	fmt.Println("signerInfo SigningAgent:", signerInfo.UnsignedAttributes.SigningAgent)
 
 	// Output:
 	// Successfully signed
 	// signature Payload ContentType: application/vnd.cncf.notary.payload.v1+json
+	// signature Payload Content: {"targetArtifact":{"mediaType":"application/vnd.docker.distribution.manifest.v2+json","digest":"sha256:c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c","size":528}}
 	// signerInfo SigningAgent: example signing agent
 }
