@@ -174,9 +174,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(pageWithBadDigest))),
-				Header: map[string][]string{
-					"Oras-Api-Version": {"oras/1.1"},
-				},
 				Request: &http.Request{
 					Method: "GET",
 					URL:    &url.URL{Path: "/v2/test/_oras/artifacts/referrers"},
@@ -186,9 +183,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(pageWithWrongMediaType))),
-				Header: map[string][]string{
-					"Oras-Api-Version": {"oras/1.1"},
-				},
 				Request: &http.Request{
 					Method: "GET",
 					URL:    &url.URL{Path: "/v2/test/_oras/artifacts/referrers"},
@@ -198,9 +192,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(validPage))),
-				Header: map[string][]string{
-					"Oras-Api-Version": {"oras/1.1"},
-				},
 				Request: &http.Request{
 					Method: "GET",
 					URL:    &url.URL{Path: "/v2/test/_oras/artifacts/referrers"},
@@ -306,9 +297,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader([]byte(validPageImage))),
-			Header: map[string][]string{
-				"Oras-Api-Version": {"oras/1.1"},
-			},
 			Request: &http.Request{
 				Method: "GET",
 				URL:    &url.URL{Path: "/v2/test/referrers/sha256:0000000000000000000000000000000000000000000000000000000000000000"},
