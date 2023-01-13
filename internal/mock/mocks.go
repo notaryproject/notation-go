@@ -97,7 +97,7 @@ func (t Repository) FetchSignatureBlob(ctx context.Context, desc ocispec.Descrip
 	return t.FetchSignatureBlobResponse, JwsSigEnvDescriptor, t.FetchSignatureBlobError
 }
 
-func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string, ociImageManifest bool) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
 	return ocispec.Descriptor{}, ocispec.Descriptor{}, nil
 }
 

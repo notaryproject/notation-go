@@ -23,5 +23,5 @@ type Repository interface {
 
 	// PushSignature creates and uploads an signature manifest along with its
 	// linked signature envelope blob.
-	PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string, ociImageManifest bool) (blobDesc, manifestDesc ocispec.Descriptor, err error)
+	PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error)
 }
