@@ -60,7 +60,6 @@ const (
 	size2                    = 135
 	validPage                = `
 	{
-		"references": [{}],
 		"referrers": [
 			{
 				"artifactType": "application/vnd.cncf.notary.signature",
@@ -71,7 +70,6 @@ const (
 	}`
 	validPageImage = `
 	{
-		"references": [{}],
 		"referrers": [
 			{
 				"artifactType": "application/vnd.cncf.notary.signature",
@@ -82,7 +80,6 @@ const (
 	}`
 	pageWithWrongMediaType = `
 	{
-		"references": [{}],
 		"referrers": [
 			{
 				"artifactType": "application/vnd.cncf.notary.signature",
@@ -93,7 +90,6 @@ const (
 	}`
 	pageWithBadDigest = `
 	{
-		"references": [{}],
 		"referrers": [
 			{
 				"artifactType": "application/vnd.cncf.notary.signature",
