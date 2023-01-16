@@ -252,7 +252,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				break
 			}
 			numOfSignatureProcessed++
-			logger.Infof("Processing signature with mediaType: %v and digest: %v", sigManifestDesc.MediaType, sigManifestDesc.Digest)
+			logger.Infof("Processing signature with manifest mediaType: %v and digest: %v", sigManifestDesc.MediaType, sigManifestDesc.Digest)
 			// get signature envelope
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
