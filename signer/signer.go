@@ -26,7 +26,6 @@ const signingAgent = "Notation/1.0.0"
 
 var (
 	reservedAnnotationPrefixes = []string{
-		"org.opencontainers",
 		"io.cncf.notary",
 	}
 )
@@ -84,14 +83,12 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic signing for %v in signature media type %v", desc.Digest, opts.SignatureMediaType)
 	// Generate payload to be signed.
-	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
-
-	err := addUserMetadataToDescriptor(ctx, &payload.TargetArtifact, opts.UserMetadata)
+	payload, err := constructPayload(ctx, desc, opts.UserMetadata)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error adding user metadata: %w", err)
+		return nil, nil, err
 	}
 
-	payloadBytes, err := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(*payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
@@ -148,7 +145,7 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	return sig, &envContent.SignerInfo, nil
 }
 
-func addUserMetadataToDescriptor(ctx context.Context, desc *ocispec.Descriptor, userMetadata map[string]string) error {
+func constructPayload(ctx context.Context, desc ocispec.Descriptor, userMetadata map[string]string) (*envelope.Payload, error) {
 	logger := log.GetLogger(ctx)
 
 	if desc.Annotations == nil && len(userMetadata) > 0 {
@@ -160,12 +157,14 @@ func addUserMetadataToDescriptor(ctx context.Context, desc *ocispec.Descriptor, 
 
 		for _, reservedPrefix := range reservedAnnotationPrefixes {
 			if strings.HasPrefix(k, reservedPrefix) {
-				return fmt.Errorf("metadata key %v has reserved prefix %v", k, reservedPrefix)
+				return nil, fmt.Errorf("error adding user metadata: metadata key %v has reserved prefix %v", k, reservedPrefix)
 			}
 		}
 
 		desc.Annotations[k] = v
 	}
 
-	return nil
+	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
+
+	return &payload, nil
 }

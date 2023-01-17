@@ -147,7 +147,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
-	envContent, integrityResult := verifyIntegrity(ctx, sigBlob, envelopeMediaType, outcome)
+	envContent, integrityResult := verifyIntegrity(sigBlob, envelopeMediaType, outcome)
 	outcome.EnvelopeContent = envContent
 	outcome.VerificationResults = append(outcome.VerificationResults, integrityResult)
 	if integrityResult.Error != nil {
@@ -331,7 +331,7 @@ func processPluginResponse(logger log.Logger, capabilitiesToVerify []proto.Capab
 	return nil
 }
 
-func verifyIntegrity(ctx context.Context, sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.ValidationResult) {
+func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation.VerificationOutcome) (*signature.EnvelopeContent, *notation.ValidationResult) {
 	// parse the signature
 	sigEnv, err := signature.ParseEnvelope(envelopeMediaType, sigBlob)
 	if err != nil {
@@ -426,7 +426,7 @@ func verifyUserMetadata(logger log.Logger, payload *envelope.Payload, userMetada
 
 	for k, v := range userMetadata {
 		if payload.TargetArtifact.Annotations[k] != v {
-			logger.Infof("Error: specified metadata %s=%s is not present in the signature", k, v)
+			logger.Errorf("User required metadata %s=%s is not present in the signature", k, v)
 			return notation.ErrorUserMetadataVerificationFailed{}
 		}
 	}
