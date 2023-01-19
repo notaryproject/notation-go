@@ -14,6 +14,7 @@ import (
 const (
 	maxBlobSizeLimit     = 32 * 1024 * 1024 // 32 MiB
 	maxManifestSizeLimit = 4 * 1024 * 1024  // 4 MiB
+	zeroDigest           = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 // RepositoryOptions provides user options when creating a Repository
@@ -88,7 +89,9 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 	// to support the Referrers API as well.
 	// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0-rc1/spec.md#listing-referrers
 	if !c.OCIImageManifest {
-		err := c.Repository.Referrers(ctx, subject, "", func(referrers []ocispec.Descriptor) error {
+		var checkReferrerDesc ocispec.Descriptor
+		checkReferrerDesc.Digest = zeroDigest
+		err := c.Repository.Referrers(ctx, checkReferrerDesc, "", func(referrers []ocispec.Descriptor) error {
 			return nil
 		})
 		if err != nil {

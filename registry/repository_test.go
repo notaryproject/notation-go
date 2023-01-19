@@ -19,7 +19,6 @@ import (
 )
 
 const (
-	zeroDigest               = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 	validDigest              = "6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b"
 	validDigest2             = "1834876dcfb05cb167a5c24953eba58c4ac89b1adf57f28f2f9d09af107ee8f2"
 	invalidDigest            = "invaliddigest"
@@ -201,6 +200,15 @@ func (c mockRemoteClientWithoutReferrersAPI) Do(req *http.Request) (*http.Respon
 			Request: &http.Request{
 				Method: "GET",
 				URL:    &url.URL{Path: "/v2/test/referrers/"},
+			},
+		}, nil
+	case "/v2/test/referrers/" + zeroDigest:
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(bytes.NewReader([]byte("Referrers API not supported"))),
+			Request: &http.Request{
+				Method: "GET",
+				URL:    &url.URL{Path: "/v2/test/referrers/" + zeroDigest},
 			},
 		}, nil
 	case validRepo:
@@ -418,7 +426,7 @@ func TestPushSignatureImageManifest(t *testing.T) {
 }
 
 func TestPushSignatureWithoutReferrersAPI(t *testing.T) {
-	expectedErr := "failed to ping Referrers API on uploading OCI artifact manifest with error: GET \"/v2/test/referrers/\": response status code 404: Not Found. Try OCI image manifest instead"
+	expectedErr := fmt.Errorf("failed to ping Referrers API on uploading OCI artifact manifest with error: GET \"/v2/test/referrers/%s\": response status code 404: Not Found. Try OCI image manifest instead", zeroDigest)
 	ref, err := registry.ParseReference(validReference)
 	if err != nil {
 		t.Fatalf("failed to parse reference")
@@ -426,7 +434,7 @@ func TestPushSignatureWithoutReferrersAPI(t *testing.T) {
 	client := newRepositoryClientWithArtifactManifest(mockRemoteClientWithoutReferrersAPI{}, ref, false)
 
 	_, _, err = client.PushSignature(context.Background(), coseTag, make([]byte, 0), ocispec.Descriptor{}, nil)
-	if err == nil || err.Error() != expectedErr {
+	if err == nil || err.Error() != expectedErr.Error() {
 		t.Fatalf("expected error %s but got %s", expectedErr, err.Error())
 	}
 }
