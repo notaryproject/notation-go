@@ -43,6 +43,11 @@ func Example_remoteSign() {
 	if err != nil {
 		panic(err) // Handle error
 	}
+	// when uploading OCI artifact manifest, Notation requires the registry
+	// to support the Referrers API as well. (This requirment exists only for
+	// the Sign process.)
+	// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0-rc1/spec.md#listing-referrers
+	remoteRepo.SetReferrersCapability(true)
 	exampleRepo := registry.NewRepository(remoteRepo)
 
 	// exampleSignOptions is an example of notation.SignOptions.
