@@ -84,6 +84,18 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
 func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+	// when uploading OCI artifact manifest, Notation requires the registry
+	// to support the Referrers API as well.
+	// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0-rc1/spec.md#listing-referrers
+	if !c.OCIImageManifest {
+		err := c.Repository.Referrers(ctx, subject, "", func(referrers []ocispec.Descriptor) error {
+			return nil
+		})
+		if err != nil {
+			return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("failed to ping Referrers API on uploading OCI artifact manifest with error: %v. Try OCI image manifest instead", err)
+		}
+	}
+
 	blobDesc, err = oras.PushBytes(ctx, c.Repository.Blobs(), mediaType, blob)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
@@ -142,18 +154,5 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		ManifestAnnotations: annotations,
 		PackImageManifest:   c.OCIImageManifest,
 	}
-
-	// when uploading OCI artifact manifest, Notation requires the registry
-	// to support the Referrers API as well.
-	// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0-rc1/spec.md#listing-referrers
-	if !c.OCIImageManifest {
-		err := c.Repository.Referrers(ctx, subject, "", func(referrers []ocispec.Descriptor) error {
-			return nil
-		})
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to ping Referrers API on uploading OCI artifact manifest with error: %v. Try OCI image manifest instead", err)
-		}
-	}
-
 	return oras.Pack(ctx, c.Repository, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
 }
