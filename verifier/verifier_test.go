@@ -609,38 +609,56 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 func TestPluginVersionCompatibility(t *testing.T) {
 
 	errTemplate := "found plugin io.cncf.notary.plugin.unittest.mock with version 1.0.0 but signature verification needs plugin version greater than or equal to "
-	errIgnore := "digital signature requires plugin \"io.cncf.notary.plugin.unittest.mock\" with signature verification capabilities (\"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\" and/or \"SIGNATURE_VERIFIER.REVOCATION_CHECK\") installed"
-	policyDocument := dummyPolicyDocument()
+	var policyDocument = trustpolicy.Document{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.TrustPolicy{
+			{
+				Name:                  "wabbit-networks-images",
+				RegistryScopes:        []string{"localhost:5000/net-monitor"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
+				TrustStores:           []string{"ca:valid-trust-store"},
+				TrustedIdentities:     []string{"x509.subject: CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US"},
+			},
+		},
+	}
+	pluginManager := mock.PluginManager{}
+	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
+		VerificationResults: map[proto.Capability]*proto.VerificationResult{
+			proto.CapabilityTrustedIdentityVerifier: {
+				Success: true,
+			},
+		},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
+	}
+	dir.UserConfigDir = "testdata"
+	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 	v := verifier{
 		trustPolicyDoc: &policyDocument,
-		pluginManager:  mock.PluginManager{},
+		trustStore:     x509TrustStore,
+		pluginManager:  pluginManager,
 	}
-	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	envelopeMediaType := opts.SignatureMediaType
-	trustPolicy, _ := v.trustPolicyDoc.GetApplicableTrustPolicy(mock.SampleArtifactUri)
-	pluginConfig := opts.PluginConfig
-	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
+	opts := notation.VerifyOptions{ArtifactReference: "localhost:5000/net-monitor@sha256:fe7e9333395060c2f5e63cf36a38fba10176f183b4163a5794e081a480abba5f", SignatureMediaType: "application/jose+json"}
 
 	tests := []struct {
 		minPluginVerTests []byte
-		wantErr           []string
+		wantErr           string
 	}{
-		{mock.MockCaInvalidMinVerSigEnv1, []string{errTemplate + "1.0.1"}},
-		{mock.MockCaInvalidMinVerSigEnv2, []string{errTemplate + "1.1.0"}},
-		{mock.MockCaInvalidMinVerSigEnv3, []string{errTemplate + "1.1.0-alpha"}},
-		{mock.MockCaValidMinVerSigEnv1, []string{"", errIgnore}},
-		{mock.MockCaValidMinVerSigEnv2, []string{"", errIgnore}},
-		{mock.MockCaValidMinVerSigEnv3, []string{"", errIgnore}},
+
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_0_9, errTemplate + "1.0.9"},
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_0_1, errTemplate + "1.0.1"},
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_2_3, errTemplate + "1.2.3"},
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_1_0_alpha, errTemplate + "1.1.0-alpha"},
+		{mock.MockCaCompatiblePluginVerSigEnv_0_0_9, ""},
+		{mock.MockCaCompatiblePluginVerSigEnv_1_0_0_alpha, ""},
+		{mock.MockCaCompatiblePluginVerSigEnv_1_0_0_alpha_beta, ""},
+		{mock.MockCaCompatiblePluginVerSigEnv_1_0_0, ""},
 	}
 	for _, tt := range tests {
-		outcome := &notation.VerificationOutcome{
-			RawSignature:      tt.minPluginVerTests,
-			VerificationLevel: verificationLevel,
-		}
-		err := v.processSignature(context.Background(), tt.minPluginVerTests, envelopeMediaType, trustPolicy, pluginConfig, outcome)
-		if err.Error() != tt.wantErr[0] {
-			if err.Error() != tt.wantErr[1] {
-				t.Errorf("TestPluginVersionCompatibility Error: %s, WantErr: %s ", err.Error(), tt.wantErr[0])
+
+		if _, err := v.Verify(context.Background(), mock.TestImageDescriptor, tt.minPluginVerTests, opts); err != nil && tt.wantErr != "" {
+			if err.Error() != tt.wantErr {
+				t.Errorf("TestPluginVersionCompatibility Error: %s, WantErr: %s ", err.Error(), tt.wantErr)
 			}
 		}
 	}
@@ -666,7 +684,7 @@ func TestIsRequiredVerificationPluginVer(t *testing.T) {
 	for _, tt := range tests {
 		funcVal := isRequiredVerificationPluginVer(testPlugVer, tt.minVerTests[0])
 		if funcVal != tt.expectedVal {
-			t.Errorf("TestIsRequiredVerificationPluginVer Error: version comparison mis match between plugin with version %s and min verification plugin version %s, function output: %v, expected output: %v", testPlugVer, tt.minVerTests[0], funcVal, tt.expectedVal)
+			t.Errorf("TestIsRequiredVerificationPluginVer Error: version comparison mismatch between plugin with version %s and min verification plugin version %s, function output: %v, expected output: %v", testPlugVer, tt.minVerTests[0], funcVal, tt.expectedVal)
 		}
 	}
 }

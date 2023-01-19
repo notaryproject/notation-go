@@ -35,23 +35,29 @@ var MockSaExpiredSigEnv []byte
 //go:embed testdata/sa_plugin_sig_env.json
 var MockSaPluginSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
 
-//go:embed testdata/ca_invalid_minver_sig_env1.json
-var MockCaInvalidMinVerSigEnv1 []byte
+//go:embed testdata/ca_incompatible_pluginver_sig_env_1.0.9.json
+var MockCaIncompatiblePluginVerSigEnv_1_0_9 []byte
 
-//go:embed testdata/ca_invalid_minver_sig_env2.json
-var MockCaInvalidMinVerSigEnv2 []byte
+//go:embed testdata/ca_incompatible_pluginver_sig_env_1.0.1.json
+var MockCaIncompatiblePluginVerSigEnv_1_0_1 []byte
 
-//go:embed testdata/ca_invalid_minver_sig_env3.json
-var MockCaInvalidMinVerSigEnv3 []byte
+//go:embed testdata/ca_incompatible_pluginver_sig_env_1.2.3.json
+var MockCaIncompatiblePluginVerSigEnv_1_2_3 []byte
 
-//go:embed testdata/ca_valid_minver_sig_env1.json
-var MockCaValidMinVerSigEnv1 []byte
+//go:embed testdata/ca_incompatible_pluginver_sig_env_1.1.0-alpha.json
+var MockCaIncompatiblePluginVerSigEnv_1_1_0_alpha []byte
 
-//go:embed testdata/ca_valid_minver_sig_env2.json
-var MockCaValidMinVerSigEnv2 []byte
+//go:embed testdata/ca_compatible_pluginver_sig_env_0.0.9.json
+var MockCaCompatiblePluginVerSigEnv_0_0_9 []byte
 
-//go:embed testdata/ca_valid_minver_sig_env3.json
-var MockCaValidMinVerSigEnv3 []byte
+//go:embed testdata/ca_compatible_pluginver_sig_env_1.0.0-alpha.json
+var MockCaCompatiblePluginVerSigEnv_1_0_0_alpha []byte
+
+//go:embed testdata/ca_compatible_pluginver_sig_env_1.0.0-alpha.beta.json
+var MockCaCompatiblePluginVerSigEnv_1_0_0_alpha_beta []byte
+
+//go:embed testdata/ca_compatible_pluginver_sig_env_1.0.0.json
+var MockCaCompatiblePluginVerSigEnv_1_0_0 []byte
 
 var (
 	SampleArtifactUri = "registry.acme-rockets.io/software/net-monitor@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
@@ -68,6 +74,12 @@ var (
 		Digest:      SampleDigest,
 		Size:        300,
 		Annotations: Annotations,
+	}
+	TestImageDescriptor = ocispec.Descriptor{
+		MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:      digest.Digest("sha256:fe7e9333395060c2f5e63cf36a38fba10176f183b4163a5794e081a480abba5f"),
+		Size:        942,
+		Annotations: nil,
 	}
 	JwsSigEnvDescriptor = ocispec.Descriptor{
 		MediaType:   "application/jose+json",
