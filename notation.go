@@ -26,30 +26,6 @@ const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
 var errDoneVerification = errors.New("done verification")
 var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
-// RemoteSignOptions contains parameters for notation.Sign.
-type RemoteSignOptions struct {
-	// ArtifactReference sets the reference of the artifact that needs to be signed.
-	ArtifactReference string
-
-	// SignatureMediaType is the envelope type of the signature.
-	// Currently both `application/jose+json` and `application/cose` are
-	// supported.
-	SignatureMediaType string
-
-	// ExpiryDuration identifies the expiry duration of the resulted signature. Zero value
-	// represents no expiry duration.
-	ExpiryDuration time.Duration
-
-	// PluginConfig sets or overrides the plugin configuration.
-	PluginConfig map[string]string
-
-	// UserMetadata contains key-value pairs that are added to the signature payload
-	UserMetadata map[string]string
-
-	// SigningAgent sets the signing agent name
-	SigningAgent string
-}
-
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
 	// ArtifactReference sets the reference of the artifact that needs to be signed.
@@ -69,6 +45,14 @@ type SignOptions struct {
 
 	// SigningAgent sets the signing agent name
 	SigningAgent string
+}
+
+// RemoteSignOptions contains parameters for notation.Sign.
+type RemoteSignOptions struct {
+	SignOptions
+
+	// UserMetadata contains key-value pairs that are added to the signature payload
+	UserMetadata map[string]string
 }
 
 // Signer is a generic interface for signing an artifact.
@@ -317,8 +301,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", remoteOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 
-	var verificationFailedErr error
-	verificationFailedErr = ErrorVerificationFailed{}
+	var verificationFailedErr error = ErrorVerificationFailed{}
 
 	// get signature manifests
 	logger.Debug("Fetching signature manifests using referrers API")

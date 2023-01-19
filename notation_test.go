@@ -28,10 +28,10 @@ func TestSignSuccess(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			opts := RemoteSignOptions{
-				ExpiryDuration:    tc.dur,
-				ArtifactReference: mock.SampleArtifactUri,
-			}
+			opts := RemoteSignOptions{}
+			opts.ExpiryDuration = tc.dur
+			opts.ArtifactReference = mock.SampleArtifactUri
+
 			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
 			if err != nil {
 				b.Fatalf("Sign failed with error: %v", err)
@@ -42,10 +42,10 @@ func TestSignSuccess(t *testing.T) {
 
 func TestSignSuccessWithUserMetadata(t *testing.T) {
 	repo := mock.NewRepository()
-	opts := RemoteSignOptions{
-		ArtifactReference: mock.SampleArtifactUri,
-		UserMetadata:      expectedMetadata,
-	}
+	opts := RemoteSignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.UserMetadata = expectedMetadata
+
 	_, err := Sign(context.Background(), &verifyMetadataSigner{}, repo, opts)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -63,7 +63,10 @@ func TestSignWithInvalidExpiry(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			_, err := Sign(context.Background(), &dummySigner{}, repo, RemoteSignOptions{ExpiryDuration: tc.dur})
+			opts := RemoteSignOptions{}
+			opts.ExpiryDuration = tc.dur
+
+			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
 			if err == nil {
 				b.Fatalf("Expected error but not found")
 			}
