@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry"
@@ -48,9 +49,9 @@ const (
 	msg                      = "message"
 	errMsg                   = "error message"
 	mediaType                = "application/json"
-	validReference           = validRegistry + "/" + validRepo + "@" + validDigest
-	referenceWithInvalidHost = invalidRegistry + "/" + validRepo + "@" + validDigest
-	validReference6          = validRegistry + "/" + validRepo + "@" + validDigest6
+	validReference           = validRegistry + "/" + validRepo + "@" + validDigestWithAlgo
+	referenceWithInvalidHost = invalidRegistry + "/" + validRepo + "@" + validDigestWithAlgo
+	validReference6          = validRegistry + "/" + validRepo + "@" + validDigestWithAlgo6
 	invalidReference         = "invalid reference"
 	joseTag                  = "application/jose+json"
 	coseTag                  = "application/cose"
@@ -59,7 +60,6 @@ const (
 	size2                    = 135
 	validPage                = `
 	{
-		"references": [{}],
 		"referrers": [
 			{
 				"artifactType": "application/vnd.cncf.notary.signature",
@@ -68,9 +68,18 @@ const (
 			}
 		]
 	}`
+	validPageImage = `
+	{
+		"referrers": [
+			{
+				"artifactType": "application/vnd.cncf.notary.signature",
+				"mediaType": "application/vnd.oci.image.manifest.v1+json",
+				"digest": "localhost:5000/test@57f2c47061dae97063dc46598168a80a9f89302c1f24fe2a422a1ec0aba3017a"
+			}
+		]
+	}`
 	pageWithWrongMediaType = `
 	{
-		"references": [{}],
 		"referrers": [
 			{
 				"artifactType": "application/vnd.cncf.notary.signature",
@@ -81,7 +90,6 @@ const (
 	}`
 	pageWithBadDigest = `
 	{
-		"references": [{}],
 		"referrers": [
 			{
 				"artifactType": "application/vnd.cncf.notary.signature",
@@ -103,6 +111,9 @@ const (
 		]
 	}`
 )
+
+var validDigestWithAlgoSlice = []string{validDigestWithAlgo, validDigestWithAlgo2, validDigestWithAlgo3, validDigestWithAlgo4, validDigestWithAlgo5,
+	validDigestWithAlgo6, validDigestWithAlgo7, validDigestWithAlgo8, validDigestWithAlgo9, validDigestWithAlgo10}
 
 type args struct {
 	ctx                   context.Context
@@ -159,9 +170,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(pageWithBadDigest))),
-				Header: map[string][]string{
-					"Oras-Api-Version": {"oras/1.1"},
-				},
 				Request: &http.Request{
 					Method: "GET",
 					URL:    &url.URL{Path: "/v2/test/_oras/artifacts/referrers"},
@@ -171,9 +179,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(pageWithWrongMediaType))),
-				Header: map[string][]string{
-					"Oras-Api-Version": {"oras/1.1"},
-				},
 				Request: &http.Request{
 					Method: "GET",
 					URL:    &url.URL{Path: "/v2/test/_oras/artifacts/referrers"},
@@ -183,9 +188,6 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(validPage))),
-				Header: map[string][]string{
-					"Oras-Api-Version": {"oras/1.1"},
-				},
 				Request: &http.Request{
 					Method: "GET",
 					URL:    &url.URL{Path: "/v2/test/_oras/artifacts/referrers"},
@@ -287,12 +289,31 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 		default:
 			return &http.Response{}, fmt.Errorf(msg)
 		}
+	case "/v2/test/referrers/sha256:0000000000000000000000000000000000000000000000000000000000000000":
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader([]byte(validPageImage))),
+			Request: &http.Request{
+				Method: "GET",
+				URL:    &url.URL{Path: "/v2/test/referrers/sha256:0000000000000000000000000000000000000000000000000000000000000000"},
+			},
+		}, nil
 	case validRepo:
 		return &http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       io.NopCloser(bytes.NewReader([]byte(msg))),
 		}, nil
 	default:
+		_, digest, found := strings.Cut(req.URL.Path, "/v2/test/manifests/")
+		if found && !slices.Contains(validDigestWithAlgoSlice, digest) {
+			return &http.Response{
+				StatusCode: http.StatusCreated,
+				Body:       io.NopCloser(bytes.NewReader([]byte(msg))),
+				Header: map[string][]string{
+					"Content-Type": {mediaType},
+				},
+			}, nil
+		}
 		return &http.Response{}, fmt.Errorf(errMsg)
 	}
 }
@@ -431,10 +452,8 @@ func TestPushSignature(t *testing.T) {
 		expectErr      bool
 	}{
 		{
-			name:           "failed to upload signature",
-			expectErr:      true,
-			expectDes:      ocispec.Descriptor{},
-			expectManifest: ocispec.Descriptor{},
+			name:      "failed to upload signature",
+			expectErr: true,
 			args: args{
 				reference:    referenceWithInvalidHost,
 				signature:    make([]byte, 0),
@@ -443,10 +462,8 @@ func TestPushSignature(t *testing.T) {
 			},
 		},
 		{
-			name:           "failed to upload signature manifest",
-			expectErr:      true,
-			expectDes:      ocispec.Descriptor{},
-			expectManifest: ocispec.Descriptor{},
+			name:      "successfully uploaded signature manifest",
+			expectErr: false,
 			args: args{
 				reference:    validReference,
 				signature:    make([]byte, 0),
@@ -461,14 +478,27 @@ func TestPushSignature(t *testing.T) {
 			ref, _ := registry.ParseReference(args.reference)
 			client := newRepositoryClient(args.remoteClient, ref, args.plainHttp)
 
-			des, _, err := client.PushSignature(args.ctx, args.signatureMediaType, args.signature, args.subjectManifest, args.annotations)
+			_, _, err := client.PushSignature(args.ctx, args.signatureMediaType, args.signature, args.subjectManifest, args.annotations)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("error = %v, expectErr = %v", err, tt.expectErr)
 			}
-			if !reflect.DeepEqual(des, tt.expectDes) {
-				t.Errorf("expect descriptor: %+v, got %+v", tt.expectDes, des)
-			}
 		})
+	}
+}
+
+func TestPushSignatureImageManifest(t *testing.T) {
+	ref, err := registry.ParseReference(validReference)
+	if err != nil {
+		t.Fatalf("failed to parse reference")
+	}
+	client := newRepositoryClientWithImageManifest(mockRemoteClient{}, ref, false)
+
+	_, manifestDesc, err := client.PushSignature(context.Background(), coseTag, make([]byte, 0), ocispec.Descriptor{}, nil)
+	if err != nil {
+		t.Fatalf("failed to push signature")
+	}
+	if manifestDesc.MediaType != ocispec.MediaTypeImageManifest {
+		t.Errorf("expect manifestDesc.MediaType: %v, got %v", ocispec.MediaTypeImageManifest, manifestDesc.MediaType)
 	}
 }
 
@@ -479,6 +509,20 @@ func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 			Client:    client,
 			Reference: ref,
 			PlainHTTP: plainHTTP,
+		},
+	}
+}
+
+// newRepositoryClient creates a new repository client.
+func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
+	return &repositoryClient{
+		Repository: &remote.Repository{
+			Client:    client,
+			Reference: ref,
+			PlainHTTP: plainHTTP,
+		},
+		RepositoryOptions: RepositoryOptions{
+			OCIImageManifest: true,
 		},
 	}
 }
