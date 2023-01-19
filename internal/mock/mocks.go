@@ -46,7 +46,7 @@ var (
 		MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:      SampleDigest,
 		Size:        528,
-		Annotations: nil,
+		Annotations: Annotations,
 	}
 	SigManfiestDescriptor = ocispec.Descriptor{
 		MediaType:   "application/vnd.cncf.oras.artifact.manifest.v1+json",

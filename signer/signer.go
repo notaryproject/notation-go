@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -23,12 +22,6 @@ import (
 
 // signingAgent is the unprotected header field used by signature.
 const signingAgent = "Notation/1.0.0"
-
-var (
-	reservedAnnotationPrefixes = []string{
-		"io.cncf.notary",
-	}
-)
 
 // genericSigner implements notation.Signer and embeds signature.Signer
 type genericSigner struct {
@@ -83,12 +76,8 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic signing for %v in signature media type %v", desc.Digest, opts.SignatureMediaType)
 	// Generate payload to be signed.
-	payload, err := constructPayload(ctx, desc, opts.UserMetadata)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	payloadBytes, err := json.Marshal(*payload)
+	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
@@ -143,28 +132,4 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 
 	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
 	return sig, &envContent.SignerInfo, nil
-}
-
-func constructPayload(ctx context.Context, desc ocispec.Descriptor, userMetadata map[string]string) (*envelope.Payload, error) {
-	logger := log.GetLogger(ctx)
-
-	if desc.Annotations == nil && len(userMetadata) > 0 {
-		desc.Annotations = map[string]string{}
-	}
-
-	for k, v := range userMetadata {
-		logger.Debugf("Adding metadata %v=%v to annotations", k, v)
-
-		for _, reservedPrefix := range reservedAnnotationPrefixes {
-			if strings.HasPrefix(k, reservedPrefix) {
-				return nil, fmt.Errorf("error adding user metadata: metadata key %v has reserved prefix %v", k, reservedPrefix)
-			}
-		}
-
-		desc.Annotations[k] = v
-	}
-
-	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
-
-	return &payload, nil
 }

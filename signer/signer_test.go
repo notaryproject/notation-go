@@ -8,14 +8,12 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -143,7 +141,7 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 		t.Fatalf("Sign() failed: %v", err)
 	}
 	// basic verification
-	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil, opts.UserMetadata)
+	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 }
 
 func TestNewFromFiles(t *testing.T) {
@@ -197,7 +195,7 @@ func TestSignWithTimestamp(t *testing.T) {
 				}
 
 				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], &validMetadata, sOpts.UserMetadata)
+				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], &validMetadata)
 			})
 		}
 	}
@@ -223,34 +221,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 				}
 
 				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil, sOpts.UserMetadata)
-			})
-		}
-	}
-}
-
-func TestSignWithInvalidUserMetadata(t *testing.T) {
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := New(keyCert.key, keyCert.certs)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
-
-				ctx := context.Background()
-
-				for _, reservedPrefix := range reservedAnnotationPrefixes {
-					desc, sOpts := generateSigningContent(nil)
-					invalidKey := reservedPrefix + ".invalid"
-					sOpts.UserMetadata[invalidKey] = "value"
-					expectedError := fmt.Sprintf("metadata key %v has reserved prefix %v", invalidKey, reservedPrefix)
-
-					_, _, err := s.Sign(ctx, desc, sOpts)
-					if err == nil || !strings.Contains(err.Error(), expectedError) {
-						t.Fatalf("expected error %+v but was %+v instead", expectedError, err)
-					}
-				}
+				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 			})
 		}
 	}
@@ -298,10 +269,8 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 			"foo":      "bar",
 		},
 	}
-	sOpts := notation.SignOptions{
-		ExpiryDuration: 24 * time.Hour,
-		UserMetadata:   map[string]string{"example": "metadata"},
-	}
+	sOpts := notation.SignOptions{ExpiryDuration: 24 * time.Hour}
+
 	if tsa != nil {
 		tsaRoots := x509.NewCertPool()
 		tsaRoots.AddCert(tsa.Certificate())
@@ -310,7 +279,7 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 	return desc, sOpts
 }
 
-func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate, metadata *proto.GetMetadataResponse, userMetadata map[string]string) {
+func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate, metadata *proto.GetMetadataResponse) {
 	// basic verification
 	sigEnv, err := signature.ParseEnvelope(envelopeType, sig)
 	if err != nil {
@@ -332,7 +301,6 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 	}
 
 	verifySigningAgent(t, envContent.SignerInfo.UnsignedAttributes.SigningAgent, metadata)
-	verifyUserMetadataInPayload(t, envContent.Payload.Content, userMetadata)
 }
 
 func verifySigningAgent(t *testing.T, signingAgentId string, metadata *proto.GetMetadataResponse) {
@@ -368,18 +336,5 @@ func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.Private
 	}
 
 	// basic verification
-	basicVerification(t, sig, envelopeType, certs[len(certs)-1], nil, sOpts.UserMetadata)
-}
-
-func verifyUserMetadataInPayload(t *testing.T, payloadBytes []byte, userMetadata map[string]string) {
-	var payload envelope.Payload
-	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
-		t.Fatalf("unable to unmarshal payload")
-	}
-
-	for k, v := range userMetadata {
-		if payload.TargetArtifact.Annotations[k] != v {
-			t.Fatalf("unable to find expected user metadata %v=%v in payload", k, v)
-		}
-	}
+	basicVerification(t, sig, envelopeType, certs[len(certs)-1], nil)
 }

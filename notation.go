@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -23,9 +24,10 @@ import (
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
 
 var errDoneVerification = errors.New("done verification")
+var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
-// SignOptions contains parameters for Signer.Sign.
-type SignOptions struct {
+// RemoteSignOptions contains parameters for notation.Sign.
+type RemoteSignOptions struct {
 	// ArtifactReference sets the reference of the artifact that needs to be signed.
 	ArtifactReference string
 
@@ -48,6 +50,27 @@ type SignOptions struct {
 	SigningAgent string
 }
 
+// SignOptions contains parameters for Signer.Sign.
+type SignOptions struct {
+	// ArtifactReference sets the reference of the artifact that needs to be signed.
+	ArtifactReference string
+
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaType string
+
+	// ExpiryDuration identifies the expiry duration of the resulted signature. Zero value
+	// represents no expiry duration.
+	ExpiryDuration time.Duration
+
+	// PluginConfig sets or overrides the plugin configuration.
+	PluginConfig map[string]string
+
+	// SigningAgent sets the signing agent name
+	SigningAgent string
+}
+
 // Signer is a generic interface for signing an artifact.
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
@@ -60,18 +83,18 @@ type Signer interface {
 // Sign signs the artifact in the remote registry and push the signature to the
 // remote.
 // The descriptor of the sign content is returned upon sucessful signing.
-func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts SignOptions) (ocispec.Descriptor, error) {
+func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOpts RemoteSignOptions) (ocispec.Descriptor, error) {
 	// Input validation for expiry duration
-	if opts.ExpiryDuration < 0 {
+	if remoteOpts.ExpiryDuration < 0 {
 		return ocispec.Descriptor{}, fmt.Errorf("expiry duration cannot be a negative value")
 	}
 
-	if opts.ExpiryDuration%time.Second != 0 {
+	if remoteOpts.ExpiryDuration%time.Second != 0 {
 		return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granularity of seconds")
 	}
 
 	logger := log.GetLogger(ctx)
-	artifactRef := opts.ArtifactReference
+	artifactRef := remoteOpts.ArtifactReference
 	ref, err := orasRegistry.ParseReference(artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -87,6 +110,20 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 		// artifactRef is not a digest reference
 		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
 		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
+	}
+
+	targetDesc, err = addUserMetadataToDescriptor(ctx, targetDesc, remoteOpts.UserMetadata)
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+
+	// opts to be passed in signer.Sign()
+	opts := SignOptions{
+		ArtifactReference:  remoteOpts.ArtifactReference,
+		SignatureMediaType: remoteOpts.SignatureMediaType,
+		ExpiryDuration:     remoteOpts.ExpiryDuration,
+		PluginConfig:       remoteOpts.PluginConfig,
+		SigningAgent:       remoteOpts.SigningAgent,
 	}
 
 	sig, signerInfo, err := signer.Sign(ctx, targetDesc, opts)
@@ -107,6 +144,32 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	}
 
 	return targetDesc, nil
+}
+
+func addUserMetadataToDescriptor(ctx context.Context, desc ocispec.Descriptor, userMetadata map[string]string) (ocispec.Descriptor, error) {
+	logger := log.GetLogger(ctx)
+
+	if desc.Annotations == nil && len(userMetadata) > 0 {
+		desc.Annotations = map[string]string{}
+	}
+
+	for k, v := range userMetadata {
+		logger.Debugf("Adding metadata %v=%v to annotations", k, v)
+
+		for _, reservedPrefix := range reservedAnnotationPrefixes {
+			if strings.HasPrefix(k, reservedPrefix) {
+				return desc, fmt.Errorf("error adding user metadata: metadata key %v has reserved prefix %v", k, reservedPrefix)
+			}
+		}
+
+		if _, ok := desc.Annotations[k]; ok {
+			return desc, fmt.Errorf("error adding user metadata: metadata key %v is already present in the target artifact", k)
+		}
+
+		desc.Annotations[k] = v
+	}
+
+	return desc, nil
 }
 
 // ValidationResult encapsulates the verification result (passed or failed)
@@ -251,9 +314,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	}
 
 	var verificationOutcomes []*VerificationOutcome
-	var failedOutcomes []*VerificationOutcome
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", remoteOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
+
+	var verificationFailedErr error
+	verificationFailedErr = ErrorVerificationFailed{}
 
 	// get signature manifests
 	logger.Debug("Fetching signature manifests using referrers API")
@@ -282,7 +347,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
-				failedOutcomes = append(failedOutcomes, outcome)
+
+				if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
+					verificationFailedErr = outcome.Error
+				}
+
 				continue
 			}
 			// at this point, the signature is verified successfully. Add
@@ -316,7 +385,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	// Verification Failed
 	if len(verificationOutcomes) == 0 {
 		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
-		return ocispec.Descriptor{}, verificationOutcomes, getFinalVerificationError(failedOutcomes)
+		return ocispec.Descriptor{}, verificationOutcomes, verificationFailedErr
 	}
 
 	// Verification Succeeded
@@ -351,16 +420,4 @@ func (outcome *VerificationOutcome) GetUserMetadata() (map[string]string, error)
 	}
 
 	return payload.TargetArtifact.Annotations, nil
-}
-
-func getFinalVerificationError(outcomes []*VerificationOutcome) error {
-	err := ErrorVerificationFailed{}
-
-	for _, outcome := range outcomes {
-		if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
-			return outcome.Error
-		}
-	}
-
-	return err
 }

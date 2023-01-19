@@ -102,11 +102,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature envelope by plugin")
-	payload, err := constructPayload(ctx, desc, opts.UserMetadata)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)

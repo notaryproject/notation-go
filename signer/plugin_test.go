@@ -206,18 +206,6 @@ func TestSigner_Sign_EnvelopeNotSupported(t *testing.T) {
 	testSignerError(t, signer, fmt.Sprintf("signature envelope format with media type %q is not supported", opts.SignatureMediaType), opts)
 }
 
-func TestSigner_Sign_InvalidUserMetadata(t *testing.T) {
-	signer := pluginSigner{
-		plugin: newMockPlugin(nil, nil, signature.KeySpec{Type: signature.KeyTypeRSA, Size: 2048}),
-	}
-
-	for _, reservedPrefix := range reservedAnnotationPrefixes {
-		invalidKey := reservedPrefix + ".invalid"
-		opts := notation.SignOptions{UserMetadata: map[string]string{invalidKey: "value"}}
-		testSignerError(t, signer, fmt.Sprintf("metadata key %v has reserved prefix %v", invalidKey, reservedPrefix), opts)
-	}
-}
-
 func TestSigner_Sign_DescribeKeyIDMismatch(t *testing.T) {
 	respKeyId := ""
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
@@ -386,5 +374,5 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string
 	if !reflect.DeepEqual(mockPlugin.certs, signerInfo.CertificateChain) {
 		t.Fatalf(" Signer.Sign() cert chain changed")
 	}
-	basicVerification(t, data, envelopeType, mockPlugin.certs[len(mockPlugin.certs)-1], metadata, validSignOpts.UserMetadata)
+	basicVerification(t, data, envelopeType, mockPlugin.certs[len(mockPlugin.certs)-1], metadata)
 }
