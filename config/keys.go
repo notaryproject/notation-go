@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 
 	"github.com/notaryproject/notation-go/dir"
@@ -46,6 +47,11 @@ func (s *SigningKeys) Save() error {
 	if err != nil {
 		return err
 	}
+
+	if err := validateKeys(s); err != nil {
+		return err
+	}
+
 	return save(path, s)
 }
 
@@ -65,5 +71,27 @@ func LoadSigningKeys() (*SigningKeys, error) {
 		}
 		return nil, err
 	}
+
+	if err := validateKeys(&config); err != nil {
+		return nil, err
+	}
+
 	return &config, nil
+}
+
+func validateKeys(config *SigningKeys) error {
+	keys := config.Keys
+	uniqMap := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if _, ok := uniqMap[key.Name]; ok {
+			return fmt.Errorf("malformed %s: multiple keys with name '%s' found", dir.PathSigningKeys, key.Name)
+		}
+		uniqMap[key.Name] = struct{}{}
+	}
+
+	if _, ok := uniqMap[config.Default]; !ok {
+		return fmt.Errorf("malformed %s: default key '%s' not found", dir.PathSigningKeys, config.Default)
+	}
+
+	return nil
 }
