@@ -6,6 +6,7 @@ import (
 	"io/fs"
 
 	"github.com/notaryproject/notation-go/dir"
+	set "github.com/notaryproject/notation-go/internal/container"
 )
 
 // X509KeyPair contains the paths of a public/private key pair files.
@@ -37,7 +38,7 @@ func (k KeySuite) Is(name string) bool {
 
 // SigningKeys reflects the signingkeys.json file.
 type SigningKeys struct {
-	Default string     `json:"default"`
+	Default *string    `json:"default"`
 	Keys    []KeySuite `json:"keys"`
 }
 
@@ -81,16 +82,26 @@ func LoadSigningKeys() (*SigningKeys, error) {
 
 func validateKeys(config *SigningKeys) error {
 	keys := config.Keys
-	uniqMap := make(map[string]struct{}, len(keys))
+	uniqueKeyNames := set.NewWithSize[string](len(keys))
 	for _, key := range keys {
-		if _, ok := uniqMap[key.Name]; ok {
+		if len(key.Name) == 0 {
+			return fmt.Errorf("malformed %s: key name cannot be empty", dir.PathSigningKeys)
+		}
+		if uniqueKeyNames.Contains(key.Name) {
 			return fmt.Errorf("malformed %s: multiple keys with name '%s' found", dir.PathSigningKeys, key.Name)
 		}
-		uniqMap[key.Name] = struct{}{}
+		uniqueKeyNames.Add(key.Name)
 	}
 
-	if _, ok := uniqMap[config.Default]; !ok {
-		return fmt.Errorf("malformed %s: default key '%s' not found", dir.PathSigningKeys, config.Default)
+	if config.Default != nil {
+		defaultKey := *config.Default
+		if len(defaultKey) == 0 {
+			return fmt.Errorf("malformed %s: default key name cannot be empty", dir.PathSigningKeys)
+		}
+
+		if !uniqueKeyNames.Contains(defaultKey) {
+		return fmt.Errorf("malformed %s: default key '%s' not found", dir.PathSigningKeys, defaultKey)
+		}
 	}
 
 	return nil
