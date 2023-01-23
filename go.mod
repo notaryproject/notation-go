@@ -8,7 +8,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc2
 	github.com/veraison/go-cose v1.0.0-rc.2
-	oras.land/oras-go/v2 v2.0.0-rc.6
+	oras.land/oras-go/v2 v2.0.0
 )
 
 require (
