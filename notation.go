@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
@@ -324,4 +325,19 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	return map[string]string{
 		annotationX509ChainThumbprint: string(val),
 	}, nil
+}
+
+func GetDescriptorFromPayload(payload *signature.Payload) (*ocispec.Descriptor, error) {
+	if payload == nil {
+		return nil, errors.New("Empty payload")
+	}
+
+	var parsedPayload envelope.Payload
+
+	err := json.Unmarshal(payload.Content, &parsedPayload)
+	if err != nil {
+		return nil, errors.New("Failed to unmarshall the payload content to envelope.Payload")
+	}
+
+	return &parsedPayload.TargetArtifact, nil
 }
