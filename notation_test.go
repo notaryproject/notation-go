@@ -38,6 +38,18 @@ func TestSignSuccess(t *testing.T) {
 	}
 }
 
+func TestSignWithAnnotationsSuccess(t *testing.T) {
+	repo := mock.NewRepository()
+
+	opts := SignOptions{
+		ArtifactReference: mock.SampleArtifactUri,
+	}
+	_, err := Sign(context.Background(), &dummySigner{annotations: map[string]string{"foo": "bar"}}, repo, opts)
+	if err != nil {
+		t.Fatalf("Sign failed with error: %v", err)
+	}
+}
+
 func TestSignWithInvalidExpiry(t *testing.T) {
 	repo := mock.NewRepository()
 	testCases := []struct {
@@ -217,10 +229,12 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 	return
 }
 
-type dummySigner struct{}
+type dummySigner struct{
+	annotations map[string]string
+}
 
-func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
-	return []byte("ABC"), &signature.SignerInfo{}, nil
+func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, map[string]string, *signature.SignerInfo, error) {
+	return []byte("ABC"), s.annotations, &signature.SignerInfo{}, nil
 }
 
 type dummyVerifier struct {

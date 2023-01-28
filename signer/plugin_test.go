@@ -51,6 +51,7 @@ type mockPlugin struct {
 	invalidSig        bool
 	invalidCertChain  bool
 	invalidDescriptor bool
+	annotations       map[string]string
 	key               crypto.PrivateKey
 	certs             []*x509.Certificate
 	keySpec           signature.KeySpec
@@ -64,7 +65,7 @@ func newMockPlugin(key crypto.PrivateKey, certs []*x509.Certificate, keySpec sig
 	}
 }
 
-func (p *mockPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
+func (p *mockPlugin) GetMetadata(context.Context, *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
 	if p.wantEnvelope {
 		return &proto.GetMetadataResponse{
 			Name:                      "testPlugin",
@@ -178,13 +179,14 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 			return nil, err
 		}
 		validSignOpts.SignatureMediaType = req.SignatureEnvelopeType
-		data, _, err := internalPluginSigner.Sign(ctx, payload.TargetArtifact, validSignOpts)
+		data, _, _, err := internalPluginSigner.Sign(ctx, payload.TargetArtifact, validSignOpts)
 		if err != nil {
 			return nil, err
 		}
 		return &proto.GenerateEnvelopeResponse{
 			SignatureEnvelope:     data,
 			SignatureEnvelopeType: req.SignatureEnvelopeType,
+			Annotations: p.annotations,
 		}, nil
 	}
 	return &proto.GenerateEnvelopeResponse{}, nil
@@ -226,7 +228,7 @@ func TestSigner_Sign_ExpiryInValid(t *testing.T) {
 			signer := pluginSigner{
 				plugin: newMockPlugin(keyCertPairCollections[0].key, keyCertPairCollections[0].certs, ks),
 			}
-			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignOptions{ExpiryDuration: -24 * time.Hour, SignatureMediaType: envelopeType})
+			_, _, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignOptions{ExpiryDuration: -24 * time.Hour, SignatureMediaType: envelopeType})
 			wantEr := "expiry cannot be equal or before the signing time"
 			if err == nil || !strings.Contains(err.Error(), wantEr) {
 				t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
@@ -289,6 +291,25 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 	}
 }
 
+func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
+				pluginSigner := pluginSigner{
+					plugin: &mockPlugin{
+						key:         keyCert.key,
+						certs:       keyCert.certs,
+						keySpec:     keySpec,
+						annotations: map[string]string{"key": "value"},
+					},
+				}
+				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
+			})
+		}
+	}
+}
+
 func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		t.Run(fmt.Sprintf("envelopeType=%v", envelopeType), func(t *testing.T) {
@@ -322,7 +343,7 @@ func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
 
 func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts notation.SignOptions) {
 	t.Helper()
-	_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, opts)
+	_, _, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, opts)
 	if err == nil || !strings.Contains(err.Error(), wantEr) {
 		t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
 	}
@@ -330,7 +351,7 @@ func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts nota
 
 func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string, metadata *proto.GetMetadataResponse) {
 	validSignOpts.SignatureMediaType = envelopeType
-	data, signerInfo, err := pluginSigner.Sign(context.Background(), validSignDescriptor, validSignOpts)
+	data, ants, signerInfo, err := pluginSigner.Sign(context.Background(), validSignDescriptor, validSignOpts)
 	if err != nil {
 		t.Fatalf("Signer.Sign() error = %v, wantErr nil", err)
 	}
@@ -374,5 +395,5 @@ func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string
 	if !reflect.DeepEqual(mockPlugin.certs, signerInfo.CertificateChain) {
 		t.Fatalf(" Signer.Sign() cert chain changed")
 	}
-	basicVerification(t, data, envelopeType, mockPlugin.certs[len(mockPlugin.certs)-1], metadata)
+	basicVerification(t, data, ants, envelopeType, mockPlugin.certs[len(mockPlugin.certs)-1], metadata)
 }

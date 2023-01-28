@@ -72,14 +72,14 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
-func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, map[string]string ,*signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic signing for %v in signature media type %v", desc.Digest, opts.SignatureMediaType)
 	// Generate payload to be signed.
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
+		return nil, nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
 
 	var signingAgentId string
@@ -114,22 +114,22 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	sig, err := sigEnv.Sign(signReq)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	envContent, err := sigEnv.Verify()
 	if err != nil {
-		return nil, nil, fmt.Errorf("generated signature failed verification: %v", err)
+		return nil, nil, nil, fmt.Errorf("generated signature failed verification: %v", err)
 	}
 	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
-	return sig, &envContent.SignerInfo, nil
+	return sig, nil, &envContent.SignerInfo, nil
 }

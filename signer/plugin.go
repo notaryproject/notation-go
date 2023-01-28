@@ -18,6 +18,8 @@ import (
 	"oras.land/oras-go/v2/content"
 )
 
+const annotationNotaryPrefix = "io.cncf.notary"
+
 // pluginSigner signs artifacts and generates signatures.
 // It implements notation.Signer
 type pluginSigner struct {
@@ -26,7 +28,7 @@ type pluginSigner struct {
 	pluginConfig map[string]string
 }
 
-// NewSignerPlugin creates a notation.Signer that signs artifacts and generates
+// NewFromPlugin creates a notation.Signer that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
@@ -46,7 +48,7 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
-func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, map[string]string, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Invoking plugin's get-plugin-metadata command")
 	req := &proto.GetMetadataRequest{
@@ -54,7 +56,7 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	}
 	metadata, err := s.plugin.GetMetadata(ctx, req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign artifact %v in signature media type %v", metadata.Name, metadata.Capabilities, desc.Digest, opts.SignatureMediaType)
@@ -63,26 +65,26 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
-	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
+	return nil, nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions, metadata *proto.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions, metadata *proto.GetMetadataResponse) ([]byte, map[string]string, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature by plugin")
 	config := s.mergeConfig(opts.PluginConfig)
 	// Get key info.
 	key, err := s.describeKey(ctx, config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil,err
 	}
 
 	// Check keyID is honored.
 	if s.keyID != key.KeyID {
-		return nil, nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.keyID)
+		return nil, nil, nil, fmt.Errorf("keyID in describeKey response %q does not match request %q", key.KeyID, s.keyID)
 	}
 	ks, err := proto.DecodeKeySpec(key.KeySpec)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	genericSigner := genericSigner{
@@ -99,13 +101,13 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 	return genericSigner.Sign(ctx, desc, opts)
 }
 
-func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, map[string]string, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature envelope by plugin")
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
+		return nil, nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
 	// Execute plugin sign command.
 	req := &proto.GenerateEnvelopeRequest{
@@ -118,12 +120,12 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	}
 	resp, err := s.plugin.GenerateEnvelope(ctx, req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("plugin failed to sign with following error: %w", err)
+		return nil, nil, nil, fmt.Errorf("plugin failed to sign with following error: %w", err)
 	}
 
 	// Check signatureEnvelopeType is honored.
 	if resp.SignatureEnvelopeType != req.SignatureEnvelopeType {
-		return nil, nil, fmt.Errorf(
+		return nil, nil, nil, fmt.Errorf(
 			"signatureEnvelopeType in generateEnvelope response %q does not match request %q",
 			resp.SignatureEnvelopeType, req.SignatureEnvelopeType,
 		)
@@ -132,32 +134,32 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	logger.Debug("Verifying signature envelope generated by the plugin")
 	sigEnv, err := signature.ParseEnvelope(opts.SignatureMediaType, resp.SignatureEnvelope)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	envContent, err := sigEnv.Verify()
 	if err != nil {
-		return nil, nil, fmt.Errorf("generated signature failed verification: %w", err)
+		return nil, nil, nil, fmt.Errorf("generated signature failed verification: %w", err)
 	}
 	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	content := envContent.Payload.Content
 	var signedPayload envelope.Payload
 	if err = json.Unmarshal(content, &signedPayload); err != nil {
-		return nil, nil, fmt.Errorf("signed envelope payload can't be unmarshalled: %w", err)
+		return nil, nil, nil, fmt.Errorf("signed envelope payload can't be unmarshalled: %w", err)
 	}
 
 	if !isPayloadDescriptorValid(desc, signedPayload.TargetArtifact) {
-		return nil, nil, fmt.Errorf("during signing descriptor subject has changed from %+v to %+v", desc, signedPayload.TargetArtifact)
+		return nil, nil, nil, fmt.Errorf("during signing descriptor subject has changed from %+v to %+v", desc, signedPayload.TargetArtifact)
 	}
 
 	if unknownAttributes := areUnknownAttributesAdded(content); len(unknownAttributes) != 0 {
-		return nil, nil, fmt.Errorf("during signing, following unknown attributes were added to subject descriptor: %+q", unknownAttributes)
+		return nil, nil, nil, fmt.Errorf("during signing, following unknown attributes were added to subject descriptor: %+q", unknownAttributes)
 	}
 
-	return resp.SignatureEnvelope, &envContent.SignerInfo, nil
+	return resp.SignatureEnvelope, resp.Annotations, &envContent.SignerInfo, nil
 }
 
 func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {

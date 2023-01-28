@@ -136,12 +136,12 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 	}
 	desc, opts := generateSigningContent(nil)
 	opts.SignatureMediaType = envelopeType
-	sig, _, err := s.Sign(context.Background(), desc, opts)
+	sig, ants, _, err := s.Sign(context.Background(), desc, opts)
 	if err != nil {
 		t.Fatalf("Sign() failed: %v", err)
 	}
 	// basic verification
-	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
+	basicVerification(t, sig, ants, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 }
 
 func TestNewFromFiles(t *testing.T) {
@@ -167,40 +167,6 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 }
 
-// TODO: Enable once we have timestamping inplace https://github.com/notaryproject/notation-go/issues/78
-func TestSignWithTimestamp(t *testing.T) {
-	t.Skip("Skipping testing as we dont have timestamping hooked up")
-	// prepare signer
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := New(keyCert.key, keyCert.certs)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
-
-				// configure TSA
-				tsa, err := timestamptest.NewTSA()
-				if err != nil {
-					t.Fatalf("timestamptest.NewTSA() error = %v", err)
-				}
-
-				// sign content
-				ctx := context.Background()
-				desc, sOpts := generateSigningContent(tsa)
-				sOpts.SignatureMediaType = envelopeType
-				sig, _, err := s.Sign(ctx, desc, sOpts)
-				if err != nil {
-					t.Fatalf("Sign() error = %v", err)
-				}
-
-				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], &validMetadata)
-			})
-		}
-	}
-}
-
 func TestSignWithoutExpiry(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
@@ -215,13 +181,13 @@ func TestSignWithoutExpiry(t *testing.T) {
 				desc, sOpts := generateSigningContent(nil)
 				sOpts.ExpiryDuration = 0 // reset expiry
 				sOpts.SignatureMediaType = envelopeType
-				sig, _, err := s.Sign(ctx, desc, sOpts)
+				sig, ants, _, err := s.Sign(ctx, desc, sOpts)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
 				}
 
 				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
+				basicVerification(t, sig, ants, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 			})
 		}
 	}
@@ -277,7 +243,11 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 	return desc, sOpts
 }
 
-func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate, metadata *proto.GetMetadataResponse) {
+func basicVerification(t *testing.T, sig []byte, annotations map[string]string, envelopeType string, trust *x509.Certificate, metadata *proto.GetMetadataResponse) {
+	if annotations != nil {
+		t.Fatalf("annotations should be nil")
+	}
+
 	// basic verification
 	sigEnv, err := signature.ParseEnvelope(envelopeType, sig)
 	if err != nil {
@@ -328,11 +298,11 @@ func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.Private
 	ctx := context.Background()
 	desc, sOpts := generateSigningContent(nil)
 	sOpts.SignatureMediaType = envelopeType
-	sig, _, err := s.Sign(ctx, desc, sOpts)
+	sig, ants, _, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
 	}
 
 	// basic verification
-	basicVerification(t, sig, envelopeType, certs[len(certs)-1], nil)
+	basicVerification(t, sig, ants, envelopeType, certs[len(certs)-1], nil)
 }
