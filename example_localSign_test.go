@@ -53,7 +53,7 @@ func Example_localSign() {
 	// local sign core process
 	// upon successful signing, signature envelope and signerInfo are returned.
 	// signatureEnvelope can be used in a verification process later on.
-	signatureEnvelope, signerInfo, err := exampleSigner.Sign(context.Background(), exampleDesc, exampleSignOptions)
+	signatureEnvelope, _, signerInfo, err := exampleSigner.Sign(context.Background(), exampleDesc, exampleSignOptions)
 	if err != nil {
 		panic(err) // Handle error
 	}
