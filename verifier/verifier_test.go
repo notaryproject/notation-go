@@ -201,7 +201,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		policyDocument.TrustPolicies[0].TrustStores = []string{"ca:valid-trust-store-2", "signingAuthority"}
-		expectedErr := fmt.Errorf("error while loading the trust store, trust policy statement \"test-statement-name\" is missing separator in trust store value \"signingAuthority\"")
+		expectedErr := fmt.Errorf("error while loading the trust store, trust policy statement \"test-statement-name\" is missing separator in trust store value \"signingAuthority\". Format <TrustStoreType>:<TrustStoreName> is required")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
 			verificationType:  trustpolicy.TypeAuthenticity,
