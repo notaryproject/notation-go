@@ -49,7 +49,7 @@ type SignOptions struct {
 // and packing in various signature formats.
 type Signer interface {
 	// Sign signs the artifact described by its descriptor,
-	// and returns the signature and SignerInfo.
+	// and returns the signature, annotations and SignerInfo.
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, map[string]string, *signature.SignerInfo, error)
 }
 
@@ -85,12 +85,12 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
 	}
 
-	sig, ants, signerInfo, err := signer.Sign(ctx, targetDesc, opts)
+	sig, pluginAnnotations, signerInfo, err := signer.Sign(ctx, targetDesc, opts)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
 	logger.Debug("Generating annotation")
-	annotations, err := generateAnnotations(signerInfo, ants)
+	annotations, err := generateAnnotations(signerInfo, pluginAnnotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
