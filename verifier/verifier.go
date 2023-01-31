@@ -425,7 +425,7 @@ func verifyUserMetadata(logger log.Logger, payload *envelope.Payload, userMetada
 	logger.Debugf("Signature metadata: %v", payload.TargetArtifact.Annotations)
 
 	for k, v := range userMetadata {
-		if payload.TargetArtifact.Annotations[k] != v {
+		if got, ok := payload.TargetArtifact.Annotations[k]; !ok || got != v {
 			logger.Errorf("User required metadata %s=%s is not present in the signature", k, v)
 			return notation.ErrorUserMetadataVerificationFailed{}
 		}

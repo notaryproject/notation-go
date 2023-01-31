@@ -101,16 +101,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 		return ocispec.Descriptor{}, err
 	}
 
-	// opts to be passed in signer.Sign()
-	opts := SignOptions{
-		ArtifactReference:  remoteOpts.ArtifactReference,
-		SignatureMediaType: remoteOpts.SignatureMediaType,
-		ExpiryDuration:     remoteOpts.ExpiryDuration,
-		PluginConfig:       remoteOpts.PluginConfig,
-		SigningAgent:       remoteOpts.SigningAgent,
-	}
-
-	sig, signerInfo, err := signer.Sign(ctx, targetDesc, opts)
+	sig, signerInfo, err := signer.Sign(ctx, targetDesc, remoteOpts.SignOptions)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -120,8 +111,8 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 		return ocispec.Descriptor{}, err
 	}
 	logger.Debugf("Generated annotations: %+v", annotations)
-	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, opts.SignatureMediaType)
-	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
+	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, remoteOpts.SignatureMediaType)
+	_, _, err = repo.PushSignature(ctx, remoteOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		logger.Error("Failed to push the signature")
 		return ocispec.Descriptor{}, err
@@ -192,6 +183,24 @@ type VerificationOutcome struct {
 
 	// Error that caused the verification to fail (if it fails)
 	Error error
+}
+
+func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
+	if outcome.EnvelopeContent == nil {
+		return map[string]string{}, nil
+	}
+
+	var payload envelope.Payload
+	err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, &payload)
+	if err != nil {
+		return nil, errors.New("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
+	}
+
+	if payload.TargetArtifact.Annotations == nil {
+		return map[string]string{}, nil
+	}
+
+	return payload.TargetArtifact.Annotations, nil
 }
 
 // VerifyOptions contains parameters for Verifier.Verify.
@@ -389,18 +398,4 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	return map[string]string{
 		annotationX509ChainThumbprint: string(val),
 	}, nil
-}
-
-func (outcome *VerificationOutcome) GetUserMetadata() (map[string]string, error) {
-	var payload envelope.Payload
-	err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, &payload)
-	if err != nil {
-		return nil, errors.New("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
-	}
-
-	if payload.TargetArtifact.Annotations == nil {
-		return map[string]string{}, nil
-	}
-
-	return payload.TargetArtifact.Annotations, nil
 }
