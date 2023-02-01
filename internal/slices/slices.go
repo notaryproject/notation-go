@@ -19,3 +19,29 @@ func ContainsAny(s []any, v any) bool {
 	}
 	return false
 }
+
+type isser interface {
+	Is(string) bool
+}
+
+// IndexIsser returns the index of the first occurrence of name in s,
+// or -1 if not present.
+func IndexIsser[E isser](s []E, name string) int {
+	for i, v := range s {
+		if v.Is(name) {
+			return i
+		}
+	}
+	return -1
+}
+
+// ContainsIsser reports whether name is present in s.
+func ContainsIsser[E isser](s []E, name string) bool {
+	return IndexIsser(s, name) >= 0
+}
+
+// DeleteIssr removes the elements s[i:i+1] from s,
+// returning the modified slice.
+func DeleteIssr[S ~[]E, E isser](s S, i int) S {
+return append(s[:i], s[i+1:]...)
+}
