@@ -371,7 +371,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustStores = []string{"ca"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". Format <TrustStoreType>:<TrustStoreName> is required" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". The required format is <TrustStoreType>:<TrustStoreName>" {
 		t.Fatalf("policy statement with trust store missing separator should return error")
 	}
 
