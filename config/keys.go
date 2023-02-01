@@ -102,9 +102,12 @@ func (s *SigningKeys) AddPlugin(ctx context.Context, keyName, id, pluginName str
 		},
 	}
 
-	err =  s.addCore(ks, markDefault)
+	if err =  s.addCore(ks, markDefault); err != nil {
+		logger.Error("Failed to add key with error: %v", err)
+		return err
+	}
 	logger.Debugf("Added key with name %s - {%+v}", keyName, ks)
-	return err
+	return nil
 }
 
 // Get returns signing key for the given name
@@ -131,7 +134,7 @@ func (s *SigningKeys) GetDefault() (KeySuite, error) {
 	return s.Get(*s.Default)
 }
 
-// Remove deletes given signing keys
+// Remove deletes given signing keys and returns a slice of deleted key names
 func (s *SigningKeys) Remove(keyName []string) ([]string, error) {
 	var deletedNames []string
 	for _, name := range keyName {
@@ -162,14 +165,11 @@ func (s *SigningKeys) UpdateDefault(keyName string) error {
 		return fmt.Errorf("key with name '%s' not found", keyName)
 	}
 
-	if s.Default == nil || *s.Default != keyName {
-		s.Default = &keyName
-	}
-
+	s.Default = &keyName
 	return nil
 }
 
-// Save config to file
+// Save SigningKeys to signingkeys.json file
 func (s *SigningKeys) Save() error {
 	path, err := dir.ConfigFS().SysPath(dir.PathSigningKeys)
 	if err != nil {
@@ -183,7 +183,7 @@ func (s *SigningKeys) Save() error {
 	return save(path, s)
 }
 
-// LoadSigningKeys reads the config from file
+// LoadSigningKeys reads the signingkeys.json file
 // or return a default config if not found.
 func LoadSigningKeys() (*SigningKeys, error) {
 	var config SigningKeys
