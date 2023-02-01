@@ -75,7 +75,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 	// Get key info.
 	key, err := s.describeKey(ctx, config)
 	if err != nil {
-		return nil, nil, nil,err
+		return nil, nil, nil, err
 	}
 
 	// Check keyID is honored.
