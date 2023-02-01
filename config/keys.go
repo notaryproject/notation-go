@@ -176,6 +176,10 @@ func (s *SigningKeys) Save() error {
 		return err
 	}
 
+	if err := validateKeys(s); err != nil {
+		return err
+	}
+
 	return save(path, s)
 }
 
