@@ -53,7 +53,9 @@ type Signer interface {
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
+// signerAnnotation facilitates return of manifest annotations by signers
 type signerAnnotation interface {
+	// PluginAnnotations returns signature manifest annotations returned from plugin
 	PluginAnnotations() map[string]string
 }
 
@@ -95,8 +97,8 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	}
 
 	var pluginAnnotations map[string]string
-	if signerAnnts, ok := signer.(signerAnnotation); ok {
-		pluginAnnotations = signerAnnts.PluginAnnotations()
+	if signerAnts, ok := signer.(signerAnnotation); ok {
+		pluginAnnotations = signerAnts.PluginAnnotations()
 	}
 
 	logger.Debug("Generating annotation")

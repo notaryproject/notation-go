@@ -45,6 +45,7 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 	}, nil
 }
 
+// PluginAnnotations returns signature manifest annotations returned from plugin
 func (s *pluginSigner) PluginAnnotations() map[string]string {
 	return s.manifestAnnotations
 }
