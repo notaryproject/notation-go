@@ -53,6 +53,10 @@ type Signer interface {
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
+type signerAnnotation interface {
+	PluginAnnotations() map[string]string
+}
+
 // Sign signs the artifact in the remote registry and push the signature to the
 // remote.
 // The descriptor of the sign content is returned upon sucessful signing.
@@ -89,8 +93,14 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
+
+	var pluginAnnotations map[string]string
+	if signerAnnts, ok := signer.(signerAnnotation); ok {
+		pluginAnnotations = signerAnnts.PluginAnnotations()
+	}
+
 	logger.Debug("Generating annotation")
-	annotations, err := generateAnnotations(signerInfo)
+	annotations, err := generateAnnotations(signerInfo, pluginAnnotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -310,7 +320,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	return artifactDescriptor, verificationOutcomes, nil
 }
 
-func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, error) {
+func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[string]string) (map[string]string, error) {
 	var thumbprints []string
 	for _, cert := range signerInfo.CertificateChain {
 		checkSum := sha256.Sum256(cert.Raw)
@@ -321,7 +331,10 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 		return nil, err
 	}
 
-	return map[string]string{
-		annotationX509ChainThumbprint: string(val),
-	}, nil
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[annotationX509ChainThumbprint] = string(val)
+	return annotations, nil
 }

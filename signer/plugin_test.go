@@ -51,6 +51,7 @@ type mockPlugin struct {
 	invalidSig        bool
 	invalidCertChain  bool
 	invalidDescriptor bool
+	annotations       map[string]string
 	key               crypto.PrivateKey
 	certs             []*x509.Certificate
 	keySpec           signature.KeySpec
@@ -118,6 +119,10 @@ func (p *mockPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateS
 		Signature:        sig,
 		CertificateChain: certChain,
 	}, nil
+}
+
+func (p *mockPlugin) PluginAnnotations() map[string]string {
+	return p.annotations
 }
 
 // GenerateEnvelope generates the Envelope with signature based on the request.
@@ -284,6 +289,29 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 					plugin: newMockPlugin(keyCert.key, keyCert.certs, keySpec),
 				}
 				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
+			})
+		}
+	}
+}
+
+func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
+				annts := map[string]string{"key": "value"}
+				pluginSigner := pluginSigner{
+					plugin: &mockPlugin{
+						key:         keyCert.key,
+						certs:       keyCert.certs,
+						keySpec:     keySpec,
+						annotations: annts,
+					},
+				}
+				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
+				if !reflect.DeepEqual(pluginSigner.PluginAnnotations(), annts) {
+					t.Errorf("mismatch in annotations returned from PluginAnnotations()")
+				}
 			})
 		}
 	}
