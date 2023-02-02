@@ -56,7 +56,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 
 		storeType, name, found := strings.Cut(trustStore, ":")
 		if !found {
-			return nil, fmt.Errorf("trust policy statement %q is missing separator in trust store value %q", policy.Name, trustStore)
+			return nil, fmt.Errorf("trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)
 		}
 		if typeToLoad != truststore.Type(storeType) {
 			continue

@@ -252,7 +252,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 				break
 			}
 			numOfSignatureProcessed++
-			logger.Infof("Processing signature with digest: %v", sigManifestDesc.Digest)
+			logger.Infof("Processing signature with manifest mediaType: %v and digest: %v", sigManifestDesc.MediaType, sigManifestDesc.Digest)
 			// get signature envelope
 			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
 			if err != nil {
@@ -265,7 +265,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			// verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
-				logger.Infof("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
+				logger.Warnf("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
 				if outcome == nil {
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
