@@ -278,7 +278,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			// verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
-				logger.Infof("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
+				logger.Warnf("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
 				if outcome == nil {
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
