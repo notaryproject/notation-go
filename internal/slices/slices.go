@@ -43,5 +43,5 @@ func ContainsIsser[E isser](s []E, name string) bool {
 // DeleteIssr removes the elements s[i:i+1] from s,
 // returning the modified slice.
 func DeleteIssr[S ~[]E, E isser](s S, i int) S {
-return append(s[:i], s[i+1:]...)
+	return append(s[:i], s[i+1:]...)
 }

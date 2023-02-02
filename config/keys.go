@@ -41,7 +41,7 @@ var errKeyNotFound = errors.New("signing key not found")
 
 // SigningKeys reflects the signingkeys.json file.
 type SigningKeys struct {
-	Default *string    `json:"default"`
+	Default *string    `json:"default,omitempty"`
 	Keys    []KeySuite `json:"keys"`
 }
 
@@ -67,7 +67,7 @@ func (s *SigningKeys) Add(name, keyPath, certPath string, markDefault bool) erro
 			CertificatePath: certPath,
 		},
 	}
-	return s.addCore(ks, markDefault)
+	return s.add(ks, markDefault)
 }
 
 // AddPlugin adds new plugin based signing key
@@ -102,7 +102,7 @@ func (s *SigningKeys) AddPlugin(ctx context.Context, keyName, id, pluginName str
 		},
 	}
 
-	if err =  s.addCore(ks, markDefault); err != nil {
+	if err = s.add(ks, markDefault); err != nil {
 		logger.Error("Failed to add key with error: %v", err)
 		return err
 	}
@@ -135,7 +135,7 @@ func (s *SigningKeys) GetDefault() (KeySuite, error) {
 }
 
 // Remove deletes given signing keys and returns a slice of deleted key names
-func (s *SigningKeys) Remove(keyName []string) ([]string, error) {
+func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 	var deletedNames []string
 	for _, name := range keyName {
 		if name == "" {
@@ -214,11 +214,7 @@ func LoadExecSaveSigningKeys(fn func(keys *SigningKeys) error) error {
 		return err
 	}
 
-	if err := signingKeys.Save(); err != nil {
-		return err
-	}
-
-	return nil
+	return signingKeys.Save()
 }
 
 // Is checks whether the given name is equal with the Name variable
@@ -226,7 +222,7 @@ func (k KeySuite) Is(name string) bool {
 	return k.Name == name
 }
 
-func (s *SigningKeys) addCore(key KeySuite, markDefault bool) error {
+func (s *SigningKeys) add(key KeySuite, markDefault bool) error {
 	if slices.ContainsIsser(s.Keys, key.Name) {
 		return fmt.Errorf("signing key with name %q already exists", key.Name)
 	}
