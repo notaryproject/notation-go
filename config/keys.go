@@ -39,7 +39,7 @@ type KeySuite struct {
 var errorKeyNameEmpty = errors.New("key name cannot be empty")
 var errKeyNotFound = errors.New("signing key not found")
 
-// SigningKeys reflects the signings.json file.
+// SigningKeys reflects the signingkeys.json file.
 type SigningKeys struct {
 	Default *string    `json:"default"`
 	Keys    []KeySuite `json:"keys"`
