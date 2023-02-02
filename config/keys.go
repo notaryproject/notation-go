@@ -146,7 +146,7 @@ func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 		if idx < 0 {
 			return deletedNames, errors.New(name + ": not found")
 		}
-		s.Keys = slices.DeleteIssr(s.Keys, idx)
+		s.Keys = slices.Delete(s.Keys, idx)
 		deletedNames = append(deletedNames, name)
 		if *s.Default == name {
 			s.Default = nil

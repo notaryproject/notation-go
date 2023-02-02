@@ -20,6 +20,12 @@ func ContainsAny(s []any, v any) bool {
 	return false
 }
 
+// Delete removes element at index i from slice s and
+// returns the modified slice.
+func Delete[T any](s []T, i int) []T {
+	return append(s[:i], s[i+1:]...)
+}
+
 type isser interface {
 	Is(string) bool
 }
@@ -38,10 +44,4 @@ func IndexIsser[E isser](s []E, name string) int {
 // ContainsIsser reports whether name is present in s.
 func ContainsIsser[E isser](s []E, name string) bool {
 	return IndexIsser(s, name) >= 0
-}
-
-// DeleteIssr removes the elements s[i:i+1] from s,
-// returning the modified slice.
-func DeleteIssr[S ~[]E, E isser](s S, i int) S {
-	return append(s[:i], s[i+1:]...)
 }
