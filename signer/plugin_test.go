@@ -121,10 +121,6 @@ func (p *mockPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateS
 	}, nil
 }
 
-func (p *mockPlugin) PluginAnnotations() map[string]string {
-	return p.annotations
-}
-
 // GenerateEnvelope generates the Envelope with signature based on the request.
 func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
 	internalPluginSigner := pluginSigner{
@@ -190,6 +186,7 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 		return &proto.GenerateEnvelopeResponse{
 			SignatureEnvelope:     data,
 			SignatureEnvelopeType: req.SignatureEnvelopeType,
+			Annotations: p.annotations,
 		}, nil
 	}
 	return &proto.GenerateEnvelopeResponse{}, nil
@@ -294,29 +291,6 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 	}
 }
 
-func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
-				annts := map[string]string{"key": "value"}
-				pluginSigner := pluginSigner{
-					plugin: &mockPlugin{
-						key:         keyCert.key,
-						certs:       keyCert.certs,
-						keySpec:     keySpec,
-						annotations: annts,
-					},
-				}
-				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
-				if !reflect.DeepEqual(pluginSigner.PluginAnnotations(), annts) {
-					t.Errorf("mismatch in annotations returned from PluginAnnotations()")
-				}
-			})
-		}
-	}
-}
-
 func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		t.Run(fmt.Sprintf("envelopeType=%v", envelopeType), func(t *testing.T) {
@@ -343,6 +317,31 @@ func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
 					plugin: mockPlugin,
 				}
 				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
+			})
+		}
+	}
+}
+
+func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
+				annts := map[string]string{"key": "value"}
+				pluginSigner := pluginSigner{
+					plugin: &mockPlugin{
+						key:         keyCert.key,
+						certs:       keyCert.certs,
+						keySpec:     keySpec,
+						annotations:  map[string]string{"key": "value"},
+						wantEnvelope: true,
+					},
+				}
+				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
+				if !reflect.DeepEqual(pluginSigner.PluginAnnotations(), annts) {
+					fmt.Println(pluginSigner.PluginAnnotations())
+					t.Errorf("mismatch in annotations returned from PluginAnnotations()")
+				}
 			})
 		}
 	}
