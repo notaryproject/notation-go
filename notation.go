@@ -327,16 +327,18 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 	}, nil
 }
 
+// GetDescriptorFromPayload parses a signature payload and returns the descriptor
+// that was signed.
 func GetDescriptorFromPayload(payload *signature.Payload) (*ocispec.Descriptor, error) {
 	if payload == nil {
-		return nil, errors.New("Empty payload")
+		return nil, errors.New("empty payload")
 	}
 
 	var parsedPayload envelope.Payload
 
 	err := json.Unmarshal(payload.Content, &parsedPayload)
 	if err != nil {
-		return nil, errors.New("Failed to unmarshall the payload content to envelope.Payload")
+		return nil, errors.New("failed to unmarshall the payload content to envelope.Payload")
 	}
 
 	return &parsedPayload.TargetArtifact, nil
