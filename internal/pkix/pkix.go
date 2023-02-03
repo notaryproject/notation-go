@@ -11,13 +11,11 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 	mandatoryFields := []string{"C", "ST", "O"}
 	attrKeyValue := make(map[string]string)
 	dn, err := ldapv3.ParseDN(name)
-
 	if err != nil {
-		return nil, fmt.Errorf("distinguished name (DN) %q is not valid, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name)
+		return nil, fmt.Errorf("parsing distinguished name (DN) %q failed with err: %v. A valid DN must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name, err)
 	}
 
 	for _, rdn := range dn.RDNs {
-
 		// multi-valued RDNs are not supported (TODO: add spec reference here)
 		if len(rdn.Attributes) > 1 {
 			return nil, fmt.Errorf("distinguished name (DN) %q has multi-valued RDN attributes, remove multi-valued RDN attributes as they are not supported", name)

@@ -17,8 +17,8 @@ func TestLoadValidTrustStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not get certificates from trust store. %q", err)
 	}
-	if len(certs) != 3 {
-		t.Fatalf("unexpected number of certificates in the trust store, expected: %d, got: %d", 3, len(certs))
+	if len(certs) != 4 {
+		t.Fatalf("unexpected number of certificates in the trust store, expected: %d, got: %d", 4, len(certs))
 	}
 }
 
