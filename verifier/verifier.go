@@ -24,6 +24,7 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"golang.org/x/mod/semver"
 	"oras.land/oras-go/v2/content"
 )
 
@@ -154,14 +155,14 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	if err != nil && err != errExtendedAttributeNotExist {
 		return err
 	}
+
 	var installedPlugin plugin.Plugin
 	if verificationPluginName != "" {
 		logger.Debugf("Finding verification plugin %s", verificationPluginName)
-		if _, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo); err != nil && err != errExtendedAttributeNotExist {
+		verificationPluginMinVersion, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
+		if err != nil && err != errExtendedAttributeNotExist {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
-		// TODO verify the plugin's version is equal to or greater than `outcome.SignerInfo.SignedAttributes.HeaderVerificationPluginMinVersion`
-		// https://github.com/notaryproject/notation-go/issues/102
 
 		if v.pluginManager == nil {
 			return notation.ErrorVerificationInconclusive{Msg: "plugin unsupported due to nil verifier.pluginManager"}
@@ -175,6 +176,17 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		metadata, err := installedPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{PluginConfig: pluginConfig})
 		if err != nil {
 			return err
+		}
+
+		pluginVersion := metadata.Version
+
+		//checking if the plugin version is in valid semver format
+		if !isVersionSemverValid(pluginVersion) {
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
+		}
+
+		if !isRequiredVerificationPluginVer(pluginVersion, verificationPluginMinVersion) {
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("found plugin %s with version %s but signature verification needs plugin version greater than or equal to %s", verificationPluginName, pluginVersion, verificationPluginMinVersion)}
 		}
 
 		for _, capability := range metadata.Capabilities {
@@ -585,4 +597,8 @@ func logVerificationResult(logger log.Logger, result *notation.ValidationResult)
 	case trustpolicy.ActionEnforce:
 		logger.Errorf("%v validation failed. Failure reason: %v", result.Type, result.Error)
 	}
+}
+
+func isRequiredVerificationPluginVer(pluginVer string, minPluginVer string) bool {
+	return semver.Compare("v"+pluginVer, "v"+minPluginVer) != -1
 }

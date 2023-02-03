@@ -19,3 +19,8 @@ func (s Set[T]) Contains(elem T) bool {
 func New[T comparable]() Set[T] {
 	return make(map[T]struct{})
 }
+
+// NewWithSize creates an empty Set of fixed size for elements of type T.
+func NewWithSize[T comparable](size int) Set[T] {
+	return make(map[T]struct{}, size)
+}
