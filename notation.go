@@ -64,6 +64,12 @@ type Signer interface {
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
+// signerAnnotation facilitates return of manifest annotations by signers
+type signerAnnotation interface {
+	// PluginAnnotations returns signature manifest annotations returned from plugin
+	PluginAnnotations() map[string]string
+}
+
 // Sign signs the artifact in the remote registry and push the signature to the
 // remote.
 // The descriptor of the sign content is returned upon sucessful signing.
@@ -105,8 +111,14 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
+
+	var pluginAnnotations map[string]string
+	if signerAnts, ok := signer.(signerAnnotation); ok {
+		pluginAnnotations = signerAnts.PluginAnnotations()
+	}
+
 	logger.Debug("Generating annotation")
-	annotations, err := generateAnnotations(signerInfo)
+	annotations, err := generateAnnotations(signerInfo, pluginAnnotations)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -115,7 +127,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 	_, _, err = repo.PushSignature(ctx, remoteOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		logger.Error("Failed to push the signature")
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
 
 	return targetDesc, nil
@@ -334,7 +346,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			// verify each signature
 			outcome, err := verifier.Verify(ctx, artifactDescriptor, sigBlob, opts)
 			if err != nil {
-				logger.Infof("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
+				logger.Warnf("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
 				if outcome == nil {
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
@@ -384,7 +396,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	return artifactDescriptor, verificationOutcomes, nil
 }
 
-func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, error) {
+func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[string]string) (map[string]string, error) {
 	var thumbprints []string
 	for _, cert := range signerInfo.CertificateChain {
 		checkSum := sha256.Sum256(cert.Raw)
@@ -395,7 +407,10 @@ func generateAnnotations(signerInfo *signature.SignerInfo) (map[string]string, e
 		return nil, err
 	}
 
-	return map[string]string{
-		annotationX509ChainThumbprint: string(val),
-	}, nil
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[annotationX509ChainThumbprint] = string(val)
+	return annotations, nil
 }

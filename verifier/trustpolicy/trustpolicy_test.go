@@ -103,7 +103,7 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	policyStatement.TrustedIdentities = []string{invalidDN}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "distinguished name (DN) \",,,\" is not valid, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard" {
+	if err == nil || err.Error() != "parsing distinguished name (DN) \",,,\" failed with err: incomplete type, value pair. A valid DN must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard" {
 		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
 	}
 
@@ -371,7 +371,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustStores = []string{"ca"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". Format <TrustStoreType>:<TrustStoreName> is required" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". The required format is <TrustStoreType>:<TrustStoreName>" {
 		t.Fatalf("policy statement with trust store missing separator should return error")
 	}
 

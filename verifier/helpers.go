@@ -32,7 +32,8 @@ var VerificationPluginHeaders = []string{
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
-var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$`)
+// semVerRegEx is takenfrom https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 
 func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
 	var typeToLoad truststore.Type
@@ -55,7 +56,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 
 		storeType, name, found := strings.Cut(trustStore, ":")
 		if !found {
-			return nil, fmt.Errorf("trust policy statement %q is missing separator in trust store value %q", policy.Name, trustStore)
+			return nil, fmt.Errorf("trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)
 		}
 		if typeToLoad != truststore.Type(storeType) {
 			continue
@@ -127,12 +128,15 @@ func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, 
 	if err != nil {
 		return "", err
 	}
-	// empty version
 	if strings.TrimSpace(version) == "" {
 		return "", fmt.Errorf("%v from extended attribute is an empty string", HeaderVerificationPluginMinVersion)
 	}
-	if !semVerRegEx.MatchString(version) {
+	if !isVersionSemverValid(version) {
 		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", HeaderVerificationPluginMinVersion)
 	}
 	return version, nil
+}
+
+func isVersionSemverValid(version string) bool {
+	return semVerRegEx.MatchString(version)
 }

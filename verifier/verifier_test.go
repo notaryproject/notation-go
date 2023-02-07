@@ -201,7 +201,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		policyDocument.TrustPolicies[0].TrustStores = []string{"ca:valid-trust-store-2", "signingAuthority"}
-		expectedErr := fmt.Errorf("error while loading the trust store, trust policy statement \"test-statement-name\" is missing separator in trust store value \"signingAuthority\"")
+		expectedErr := fmt.Errorf("error while loading the trust store, trust policy statement \"test-statement-name\" is missing separator in trust store value \"signingAuthority\". The required format is <TrustStoreType>:<TrustStoreName>")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
 			verificationType:  trustpolicy.TypeAuthenticity,
@@ -648,5 +648,88 @@ func TestVerifyUserMetadata(t *testing.T) {
 				t.Fatalf("TestVerifyUserMetadata Error: %q WantErr: %v", err, tt.wantErr)
 			}
 		})
+  }
+}
+
+func TestPluginVersionCompatibility(t *testing.T) {
+
+	errTemplate := "found plugin io.cncf.notary.plugin.unittest.mock with version 1.0.0 but signature verification needs plugin version greater than or equal to "
+	var policyDocument = trustpolicy.Document{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.TrustPolicy{
+			{
+				Name:                  "wabbit-networks-images",
+				RegistryScopes:        []string{"localhost:5000/net-monitor"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
+				TrustStores:           []string{"ca:valid-trust-store"},
+				TrustedIdentities:     []string{"x509.subject: CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US"},
+			},
+		},
+	}
+	pluginManager := mock.PluginManager{}
+	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
+		VerificationResults: map[proto.Capability]*proto.VerificationResult{
+			proto.CapabilityTrustedIdentityVerifier: {
+				Success: true,
+			},
+		},
+		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
+	}
+	dir.UserConfigDir = "testdata"
+	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
+	v := verifier{
+		trustPolicyDoc: &policyDocument,
+		trustStore:     x509TrustStore,
+		pluginManager:  pluginManager,
+	}
+	opts := notation.VerifyOptions{ArtifactReference: "localhost:5000/net-monitor@sha256:fe7e9333395060c2f5e63cf36a38fba10176f183b4163a5794e081a480abba5f", SignatureMediaType: "application/jose+json"}
+
+	tests := []struct {
+		minPluginVerTests []byte
+		wantErr           string
+	}{
+
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_0_9, errTemplate + "1.0.9"},
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_0_1, errTemplate + "1.0.1"},
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_2_3, errTemplate + "1.2.3"},
+		{mock.MockCaIncompatiblePluginVerSigEnv_1_1_0_alpha, errTemplate + "1.1.0-alpha"},
+		{mock.MockCaCompatiblePluginVerSigEnv_0_0_9, ""},
+		{mock.MockCaCompatiblePluginVerSigEnv_1_0_0_alpha, ""},
+		{mock.MockCaCompatiblePluginVerSigEnv_1_0_0_alpha_beta, ""},
+		{mock.MockCaCompatiblePluginVerSigEnv_1_0_0, ""},
+	}
+	for _, tt := range tests {
+
+		if _, err := v.Verify(context.Background(), mock.TestImageDescriptor, tt.minPluginVerTests, opts); err != nil && tt.wantErr != "" {
+			if err.Error() != tt.wantErr {
+				t.Errorf("TestPluginVersionCompatibility Error: %s, WantErr: %s ", err.Error(), tt.wantErr)
+			}
+		}
+	}
+}
+
+func TestIsRequiredVerificationPluginVer(t *testing.T) {
+
+	testPlugVer := "1.0.0"
+
+	tests := []struct {
+		minVerTests []string
+		expectedVal bool
+	}{
+		{[]string{"0.0.9"}, true},
+		{[]string{"1.0.0"}, true},
+		{[]string{"1.0.0-alpha"}, true},
+		{[]string{"1-pre+meta"}, true},
+		{[]string{"1.0.1"}, false},
+		{[]string{"1.1.0"}, false},
+		{[]string{"1.2.0"}, false},
+		{[]string{"1.1.0-alpha"}, false},
+	}
+	for _, tt := range tests {
+		funcVal := isRequiredVerificationPluginVer(testPlugVer, tt.minVerTests[0])
+		if funcVal != tt.expectedVal {
+			t.Errorf("TestIsRequiredVerificationPluginVer Error: version comparison mismatch between plugin with version %s and min verification plugin version %s, function output: %v, expected output: %v", testPlugVer, tt.minVerTests[0], funcVal, tt.expectedVal)
+		}
 	}
 }
