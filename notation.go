@@ -187,13 +187,13 @@ type VerificationOutcome struct {
 
 func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 	if outcome.EnvelopeContent == nil {
-		return map[string]string{}, nil
+		return nil, errors.New("unable to find envelope content for verification outcome")
 	}
 
 	var payload envelope.Payload
 	err := json.Unmarshal(outcome.EnvelopeContent.Payload.Content, &payload)
 	if err != nil {
-		return nil, errors.New("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
+		return nil, errors.New("failed to unmarshal the payload content in the signature blob to envelope.Payload")
 	}
 
 	if payload.TargetArtifact.Annotations == nil {
