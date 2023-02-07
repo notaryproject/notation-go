@@ -1,5 +1,17 @@
 package notation
 
+//
+type ErrorPushSignatureFailed struct {
+	Msg string
+}
+
+func (e ErrorPushSignatureFailed) Error() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+	return "failed to push signature to registry"
+}
+
 // ErrorVerificationInconclusive is used when signature verification fails due to a runtime error (e.g. a network error)
 type ErrorVerificationInconclusive struct {
 	Msg string
