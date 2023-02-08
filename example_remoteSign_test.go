@@ -46,9 +46,11 @@ func Example_remoteSign() {
 	exampleRepo := registry.NewRepository(remoteRepo)
 
 	// exampleSignOptions is an example of notation.SignOptions.
-	exampleSignOptions := notation.SignOptions{
-		ArtifactReference:  exampleArtifactReference,
-		SignatureMediaType: exampleSignatureMediaType,
+	exampleSignOptions := notation.RemoteSignOptions{
+		SignOptions: notation.SignOptions{
+			ArtifactReference:  exampleArtifactReference,
+			SignatureMediaType: exampleSignatureMediaType,
+		},
 	}
 
 	// remote sign core process

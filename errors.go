@@ -59,3 +59,15 @@ func (e ErrorVerificationFailed) Error() string {
 	}
 	return "signature verification failed"
 }
+
+// ErrorUserMetadataVerificationFailed is used when the signature does not contain the user specified metadata
+type ErrorUserMetadataVerificationFailed struct {
+	Msg string
+}
+
+func (e ErrorUserMetadataVerificationFailed) Error() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+	return "unable to find specified metadata in the signature"
+}
