@@ -148,7 +148,7 @@ func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 		}
 		s.Keys = slices.Delete(s.Keys, idx)
 		deletedNames = append(deletedNames, name)
-		if *s.Default == name {
+		if s.Default !=nil && *s.Default == name {
 			s.Default = nil
 		}
 	}
