@@ -270,10 +270,12 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 		},
 	}
 	sOpts := notation.SignOptions{ExpiryDuration: 24 * time.Hour}
+
 	if tsa != nil {
 		tsaRoots := x509.NewCertPool()
 		tsaRoots.AddCert(tsa.Certificate())
 	}
+
 	return desc, sOpts
 }
 

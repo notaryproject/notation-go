@@ -133,6 +133,14 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Infof("Target artifact that want to be verified: %+v", desc)
 		outcome.Error = errors.New("content descriptor mismatch")
 	}
+
+	if len(opts.UserMetadata) > 0 {
+		err := verifyUserMetadata(logger, payload, opts.UserMetadata)
+		if err != nil {
+			outcome.Error = err
+		}
+	}
+
 	return outcome, outcome.Error
 }
 
@@ -422,6 +430,20 @@ func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolic
 		Type:   trustpolicy.TypeAuthenticity,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 	}
+}
+
+func verifyUserMetadata(logger log.Logger, payload *envelope.Payload, userMetadata map[string]string) error {
+	logger.Debugf("Verifying that metadata %v is present in signature", userMetadata)
+	logger.Debugf("Signature metadata: %v", payload.TargetArtifact.Annotations)
+
+	for k, v := range userMetadata {
+		if got, ok := payload.TargetArtifact.Annotations[k]; !ok || got != v {
+			logger.Errorf("User required metadata %s=%s is not present in the signature", k, v)
+			return notation.ErrorUserMetadataVerificationFailed{}
+		}
+	}
+
+	return nil
 }
 
 func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationResult {

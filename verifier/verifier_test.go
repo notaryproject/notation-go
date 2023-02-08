@@ -606,6 +606,51 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 	}
 }
 
+func TestVerifyUserMetadata(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	policyDocument.TrustPolicies[0].SignatureVerification.VerificationLevel = trustpolicy.LevelAudit.Name
+
+	pluginManager := mock.PluginManager{}
+	pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
+	pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
+
+	verifier := verifier{
+		trustPolicyDoc: &policyDocument,
+		trustStore:     truststore.NewX509TrustStore(dir.ConfigFS()),
+		pluginManager:  pluginManager,
+	}
+
+	tests := []struct {
+		metadata map[string]string
+		wantErr  bool
+	}{
+		{map[string]string{}, false},
+		{map[string]string{"io.wabbit-networks.buildId": "123"}, false},
+		{map[string]string{"io.wabbit-networks.buildId": "321"}, true},
+		{map[string]string{"io.wabbit-networks.buildId": "123", "io.wabbit-networks.buildTime": "1672944615"}, false},
+		{map[string]string{"io.wabbit-networks.buildId": "123", "io.wabbit-networks.buildTime": "1"}, true},
+	}
+
+	for i, tt := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			_, err := verifier.Verify(
+				context.Background(),
+				mock.MetadataSigEnvDescriptor,
+				mock.MockSigEnvWithMetadata,
+				notation.VerifyOptions{
+					ArtifactReference:  mock.SampleArtifactUri,
+					SignatureMediaType: "application/jose+json",
+					UserMetadata:       tt.metadata,
+				},
+			)
+
+			if tt.wantErr != (err != nil) {
+				t.Fatalf("TestVerifyUserMetadata Error: %q WantErr: %v", err, tt.wantErr)
+			}
+		})
+  }
+}
+
 func TestPluginVersionCompatibility(t *testing.T) {
 
 	errTemplate := "found plugin io.cncf.notary.plugin.unittest.mock with version 1.0.0 but signature verification needs plugin version greater than or equal to "
