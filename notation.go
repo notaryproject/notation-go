@@ -112,7 +112,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, opts Sig
 	_, _, err = repo.PushSignature(ctx, opts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		logger.Error("Failed to push the signature")
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
 
 	return targetDesc, nil
