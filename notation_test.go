@@ -14,6 +14,8 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+var expectedMetadata = map[string]string{"foo": "bar", "bar": "foo"}
+
 func TestSignSuccess(t *testing.T) {
 	repo := mock.NewRepository()
 	testCases := []struct {
@@ -26,10 +28,10 @@ func TestSignSuccess(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			opts := SignOptions{
-				ExpiryDuration:    tc.dur,
-				ArtifactReference: mock.SampleArtifactUri,
-			}
+			opts := RemoteSignOptions{}
+			opts.ExpiryDuration = tc.dur
+			opts.ArtifactReference = mock.SampleArtifactUri
+
 			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
 			if err != nil {
 				b.Fatalf("Sign failed with error: %v", err)
@@ -38,15 +40,15 @@ func TestSignSuccess(t *testing.T) {
 	}
 }
 
-func TestSignWithAnnotationsSuccess(t *testing.T) {
+func TestSignSuccessWithUserMetadata(t *testing.T) {
 	repo := mock.NewRepository()
+	opts := RemoteSignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.UserMetadata = expectedMetadata
 
-	opts := SignOptions{
-		ArtifactReference: mock.SampleArtifactUri,
-	}
-	_, err := Sign(context.Background(), &dummyPluginSigner{}, repo, opts)
+	_, err := Sign(context.Background(), &verifyMetadataSigner{}, repo, opts)
 	if err != nil {
-		t.Fatalf("Sign failed with error: %v", err)
+		t.Fatalf("error: %v", err)
 	}
 }
 
@@ -61,7 +63,29 @@ func TestSignWithInvalidExpiry(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{ExpiryDuration: tc.dur})
+			opts := RemoteSignOptions{}
+			opts.ExpiryDuration = tc.dur
+
+			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+			if err == nil {
+				b.Fatalf("Expected error but not found")
+			}
+		})
+	}
+}
+
+func TestSignWithInvalidUserMetadata(t *testing.T) {
+	repo := mock.NewRepository()
+	testCases := []struct {
+		name     string
+		metadata map[string]string
+	}{
+		{"reservedAnnotationKey", map[string]string{reservedAnnotationPrefixes[0] + ".foo": "bar"}},
+		{"keyConflict", map[string]string{"key": "value2"}},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(b *testing.T) {
+			_, err := Sign(context.Background(), &dummySigner{}, repo, RemoteSignOptions{UserMetadata: tc.metadata})
 			if err == nil {
 				b.Fatalf("Expected error but not found")
 			}
@@ -247,6 +271,17 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 type dummySigner struct{}
 
 func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
+	return []byte("ABC"), &signature.SignerInfo{}, nil
+}
+
+type verifyMetadataSigner struct{}
+
+func (s *verifyMetadataSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
+	for k, v := range expectedMetadata {
+		if desc.Annotations[k] != v {
+			return nil, nil, errors.New("expected metadata not present in descriptor")
+		}
+	}
 	return []byte("ABC"), &signature.SignerInfo{}, nil
 }
 

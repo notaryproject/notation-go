@@ -1,5 +1,17 @@
 package notation
 
+//
+type ErrorPushSignatureFailed struct {
+	Msg string
+}
+
+func (e ErrorPushSignatureFailed) Error() string {
+	if e.Msg != "" {
+		return "failed to push signature to registry with error: " + e.Msg
+	}
+	return "failed to push signature to registry"
+}
+
 // ErrorVerificationInconclusive is used when signature verification fails due to a runtime error (e.g. a network error)
 type ErrorVerificationInconclusive struct {
 	Msg string
@@ -46,4 +58,16 @@ func (e ErrorVerificationFailed) Error() string {
 		return e.Msg
 	}
 	return "signature verification failed"
+}
+
+// ErrorUserMetadataVerificationFailed is used when the signature does not contain the user specified metadata
+type ErrorUserMetadataVerificationFailed struct {
+	Msg string
+}
+
+func (e ErrorUserMetadataVerificationFailed) Error() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+	return "unable to find specified metadata in the signature"
 }
