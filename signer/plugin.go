@@ -216,7 +216,8 @@ func isPayloadDescriptorValid(originalDesc, newDesc ocispec.Descriptor) bool {
 
 func areUnknownAttributesAdded(content []byte) []string {
 	var targetArtifactMap map[string]interface{}
-	// Ignoring error because we already successfully unmarshalled before this point
+	// Ignoring error because we already successfully unmarshalled before this
+	// point
 	_ = json.Unmarshal(content, &targetArtifactMap)
 	descriptor := targetArtifactMap["targetArtifact"].(map[string]interface{})
 

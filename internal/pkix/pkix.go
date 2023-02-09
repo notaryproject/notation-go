@@ -39,7 +39,8 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 	return attrKeyValue, nil
 }
 
-// IsSubsetDN returns true if dn1 is a subset of dn2 i.e. every key/value pair of dn1 has a matching key/value pair in dn2, otherwise returns false
+// IsSubsetDN returns true if dn1 is a subset of dn2 i.e. every key/value pair
+// of dn1 has a matching key/value pair in dn2, otherwise returns false
 func IsSubsetDN(dn1 map[string]string, dn2 map[string]string) bool {
 	for key := range dn1 {
 		if dn1[key] != dn2[key] {

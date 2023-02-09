@@ -5,10 +5,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io/fs"
+
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin"
-	"io/fs"
 
 	"github.com/notaryproject/notation-go/dir"
 	set "github.com/notaryproject/notation-go/internal/container"
@@ -148,7 +149,7 @@ func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 		}
 		s.Keys = slices.Delete(s.Keys, idx)
 		deletedNames = append(deletedNames, name)
-		if s.Default !=nil && *s.Default == name {
+		if s.Default != nil && *s.Default == name {
 			s.Default = nil
 		}
 	}
@@ -202,7 +203,8 @@ func LoadSigningKeys() (*SigningKeys, error) {
 	return &config, nil
 }
 
-// LoadExecSaveSigningKeys loads signing key, executes given function and then saves the signing key
+// LoadExecSaveSigningKeys loads signing key, executes given function and
+// then saves the signing key
 func LoadExecSaveSigningKeys(fn func(keys *SigningKeys) error) error {
 	// core process
 	signingKeys, err := LoadSigningKeys()

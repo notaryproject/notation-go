@@ -28,7 +28,8 @@ var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
 // SignOptions contains parameters for Signer.Sign.
 type SignOptions struct {
-	// ArtifactReference sets the reference of the artifact that needs to be signed.
+	// ArtifactReference sets the reference of the artifact that needs to be
+	// signed.
 	ArtifactReference string
 
 	// SignatureMediaType is the envelope type of the signature.
@@ -36,8 +37,8 @@ type SignOptions struct {
 	// supported.
 	SignatureMediaType string
 
-	// ExpiryDuration identifies the expiry duration of the resulted signature. Zero value
-	// represents no expiry duration.
+	// ExpiryDuration identifies the expiry duration of the resulted signature.
+	// Zero value represents no expiry duration.
 	ExpiryDuration time.Duration
 
 	// PluginConfig sets or overrides the plugin configuration.
@@ -51,7 +52,8 @@ type SignOptions struct {
 type RemoteSignOptions struct {
 	SignOptions
 
-	// UserMetadata contains key-value pairs that are added to the signature payload
+	// UserMetadata contains key-value pairs that are added to the signature
+	// payload
 	UserMetadata map[string]string
 }
 
@@ -66,7 +68,8 @@ type Signer interface {
 
 // signerAnnotation facilitates return of manifest annotations by signers
 type signerAnnotation interface {
-	// PluginAnnotations returns signature manifest annotations returned from plugin
+	// PluginAnnotations returns signature manifest annotations returned from
+	// plugin
 	PluginAnnotations() map[string]string
 }
 
@@ -229,7 +232,8 @@ type VerifyOptions struct {
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
 
-	// UserMetadata contains key-value pairs that must be present in the signature
+	// UserMetadata contains key-value pairs that must be present in the
+	// signature
 	UserMetadata map[string]string
 }
 
@@ -257,7 +261,8 @@ type RemoteVerifyOptions struct {
 	// to zero, an error will be returned.
 	MaxSignatureAttempts int
 
-	// UserMetadata contains key-value pairs that must be present in the signature
+	// UserMetadata contains key-value pairs that must be present in the
+	// signature
 	UserMetadata map[string]string
 }
 
