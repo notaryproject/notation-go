@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/testhelper"
-
 	"github.com/notaryproject/notation-go/dir"
 )
 
