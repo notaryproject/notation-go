@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -573,20 +574,24 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 func TestVerifyX509TrustedIdentities(t *testing.T) {
 
-	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/signing-cert.pem")) // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
+	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/signing-cert.pem"))        // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
+	unsupportedCerts, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/bad-cert.pem")) // cert's subject is "CN=bad=#CN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
 
 	tests := []struct {
+		certs          []*x509.Certificate
 		x509Identities []string
 		wantErr        bool
 	}{
-		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA"}, false},
-		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA", "nonX509Prefix:my-custom-identity"}, false},
-		{[]string{"x509.subject:C=US,O=SomeOrg,ST=WA", "x509.subject:C=IND,O=SomeOrg,ST=TS"}, false},
-		{[]string{"nonX509Prefix:my-custom-identity"}, true},
-		{[]string{"*"}, false},
-		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS"}, true},
-		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "nonX509Prefix:my-custom-identity"}, true},
-		{[]string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "x509.subject:C=LOL,O=LOL,ST=LOL"}, true},
+		{certs, []string{"x509.subject:C=US,O=SomeOrg,ST=WA"}, false},
+		{certs, []string{"x509.subject:C=US,O=SomeOrg,ST=WA", "nonX509Prefix:my-custom-identity"}, false},
+		{certs, []string{"x509.subject:C=US,O=SomeOrg,ST=WA", "x509.subject:C=IND,O=SomeOrg,ST=TS"}, false},
+		{certs, []string{"nonX509Prefix:my-custom-identity"}, true},
+		{certs, []string{"*"}, false},
+		{certs, []string{"x509.subject:C=IND,O=SomeOrg,ST=TS"}, true},
+		{certs, []string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "nonX509Prefix:my-custom-identity"}, true},
+		{certs, []string{"x509.subject:C=IND,O=SomeOrg,ST=TS", "x509.subject:C=LOL,O=LOL,ST=LOL"}, true},
+		{certs, []string{"x509.subject:C=bad=#identity,O=LOL,ST=LOL"}, true},
+		{unsupportedCerts, []string{"x509.subject:C=US,O=SomeOrg,ST=WA", "nonX509Prefix:my-custom-identity"}, true},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -597,7 +602,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 				TrustStores:           []string{"ca:test-store"},
 				TrustedIdentities:     tt.x509Identities,
 			}
-			err := verifyX509TrustedIdentities(certs, &trustPolicy)
+			err := verifyX509TrustedIdentities(tt.certs, &trustPolicy)
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestVerifyX509TrustedIdentities Error: %q WantErr: %v", err, tt.wantErr)
@@ -648,7 +653,7 @@ func TestVerifyUserMetadata(t *testing.T) {
 				t.Fatalf("TestVerifyUserMetadata Error: %q WantErr: %v", err, tt.wantErr)
 			}
 		})
-  }
+	}
 }
 
 func TestPluginVersionCompatibility(t *testing.T) {

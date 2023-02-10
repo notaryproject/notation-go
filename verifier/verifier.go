@@ -589,6 +589,13 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 			if identityValue == "" {
 				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", trustPolicy.Name, identity)
 			}
+
+			// identities containing "=#" can cause memory issues in the asn1-ber library used by
+			// pkix when parsing the DN
+			if strings.Contains(identityValue, "=#") {
+				return fmt.Errorf("notation does not support x509 identities containing \"=#\"")
+			}
+
 			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
 			if err != nil {
 				return err
@@ -602,6 +609,12 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 	}
 
 	leafCert := certs[0] // trusted identities only supported on the leaf cert
+
+	// identities containing "=#" can cause memory issues in the asn1-ber library used by
+	// pkix when parsing the DN
+	if strings.Contains(leafCert.Subject.String(), "=#") {
+		return fmt.Errorf("notation does not support x509 identities containing \"=#\"")
+	}
 
 	// parse the certificate subject following rfc 4514 DN syntax
 	leafCertDN, err := pkix.ParseDistinguishedName(leafCert.Subject.String())
