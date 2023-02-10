@@ -4,17 +4,17 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/notaryproject/notation-core-go/testhelper"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go/dir"
 )
 
 var sampleSigningKeysInfo = SigningKeys{
-	Default: Ptr[string]("wabbit-networks"),
+	Default: Ptr("wabbit-networks"),
 	Keys: []KeySuite{
 		{
 			Name: "wabbit-networks",
@@ -153,14 +153,14 @@ func TestSaveSigningKeys(t *testing.T) {
 		expectedErr := "malformed signingkeys.json: default key 'missing-default' not found"
 		dir.UserConfigDir = t.TempDir()
 		invalidDefaultSignKeysInfo := deepCopySigningKeys(sampleSigningKeysInfo)
-		invalidDefaultSignKeysInfo.Default = Ptr[string]("missing-default")
+		invalidDefaultSignKeysInfo.Default = Ptr("missing-default")
 		err := invalidDefaultSignKeysInfo.Save()
 		if err == nil || err.Error() != expectedErr {
 			t.Errorf("Save signingkeys.json failed, error expected = \"%v\" but found = \"%v\"", expectedErr, err)
 		}
 
 		expectedErr = "malformed signingkeys.json: default key name cannot be empty"
-		invalidDefaultSignKeysInfo.Default = Ptr[string]("")
+		invalidDefaultSignKeysInfo.Default = Ptr("")
 		err = invalidDefaultSignKeysInfo.Save()
 		if err == nil || err.Error() != expectedErr {
 			t.Errorf("Save signingkeys.json failed, error expected = \"%v\" but found = \"%v\"", expectedErr, err)

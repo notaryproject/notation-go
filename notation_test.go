@@ -270,16 +270,6 @@ func (s *verifyMetadataSigner) Sign(ctx context.Context, desc ocispec.Descriptor
 	return []byte("ABC"), &signature.SignerInfo{}, nil
 }
 
-type dummyPluginSigner struct{}
-
-func (s *dummyPluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
-	return []byte("ABC"), &signature.SignerInfo{}, nil
-}
-
-func (s *dummyPluginSigner) PluginAnnotations() map[string]string {
-	return map[string]string{"hi": "hola"}
-}
-
 type dummyVerifier struct {
 	TrustPolicyDoc    *trustpolicy.Document
 	PluginManager     plugin.Manager

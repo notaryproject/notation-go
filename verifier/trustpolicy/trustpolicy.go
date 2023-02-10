@@ -503,9 +503,11 @@ type parsedDN struct {
 	ParsedMap map[string]string
 }
 
-// validateRegistryScopeFormat validates if a scope is following the format defined in distribution spec
+// validateRegistryScopeFormat validates if a scope is following the format
+// defined in distribution spec
 func validateRegistryScopeFormat(scope string) error {
-	// Domain and Repository regexes are adapted from distribution implementation
+	// Domain and Repository regexes are adapted from distribution
+	// implementation
 	// https://github.com/distribution/distribution/blob/main/reference/regexp.go#L31
 	domainRegexp := regexp.MustCompile(`^(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?$`)
 	repositoryRegexp := regexp.MustCompile(`^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?$`)

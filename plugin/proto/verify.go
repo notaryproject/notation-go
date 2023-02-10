@@ -2,7 +2,8 @@ package proto
 
 import "time"
 
-// VerifySignatureRequest contains the parameters passed in a verify-signature request.
+// VerifySignatureRequest contains the parameters passed in a verify-signature
+// request.
 type VerifySignatureRequest struct {
 	ContractVersion string            `json:"contractVersion"`
 	Signature       Signature         `json:"signature"`

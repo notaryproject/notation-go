@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	// HeaderVerificationPlugin specifies the name of the verification plugin that should be used to verify the signature.
+	// HeaderVerificationPlugin specifies the name of the verification plugin
+	// that should be used to verify the signature.
 	HeaderVerificationPlugin = "io.cncf.notary.verificationPlugin"
 
-	// HeaderVerificationPluginMinVersion specifies the minimum version of the verification plugin that should be used to verify the signature.
+	// HeaderVerificationPluginMinVersion specifies the minimum version of the
+	// verification plugin that should be used to verify the signature.
 	HeaderVerificationPluginMinVersion = "io.cncf.notary.verificationPluginMinVersion"
 )
 
@@ -72,8 +74,11 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 	return certificates, nil
 }
 
-// isCriticalFailure checks whether a VerificationResult fails the entire signature verification workflow.
-// signature verification workflow is considered failed if there is a VerificationResult with "Enforced" as the action but the result was unsuccessful
+// isCriticalFailure checks whether a VerificationResult fails the entire
+// signature verification workflow.
+// signature verification workflow is considered failed if there is a
+// VerificationResult with "Enforced" as the action but the result was
+// unsuccessful.
 func isCriticalFailure(result *notation.ValidationResult) bool {
 	return result.Action == trustpolicy.ActionEnforce && result.Error != nil
 }
@@ -82,15 +87,18 @@ func getNonPluginExtendedCriticalAttributes(signerInfo *signature.SignerInfo) []
 	var criticalExtendedAttrs []signature.Attribute
 	for _, attr := range signerInfo.SignedAttributes.ExtendedAttributes {
 		attrStrKey, ok := attr.Key.(string)
-		if ok && !slices.Contains(VerificationPluginHeaders, attrStrKey) { // filter the plugin extended attributes
-			// TODO support other attribute types (COSE attribute keys can be numbers)
+		// filter the plugin extended attributes
+		if ok && !slices.Contains(VerificationPluginHeaders, attrStrKey) {
+			// TODO support other attribute types
+			// (COSE attribute keys can be numbers)
 			criticalExtendedAttrs = append(criticalExtendedAttrs, attr)
 		}
 	}
 	return criticalExtendedAttrs
 }
 
-// extractCriticalStringExtendedAttribute extracts a critical string Extended attribute from a signer.
+// extractCriticalStringExtendedAttribute extracts a critical string Extended
+// attribute from a signer.
 func extractCriticalStringExtendedAttribute(signerInfo *signature.SignerInfo, key string) (string, error) {
 	attr, err := signerInfo.ExtendedAttribute(key)
 	// not exist
