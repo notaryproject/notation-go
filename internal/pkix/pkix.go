@@ -2,12 +2,19 @@ package pkix
 
 import (
 	"fmt"
+	"strings"
 
 	ldapv3 "github.com/go-ldap/ldap/v3"
 )
 
 // ParseDistinguishedName parses a DN name and validates Notary V2 rules
 func ParseDistinguishedName(name string) (map[string]string, error) {
+	// To circumvent an issue in go-asn1-ber/asn1-ber where it allocates large amount of memory for decoding ber.
+	// For more information please look at https://github.com/notaryproject/notation-go/issues/276
+	if strings.Contains(name, "=#") {
+		return nil, fmt.Errorf("notation does not support x509 identities containing \"=#\"")
+	}
+
 	mandatoryFields := []string{"C", "ST", "O"}
 	attrKeyValue := make(map[string]string)
 	dn, err := ldapv3.ParseDN(name)
