@@ -589,7 +589,6 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 			if identityValue == "" {
 				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", trustPolicy.Name, identity)
 			}
-
 			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
 			if err != nil {
 				return err
