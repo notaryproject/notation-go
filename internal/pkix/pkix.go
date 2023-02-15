@@ -9,9 +9,6 @@ import (
 
 // ParseDistinguishedName parses a DN name and validates Notary V2 rules
 func ParseDistinguishedName(name string) (map[string]string, error) {
-	// To circumvent an issue in go-asn1-ber/asn1-ber where it allocates large
-	// amount of memory for decoding ber.
-	// For more information please look at https://github.com/notaryproject/notation-go/issues/276
 	if strings.Contains(name, "=#") {
 		return nil, fmt.Errorf("unsupported distinguished name (DN) %q: notation does not support x509.subject identities containing \"=#\"", name)
 	}
