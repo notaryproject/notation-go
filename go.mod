@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.4
-	github.com/notaryproject/notation-core-go v1.0.0-rc.1
+	github.com/notaryproject/notation-core-go v1.0.0-rc.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc2
 	github.com/veraison/go-cose v1.0.0
