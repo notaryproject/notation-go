@@ -30,7 +30,7 @@ var (
 		SupportedContractVersions: []string{proto.ContractVersion},
 		Capabilities:              []proto.Capability{proto.CapabilitySignatureGenerator},
 	}
-	validSignDescriptor, validSignOpts = generateSigningContent(nil)
+	validSignDescriptor, validSignOpts = generateSigningContent()
 	invalidSignatureEnvelope           = []byte("invalid")
 )
 
@@ -186,7 +186,7 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 		return &proto.GenerateEnvelopeResponse{
 			SignatureEnvelope:     data,
 			SignatureEnvelopeType: req.SignatureEnvelopeType,
-			Annotations: p.annotations,
+			Annotations:           p.annotations,
 		}, nil
 	}
 	return &proto.GenerateEnvelopeResponse{}, nil
@@ -330,9 +330,9 @@ func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
 				annts := map[string]string{"key": "value"}
 				pluginSigner := pluginSigner{
 					plugin: &mockPlugin{
-						key:         keyCert.key,
-						certs:       keyCert.certs,
-						keySpec:     keySpec,
+						key:          keyCert.key,
+						certs:        keyCert.certs,
+						keySpec:      keySpec,
 						annotations:  map[string]string{"key": "value"},
 						wantEnvelope: true,
 					},
