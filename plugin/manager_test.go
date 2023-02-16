@@ -32,11 +32,6 @@ var invalidMetadataName = proto.GetMetadataResponse{
 	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
 }
 
-var validMetadataBar = proto.GetMetadataResponse{
-	Name: "bar", Description: "friendly", Version: "1", URL: "example.com",
-	SupportedContractVersions: []string{"1"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
-}
-
 var invalidContractVersionMetadata = proto.GetMetadataResponse{
 	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
 	SupportedContractVersions: []string{"110.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},

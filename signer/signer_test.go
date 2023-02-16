@@ -21,7 +21,6 @@ import (
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/testhelper"
-	"github.com/notaryproject/notation-core-go/timestamp/timestamptest"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin/proto"
@@ -134,7 +133,7 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 	if err != nil {
 		t.Fatalf("NewSignerFromFiles() failed: %v", err)
 	}
-	desc, opts := generateSigningContent(nil)
+	desc, opts := generateSigningContent()
 	opts.SignatureMediaType = envelopeType
 	sig, _, err := s.Sign(context.Background(), desc, opts)
 	if err != nil {
@@ -167,40 +166,6 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 }
 
-// TODO: Enable once we have timestamping inplace https://github.com/notaryproject/notation-go/issues/78
-func TestSignWithTimestamp(t *testing.T) {
-	t.Skip("Skipping testing as we dont have timestamping hooked up")
-	// prepare signer
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := New(keyCert.key, keyCert.certs)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
-
-				// configure TSA
-				tsa, err := timestamptest.NewTSA()
-				if err != nil {
-					t.Fatalf("timestamptest.NewTSA() error = %v", err)
-				}
-
-				// sign content
-				ctx := context.Background()
-				desc, sOpts := generateSigningContent(tsa)
-				sOpts.SignatureMediaType = envelopeType
-				sig, _, err := s.Sign(ctx, desc, sOpts)
-				if err != nil {
-					t.Fatalf("Sign() error = %v", err)
-				}
-
-				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], &validMetadata)
-			})
-		}
-	}
-}
-
 func TestSignWithoutExpiry(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
@@ -212,7 +177,7 @@ func TestSignWithoutExpiry(t *testing.T) {
 				}
 
 				ctx := context.Background()
-				desc, sOpts := generateSigningContent(nil)
+				desc, sOpts := generateSigningContent()
 				sOpts.ExpiryDuration = 0 // reset expiry
 				sOpts.SignatureMediaType = envelopeType
 				sig, _, err := s.Sign(ctx, desc, sOpts)
@@ -258,7 +223,7 @@ func localSign(payload []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, 
 }
 
 // generateSigningContent generates common signing content with options for testing.
-func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notation.SignOptions) {
+func generateSigningContent() (ocispec.Descriptor, notation.SignOptions) {
 	content := "hello world"
 	desc := ocispec.Descriptor{
 		MediaType: "test media type",
@@ -270,10 +235,7 @@ func generateSigningContent(tsa *timestamptest.TSA) (ocispec.Descriptor, notatio
 		},
 	}
 	sOpts := notation.SignOptions{ExpiryDuration: 24 * time.Hour}
-	if tsa != nil {
-		tsaRoots := x509.NewCertPool()
-		tsaRoots.AddCert(tsa.Certificate())
-	}
+
 	return desc, sOpts
 }
 
@@ -326,7 +288,7 @@ func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.Private
 	}
 
 	ctx := context.Background()
-	desc, sOpts := generateSigningContent(nil)
+	desc, sOpts := generateSigningContent()
 	sOpts.SignatureMediaType = envelopeType
 	sig, _, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {

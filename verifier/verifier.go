@@ -133,13 +133,22 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Infof("Target artifact that want to be verified: %+v", desc)
 		outcome.Error = errors.New("content descriptor mismatch")
 	}
+
+	if len(opts.UserMetadata) > 0 {
+		err := verifyUserMetadata(logger, payload, opts.UserMetadata)
+		if err != nil {
+			outcome.Error = err
+		}
+	}
+
 	return outcome, outcome.Error
 }
 
 func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
-	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
+	// verify integrity first. notation will always verify integrity no matter
+	// what the signing scheme is
 	envContent, integrityResult := verifyIntegrity(sigBlob, envelopeMediaType, outcome)
 	outcome.EnvelopeContent = envContent
 	outcome.VerificationResults = append(outcome.VerificationResults, integrityResult)
@@ -172,7 +181,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}
 
-		// filter the "verification" capabilities supported by the installed plugin
+		// filter the "verification" capabilities supported by the installed
+		// plugin
 		metadata, err := installedPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{PluginConfig: pluginConfig})
 		if err != nil {
 			return err
@@ -209,7 +219,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		return authenticityResult.Error
 	}
 
-	// verify x509 trusted identity based authenticity (only if notation needs to perform this verification rather than a plugin)
+	// verify x509 trusted identity based authenticity (only if notation needs
+	// to perform this verification rather than a plugin)
 	if !slices.Contains(pluginCapabilities, proto.CapabilityTrustedIdentityVerifier) {
 		logger.Debug("Validating trust identity")
 		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
@@ -241,7 +252,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 
 	// verify revocation
-	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may override the check
+	// check if we need to bypass the revocation check, since revocation can be
+	// skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
 		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
 		logger.Debugf("Validating revocation (not implemented)")
@@ -253,7 +265,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	if installedPlugin != nil {
 		var capabilitiesToVerify []proto.Capability
 		for _, pc := range pluginCapabilities {
-			// skip the revocation capability if the trust policy is configured to skip it
+			// skip the revocation capability if the trust policy is configured
+			// to skip it
 			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == proto.CapabilityRevocationCheckVerifier {
 				logger.Debugf("Skipping the %v validation", pc)
 				continue
@@ -296,7 +309,8 @@ func processPluginResponse(logger log.Logger, capabilitiesToVerify []proto.Capab
 		switch capability {
 		case proto.CapabilityTrustedIdentityVerifier:
 			if !pluginResult.Success {
-				// find the Authenticity VerificationResult that we already created during x509 trust store verification
+				// find the Authenticity VerificationResult that we already
+				// created during x509 trust store verification
 				var authenticityResult *notation.ValidationResult
 				for _, r := range outcome.VerificationResults {
 					if r.Type == trustpolicy.TypeAuthenticity {
@@ -424,6 +438,20 @@ func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolic
 	}
 }
 
+func verifyUserMetadata(logger log.Logger, payload *envelope.Payload, userMetadata map[string]string) error {
+	logger.Debugf("Verifying that metadata %v is present in signature", userMetadata)
+	logger.Debugf("Signature metadata: %v", payload.TargetArtifact.Annotations)
+
+	for k, v := range userMetadata {
+		if got, ok := payload.TargetArtifact.Annotations[k]; !ok || got != v {
+			logger.Errorf("User required metadata %s=%s is not present in the signature", k, v)
+			return notation.ErrorUserMetadataVerificationFailed{}
+		}
+	}
+
+	return nil
+}
+
 func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	if expiry := outcome.EnvelopeContent.SignerInfo.SignedAttributes.Expiry; !expiry.IsZero() && !time.Now().Before(expiry) {
 		return &notation.ValidationResult{
@@ -447,7 +475,8 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 		// TODO verify RFC3161 TSA signature if present (not in RC1)
 		// https://github.com/notaryproject/notation-go/issues/78
 		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
-			// if there is no TSA signature, then every certificate should be valid at the time of verification
+			// if there is no TSA signature, then every certificate should be
+			// valid at the time of verification
 			now := time.Now()
 			for _, cert := range signerInfo.CertificateChain {
 				if now.Before(cert.NotBefore) {
@@ -574,7 +603,8 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 
 	leafCert := certs[0] // trusted identities only supported on the leaf cert
 
-	leafCertDN, err := pkix.ParseDistinguishedName(leafCert.Subject.String()) // parse the certificate subject following rfc 4514 DN syntax
+	// parse the certificate subject following rfc 4514 DN syntax
+	leafCertDN, err := pkix.ParseDistinguishedName(leafCert.Subject.String())
 	if err != nil {
 		return fmt.Errorf("error while parsing the certificate subject from the digital signature. error : %q", err)
 	}
