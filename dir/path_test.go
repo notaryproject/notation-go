@@ -1,6 +1,7 @@
 package dir
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -9,7 +10,7 @@ func mockGetUserConfig() (string, error) {
 	return "/path/", nil
 }
 
-func Test_loadPath(t *testing.T) {
+func Test_loadPath_Default(t *testing.T) {
 	wantDir := filepath.FromSlash("/path/notation")
 	userConfigDir = mockGetUserConfig
 	loadUserPath()
@@ -19,6 +20,22 @@ func Test_loadPath(t *testing.T) {
 
 	if UserLibexecDir != UserConfigDir {
 		t.Fatalf(`loadPath() UserLibexecDir is incorrect. got: %q, want: %q`, UserLibexecDir, wantDir)
+	}
+}
+
+func Test_loadPath_With_Env(t *testing.T) {
+	wantConfigDir := filepath.FromSlash("/my_notation/config")
+	wantLibexecDir := filepath.FromSlash("/my_notation/libexec")
+	userConfigDir = mockGetUserConfig
+	os.Setenv("NOTATION_CONFIG", wantConfigDir)
+	os.Setenv("NOTATION_LIBEXEC", wantLibexecDir)
+	loadUserPath()
+	if UserConfigDir != wantConfigDir {
+		t.Fatalf(`loadPath() UserConfigDir is incorrect. got: %q, want: %q`, UserConfigDir, wantConfigDir)
+	}
+
+	if UserLibexecDir != wantLibexecDir {
+		t.Fatalf(`loadPath() UserLibexecDir is incorrect. got: %q, want: %q`, UserLibexecDir, wantLibexecDir)
 	}
 }
 

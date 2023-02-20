@@ -66,15 +66,22 @@ func init() {
 
 // loadUserPath function defines UserConfigDir and UserLibexecDir.
 func loadUserPath() {
-	// set user config
 	userDir, err := userConfigDir()
 	if err != nil {
 		panic(err)
 	}
-	UserConfigDir = filepath.Join(userDir, notation)
+
+	// set user config
+	UserConfigDir = os.Getenv("NOTATION_CONFIG")
+	if UserConfigDir == "" {
+		UserConfigDir = filepath.Join(userDir, notation)
+	}
 
 	// set user libexec
-	UserLibexecDir = UserConfigDir
+	UserLibexecDir = os.Getenv("NOTATION_LIBEXEC")
+	if UserLibexecDir == "" {
+		UserLibexecDir = filepath.Join(userDir, notation)
+	}
 }
 
 // LocalKeyPath returns the local key and local cert relative paths.
