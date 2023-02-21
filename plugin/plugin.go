@@ -36,7 +36,8 @@ type SignPlugin interface {
 	// GenerateSignature generates the raw signature based on the request.
 	GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error)
 
-	// GenerateEnvelope generates the Envelope with signature based on the request.
+	// GenerateEnvelope generates the Envelope with signature based on the
+	// request.
 	GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error)
 }
 

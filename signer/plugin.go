@@ -21,12 +21,13 @@ import (
 // pluginSigner signs artifacts and generates signatures.
 // It implements notation.Signer
 type pluginSigner struct {
-	plugin       plugin.SignPlugin
-	keyID        string
-	pluginConfig map[string]string
+	plugin              plugin.SignPlugin
+	keyID               string
+	pluginConfig        map[string]string
+	manifestAnnotations map[string]string
 }
 
-// NewSignerPlugin creates a notation.Signer that signs artifacts and generates
+// NewFromPlugin creates a notation.Signer that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
@@ -42,6 +43,11 @@ func NewFromPlugin(plugin plugin.Plugin, keyID string, pluginConfig map[string]s
 		keyID:        keyID,
 		pluginConfig: pluginConfig,
 	}, nil
+}
+
+// PluginAnnotations returns signature manifest annotations returned from plugin
+func (s *pluginSigner) PluginAnnotations() map[string]string {
+	return s.manifestAnnotations
 }
 
 // Sign signs the artifact described by its descriptor and returns the
@@ -157,6 +163,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		return nil, nil, fmt.Errorf("during signing, following unknown attributes were added to subject descriptor: %+q", unknownAttributes)
 	}
 
+	s.manifestAnnotations = resp.Annotations
 	return resp.SignatureEnvelope, &envContent.SignerInfo, nil
 }
 
@@ -209,7 +216,8 @@ func isPayloadDescriptorValid(originalDesc, newDesc ocispec.Descriptor) bool {
 
 func areUnknownAttributesAdded(content []byte) []string {
 	var targetArtifactMap map[string]interface{}
-	// Ignoring error because we already successfully unmarshalled before this point
+	// Ignoring error because we already successfully unmarshalled before this
+	// point
 	_ = json.Unmarshal(content, &targetArtifactMap)
 	descriptor := targetArtifactMap["targetArtifact"].(map[string]interface{})
 

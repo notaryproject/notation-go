@@ -30,7 +30,7 @@ var (
 		SupportedContractVersions: []string{proto.ContractVersion},
 		Capabilities:              []proto.Capability{proto.CapabilitySignatureGenerator},
 	}
-	validSignDescriptor, validSignOpts = generateSigningContent(nil)
+	validSignDescriptor, validSignOpts = generateSigningContent()
 	invalidSignatureEnvelope           = []byte("invalid")
 )
 
@@ -51,6 +51,7 @@ type mockPlugin struct {
 	invalidSig        bool
 	invalidCertChain  bool
 	invalidDescriptor bool
+	annotations       map[string]string
 	key               crypto.PrivateKey
 	certs             []*x509.Certificate
 	keySpec           signature.KeySpec
@@ -185,6 +186,7 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 		return &proto.GenerateEnvelopeResponse{
 			SignatureEnvelope:     data,
 			SignatureEnvelopeType: req.SignatureEnvelopeType,
+			Annotations:           p.annotations,
 		}, nil
 	}
 	return &proto.GenerateEnvelopeResponse{}, nil
@@ -315,6 +317,31 @@ func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
 					plugin: mockPlugin,
 				}
 				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
+			})
+		}
+	}
+}
+
+func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
+				annts := map[string]string{"key": "value"}
+				pluginSigner := pluginSigner{
+					plugin: &mockPlugin{
+						key:          keyCert.key,
+						certs:        keyCert.certs,
+						keySpec:      keySpec,
+						annotations:  map[string]string{"key": "value"},
+						wantEnvelope: true,
+					},
+				}
+				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
+				if !reflect.DeepEqual(pluginSigner.PluginAnnotations(), annts) {
+					fmt.Println(pluginSigner.PluginAnnotations())
+					t.Errorf("mismatch in annotations returned from PluginAnnotations()")
+				}
 			})
 		}
 	}

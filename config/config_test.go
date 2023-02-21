@@ -7,11 +7,6 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-const (
-	configPath      = "./testdata/config.json"
-	nonexistentPath = "./testdata/nonexistent.json"
-)
-
 var sampleConfig = &Config{
 	InsecureRegistries: []string{
 		"registry.wabbit-networks.io",
@@ -20,7 +15,7 @@ var sampleConfig = &Config{
 }
 
 func TestLoadFile(t *testing.T) {
-	dir.UserConfigDir = "./testdata"
+	dir.UserConfigDir = "./testdata/valid"
 	got, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig() error. err = %v", err)

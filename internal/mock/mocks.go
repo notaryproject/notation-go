@@ -35,6 +35,9 @@ var MockSaExpiredSigEnv []byte
 //go:embed testdata/sa_plugin_sig_env.json
 var MockSaPluginSigEnv []byte // extended attributes are "SomeKey":"SomeValue", "io.cncf.notary.verificationPlugin":"plugin-name"
 
+//go:embed testdata/sig_env_with_metadata.json
+var MockSigEnvWithMetadata []byte
+
 //go:embed testdata/ca_incompatible_pluginver_sig_env_1.0.9.json
 var MockCaIncompatiblePluginVerSigEnv_1_0_9 []byte
 
@@ -67,7 +70,7 @@ var (
 		MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:      SampleDigest,
 		Size:        528,
-		Annotations: nil,
+		Annotations: Annotations,
 	}
 	SigManfiestDescriptor = ocispec.Descriptor{
 		MediaType:   "application/vnd.cncf.oras.artifact.manifest.v1+json",
@@ -91,6 +94,12 @@ var (
 		Key:      "SomeKey",
 		Critical: true,
 		Value:    "SomeValue",
+	}
+	MetadataSigEnvDescriptor = ocispec.Descriptor{
+		MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:      digest.Digest("sha256:5a07385af4e6b6af81b0ebfd435aedccdfa3507f0609c658209e1aba57159b2b"),
+		Size:        942,
+		Annotations: map[string]string{"io.wabbit-networks.buildId": "123", "io.wabbit-networks.buildTime": "1672944615"},
 	}
 )
 

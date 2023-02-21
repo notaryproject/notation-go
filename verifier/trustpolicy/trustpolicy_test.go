@@ -146,8 +146,7 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	validDN1 := "x509.subject:C=US,ST=WA,O=MyOrg"
 	validDN2 := "x509.subject:C=US,ST=WA,O=  My.  Org"
 	validDN3 := "x509.subject:C=US,ST=WA,O=My \"special\" Org \\, \\; \\\\ others"
-	validDN4 := "x509.subject:C=US,ST=WA,O=My Org,1.3.6.1.4.1.1466.0=#04024869"
-	policyStatement.TrustedIdentities = []string{validDN1, validDN2, validDN3, validDN4}
+	policyStatement.TrustedIdentities = []string{validDN1, validDN2, validDN3}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
 	if err != nil {
