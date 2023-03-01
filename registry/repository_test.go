@@ -375,7 +375,7 @@ func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 		PlainHTTP: plainHTTP,
 	}
 	return &repositoryClient{
-		Repository: &repo,
+		Target: &repo,
 	}
 }
 
@@ -383,7 +383,7 @@ func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 // pushing OCI image manifest
 func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
 	return &repositoryClient{
-		Repository: &remote.Repository{
+		Target: &remote.Repository{
 			Client:    client,
 			Reference: ref,
 			PlainHTTP: plainHTTP,

@@ -8,7 +8,8 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
-	"oras.land/oras-go/v2/registry"
+	"oras.land/oras-go/v2/content/oci"
+	"oras.land/oras-go/v2/registry/remote"
 )
 
 const (
@@ -32,35 +33,59 @@ type RepositoryOptions struct {
 
 // repositoryClient implements Repository
 type repositoryClient struct {
-	registry.Repository
+	oras.Target
 	RepositoryOptions
 }
 
 // NewRepository returns a new Repository
-func NewRepository(repo registry.Repository) Repository {
+func NewRepository(target oras.Target) Repository {
 	return &repositoryClient{
-		Repository: repo,
+		Target: target,
 	}
 }
 
 // NewRepositoryWithOptions returns a new Repository with user specified
 // options.
-func NewRepositoryWithOptions(repo registry.Repository, opts RepositoryOptions) Repository {
+func NewRepositoryWithOptions(target oras.Target, opts RepositoryOptions) Repository {
 	return &repositoryClient{
-		Repository:        repo,
+		Target:            target,
 		RepositoryOptions: opts,
 	}
 }
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	return c.Repository.Manifests().Resolve(ctx, reference)
+	switch t := c.Target.(type) {
+	case *remote.Repository:
+		return t.Manifests().Resolve(ctx, reference)
+	case *oci.Store:
+		return t.Resolve(ctx, reference)
+	default:
+		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
+	}
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	return c.Repository.Referrers(ctx, desc, ArtifactTypeNotation, fn)
+	switch t := c.Target.(type) {
+	case *remote.Repository:
+		return t.Referrers(ctx, desc, ArtifactTypeNotation, fn)
+	case *oci.Store:
+		predecessors, err := t.Predecessors(ctx, desc)
+		if err != nil {
+			return fmt.Errorf("failed to get predecessors during ListSignatures due to %w", err)
+		}
+		var signatureManifests []ocispec.Descriptor
+		for _, manifest := range predecessors {
+			if manifest.ArtifactType == ArtifactTypeNotation {
+				signatureManifests = append(signatureManifests, manifest)
+			}
+		}
+		return fn(signatureManifests)
+	default:
+		return fmt.Errorf("repositoryClient target type %T is not supported", t)
+	}
 }
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
@@ -73,9 +98,21 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	if sigBlobDesc.Size > maxBlobSizeLimit {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d bytes", sigBlobDesc.Size)
 	}
-	sigBlob, err := content.FetchAll(ctx, c.Repository.Blobs(), sigBlobDesc)
-	if err != nil {
-		return nil, ocispec.Descriptor{}, err
+
+	var sigBlob []byte
+	switch t := c.Target.(type) {
+	case *remote.Repository:
+		sigBlob, err = content.FetchAll(ctx, t.Blobs(), sigBlobDesc)
+		if err != nil {
+			return nil, ocispec.Descriptor{}, err
+		}
+	case *oci.Store:
+		sigBlob, err = content.FetchAll(ctx, t, sigBlobDesc)
+		if err != nil {
+			return nil, ocispec.Descriptor{}, err
+		}
+	default:
+		return nil, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
 	}
 	return sigBlob, sigBlobDesc, nil
 }
@@ -84,11 +121,20 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
 func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
-	blobDesc, err = oras.PushBytes(ctx, c.Repository.Blobs(), mediaType, blob)
-	if err != nil {
-		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
+	switch t := c.Target.(type) {
+	case *remote.Repository:
+		blobDesc, err = oras.PushBytes(ctx, t.Blobs(), mediaType, blob)
+		if err != nil {
+			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
+		}
+	case *oci.Store:
+		blobDesc, err = oras.PushBytes(ctx, t, mediaType, blob)
+		if err != nil {
+			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
+		}
+	default:
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
 	}
-
 	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
@@ -106,13 +152,27 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 	if sigManifestDesc.Size > maxManifestSizeLimit {
 		return ocispec.Descriptor{}, fmt.Errorf("signature manifest too large: %d bytes", sigManifestDesc.Size)
 	}
-	manifestJSON, err := content.FetchAll(ctx, c.Repository.Manifests(), sigManifestDesc)
-	if err != nil {
-		return ocispec.Descriptor{}, err
+
+	// get the signature manifest from sigManifestDesc
+	var manifestJSON []byte
+	var err error
+	switch t := c.Target.(type) {
+	case *remote.Repository:
+		manifestJSON, err = content.FetchAll(ctx, t.Manifests(), sigManifestDesc)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+	case *oci.Store:
+		manifestJSON, err = content.FetchAll(ctx, t, sigManifestDesc)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+	default:
+		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
 	}
 
+	// get the signature blob descriptor from signature manifest
 	var signatureBlobs []ocispec.Descriptor
-
 	// OCI image manifest
 	if sigManifestDesc.MediaType == ocispec.MediaTypeImageManifest {
 		var sigManifest ocispec.Manifest
@@ -143,5 +203,10 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		PackImageManifest:   c.OCIImageManifest,
 	}
 
-	return oras.Pack(ctx, c.Repository, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	switch t := c.Target.(type) {
+	case *remote.Repository, *oci.Store:
+		return oras.Pack(ctx, t, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	default:
+		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
+	}
 }

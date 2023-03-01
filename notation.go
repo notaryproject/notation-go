@@ -95,6 +95,9 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 	if ref.Reference == "" {
 		return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
 	}
+	if repo == nil {
+		return ocispec.Descriptor{}, errors.New("repo cannot be nil")
+	}
 	targetDesc, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -134,6 +137,58 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 	}
 
 	return targetDesc, nil
+}
+
+// LocalSignOptions contains parameters for notation.SignLocalContent.
+type LocalSignOptions struct {
+	SignOptions
+
+	// UserMetadata contains key-value pairs that are added to the signature
+	// payload
+	UserMetadata map[string]string
+
+	// TargetArtifact specifies the descriptor of the target artifact manifest
+	TargetArtifact ocispec.Descriptor
+}
+
+// SignLocalContent signs the target artifact.
+// The descriptor of the sign content and the signature are returned
+// Upon sucessful signing, the descriptor of the sign content, the signature
+// blob, and annotations are returned.
+func SignLocalContent(ctx context.Context, signer Signer, localOpts LocalSignOptions) (ocispec.Descriptor, []byte, map[string]string, error) {
+	// Input validation for expiry duration
+	if localOpts.ExpiryDuration < 0 {
+		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: "expiry duration cannot be a negative value"}
+	}
+
+	if localOpts.ExpiryDuration%time.Second != 0 {
+		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: "expiry duration supports minimum granularity of seconds"}
+	}
+
+	logger := log.GetLogger(ctx)
+	targetDesc, err := addUserMetadataToDescriptor(ctx, localOpts.TargetArtifact, localOpts.UserMetadata)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: err.Error()}
+	}
+
+	sig, signerInfo, err := signer.Sign(ctx, targetDesc, localOpts.SignOptions)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: err.Error()}
+	}
+
+	var pluginAnnotations map[string]string
+	if signerAnts, ok := signer.(signerAnnotation); ok {
+		pluginAnnotations = signerAnts.PluginAnnotations()
+	}
+
+	logger.Debug("Generating annotation")
+	annotations, err := generateAnnotations(signerInfo, pluginAnnotations)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: err.Error()}
+	}
+	logger.Debugf("Generated annotations: %+v", annotations)
+
+	return targetDesc, sig, annotations, nil
 }
 
 func addUserMetadataToDescriptor(ctx context.Context, desc ocispec.Descriptor, userMetadata map[string]string) (ocispec.Descriptor, error) {
