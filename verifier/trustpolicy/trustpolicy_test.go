@@ -545,7 +545,7 @@ func TestLoadDocument(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	_, err := LoadDocument()
-	if err == nil {
+	if err == nil || err.Error() != fmt.Sprintf("Trust policy is not present, please create trust policy at %s/trustpolicy.json", tempRoot) {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -265,7 +266,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 func LoadDocument() (*Document, error) {
 	jsonFile, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Trust policy is not present, please create trust policy at %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
 	}
 	defer jsonFile.Close()
 	policyDocument := &Document{}
