@@ -64,14 +64,22 @@ func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore
 }
 
 // SkipVerify validates whether the verification level is skip.
-func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *trustpolicy.VerificationLevel, error) {
+func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifyOptions) (bool, *trustpolicy.VerificationLevel, error) {
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("Check verification level against artifact %v", artifactRef)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
+	var trustPolicy *trustpolicy.TrustPolicy
+	var err error
+	if opts.TargetAtLocal {
+		logger.Debugf("Check verification level of trust policy scope %s", opts.TrustPolicyScope)
+		trustPolicy, err = v.trustPolicyDoc.GetLocalApplicableTrustPolicy(opts.TrustPolicyScope)
+	} else {
+		logger.Debugf("Check verification level against artifact %v", opts.ArtifactReference)
+		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
+	}
 	if err != nil {
 		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
+
 	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
@@ -90,16 +98,22 @@ func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *t
 // If nil signature is present and the verification level is not 'skip',
 // an error will be returned.
 func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifyOptions) (*notation.VerificationOutcome, error) {
-	artifactRef := opts.ArtifactReference
-	envelopeMediaType := opts.SignatureMediaType
-	pluginConfig := opts.PluginConfig
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, opts.SignatureMediaType)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
+	envelopeMediaType := opts.SignatureMediaType
+	var trustPolicy *trustpolicy.TrustPolicy
+	var err error
+	if opts.TargetAtLocal {
+		logger.Debugf("Verify signature against local artifact %v using trust policy scope %s in signature media type %v", desc.Digest, opts.TrustPolicyScope, envelopeMediaType)
+		trustPolicy, err = v.trustPolicyDoc.GetLocalApplicableTrustPolicy(opts.TrustPolicyScope)
+	} else {
+		logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, opts.ArtifactReference, envelopeMediaType)
+		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
+	}
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
+
 	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
@@ -113,7 +127,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, opts.PluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err

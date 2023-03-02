@@ -141,21 +141,30 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 
 // LocalSignOptions contains parameters for notation.SignLocalContent.
 type LocalSignOptions struct {
-	SignOptions
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently both `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaType string
+
+	// ExpiryDuration identifies the expiry duration of the resulted signature.
+	// Zero value represents no expiry duration.
+	ExpiryDuration time.Duration
+
+	// PluginConfig sets or overrides the plugin configuration.
+	PluginConfig map[string]string
+
+	// SigningAgent sets the signing agent name
+	SigningAgent string
 
 	// UserMetadata contains key-value pairs that are added to the signature
 	// payload
 	UserMetadata map[string]string
-
-	// TargetArtifact specifies the descriptor of the target artifact manifest
-	TargetArtifact ocispec.Descriptor
 }
 
-// SignLocalContent signs the target artifact.
-// The descriptor of the sign content and the signature are returned
-// Upon sucessful signing, the descriptor of the sign content, the signature
-// blob, and annotations are returned.
-func SignLocalContent(ctx context.Context, signer Signer, localOpts LocalSignOptions) (ocispec.Descriptor, []byte, map[string]string, error) {
+// SignLocalContent signs the local target artifact.
+// Upon sucessful signing, the descriptor of the target content, the signature
+// blob, and signature manifest annotations are returned.
+func SignLocalContent(ctx context.Context, artifactDescriptor ocispec.Descriptor, signer Signer, localOpts LocalSignOptions) (ocispec.Descriptor, []byte, map[string]string, error) {
 	// Input validation for expiry duration
 	if localOpts.ExpiryDuration < 0 {
 		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: "expiry duration cannot be a negative value"}
@@ -166,12 +175,17 @@ func SignLocalContent(ctx context.Context, signer Signer, localOpts LocalSignOpt
 	}
 
 	logger := log.GetLogger(ctx)
-	targetDesc, err := addUserMetadataToDescriptor(ctx, localOpts.TargetArtifact, localOpts.UserMetadata)
+	targetDesc, err := addUserMetadataToDescriptor(ctx, artifactDescriptor, localOpts.UserMetadata)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: err.Error()}
 	}
-
-	sig, signerInfo, err := signer.Sign(ctx, targetDesc, localOpts.SignOptions)
+	signOpts := SignOptions{
+		SignatureMediaType: localOpts.SignatureMediaType,
+		ExpiryDuration:     localOpts.ExpiryDuration,
+		PluginConfig:       localOpts.PluginConfig,
+		SigningAgent:       localOpts.SigningAgent,
+	}
+	sig, signerInfo, err := signer.Sign(ctx, targetDesc, signOpts)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, nil, ErrorSignLocalContent{Msg: err.Error()}
 	}
@@ -275,7 +289,7 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 
 // VerifyOptions contains parameters for Verifier.Verify.
 type VerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is been
+	// ArtifactReference is the reference of the remote artifact that is been
 	// verified against to.
 	ArtifactReference string
 
@@ -288,8 +302,18 @@ type VerifyOptions struct {
 	PluginConfig map[string]string
 
 	// UserMetadata contains key-value pairs that must be present in the
-	// signature
+	// signature.
 	UserMetadata map[string]string
+
+	// TargetAtLocal specifies if the target artifact is at local.
+	// When TargetAtLocal is set to true, ArtifactReference will not be used
+	// in the verification process.
+	TargetAtLocal bool
+
+	// TrustPolicyScope specifies the registry scope of the trust policy
+	// statement. This field is only used and validated when
+	// TargetAtLocal is set to true.
+	TrustPolicyScope string
 }
 
 // Verifier is a generic interface for verifying an artifact.
@@ -323,12 +347,13 @@ type RemoteVerifyOptions struct {
 
 type skipVerifier interface {
 	// SkipVerify validates whether the verification level is skip.
-	SkipVerify(ctx context.Context, artifactRef string) (bool, *trustpolicy.VerificationLevel, error)
+	SkipVerify(ctx context.Context, opts VerifyOptions) (bool, *trustpolicy.VerificationLevel, error)
 }
 
 // Verify performs signature verification on each of the notation supported
 // verification types (like integrity, authenticity, etc.) and return the
 // successful signature verification outcome.
+// The target artifact is expected to be on a remote registry.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, remoteOpts RemoteVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
@@ -343,7 +368,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 	if skipChecker, ok := verifier.(skipVerifier); ok {
 		logger.Info("Checking whether signature verification should be skipped or not")
-		skip, verificationLevel, err := skipChecker.SkipVerify(ctx, opts.ArtifactReference)
+		skip, verificationLevel, err := skipChecker.SkipVerify(ctx, opts)
 		if err != nil {
 			return ocispec.Descriptor{}, nil, err
 		}

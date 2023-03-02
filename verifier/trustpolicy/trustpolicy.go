@@ -232,7 +232,6 @@ func (policyDoc *Document) Validate() error {
 // policy is found, returns an error
 // see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
 func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
-
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {
 		return nil, err
@@ -258,6 +257,43 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 		return wildcardPolicy, nil
 	} else {
 		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
+	}
+}
+
+// GetLocalApplicableTrustPolicy returns a pointer to the deep copied
+// TrustPolicy statement that applies to the given registry scope.
+// If no applicable trust policy is found, returns an error
+// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+func (trustPolicyDoc *Document) GetLocalApplicableTrustPolicy(scope string) (*TrustPolicy, error) {
+	if scope != "" {
+		// validate the scope
+		if err := validateRegistryScopeFormat(scope); err != nil {
+			return nil, fmt.Errorf("failed to get applicable trust policy: %w", err)
+		}
+	}
+
+	var wildcardPolicy *TrustPolicy
+	var applicablePolicy *TrustPolicy
+	for _, policyStatement := range trustPolicyDoc.TrustPolicies {
+		if slices.Contains(policyStatement.RegistryScopes, trustpolicy.Wildcard) {
+			// we need to deep copy because we can't use the loop variable
+			// address. see https://stackoverflow.com/a/45967429
+			wildcardPolicy = (&policyStatement).clone()
+		} else if scope != "" && slices.Contains(policyStatement.RegistryScopes, scope) {
+			applicablePolicy = (&policyStatement).clone()
+		}
+	}
+
+	if applicablePolicy != nil {
+		// a policy with exact match for registry URI takes precedence over
+		// a wildcard (*) policy.
+		return applicablePolicy, nil
+	} else if wildcardPolicy != nil {
+		// return wildcardPolicy if user given scope is empty or an exact match
+		// does not exist.
+		return wildcardPolicy, nil
+	} else {
+		return nil, errors.New("there is no applicable trust policy for the given local artifact")
 	}
 }
 
