@@ -9,6 +9,7 @@ import (
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
+	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 )
 
@@ -55,36 +56,30 @@ func NewRepositoryWithOptions(target oras.Target, opts RepositoryOptions) Reposi
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	switch t := c.Target.(type) {
+	switch target := c.Target.(type) {
 	case *remote.Repository:
-		return t.Manifests().Resolve(ctx, reference)
+		return target.Manifests().Resolve(ctx, reference)
 	case *oci.Store:
-		return t.Resolve(ctx, reference)
+		return target.Resolve(ctx, reference)
 	default:
-		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
+		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", target)
 	}
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	switch t := c.Target.(type) {
+	switch target := c.Target.(type) {
 	case *remote.Repository:
-		return t.Referrers(ctx, desc, ArtifactTypeNotation, fn)
+		return target.Referrers(ctx, desc, ArtifactTypeNotation, fn)
 	case *oci.Store:
-		predecessors, err := t.Predecessors(ctx, desc)
+		signatureManifests, err := referrers(ctx, target, desc, ArtifactTypeNotation)
 		if err != nil {
 			return fmt.Errorf("failed to get predecessors during ListSignatures due to %w", err)
 		}
-		var signatureManifests []ocispec.Descriptor
-		for _, manifest := range predecessors {
-			if manifest.ArtifactType == ArtifactTypeNotation {
-				signatureManifests = append(signatureManifests, manifest)
-			}
-		}
 		return fn(signatureManifests)
 	default:
-		return fmt.Errorf("repositoryClient target type %T is not supported", t)
+		return fmt.Errorf("repositoryClient target type %T is not supported", target)
 	}
 }
 
@@ -100,19 +95,19 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 
 	var sigBlob []byte
-	switch t := c.Target.(type) {
+	switch target := c.Target.(type) {
 	case *remote.Repository:
-		sigBlob, err = content.FetchAll(ctx, t.Blobs(), sigBlobDesc)
+		sigBlob, err = content.FetchAll(ctx, target.Blobs(), sigBlobDesc)
 		if err != nil {
 			return nil, ocispec.Descriptor{}, err
 		}
 	case *oci.Store:
-		sigBlob, err = content.FetchAll(ctx, t, sigBlobDesc)
+		sigBlob, err = content.FetchAll(ctx, target, sigBlobDesc)
 		if err != nil {
 			return nil, ocispec.Descriptor{}, err
 		}
 	default:
-		return nil, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
+		return nil, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", target)
 	}
 	return sigBlob, sigBlobDesc, nil
 }
@@ -121,19 +116,19 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
 func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
-	switch t := c.Target.(type) {
+	switch target := c.Target.(type) {
 	case *remote.Repository:
-		blobDesc, err = oras.PushBytes(ctx, t.Blobs(), mediaType, blob)
+		blobDesc, err = oras.PushBytes(ctx, target.Blobs(), mediaType, blob)
 		if err != nil {
 			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 		}
 	case *oci.Store:
-		blobDesc, err = oras.PushBytes(ctx, t, mediaType, blob)
+		blobDesc, err = oras.PushBytes(ctx, target, mediaType, blob)
 		if err != nil {
 			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 		}
 	default:
-		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", target)
 	}
 	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations)
 	if err != nil {
@@ -209,4 +204,73 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 	default:
 		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
 	}
+}
+
+// referrers returns referrer nodes of desc in target and filter by artifactType
+func referrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor, artifactType string) ([]ocispec.Descriptor, error) {
+	var results []ocispec.Descriptor
+	if repo, ok := target.(registry.ReferrerLister); ok {
+		// get referrers directly
+		err := repo.Referrers(ctx, desc, artifactType, func(referrers []ocispec.Descriptor) error {
+			results = append(results, referrers...)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return results, nil
+	}
+
+	// find matched referrers in all predecessors
+	predecessors, err := target.Predecessors(ctx, desc)
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range predecessors {
+		switch node.MediaType {
+		case ocispec.MediaTypeArtifactManifest:
+			fetched, err := fetchBytes(ctx, target, node)
+			if err != nil {
+				return nil, err
+			}
+			var artifact ocispec.Artifact
+			if err := json.Unmarshal(fetched, &artifact); err != nil {
+				return nil, err
+			}
+			if artifact.Subject == nil || !content.Equal(*artifact.Subject, desc) {
+				continue
+			}
+			node.ArtifactType = artifact.ArtifactType
+			node.Annotations = artifact.Annotations
+		case ocispec.MediaTypeImageManifest:
+			fetched, err := fetchBytes(ctx, target, node)
+			if err != nil {
+				return nil, err
+			}
+			var image ocispec.Manifest
+			if err := json.Unmarshal(fetched, &image); err != nil {
+				return nil, err
+			}
+			if image.Subject == nil || !content.Equal(*image.Subject, desc) {
+				continue
+			}
+			node.ArtifactType = image.Config.MediaType
+			node.Annotations = image.Annotations
+		default:
+			continue
+		}
+		if node.ArtifactType != "" && (artifactType == "" || artifactType == node.ArtifactType) {
+			results = append(results, node)
+		}
+	}
+	return results, nil
+}
+
+func fetchBytes(ctx context.Context, fetcher content.Fetcher, desc ocispec.Descriptor) ([]byte, error) {
+	rc, err := fetcher.Fetch(ctx, desc)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return content.ReadAll(rc, desc)
 }
