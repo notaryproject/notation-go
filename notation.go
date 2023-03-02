@@ -520,7 +520,7 @@ func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Re
 	logger := log.GetLogger(ctx)
 	// sanity check
 	if !localVerifyOpts.TargetAtLocal {
-		return ocispec.Descriptor{}, nil, errors.New("failed to verify local content: localVerifyOpts.TargetAtLocal is false")
+		return ocispec.Descriptor{}, nil, errors.New("to verify local content, localVerifyOpts.TargetAtLocal must be true")
 	}
 	if localVerifyOpts.MaxSignatureAttempts <= 0 {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", localVerifyOpts.MaxSignatureAttempts)}
@@ -529,7 +529,7 @@ func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Re
 	// get target artifact descriptor
 	targetDesc, err := repo.Resolve(ctx, localVerifyOpts.LayoutReference)
 	if err != nil {
-		return ocispec.Descriptor{}, nil, err
+		return ocispec.Descriptor{}, nil, fmt.Errorf("failed to resolve the layout reference due to: %w", err)
 	}
 	// localVerifyOpts.LayoutReference is a tag
 	if digest.Digest(localVerifyOpts.LayoutReference).Validate() != nil {
