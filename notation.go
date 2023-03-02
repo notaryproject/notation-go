@@ -360,9 +360,6 @@ type skipVerifier interface {
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, remoteOpts RemoteVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	logger := log.GetLogger(ctx)
-	if _, ok := repo.(orasRegistry.Repository); !ok {
-		return ocispec.Descriptor{}, nil, errors.New("failed to verify: repo must be remote repository")
-	}
 
 	// opts to be passed in verifier.Verify()
 	opts := VerifyOptions{
@@ -527,9 +524,6 @@ func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Re
 	}
 	if localVerifyOpts.MaxSignatureAttempts <= 0 {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", localVerifyOpts.MaxSignatureAttempts)}
-	}
-	if _, ok := repo.(orasRegistry.Repository); ok {
-		return ocispec.Descriptor{}, nil, errors.New("failed to verify local content: repo cannot be remote repository")
 	}
 
 	// get target artifact descriptor
