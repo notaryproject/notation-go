@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	orasRegistry "oras.land/oras-go/v2/registry"
 )
@@ -358,6 +360,9 @@ type skipVerifier interface {
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, remoteOpts RemoteVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	logger := log.GetLogger(ctx)
+	if _, ok := repo.(orasRegistry.Repository); !ok {
+		return ocispec.Descriptor{}, nil, errors.New("failed to verify: repo must be remote repository")
+	}
 
 	// opts to be passed in verifier.Verify()
 	opts := VerifyOptions{
@@ -479,6 +484,159 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 
 	// Verification Succeeded
 	return artifactDescriptor, verificationOutcomes, nil
+}
+
+// LocalVerifyOptions contains parameters for notation.Verify.
+type LocalVerifyOptions struct {
+	// LayoutReference is the tag or digest reference of the target artifact
+	// in the OCI layout.
+	LayoutReference string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+
+	// MaxSignatureAttempts is the maximum number of signature envelopes that
+	// will be processed for verification. If set to less than or equals
+	// to zero, an error will be returned.
+	MaxSignatureAttempts int
+
+	// UserMetadata contains key-value pairs that must be present in the
+	// signature
+	UserMetadata map[string]string
+
+	// TargetAtLocal specifies if the target artifact is at local.
+	// When TargetAtLocal is set to true, ArtifactReference will not be used
+	// in the verification process.
+	TargetAtLocal bool
+
+	// TrustPolicyScope specifies the registry scope of the trust policy
+	// statement. This field is only used and validated when
+	// TargetAtLocal is set to true.
+	TrustPolicyScope string
+}
+
+// VerifyLocalContent verifies the target artifact in a local OCI layout.
+// repo is used to retrieve signatures associated with the target artifact.
+// Upon successful verification, the target artifact descriptor and the
+// successful signature verification outcome are returned.
+func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Repository, localVerifyOpts LocalVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
+	logger := log.GetLogger(ctx)
+	// sanity check
+	if !localVerifyOpts.TargetAtLocal {
+		return ocispec.Descriptor{}, nil, errors.New("failed to verify local content: localVerifyOpts.TargetAtLocal is false")
+	}
+	if localVerifyOpts.MaxSignatureAttempts <= 0 {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", localVerifyOpts.MaxSignatureAttempts)}
+	}
+	if _, ok := repo.(orasRegistry.Repository); ok {
+		return ocispec.Descriptor{}, nil, errors.New("failed to verify local content: repo cannot be remote repository")
+	}
+
+	// get target artifact descriptor
+	targetDesc, err := repo.Resolve(ctx, localVerifyOpts.LayoutReference)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+	// localVerifyOpts.LayoutReference is a tag
+	if digest.Digest(localVerifyOpts.LayoutReference).Validate() != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Always verify the artifact using digest(@sha256:...) rather than a tag(:%s) because resolved digest may not point to the same signed artifact, as tags are mutable.\n", localVerifyOpts.LayoutReference)
+	}
+
+	// opts to be passed in verifier.Verify()
+	opts := VerifyOptions{
+		PluginConfig:     localVerifyOpts.PluginConfig,
+		UserMetadata:     localVerifyOpts.UserMetadata,
+		TargetAtLocal:    localVerifyOpts.TargetAtLocal,
+		TrustPolicyScope: localVerifyOpts.TrustPolicyScope,
+	}
+
+	if skipChecker, ok := verifier.(skipVerifier); ok {
+		logger.Info("Checking whether signature verification should be skipped or not")
+		skip, verificationLevel, err := skipChecker.SkipVerify(ctx, opts)
+		if err != nil {
+			return ocispec.Descriptor{}, nil, err
+		}
+		if skip {
+			logger.Infoln("Verification skipped for", targetDesc.Digest.String())
+			return ocispec.Descriptor{}, []*VerificationOutcome{{VerificationLevel: verificationLevel}}, nil
+		}
+		logger.Info("Check over. Trust policy is not configured to skip signature verification")
+	}
+
+	var verificationOutcomes []*VerificationOutcome
+	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", localVerifyOpts.MaxSignatureAttempts)}
+	numOfSignatureProcessed := 0
+	var verificationFailedErr error = ErrorVerificationFailed{}
+	// get signature manifests
+	logger.Debug("Fetching signature manifests using referrers API")
+	err = repo.ListSignatures(ctx, targetDesc, func(signatureManifests []ocispec.Descriptor) error {
+		// process signatures
+		for _, sigManifestDesc := range signatureManifests {
+			if numOfSignatureProcessed >= localVerifyOpts.MaxSignatureAttempts {
+				break
+			}
+			numOfSignatureProcessed++
+			logger.Infof("Processing signature with manifest mediaType: %v and digest: %v", sigManifestDesc.MediaType, sigManifestDesc.Digest)
+			// get signature envelope
+			sigBlob, sigDesc, err := repo.FetchSignatureBlob(ctx, sigManifestDesc)
+			if err != nil {
+				return ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %s from the OCI layout folder, error : %v", sigManifestDesc.Digest, targetDesc.Digest, err.Error())}
+			}
+
+			// using signature media type fetched from registry
+			opts.SignatureMediaType = sigDesc.MediaType
+
+			// verify each signature
+			outcome, err := verifier.Verify(ctx, targetDesc, sigBlob, opts)
+			if err != nil {
+				logger.Warnf("Signature %v failed verification with error: %v", sigManifestDesc.Digest, err)
+				if outcome == nil {
+					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
+					return err
+				}
+
+				if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
+					verificationFailedErr = outcome.Error
+				}
+
+				continue
+			}
+			// at this point, the signature is verified successfully. Add
+			// it to the verificationOutcomes.
+			verificationOutcomes = append(verificationOutcomes, outcome)
+			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", targetDesc.Digest, sigManifestDesc.Digest)
+
+			// early break on success
+			return errDoneVerification
+		}
+
+		if numOfSignatureProcessed >= localVerifyOpts.MaxSignatureAttempts {
+			return errExceededMaxVerificationLimit
+		}
+
+		return nil
+	})
+
+	if err != nil && !errors.Is(err, errDoneVerification) {
+		if errors.Is(err, errExceededMaxVerificationLimit) {
+			return ocispec.Descriptor{}, verificationOutcomes, err
+		}
+		return ocispec.Descriptor{}, nil, err
+	}
+
+	// If there's no signature associated with the reference
+	if numOfSignatureProcessed == 0 {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("no signature is associated with %v, make sure the image was signed successfully", targetDesc.Digest)}
+	}
+
+	// Verification Failed
+	if len(verificationOutcomes) == 0 {
+		logger.Debugf("Signature verification failed for all the signatures associated with %v", targetDesc.Digest)
+		return ocispec.Descriptor{}, verificationOutcomes, verificationFailedErr
+	}
+
+	// Verification Succeeded
+	return targetDesc, verificationOutcomes, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[string]string) (map[string]string, error) {
