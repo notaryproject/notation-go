@@ -667,7 +667,7 @@ func validateRemoteRepo(repo registry.Repository) error {
 			return fmt.Errorf("repo is not a remote.Repository")
 		}
 	default:
-		return fmt.Errorf("repo is of type %T. want registry.RepositoryClient with remote.Repository as Target", r)
+		return nil
 	}
 }
 
@@ -681,6 +681,6 @@ func validateOciStore(repo registry.Repository) error {
 			return fmt.Errorf("repo is not an oci.Store")
 		}
 	default:
-		return fmt.Errorf("repo is of type %T. want registry.RepositoryClient with oci.Store as Target", r)
+		return nil
 	}
 }
