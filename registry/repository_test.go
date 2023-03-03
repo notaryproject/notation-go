@@ -368,21 +368,21 @@ func TestPushSignatureImageManifest(t *testing.T) {
 }
 
 // newRepositoryClient creates a new repository client
-func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
+func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP bool) *RepositoryClient {
 	repo := remote.Repository{
 		Client:    client,
 		Reference: ref,
 		PlainHTTP: plainHTTP,
 	}
-	return &repositoryClient{
+	return &RepositoryClient{
 		Target: &repo,
 	}
 }
 
 // newRepositoryClientWithImageManifest creates a new repository client for
 // pushing OCI image manifest
-func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
-	return &repositoryClient{
+func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Reference, plainHTTP bool) *RepositoryClient {
+	return &RepositoryClient{
 		Target: &remote.Repository{
 			Client:    client,
 			Reference: ref,

@@ -20,7 +20,9 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/content/oci"
 	orasRegistry "oras.land/oras-go/v2/registry"
+	"oras.land/oras-go/v2/registry/remote"
 )
 
 const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
@@ -86,6 +88,10 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 
 	if remoteOpts.ExpiryDuration%time.Second != 0 {
 		return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granularity of seconds")
+	}
+
+	if err := validateRemoteRepo(repo); err != nil {
+		return ocispec.Descriptor{}, err
 	}
 
 	logger := log.GetLogger(ctx)
@@ -361,6 +367,14 @@ type skipVerifier interface {
 func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, remoteOpts RemoteVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	logger := log.GetLogger(ctx)
 
+	// sanity check
+	if remoteOpts.MaxSignatureAttempts <= 0 {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", remoteOpts.MaxSignatureAttempts)}
+	}
+	if err := validateRemoteRepo(repo); err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+
 	// opts to be passed in verifier.Verify()
 	opts := VerifyOptions{
 		ArtifactReference: remoteOpts.ArtifactReference,
@@ -379,11 +393,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 			return ocispec.Descriptor{}, []*VerificationOutcome{{VerificationLevel: verificationLevel}}, nil
 		}
 		logger.Info("Check over. Trust policy is not configured to skip signature verification")
-	}
-
-	// check MaxSignatureAttempts
-	if remoteOpts.MaxSignatureAttempts <= 0 {
-		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", remoteOpts.MaxSignatureAttempts)}
 	}
 
 	// get artifact descriptor
@@ -501,11 +510,6 @@ type LocalVerifyOptions struct {
 	// signature
 	UserMetadata map[string]string
 
-	// TargetAtLocal specifies if the target artifact is at local.
-	// When TargetAtLocal is set to true, ArtifactReference will not be used
-	// in the verification process.
-	TargetAtLocal bool
-
 	// TrustPolicyScope specifies the registry scope of the trust policy
 	// statement. This field is only used and validated when
 	// TargetAtLocal is set to true.
@@ -518,18 +522,19 @@ type LocalVerifyOptions struct {
 // successful signature verification outcome are returned.
 func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Repository, localVerifyOpts LocalVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
 	logger := log.GetLogger(ctx)
+
 	// sanity check
-	if !localVerifyOpts.TargetAtLocal {
-		return ocispec.Descriptor{}, nil, errors.New("to verify local content, localVerifyOpts.TargetAtLocal must be true")
-	}
 	if localVerifyOpts.MaxSignatureAttempts <= 0 {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", localVerifyOpts.MaxSignatureAttempts)}
+	}
+	if err := validateOciStore(repo); err != nil {
+		return ocispec.Descriptor{}, nil, err
 	}
 
 	// get target artifact descriptor
 	targetDesc, err := repo.Resolve(ctx, localVerifyOpts.LayoutReference)
 	if err != nil {
-		return ocispec.Descriptor{}, nil, fmt.Errorf("failed to resolve the layout reference due to: %w", err)
+		return ocispec.Descriptor{}, nil, fmt.Errorf("cannot resolve the layout reference due to: %w", err)
 	}
 	// localVerifyOpts.LayoutReference is a tag
 	if digest.Digest(localVerifyOpts.LayoutReference).Validate() != nil {
@@ -538,9 +543,9 @@ func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Re
 
 	// opts to be passed in verifier.Verify()
 	opts := VerifyOptions{
+		TargetAtLocal:    true,
 		PluginConfig:     localVerifyOpts.PluginConfig,
 		UserMetadata:     localVerifyOpts.UserMetadata,
-		TargetAtLocal:    localVerifyOpts.TargetAtLocal,
 		TrustPolicyScope: localVerifyOpts.TrustPolicyScope,
 	}
 
@@ -650,4 +655,32 @@ func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[strin
 
 	annotations[annotationX509ChainThumbprint] = string(val)
 	return annotations, nil
+}
+
+func validateRemoteRepo(repo registry.Repository) error {
+	switch r := repo.(type) {
+	case *registry.RepositoryClient:
+		switch r.Target.(type) {
+		case *remote.Repository:
+			return nil
+		default:
+			return fmt.Errorf("repo is not a remote.Repository")
+		}
+	default:
+		return fmt.Errorf("repo is of type %T. want registry.RepositoryClient with remote.Repository as Target", r)
+	}
+}
+
+func validateOciStore(repo registry.Repository) error {
+	switch r := repo.(type) {
+	case *registry.RepositoryClient:
+		switch r.Target.(type) {
+		case *oci.Store:
+			return nil
+		default:
+			return fmt.Errorf("repo is not an oci.Store")
+		}
+	default:
+		return fmt.Errorf("repo is of type %T. want registry.RepositoryClient with oci.Store as Target", r)
+	}
 }

@@ -85,7 +85,7 @@ type ErrorSignLocalContent struct {
 
 func (e ErrorSignLocalContent) Error() string {
 	if e.Msg != "" {
-		return "failed to SignLocalContent: " + e.Msg
+		return "failed to sign local content: " + e.Msg
 	}
-	return "failed to SignLocalContent"
+	return "failed to sign local content"
 }
