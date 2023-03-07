@@ -35,7 +35,8 @@ var VerificationPluginHeaders = []string{
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
 // ValidateCerts ensures certs from input are CA certificates or self-signed.
-// It's designed to be used when user implements their own X509TrustStore.
+// It's designed to be used when user implements their own
+// truststore.X509TrustStore.
 func ValidateCerts(certs []*x509.Certificate) error {
 	// to prevent any trust store misconfigurations, ensure there is at least
 	// one certificate from each file.
