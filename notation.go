@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -24,8 +23,6 @@ import (
 	orasRegistry "oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 )
-
-const annotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
 
 var errDoneVerification = errors.New("done verification")
 var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
@@ -495,7 +492,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 // LocalVerifyOptions contains parameters for notation.Verify.
 type LocalVerifyOptions struct {
 	// LayoutReference is the tag or digest reference of the target artifact
-	// in the OCI layout.
+	// in an OCI layout.
 	LayoutReference string
 
 	// PluginConfig is a map of plugin configs.
@@ -536,9 +533,10 @@ func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Re
 	if err != nil {
 		return ocispec.Descriptor{}, nil, fmt.Errorf("cannot resolve the layout reference due to: %w", err)
 	}
-	// localVerifyOpts.LayoutReference is a tag
+	// OCI layout reference is a tag
 	if digest.Digest(localVerifyOpts.LayoutReference).Validate() != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Always verify the artifact using digest(@sha256:...) rather than a tag(:%s) because resolved digest may not point to the same signed artifact, as tags are mutable.\n", localVerifyOpts.LayoutReference)
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before verification", localVerifyOpts.LayoutReference, targetDesc.Digest.String())
+		logger.Warn("The resolved digest may not point to the same signed artifact, since tags are mutable")
 	}
 
 	// opts to be passed in verifier.Verify()
@@ -567,7 +565,7 @@ func VerifyLocalContent(ctx context.Context, verifier Verifier, repo registry.Re
 	numOfSignatureProcessed := 0
 	var verificationFailedErr error = ErrorVerificationFailed{}
 	// get signature manifests
-	logger.Debug("Fetching signature manifests using referrers API")
+	logger.Debug("Fetching signature manifests from OCI layout")
 	err = repo.ListSignatures(ctx, targetDesc, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
 		for _, sigManifestDesc := range signatureManifests {
@@ -653,7 +651,7 @@ func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[strin
 		annotations = make(map[string]string)
 	}
 
-	annotations[annotationX509ChainThumbprint] = string(val)
+	annotations[envelope.AnnotationX509ChainThumbprint] = string(val)
 	return annotations, nil
 }
 

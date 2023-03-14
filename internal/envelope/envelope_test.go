@@ -2,7 +2,10 @@ package envelope
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
@@ -12,6 +15,7 @@ import (
 
 var (
 	validCoseSignatureEnvelope []byte
+	signaturePath              = filepath.FromSlash("../testdata/cose_signature.sig")
 )
 
 func init() {
@@ -82,6 +86,22 @@ func TestValidatePayloadContentType(t *testing.T) {
 	expect := errors.New("payload content type \"invalid\" not supported")
 	if !isErrEqual(expect, err) {
 		t.Fatalf("ValidatePayloadContentType() expects error: %v, but got: %v.", expect, err)
+	}
+}
+
+func TestSigningTime(t *testing.T) {
+	signature, err := os.ReadFile(signaturePath)
+	if err != nil {
+		t.Fatalf("failed to read signature: %v", err)
+	}
+	signatureMediaType := cose.MediaTypeEnvelope
+	signingTime, err := SigningTime(signature, signatureMediaType)
+	if err != nil {
+		t.Fatalf("failed to get signing time from signature: %v", err)
+	}
+	expetecSigningTime := "2023-03-14T12:45:22+08:00"
+	if signingTime.Format(time.RFC3339) != expetecSigningTime {
+		t.Fatalf("expected signing time: %q, got: %q", expetecSigningTime, signingTime.Format(time.RFC3339))
 	}
 }
 

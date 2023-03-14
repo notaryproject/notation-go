@@ -4,14 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/notaryproject/notation-core-go/signature/cose"
 )
 
 var expectedMetadata = map[string]string{"foo": "bar", "bar": "foo"}
@@ -286,4 +294,75 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 		return outcome, errors.New("failed verify")
 	}
 	return outcome, nil
+}
+
+var (
+	ociLayoutPath = filepath.FromSlash("./internal/testdata/oci-layout")
+	reference     = "v2"
+	signaturePath = filepath.FromSlash("./internal/testdata/cose_signature.sig")
+)
+
+func TestSignLocalContent(t *testing.T) {
+	repo, err := registry.OciLayoutFolderAsRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetDesc, err := repo.Resolve(context.Background(), reference)
+	if err != nil {
+		t.Fatalf("failed to resolve reference: %v", err)
+	}
+	localSignOptions := LocalSignOptions{
+		SignatureMediaType: cose.MediaTypeEnvelope,
+	}
+	targetDesc, sig, annotations, err := SignLocalContent(context.Background(), targetDesc, &ociDummySigner{}, localSignOptions)
+	if err != nil {
+		t.Fatalf("failed to sign local content: %v", err)
+	}
+	expectedAnnotations := map[string]string{
+		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
+		ocispec.AnnotationCreated:              "2023-03-14T12:45:22+08:00",
+	}
+	_, signatureManifestDesc, err := repo.PushSignature(context.Background(), cose.MediaTypeEnvelope, sig, targetDesc, annotations)
+	if err != nil {
+		t.Fatalf("failed to push signature: %v", err)
+	}
+	if !reflect.DeepEqual(expectedAnnotations, signatureManifestDesc.Annotations) {
+		t.Fatalf("failed to push signature. expected annotations: %v, got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
+	}
+}
+
+func TestVerifyLocalContent(t *testing.T) {
+	repo, err := registry.OciLayoutFolderAsRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	if err != nil {
+		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
+	}
+	localVerifyOpts := LocalVerifyOptions{
+		LayoutReference:      reference,
+		MaxSignatureAttempts: math.MaxInt64,
+	}
+	policyDocument := dummyPolicyDocument()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	// verify signatures inside the OCI layout folder
+	_, _, err = VerifyLocalContent(context.Background(), &verifier, repo, localVerifyOpts)
+	if err != nil {
+		t.Fatalf("failed to verify local content: %v", err)
+	}
+}
+
+type ociDummySigner struct{}
+
+func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
+	sigBlob, err := os.ReadFile(signaturePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	sigEnv, err := signature.ParseEnvelope(opts.SignatureMediaType, sigBlob)
+	if err != nil {
+		return nil, nil, err
+	}
+	content, err := sigEnv.Content()
+	if err != nil {
+		return nil, nil, err
+	}
+	return sigBlob, &content.SignerInfo, nil
 }

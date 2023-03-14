@@ -3,8 +3,12 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"time"
 
+	"github.com/notaryproject/notation-go/internal/envelope"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
@@ -34,6 +38,10 @@ type RepositoryOptions struct {
 
 // RepositoryClient implements Repository
 type RepositoryClient struct {
+	// oras.Target specifies the type of the target.
+	// Implementations that are supported in Notation:
+	// remote.Repository (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry/remote#Repository)
+	// oci.Store (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/content/oci#Store)
 	oras.Target
 	RepositoryOptions
 }
@@ -52,6 +60,19 @@ func NewRepositoryWithOptions(target oras.Target, opts RepositoryOptions) Reposi
 		Target:            target,
 		RepositoryOptions: opts,
 	}
+}
+
+// OciLayoutFolderAsRepository returns an oci.Store as registry.Repository
+func OciLayoutFolderAsRepository(path string, opts RepositoryOptions) (Repository, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OCI store: %w", err)
+	}
+	ociStore, err := oci.New(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OCI store: %w", err)
+	}
+	return NewRepositoryWithOptions(ociStore, opts), nil
 }
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
@@ -116,6 +137,18 @@ func (c *RepositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
 func (c *RepositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+	// sanity check
+	if annotations == nil {
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, errors.New("pushing signature blob, but got nil annotations map")
+	}
+	if _, ok := annotations[envelope.AnnotationX509ChainThumbprint]; !ok {
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("pushing signature blob, but annotations map missing field %q", envelope.AnnotationX509ChainThumbprint)
+	}
+	signingTime, err := envelope.SigningTime(blob, mediaType)
+	if err != nil {
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
+	}
+	annotations[ocispec.AnnotationCreated] = signingTime.Format(time.RFC3339)
 	switch target := c.Target.(type) {
 	case *remote.Repository:
 		blobDesc, err = oras.PushBytes(ctx, target.Blobs(), mediaType, blob)
@@ -266,6 +299,7 @@ func referrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc oc
 	return results, nil
 }
 
+// fetchBytes fetches the content described by the input descriptor
 func fetchBytes(ctx context.Context, fetcher content.Fetcher, desc ocispec.Descriptor) ([]byte, error) {
 	rc, err := fetcher.Fetch(ctx, desc)
 	if err != nil {
