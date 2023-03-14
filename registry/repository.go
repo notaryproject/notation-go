@@ -62,8 +62,9 @@ func NewRepositoryWithOptions(target oras.Target, opts RepositoryOptions) Reposi
 	}
 }
 
-// OciLayoutFolderAsRepository returns an oci.Store as registry.Repository
-func OciLayoutFolderAsRepository(path string, opts RepositoryOptions) (Repository, error) {
+// NewRepositoryWithOciStore returns a new Repository with oci.Store as
+// its oras.Target
+func NewRepositoryWithOciStore(path string, opts RepositoryOptions) (Repository, error) {
 	_, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCI store: %w", err)

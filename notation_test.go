@@ -303,7 +303,7 @@ var (
 )
 
 func TestSignLocalContent(t *testing.T) {
-	repo, err := registry.OciLayoutFolderAsRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	repo, err := registry.NewRepositoryWithOciStore(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestSignLocalContent(t *testing.T) {
 }
 
 func TestVerifyLocalContent(t *testing.T) {
-	repo, err := registry.OciLayoutFolderAsRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	repo, err := registry.NewRepositoryWithOciStore(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}

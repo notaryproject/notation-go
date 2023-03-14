@@ -437,7 +437,7 @@ var (
 )
 
 func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
-	repo, err := OciLayoutFolderAsRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	repo, err := NewRepositoryWithOciStore(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
 }
 
 func TestOciLayoutRepositoryListAndFetchBlob(t *testing.T) {
-	repo, err := OciLayoutFolderAsRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	repo, err := NewRepositoryWithOciStore(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
