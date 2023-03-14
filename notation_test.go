@@ -320,7 +320,7 @@ func TestSignLocalContent(t *testing.T) {
 	}
 	expectedAnnotations := map[string]string{
 		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
-		ocispec.AnnotationCreated:              "2023-03-14T12:45:22+08:00",
+		ocispec.AnnotationCreated:              "2023-03-14T04:45:22Z",
 	}
 	_, signatureManifestDesc, err := repo.PushSignature(context.Background(), cose.MediaTypeEnvelope, sig, targetDesc, annotations)
 	if err != nil {

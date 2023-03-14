@@ -53,5 +53,5 @@ func SigningTime(sigBlob []byte, envelopeMediaType string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	return content.SignerInfo.SignedAttributes.SigningTime, nil
+	return content.SignerInfo.SignedAttributes.SigningTime.UTC(), nil
 }

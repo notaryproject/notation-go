@@ -99,7 +99,7 @@ func TestSigningTime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get signing time from signature: %v", err)
 	}
-	expetecSigningTime := "2023-03-14T12:45:22+08:00"
+	expetecSigningTime := "2023-03-14T04:45:22Z"
 	if signingTime.Format(time.RFC3339) != expetecSigningTime {
 		t.Fatalf("expected signing time: %q, got: %q", expetecSigningTime, signingTime.Format(time.RFC3339))
 	}

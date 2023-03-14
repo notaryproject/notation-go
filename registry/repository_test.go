@@ -426,8 +426,8 @@ var (
 	}
 	expectedSignatureManifestDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.oci.image.manifest.v1+json",
-		Digest:    "sha256:03e21ab2763c31a0ab33cad5842009113bd0c444989760081ff4c35dd837de5a",
-		Size:      733,
+		Digest:    "sha256:baeaea44f55c94499b7e082bd3c98ad5ec40fdf23ef89cdf4e5db6b83e4f18f5",
+		Size:      728,
 	}
 	expectedSignatureBlobDesc = ocispec.Descriptor{
 		MediaType: joseTag,
@@ -457,14 +457,14 @@ func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
 		t.Fatalf("failed to push signature: %v", err)
 	}
 	if !content.Equal(expectedSignatureManifestDesc, signatureManifestDesc) {
-		t.Fatalf("failed to push signature. expected desc: %v, got: %v", expectedSignatureManifestDesc, signatureManifestDesc)
+		t.Fatalf("expected desc: %v, got: %v", expectedSignatureManifestDesc, signatureManifestDesc)
 	}
 	expectedAnnotations := map[string]string{
 		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
-		ocispec.AnnotationCreated:              "2023-03-14T16:10:02+08:00",
+		ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
 	}
 	if !reflect.DeepEqual(expectedAnnotations, signatureManifestDesc.Annotations) {
-		t.Fatalf("failed to push signature. expected annotations: %v, got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
+		t.Fatalf("expected annotations: %v, but got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
 	}
 }
 
