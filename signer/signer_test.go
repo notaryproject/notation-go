@@ -223,7 +223,7 @@ func localSign(payload []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, 
 }
 
 // generateSigningContent generates common signing content with options for testing.
-func generateSigningContent() (ocispec.Descriptor, notation.SignOptions) {
+func generateSigningContent() (ocispec.Descriptor, notation.SignerSignOptions) {
 	content := "hello world"
 	desc := ocispec.Descriptor{
 		MediaType: "test media type",
@@ -234,7 +234,7 @@ func generateSigningContent() (ocispec.Descriptor, notation.SignOptions) {
 			"foo":      "bar",
 		},
 	}
-	sOpts := notation.SignOptions{ExpiryDuration: 24 * time.Hour}
+	sOpts := notation.SignerSignOptions{ExpiryDuration: 24 * time.Hour}
 
 	return desc, sOpts
 }

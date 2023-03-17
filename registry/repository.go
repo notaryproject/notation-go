@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/log"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
@@ -78,11 +80,38 @@ func NewRepositoryWithOciStore(path string, opts RepositoryOptions) (Repository,
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *RepositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
+	logger := log.GetLogger(ctx)
+
 	switch target := c.Target.(type) {
 	case *remote.Repository:
-		return target.Manifests().Resolve(ctx, reference)
+		ref, err := registry.ParseReference(reference)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+		if ref.Reference == "" {
+			return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
+		}
+		targetDesc, err := target.Manifests().Resolve(ctx, reference)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+		if ref.ValidateReferenceAsDigest() != nil {
+			// artifactRef is not a digest reference
+			logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
+			logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
+		}
+		return targetDesc, nil
 	case *oci.Store:
-		return target.Resolve(ctx, reference)
+		targetDesc, err := target.Resolve(ctx, reference)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+		if digest.Digest(reference).Validate() != nil {
+			// ref is a tag
+			logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", reference)
+			logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", reference, targetDesc.Digest.String())
+		}
+		return targetDesc, nil
 	default:
 		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", target)
 	}

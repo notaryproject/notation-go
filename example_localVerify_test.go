@@ -55,7 +55,7 @@ func Example_localVerify() {
 	exampleSignatureEnvelope := generateExampleSignatureEnvelope()
 
 	// exampleVerifyOptions is an example of notation.VerifyOptions
-	exampleVerifyOptions := notation.VerifyOptions{
+	exampleVerifyOptions := notation.VerifierVerifyOptions{
 		ArtifactReference:  exampleArtifactReference,
 		SignatureMediaType: exampleSignatureMediaType,
 	}

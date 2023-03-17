@@ -61,7 +61,7 @@ func Example_remoteVerify() {
 	exampleRepo := registry.NewRepository(remoteRepo)
 
 	// exampleRemoteVerifyOptions is an example of notation.RemoteVerifyOptions.
-	exampleRemoteVerifyOptions := notation.RemoteVerifyOptions{
+	exampleRemoteVerifyOptions := notation.VerifyOptions{
 		ArtifactReference:    exampleArtifactReference,
 		MaxSignatureAttempts: 50,
 	}

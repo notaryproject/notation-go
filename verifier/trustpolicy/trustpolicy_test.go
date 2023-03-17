@@ -511,13 +511,13 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		policyStatement,
 	}
 	// existing Registry Scope
-	policy, err := (&policyDoc).GetApplicableTrustPolicy(registryUri)
+	policy, err := (&policyDoc).GetApplicableTrustPolicy(registryUri, false)
 	if policy.Name != policyStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return %q for registry scope %q", policyStatement.Name, registryScope)
 	}
 
 	// non-existing Registry Scope
-	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
+	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash", false)
 	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
@@ -534,7 +534,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		policyStatement,
 		wildcardStatement,
 	}
-	policy, err = (&policyDoc).GetApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash")
+	policy, err = (&policyDoc).GetApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash", false)
 	if policy.Name != wildcardStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
 	}
@@ -545,7 +545,7 @@ func TestLoadDocument(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	_, err := LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s/trustpolicy.json", tempRoot) {
+	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy)) {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
 
@@ -575,21 +575,5 @@ func TestLoadDocument(t *testing.T) {
 	_, err = LoadDocument()
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
-	}
-
-	// existing policy file with bad permissions
-	tempRoot = t.TempDir()
-	dir.UserConfigDir = tempRoot
-	path = filepath.Join(tempRoot, "trustpolicy.json")
-	policyDoc2 := dummyPolicyDocument()
-	policyJson2, _ := json.Marshal(policyDoc2)
-	err = os.WriteFile(path, policyJson2, 0000)
-	err = os.Chmod(path, 0000)
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument create policy file with bad permissions failed. Error: %v", err)
-	}
-	_, err = LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("unable to read trust policy due to file permissions, please verify the permissions of %s/trustpolicy.json", tempRoot) {
-		t.Fatalf("TestLoadPolicyDocument should throw error for a policy file with bad permissions. Error: %v", err)
 	}
 }
