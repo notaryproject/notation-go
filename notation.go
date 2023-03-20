@@ -96,12 +96,11 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
 	}
-
-	targetDesc, err = addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
+	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	sig, signerInfo, err := signer.Sign(ctx, targetDesc, signOpts.SignerSignOptions)
+	sig, signerInfo, err := signer.Sign(ctx, descToSign, signOpts.SignerSignOptions)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
