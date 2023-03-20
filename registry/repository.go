@@ -38,8 +38,8 @@ type RepositoryOptions struct {
 	OCIImageManifest bool
 }
 
-// RepositoryClient implements Repository
-type RepositoryClient struct {
+// repositoryClient implements Repository and RepositoryChecker
+type repositoryClient struct {
 	// oras.Target specifies the type of the target.
 	// Implementations that are supported in Notation:
 	// remote.Repository (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry/remote#Repository)
@@ -50,7 +50,7 @@ type RepositoryClient struct {
 
 // NewRepository returns a new Repository
 func NewRepository(target oras.Target) Repository {
-	return &RepositoryClient{
+	return &repositoryClient{
 		Target: target,
 	}
 }
@@ -58,7 +58,7 @@ func NewRepository(target oras.Target) Repository {
 // NewRepositoryWithOptions returns a new Repository with user specified
 // options.
 func NewRepositoryWithOptions(target oras.Target, opts RepositoryOptions) Repository {
-	return &RepositoryClient{
+	return &repositoryClient{
 		Target:            target,
 		RepositoryOptions: opts,
 	}
@@ -79,7 +79,7 @@ func NewRepositoryWithOciStore(path string, opts RepositoryOptions) (Repository,
 }
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
-func (c *RepositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
+func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	logger := log.GetLogger(ctx)
 
 	switch target := c.Target.(type) {
@@ -119,7 +119,7 @@ func (c *RepositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
-func (c *RepositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
+func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
 	switch target := c.Target.(type) {
 	case *remote.Repository:
 		return target.Referrers(ctx, desc, ArtifactTypeNotation, fn)
@@ -136,7 +136,7 @@ func (c *RepositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
 // signature manifest descriptor
-func (c *RepositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
+func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
 	sigBlobDesc, err := c.getSignatureBlobDesc(ctx, desc)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
@@ -166,7 +166,7 @@ func (c *RepositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // PushSignature creates and uploads an signature manifest along with its
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
-func (c *RepositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
 	// sanity check
 	if annotations == nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, errors.New("pushing signature blob, but got nil annotations map")
@@ -201,9 +201,28 @@ func (c *RepositoryClient) PushSignature(ctx context.Context, mediaType string, 
 	return blobDesc, manifestDesc, nil
 }
 
+// IsLocalRepository checks if underlying target is a local repository.
+// Example of local repository: oci.Store.
+// Example of remote repository: remote.registry.
+// Returns true on local repository, false on remote.
+func (c *repositoryClient) IsLocalRepository(ctx context.Context) (bool, error) {
+	logger := log.GetLogger(ctx)
+
+	switch target := c.Target.(type) {
+	case *remote.Repository:
+		logger.Info("Repository underlying oras.Target is remote.Repository")
+		return false, nil
+	case *oci.Store:
+		logger.Info("Repository underlying oras.Target is oci.Store")
+		return true, nil
+	default:
+		return false, fmt.Errorf("repositoryClient target type %T is not supported", target)
+	}
+}
+
 // getSignatureBlobDesc returns signature blob descriptor from
 // signature manifest blobs or layers given signature manifest descriptor
-func (c *RepositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifestDesc ocispec.Descriptor) (ocispec.Descriptor, error) {
+func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifestDesc ocispec.Descriptor) (ocispec.Descriptor, error) {
 	if sigManifestDesc.MediaType != ocispec.MediaTypeArtifactManifest && sigManifestDesc.MediaType != ocispec.MediaTypeImageManifest {
 		return ocispec.Descriptor{}, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
 	}
@@ -254,7 +273,7 @@ func (c *RepositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
-func (c *RepositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
+func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
 	opts := oras.PackOptions{
 		Subject:             &subject,
 		ManifestAnnotations: annotations,

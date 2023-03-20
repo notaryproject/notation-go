@@ -68,9 +68,18 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	logger := log.GetLogger(ctx)
 
 	logger.Debugf("Check verification level against artifact %v", opts.ArtifactReference)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference, opts.LocalVerify)
-	if err != nil {
-		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+	var trustPolicy *trustpolicy.TrustPolicy
+	var err error
+	if opts.LocalVerify {
+		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyScope, true)
+		if err != nil {
+			return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		}
+	} else {
+		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference, false)
+		if err != nil {
+			return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		}
 	}
 
 	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
@@ -95,9 +104,18 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 
 	envelopeMediaType := opts.SignatureMediaType
 	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, opts.ArtifactReference, envelopeMediaType)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference, opts.LocalVerify)
-	if err != nil {
-		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+	var trustPolicy *trustpolicy.TrustPolicy
+	var err error
+	if opts.LocalVerify {
+		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyScope, true)
+		if err != nil {
+			return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		}
+	} else {
+		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference, false)
+		if err != nil {
+			return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		}
 	}
 
 	logger.Debugf("Trust policy configuration: %+v", trustPolicy)

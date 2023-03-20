@@ -237,10 +237,9 @@ type VerifierVerifyOptions struct {
 	LocalVerify bool
 
 	// TrustPolicyScope specifies the registry scope of the trust policy
-	// statement.
-	// This field is ONLY used when LocalVerify is true.
-	// If TrustPolicyScope is empty, the trust policy with global scope (`*`)
-	// will be used.
+	// statement when verifying local content.
+	// This field is ONLY used when LocalVerify is true. If TrustPolicyScope is
+	// empty, the trust policy with global scope (`*`) will be used.
 	TrustPolicyScope string
 }
 
@@ -281,14 +280,8 @@ type VerifyOptions struct {
 	// signature
 	UserMetadata map[string]string
 
-	// LocalVerify should be true if the target artifact is at local,
-	// for example, OCI layout.
-	// For target artifact at remote registry, LocalVerify MUST be false.
-	LocalVerify bool
-
 	// TrustPolicyScope specifies the registry scope of the trust policy
-	// statement.
-	// This field is ONLY used when LocalVerify is true.
+	// statement. This field is ONLY used when target artifact is at local.
 	// If TrustPolicyScope is empty, the trust policy with global scope (`*`)
 	// will be used.
 	TrustPolicyScope string
@@ -314,7 +307,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	}
 
 	// opts to be passed in verifier.Verify()
-	opts := getVerifierVerifyOptions(verifyOpts)
+	opts, err := getVerifierVerifyOptions(ctx, repo, verifyOpts)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
 
 	if skipChecker, ok := verifier.(skipVerifier); ok {
 		logger.Info("Checking whether signature verification should be skipped or not")
@@ -416,20 +412,29 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 
 // getVerifierVerifyOptions creates a VerifierVerifyOptions based on target
 // artifact at remote reigstry or local.
-func getVerifierVerifyOptions(verifyOpts VerifyOptions) VerifierVerifyOptions {
-	if verifyOpts.LocalVerify {
+func getVerifierVerifyOptions(ctx context.Context, repo registry.Repository, verifyOpts VerifyOptions) (VerifierVerifyOptions, error) {
+	repoChecker, ok := repo.(registry.RepositoryChecker)
+	if !ok {
+		return VerifierVerifyOptions{}, errors.New("repo does not implement RepositoryChecker")
+	}
+	isLocal, err := repoChecker.IsLocalRepository(ctx)
+	if err != nil {
+		return VerifierVerifyOptions{}, err
+	}
+	if isLocal {
 		return VerifierVerifyOptions{
-			ArtifactReference: verifyOpts.TrustPolicyScope,
+			ArtifactReference: verifyOpts.ArtifactReference,
 			PluginConfig:      verifyOpts.PluginConfig,
 			UserMetadata:      verifyOpts.UserMetadata,
 			LocalVerify:       true,
-		}
+			TrustPolicyScope:  verifyOpts.TrustPolicyScope,
+		}, nil
 	}
 	return VerifierVerifyOptions{
 		ArtifactReference: verifyOpts.ArtifactReference,
 		PluginConfig:      verifyOpts.PluginConfig,
 		UserMetadata:      verifyOpts.UserMetadata,
-	}
+	}, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[string]string) (map[string]string, error) {

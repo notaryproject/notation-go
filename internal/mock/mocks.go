@@ -149,6 +149,10 @@ func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []
 	return ocispec.Descriptor{}, ocispec.Descriptor{}, nil
 }
 
+func (t Repository) IsLocalRepository(ctx context.Context) (bool, error) {
+	return false, nil
+}
+
 type PluginMock struct {
 	Metadata        proto.GetMetadataResponse
 	ExecuteResponse interface{}
