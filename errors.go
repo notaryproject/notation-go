@@ -77,15 +77,3 @@ func (e ErrorUserMetadataVerificationFailed) Error() string {
 	}
 	return "unable to find specified metadata in the signature"
 }
-
-// ErrorSignLocalContent is used when SignLocalContent is failed
-type ErrorSignLocalContent struct {
-	Msg string
-}
-
-func (e ErrorSignLocalContent) Error() string {
-	if e.Msg != "" {
-		return "failed to sign local content: " + e.Msg
-	}
-	return "failed to sign local content"
-}
