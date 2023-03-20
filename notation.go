@@ -105,12 +105,12 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, remoteOp
 		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
 	}
 
-	targetDesc, err = addUserMetadataToDescriptor(ctx, targetDesc, remoteOpts.UserMetadata)
+	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, remoteOpts.UserMetadata)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
 
-	sig, signerInfo, err := signer.Sign(ctx, targetDesc, remoteOpts.SignOptions)
+	sig, signerInfo, err := signer.Sign(ctx, descToSign, remoteOpts.SignOptions)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
