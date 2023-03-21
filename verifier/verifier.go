@@ -71,6 +71,9 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	var trustPolicy *trustpolicy.TrustPolicy
 	var err error
 	if opts.LocalVerify {
+		if opts.TrustPolicyScope == "" {
+			logger.Warn("Verifying local content without specifying TrustPolicyScope, using trust policy with global scope")
+		}
 		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyScope, true)
 		if err != nil {
 			return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
@@ -107,6 +110,9 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	var trustPolicy *trustpolicy.TrustPolicy
 	var err error
 	if opts.LocalVerify {
+		if opts.TrustPolicyScope == "" {
+			logger.Warn("Verifying local content without specifying TrustPolicyScope, using trust policy with global scope")
+		}
 		trustPolicy, err = v.trustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyScope, true)
 		if err != nil {
 			return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}

@@ -213,7 +213,7 @@ type VerifierVerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is been
 	// verified against to.
 	// For target artifact in a remote registry, ArtifactReference should be
-	// a valid artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
+	// a valid OCI artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
 	// For target artifact in an OCI layout, ArtifactReference should be a valid
 	// tag or digest of the artifact.
 	ArtifactReference string
@@ -230,9 +230,8 @@ type VerifierVerifyOptions struct {
 	// signature.
 	UserMetadata map[string]string
 
-	// LocalVerify should be true if the target artifact is at local,
-	// for example, OCI layout.
-	// For target artifact at remote registry, LocalVerify MUST be false.
+	// LocalVerify should be set to true if the target artifact is at local,
+	// for example, OCI layout, where a valid OCI artifact URI is not available.
 	LocalVerify bool
 
 	// TrustPolicyScope specifies the registry scope of the trust policy
@@ -262,7 +261,7 @@ type VerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is been
 	// verified against to.
 	// For target artifact in a remote registry, ArtifactReference should be
-	// a valid artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
+	// a valid OCI artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
 	// For target artifact in an OCI layout, ArtifactReference should be a valid
 	// tag or digest of the artifact.
 	ArtifactReference string
@@ -280,7 +279,8 @@ type VerifyOptions struct {
 	UserMetadata map[string]string
 
 	// TrustPolicyScope specifies the registry scope of the trust policy
-	// statement. This field is ONLY used when target artifact is at local.
+	// statement. This field is ONLY used when target artifact is at local,
+	// where a valid OCI artifact URI is not available.
 	// If TrustPolicyScope is empty, the trust policy with global scope (`*`)
 	// will be used.
 	TrustPolicyScope string
