@@ -191,7 +191,7 @@ func TestInvalidRegistryScopes(t *testing.T) {
 		policyStatement.RegistryScopes = []string{scope}
 		policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 		err := policyDoc.Validate()
-		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository" {
+		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is a fully qualified registry URL without the scheme/protocol, e.g domain.com/my/repository OR a local trust policy scope, e.g local/myOCILayout" {
 			t.Fatalf("invalid registry scope should return error. Error : %q", err)
 		}
 	}

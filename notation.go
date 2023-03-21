@@ -28,7 +28,7 @@ type SignerSignOptions struct {
 	// ArtifactReference sets the reference of the artifact that needs to be
 	// signed.
 	// For target artifact in a remote registry, ArtifactReference should be
-	// a valid artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
+	// a valid OCI artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
 	// For target artifact in an OCI layout, ArtifactReference should be a valid
 	// tag or digest of the artifact.
 	ArtifactReference string

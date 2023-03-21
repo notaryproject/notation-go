@@ -78,7 +78,7 @@ func NewRepositoryWithOciStore(path string, opts RepositoryOptions) (Repository,
 	return NewRepositoryWithOptions(ociStore, opts), nil
 }
 
-// Resolve resolves a reference(tag or digest) to a manifest descriptor
+// Resolve resolves a reference to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	logger := log.GetLogger(ctx)
 
