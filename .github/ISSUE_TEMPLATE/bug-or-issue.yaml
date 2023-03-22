@@ -26,8 +26,6 @@ body:
     attributes:
       label: "What is the areas you experience the issue in?"
       options: 
-        - Notation CLI
-        - Notation-Core-Go Library
         - Notation-Go Library
   - type: textarea
     id: verbatim
