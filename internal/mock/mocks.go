@@ -3,14 +3,12 @@ package mock
 import (
 	"context"
 	_ "embed"
-	"errors"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"oras.land/oras-go/v2/registry"
 )
 
 //go:embed testdata/ca_valid_sig_env.json
@@ -123,13 +121,6 @@ func NewRepository() Repository {
 }
 
 func (t Repository) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	ref, err := registry.ParseReference(reference)
-	if err != nil {
-		return ocispec.Descriptor{}, err
-	}
-	if ref.Reference == "" {
-		return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
-	}
 	return t.ResolveResponse, t.ResolveError
 }
 
@@ -147,10 +138,6 @@ func (t Repository) FetchSignatureBlob(ctx context.Context, desc ocispec.Descrip
 
 func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
 	return ocispec.Descriptor{}, ocispec.Descriptor{}, nil
-}
-
-func (t Repository) IsLocalRepository(ctx context.Context) (bool, error) {
-	return false, nil
 }
 
 type PluginMock struct {

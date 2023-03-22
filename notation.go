@@ -18,6 +18,7 @@ import (
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	orasRegistry "oras.land/oras-go/v2/registry"
 )
 
 var errDoneVerification = errors.New("done verification")
@@ -27,10 +28,6 @@ var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 type SignerSignOptions struct {
 	// ArtifactReference sets the reference of the artifact that needs to be
 	// signed.
-	// For target artifact in a remote registry, ArtifactReference should be
-	// a valid OCI artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
-	// For target artifact in an OCI layout, ArtifactReference should be a valid
-	// tag or digest of the artifact.
 	ArtifactReference string
 
 	// SignatureMediaType is the envelope type of the signature.
@@ -77,7 +74,7 @@ type SignOptions struct {
 // Sign signs the artifact and push the signature to the Repository.
 // The descriptor of the sign content is returned upon sucessful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
-	// Sanity check
+	// sanity check
 	if signer == nil {
 		return ocispec.Descriptor{}, errors.New("signer cannot be nil")
 	}
@@ -92,10 +89,23 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	}
 
 	logger := log.GetLogger(ctx)
-	targetDesc, err := repo.Resolve(ctx, signOpts.ArtifactReference)
+	ref, err := orasRegistry.ParseReference(signOpts.ArtifactReference)
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	if ref.Reference == "" {
+		return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
+	}
+	targetDesc, err := repo.Resolve(ctx, ref.Reference)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
 	}
+	if ref.ValidateReferenceAsDigest() != nil {
+		// artifactRef is not a digest reference
+		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
+	}
+
 	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -212,10 +222,6 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 type VerifierVerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is been
 	// verified against to.
-	// For target artifact in a remote registry, ArtifactReference should be
-	// a valid OCI artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
-	// For target artifact in an OCI layout, ArtifactReference should be a valid
-	// tag or digest of the artifact.
 	ArtifactReference string
 
 	// SignatureMediaType is the envelope type of the signature.
@@ -229,16 +235,6 @@ type VerifierVerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature.
 	UserMetadata map[string]string
-
-	// LocalVerify should be set to true if the target artifact is at local,
-	// for example, OCI layout, where a valid OCI artifact URI is not available.
-	LocalVerify bool
-
-	// TrustPolicyScope specifies the registry scope of the trust policy
-	// statement when verifying local content.
-	// This field is ONLY used when LocalVerify is true. If TrustPolicyScope is
-	// empty, the trust policy with global scope (`*`) will be used.
-	TrustPolicyScope string
 }
 
 // Verifier is a generic interface for verifying an artifact.
@@ -260,10 +256,6 @@ type skipVerifier interface {
 type VerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is been
 	// verified against to.
-	// For target artifact in a remote registry, ArtifactReference should be
-	// a valid OCI artifact URI (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry#ParseReference)
-	// For target artifact in an OCI layout, ArtifactReference should be a valid
-	// tag or digest of the artifact.
 	ArtifactReference string
 
 	// PluginConfig is a map of plugin configs.
@@ -277,13 +269,6 @@ type VerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature
 	UserMetadata map[string]string
-
-	// TrustPolicyScope specifies the registry scope of the trust policy
-	// statement. This field is ONLY used when target artifact is at local,
-	// where a valid OCI artifact URI is not available.
-	// If TrustPolicyScope is empty, the trust policy with global scope (`*`)
-	// will be used.
-	TrustPolicyScope string
 }
 
 // Verify performs signature verification on each of the notation supported
@@ -306,9 +291,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	}
 
 	// opts to be passed in verifier.Verify()
-	opts, err := getVerifierVerifyOptions(ctx, repo, verifyOpts)
-	if err != nil {
-		return ocispec.Descriptor{}, nil, err
+	opts := VerifierVerifyOptions{
+		ArtifactReference: verifyOpts.ArtifactReference,
+		PluginConfig:      verifyOpts.PluginConfig,
+		UserMetadata:      verifyOpts.UserMetadata,
 	}
 
 	if skipChecker, ok := verifier.(skipVerifier); ok {
@@ -326,9 +312,21 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 
 	// get artifact descriptor
 	artifactRef := verifyOpts.ArtifactReference
-	artifactDescriptor, err := repo.Resolve(ctx, artifactRef)
+	ref, err := orasRegistry.ParseReference(artifactRef)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
+	}
+	if ref.Reference == "" {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: "reference is missing digest or tag"}
+	}
+	artifactDescriptor, err := repo.Resolve(ctx, ref.Reference)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, fmt.Errorf("failed to resolve reference: %w", err)
+	}
+	if ref.ValidateReferenceAsDigest() != nil {
+		// artifactRef is not a digest reference
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before verification", ref.Reference, artifactDescriptor.Digest.String())
+		logger.Warn("The resolved digest may not point to the same signed artifact, since tags are mutable")
 	}
 
 	var verificationOutcomes []*VerificationOutcome
@@ -407,33 +405,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 
 	// Verification Succeeded
 	return artifactDescriptor, verificationOutcomes, nil
-}
-
-// getVerifierVerifyOptions creates a VerifierVerifyOptions based on target
-// artifact at remote reigstry or local.
-func getVerifierVerifyOptions(ctx context.Context, repo registry.Repository, verifyOpts VerifyOptions) (VerifierVerifyOptions, error) {
-	repoChecker, ok := repo.(registry.RepositoryChecker)
-	if !ok {
-		return VerifierVerifyOptions{}, errors.New("repo does not implement RepositoryChecker")
-	}
-	isLocal, err := repoChecker.IsLocalRepository(ctx)
-	if err != nil {
-		return VerifierVerifyOptions{}, err
-	}
-	if isLocal {
-		return VerifierVerifyOptions{
-			ArtifactReference: verifyOpts.ArtifactReference,
-			PluginConfig:      verifyOpts.PluginConfig,
-			UserMetadata:      verifyOpts.UserMetadata,
-			LocalVerify:       true,
-			TrustPolicyScope:  verifyOpts.TrustPolicyScope,
-		}, nil
-	}
-	return VerifierVerifyOptions{
-		ArtifactReference: verifyOpts.ArtifactReference,
-		PluginConfig:      verifyOpts.PluginConfig,
-		UserMetadata:      verifyOpts.UserMetadata,
-	}, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[string]string) (map[string]string, error) {

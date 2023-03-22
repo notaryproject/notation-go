@@ -9,14 +9,11 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-go/internal/envelope"
-	"github.com/notaryproject/notation-go/log"
-	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
-	"oras.land/oras-go/v2/registry/remote"
 )
 
 const (
@@ -78,60 +75,30 @@ func NewRepositoryWithOciStore(path string, opts RepositoryOptions) (Repository,
 	return NewRepositoryWithOptions(ociStore, opts), nil
 }
 
-// Resolve resolves a reference to a manifest descriptor
+// Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	logger := log.GetLogger(ctx)
-
-	switch target := c.Target.(type) {
-	case *remote.Repository:
-		ref, err := registry.ParseReference(reference)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-		if ref.Reference == "" {
-			return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
-		}
-		targetDesc, err := target.Manifests().Resolve(ctx, reference)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-		if ref.ValidateReferenceAsDigest() != nil {
-			// artifactRef is not a digest reference
-			logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
-			logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
-		}
-		return targetDesc, nil
-	case *oci.Store:
-		targetDesc, err := target.Resolve(ctx, reference)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-		if digest.Digest(reference).Validate() != nil {
-			// ref is a tag
-			logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", reference)
-			logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", reference, targetDesc.Digest.String())
-		}
-		return targetDesc, nil
-	default:
-		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", target)
+	if repo, ok := c.Target.(registry.Repository); ok {
+		return repo.Manifests().Resolve(ctx, reference)
 	}
+	return c.Target.Resolve(ctx, reference)
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	switch target := c.Target.(type) {
-	case *remote.Repository:
-		return target.Referrers(ctx, desc, ArtifactTypeNotation, fn)
-	case *oci.Store:
+	if repo, ok := c.Target.(registry.Repository); ok {
+		return repo.Referrers(ctx, desc, ArtifactTypeNotation, fn)
+	}
+
+	if target, ok := c.Target.(content.ReadOnlyGraphStorage); ok {
 		signatureManifests, err := referrers(ctx, target, desc, ArtifactTypeNotation)
 		if err != nil {
 			return fmt.Errorf("failed to get predecessors during ListSignatures due to %w", err)
 		}
 		return fn(signatureManifests)
-	default:
-		return fmt.Errorf("repositoryClient target type %T is not supported", target)
 	}
+
+	return errors.New("repositoryClient underlying oras.Target implementation is not supported")
 }
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
@@ -145,20 +112,16 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d bytes", sigBlobDesc.Size)
 	}
 
-	var sigBlob []byte
-	switch target := c.Target.(type) {
-	case *remote.Repository:
-		sigBlob, err = content.FetchAll(ctx, target.Blobs(), sigBlobDesc)
+	if repo, ok := c.Target.(registry.Repository); ok {
+		sigBlob, err := content.FetchAll(ctx, repo.Blobs(), sigBlobDesc)
 		if err != nil {
 			return nil, ocispec.Descriptor{}, err
 		}
-	case *oci.Store:
-		sigBlob, err = content.FetchAll(ctx, target, sigBlobDesc)
-		if err != nil {
-			return nil, ocispec.Descriptor{}, err
-		}
-	default:
-		return nil, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", target)
+		return sigBlob, sigBlobDesc, nil
+	}
+	sigBlob, err := content.FetchAll(ctx, c.Target, sigBlobDesc)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
 	}
 	return sigBlob, sigBlobDesc, nil
 }
@@ -179,19 +142,16 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 	annotations[ocispec.AnnotationCreated] = signingTime.Format(time.RFC3339)
-	switch target := c.Target.(type) {
-	case *remote.Repository:
-		blobDesc, err = oras.PushBytes(ctx, target.Blobs(), mediaType, blob)
+	if repo, ok := c.Target.(registry.Repository); ok {
+		blobDesc, err = oras.PushBytes(ctx, repo.Blobs(), mediaType, blob)
 		if err != nil {
 			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 		}
-	case *oci.Store:
-		blobDesc, err = oras.PushBytes(ctx, target, mediaType, blob)
+	} else {
+		blobDesc, err = oras.PushBytes(ctx, c.Target, mediaType, blob)
 		if err != nil {
 			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 		}
-	default:
-		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", target)
 	}
 	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations)
 	if err != nil {
@@ -199,25 +159,6 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 	}
 
 	return blobDesc, manifestDesc, nil
-}
-
-// IsLocalRepository checks if underlying target is a local repository.
-// Example of local repository: oci.Store.
-// Example of remote repository: remote.registry.
-// Returns true on local repository, false on remote.
-func (c *repositoryClient) IsLocalRepository(ctx context.Context) (bool, error) {
-	logger := log.GetLogger(ctx)
-
-	switch target := c.Target.(type) {
-	case *remote.Repository:
-		logger.Info("Repository underlying oras.Target is remote.Repository")
-		return false, nil
-	case *oci.Store:
-		logger.Info("Repository underlying oras.Target is oci.Store")
-		return true, nil
-	default:
-		return false, fmt.Errorf("repositoryClient target type %T is not supported", target)
-	}
 }
 
 // getSignatureBlobDesc returns signature blob descriptor from
@@ -233,19 +174,16 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 	// get the signature manifest from sigManifestDesc
 	var manifestJSON []byte
 	var err error
-	switch t := c.Target.(type) {
-	case *remote.Repository:
-		manifestJSON, err = content.FetchAll(ctx, t.Manifests(), sigManifestDesc)
+	if repo, ok := c.Target.(registry.Repository); ok {
+		manifestJSON, err = content.FetchAll(ctx, repo.Manifests(), sigManifestDesc)
 		if err != nil {
 			return ocispec.Descriptor{}, err
 		}
-	case *oci.Store:
-		manifestJSON, err = content.FetchAll(ctx, t, sigManifestDesc)
+	} else {
+		manifestJSON, err = content.FetchAll(ctx, c.Target, sigManifestDesc)
 		if err != nil {
 			return ocispec.Descriptor{}, err
 		}
-	default:
-		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
 	}
 
 	// get the signature blob descriptor from signature manifest
@@ -280,12 +218,7 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		PackImageManifest:   c.OCIImageManifest,
 	}
 
-	switch t := c.Target.(type) {
-	case *remote.Repository, *oci.Store:
-		return oras.Pack(ctx, t, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
-	default:
-		return ocispec.Descriptor{}, fmt.Errorf("repositoryClient target type %T is not supported", t)
-	}
+	return oras.Pack(ctx, c.Target, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
 }
 
 // referrers returns referrer nodes of desc in target and filter by artifactType

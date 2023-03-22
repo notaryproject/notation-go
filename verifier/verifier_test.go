@@ -489,7 +489,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err := (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference, false)
+	trustPolicy, err := (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}
@@ -515,7 +515,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		pluginManager:  pluginManager,
 	}
 	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
-	trustPolicy, err = (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference, false)
+	trustPolicy, err = (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
 	}

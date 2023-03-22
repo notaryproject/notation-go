@@ -121,7 +121,7 @@ func TestVerifyEmptyReference(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
-	errorMessage := "failed to resolve reference: reference is missing digest or tag"
+	errorMessage := "reference is missing digest or tag"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
@@ -137,7 +137,7 @@ func TestVerifyTagReferenceFailed(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
-	errorMessage := "failed to resolve reference: invalid reference: invalid repository"
+	errorMessage := "invalid reference: invalid repository"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
@@ -295,7 +295,7 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 
 var (
 	ociLayoutPath = filepath.FromSlash("./internal/testdata/oci-layout")
-	reference     = "v2"
+	reference     = "local/oci-layout@sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	signaturePath = filepath.FromSlash("./internal/testdata/cose_signature.sig")
 )
 

@@ -415,7 +415,7 @@ func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Ref
 
 var (
 	ociLayoutPath      = filepath.FromSlash("../internal/testdata/oci-layout")
-	reference          = "v2"
+	reference          = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	expectedTargetDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.oci.image.manifest.v1+json",
 		Digest:    "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0",

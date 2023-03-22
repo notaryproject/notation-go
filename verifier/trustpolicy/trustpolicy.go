@@ -233,14 +233,10 @@ func (policyDoc *Document) Validate() error {
 // statement that applies to the given registry URI. If no applicable trust
 // policy is found, returns an error
 // see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
-func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string, localVerify bool) (*TrustPolicy, error) {
-	registryScope := artifactReference
-	var err error
-	if !localVerify {
-		registryScope, err = getArtifactPathFromReference(artifactReference)
-		if err != nil {
-			return nil, err
-		}
+func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
+	artifactPath, err := getArtifactPathFromReference(artifactReference)
+	if err != nil {
+		return nil, err
 	}
 
 	var wildcardPolicy *TrustPolicy
@@ -250,7 +246,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 			// we need to deep copy because we can't use the loop variable
 			// address. see https://stackoverflow.com/a/45967429
 			wildcardPolicy = (&policyStatement).clone()
-		} else if slices.Contains(policyStatement.RegistryScopes, registryScope) {
+		} else if slices.Contains(policyStatement.RegistryScopes, artifactPath) {
 			applicablePolicy = (&policyStatement).clone()
 		}
 	}
@@ -262,9 +258,6 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		if localVerify {
-			return nil, fmt.Errorf("no applicable trust policy with registry scope %q", registryScope)
-		}
 		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
 	}
 }
@@ -396,7 +389,6 @@ func validateTrustStore(statement TrustPolicy) error {
 // validateTrustedIdentities validates if the policy statement is following the
 // Notary V2 spec rules for trusted identities
 func validateTrustedIdentities(statement TrustPolicy) error {
-
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
 	if len(statement.TrustedIdentities) > 1 && slices.Contains(statement.TrustedIdentities, trustpolicy.Wildcard) {
@@ -444,7 +436,6 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 // Notary V2 spec rules for registry scopes
 func validateRegistryScopes(policyDoc *Document) error {
 	registryScopeCount := make(map[string]int)
-
 	for _, statement := range policyDoc.TrustPolicies {
 		// Verify registry scopes are valid
 		if len(statement.RegistryScopes) == 0 {

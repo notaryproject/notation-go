@@ -511,13 +511,13 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		policyStatement,
 	}
 	// existing Registry Scope
-	policy, err := (&policyDoc).GetApplicableTrustPolicy(registryUri, false)
+	policy, err := (&policyDoc).GetApplicableTrustPolicy(registryUri)
 	if policy.Name != policyStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return %q for registry scope %q", policyStatement.Name, registryScope)
 	}
 
 	// non-existing Registry Scope
-	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash", false)
+	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
 	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
@@ -534,7 +534,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		policyStatement,
 		wildcardStatement,
 	}
-	policy, err = (&policyDoc).GetApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash", false)
+	policy, err = (&policyDoc).GetApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash")
 	if policy.Name != wildcardStatement.Name || err != nil {
 		t.Fatalf("getApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
 	}

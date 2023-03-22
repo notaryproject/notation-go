@@ -25,12 +25,3 @@ type Repository interface {
 	// linked signature envelope blob.
 	PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error)
 }
-
-// RepositoryChecker checks properties of a Repository
-type RepositoryChecker interface {
-	// IsLocalRepository checks if underlying target is a local repository.
-	// Example of local repository: oci.Store.
-	// Example of remote repository: remote.registry.
-	// Returns true on local repository, false on remote.
-	IsLocalRepository(ctx context.Context) (bool, error)
-}
