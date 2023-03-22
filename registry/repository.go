@@ -35,7 +35,7 @@ type RepositoryOptions struct {
 	OCIImageManifest bool
 }
 
-// repositoryClient implements Repository and RepositoryChecker
+// repositoryClient implements Repository
 type repositoryClient struct {
 	// oras.Target specifies the type of the target.
 	// Implementations that are supported in Notation:

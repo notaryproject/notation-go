@@ -321,7 +321,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	}
 	artifactDescriptor, err := repo.Resolve(ctx, ref.Reference)
 	if err != nil {
-		return ocispec.Descriptor{}, nil, fmt.Errorf("failed to resolve reference: %w", err)
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: err.Error()}
 	}
 	if ref.ValidateReferenceAsDigest() != nil {
 		// artifactRef is not a digest reference

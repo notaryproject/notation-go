@@ -72,7 +72,6 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	if err != nil {
 		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-
 	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
@@ -91,15 +90,16 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 // If nil signature is present and the verification level is not 'skip',
 // an error will be returned.
 func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifierVerifyOptions) (*notation.VerificationOutcome, error) {
+	artifactRef := opts.ArtifactReference
+	envelopeMediaType := opts.SignatureMediaType
+	pluginConfig := opts.PluginConfig
 	logger := log.GetLogger(ctx)
 
-	envelopeMediaType := opts.SignatureMediaType
-	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, opts.ArtifactReference, envelopeMediaType)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
+	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, envelopeMediaType)
+	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-
 	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
@@ -113,7 +113,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, opts.PluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err
