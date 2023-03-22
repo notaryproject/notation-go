@@ -103,7 +103,7 @@ func TestRegistryResolveError(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
-	errorMessage := "failed to resolve reference: network error"
+	errorMessage := "network error"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
