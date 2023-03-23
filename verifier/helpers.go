@@ -38,10 +38,8 @@ var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 // It's designed to be used when user implements their own
 // truststore.X509TrustStore.
 func ValidateCerts(certs []*x509.Certificate) error {
-	// to prevent any trust store misconfigurations, ensure there is at least
-	// one certificate from each file.
 	if len(certs) < 1 {
-		return errors.New("could not parse a certificate, every file in a trust store must have a PEM or DER certificate in it")
+		return errors.New("certs is empty")
 	}
 	for _, cert := range certs {
 		if !cert.IsCA {
