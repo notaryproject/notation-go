@@ -546,7 +546,7 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 }
 
 func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client, logger log.Logger) *notation.ValidationResult {
-	r := revocation.New(client, logger)
+	r := revocation.New(client)
 	authenticSigningTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
 	// TODO use authenticSigningTime from signerInfo
 	// https://github.com/notaryproject/notation-core-go/issues/38
@@ -567,6 +567,12 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		case ocsp.TimeoutError:
 			logger.Debug("Revocation unavailable. OCSP requests timed out")
 			result.Error = t
+		case ocsp.PKIXNoCheckError:
+			// Since CRL is not yet implemented, not considering this an error
+			// Logging and passing validation
+			// TODO: add CRL support
+			// https://github.com/notaryproject/notation-core-go/issues/125
+			logger.Debugf("%v", t)
 		case ocsp.NoOCSPServerError:
 			// Since OCSP cannot ever be checked for this cert, not considering this an error
 			// Logging and passing validation
