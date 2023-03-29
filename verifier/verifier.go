@@ -552,43 +552,33 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	// https://github.com/notaryproject/notation-core-go/issues/38
 	revocationErr := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 
-	var importantErr bool
-	if revocationErr == nil {
-		importantErr = false
-	} else {
+	result := &notation.ValidationResult{
+		Type:   trustpolicy.TypeRevocation,
+		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+	}
+
+	if revocationErr != nil {
 		// If there is an error and it is designated as unimportant, log but pass the validation
 		switch t := revocationErr.(type) {
 		case ocsp.RevokedError:
-			importantErr = true
+			result.Error = t
 		case ocsp.UnknownStatusError:
-			importantErr = true
+			result.Error = t
+		case ocsp.TimeoutError:
+			logger.Debug("Revocation unavailable. OCSP requests timed out")
+			result.Error = t
 		case ocsp.NoOCSPServerError:
-			// Should this be an important error?
+			// Since OCSP cannot ever be checked for this cert, not considering this an error
+			// Logging and passing validation
 			logger.Debugf("%v", t)
 			logger.Debug("1 or more certificates in the chain did not have OCSP configured. Ignoring these certificates")
-			importantErr = false
-		case ocsp.TimeoutError:
-			logger.Debugf("%v", t)
-			logger.Debug("Revocation unavailable. OCSP requests timed out")
-			importantErr = false
 		default:
 			// For any ocsp.CheckOCSPErrors or other errors
-			importantErr = true
+			result.Error = revocationErr
 		}
 	}
 
-	if importantErr {
-		return &notation.ValidationResult{
-			Error:  revocationErr,
-			Type:   trustpolicy.TypeRevocation,
-			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-		}
-	} else {
-		return &notation.ValidationResult{
-			Type:   trustpolicy.TypeRevocation,
-			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-		}
-	}
+	return result
 }
 
 func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {

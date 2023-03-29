@@ -365,8 +365,9 @@ func TestVerifyRevocation(t *testing.T) {
 	})
 	t.Run("verifyRevocation timeout", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), timeoutClient, logger)
-		if result.Error != nil {
-			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
+		expectedMsg := fmt.Sprintf("exceeded timeout threshold of %.2f seconds for OCSP check", timeoutClient.Timeout.Seconds())
+		if result.Error == nil || result.Error.Error() != expectedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedMsg, result.Error)
 		}
 	})
 }
