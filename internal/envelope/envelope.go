@@ -1,6 +1,7 @@
 package envelope
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,14 +45,14 @@ func SanitizeTargetArtifact(targetArtifact ocispec.Descriptor) ocispec.Descripto
 }
 
 // SigningTime returns the signing time of a signature envelope blob
-func SigningTime(sigBlob []byte, envelopeMediaType string) (time.Time, error) {
-	sigEnv, err := signature.ParseEnvelope(envelopeMediaType, sigBlob)
-	if err != nil {
-		return time.Time{}, err
+func SigningTime(signerInfo *signature.SignerInfo) (time.Time, error) {
+	// sanity check
+	if signerInfo == nil {
+		return time.Time{}, errors.New("failed to generate annotations: signerInfo cannot be nil")
 	}
-	content, err := sigEnv.Content()
-	if err != nil {
-		return time.Time{}, err
+	signingTime := signerInfo.SignedAttributes.SigningTime
+	if signingTime.IsZero() {
+		return time.Time{}, errors.New("signing time is missing")
 	}
-	return content.SignerInfo.SignedAttributes.SigningTime.UTC(), nil
+	return signingTime.UTC(), nil
 }

@@ -408,6 +408,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[string]string) (map[string]string, error) {
+	// sanity check
+	if signerInfo == nil {
+		return nil, errors.New("failed to generate annotations: signerInfo cannot be nil")
+	}
 	var thumbprints []string
 	for _, cert := range signerInfo.CertificateChain {
 		checkSum := sha256.Sum256(cert.Raw)
@@ -417,11 +421,14 @@ func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[strin
 	if err != nil {
 		return nil, err
 	}
-
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
-
 	annotations[envelope.AnnotationX509ChainThumbprint] = string(val)
+	signingTime, err := envelope.SigningTime(signerInfo)
+	if err != nil {
+		return nil, err
+	}
+	annotations[ocispec.AnnotationCreated] = signingTime.Format(time.RFC3339)
 	return annotations, nil
 }

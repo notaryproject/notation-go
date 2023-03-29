@@ -2,8 +2,6 @@ package envelope
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 
 var (
 	validCoseSignatureEnvelope []byte
-	signaturePath              = filepath.FromSlash("../testdata/cose_signature.sig")
 )
 
 func init() {
@@ -90,12 +87,16 @@ func TestValidatePayloadContentType(t *testing.T) {
 }
 
 func TestSigningTime(t *testing.T) {
-	signature, err := os.ReadFile(signaturePath)
+	testTime, err := time.Parse(time.RFC3339, "2023-03-14T04:45:22Z")
 	if err != nil {
-		t.Fatalf("failed to read signature: %v", err)
+		t.Fatal("failed to generate time")
 	}
-	signatureMediaType := cose.MediaTypeEnvelope
-	signingTime, err := SigningTime(signature, signatureMediaType)
+	signerInfo := signature.SignerInfo{
+		SignedAttributes: signature.SignedAttributes{
+			SigningTime: testTime,
+		},
+	}
+	signingTime, err := SigningTime(&signerInfo)
 	if err != nil {
 		t.Fatalf("failed to get signing time from signature: %v", err)
 	}

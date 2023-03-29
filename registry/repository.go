@@ -3,12 +3,9 @@ package registry
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"time"
 
-	"github.com/notaryproject/notation-go/internal/envelope"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
@@ -37,36 +34,39 @@ type RepositoryOptions struct {
 
 // repositoryClient implements Repository
 type repositoryClient struct {
-	// oras.Target specifies the type of the target.
+	// oras.GraphTarget specifies the type of the target.
 	// Implementations that are supported in Notation:
 	// remote.Repository (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry/remote#Repository)
 	// oci.Store (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/content/oci#Store)
-	oras.Target
+	oras.GraphTarget
 	RepositoryOptions
 }
 
 // NewRepository returns a new Repository
-func NewRepository(target oras.Target) Repository {
+func NewRepository(target oras.GraphTarget) Repository {
 	return &repositoryClient{
-		Target: target,
+		GraphTarget: target,
 	}
 }
 
 // NewRepositoryWithOptions returns a new Repository with user specified
 // options.
-func NewRepositoryWithOptions(target oras.Target, opts RepositoryOptions) Repository {
+func NewRepositoryWithOptions(target oras.GraphTarget, opts RepositoryOptions) Repository {
 	return &repositoryClient{
-		Target:            target,
+		GraphTarget:       target,
 		RepositoryOptions: opts,
 	}
 }
 
-// NewRepositoryWithOciStore returns a new Repository with oci.Store as
-// its oras.Target
-func NewRepositoryWithOciStore(path string, opts RepositoryOptions) (Repository, error) {
-	_, err := os.Stat(path)
+// NewOCIRepository returns a new Repository with oci.Store as
+// its oras.GraphTarget. `path` denotes directory path to the target OCI layout.
+func NewOCIRepository(path string, opts RepositoryOptions) (Repository, error) {
+	dir, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCI store: %w", err)
+	}
+	if !dir.IsDir() {
+		return nil, fmt.Errorf("failed to create OCI store: the input path is not a directory")
 	}
 	ociStore, err := oci.New(path)
 	if err != nil {
@@ -77,28 +77,24 @@ func NewRepositoryWithOciStore(path string, opts RepositoryOptions) (Repository,
 
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	if repo, ok := c.Target.(registry.Repository); ok {
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
 		return repo.Manifests().Resolve(ctx, reference)
 	}
-	return c.Target.Resolve(ctx, reference)
+	return c.GraphTarget.Resolve(ctx, reference)
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	if repo, ok := c.Target.(registry.Repository); ok {
+	if repo, ok := c.GraphTarget.(registry.ReferrerLister); ok {
 		return repo.Referrers(ctx, desc, ArtifactTypeNotation, fn)
 	}
 
-	if target, ok := c.Target.(content.ReadOnlyGraphStorage); ok {
-		signatureManifests, err := referrers(ctx, target, desc, ArtifactTypeNotation)
-		if err != nil {
-			return fmt.Errorf("failed to get predecessors during ListSignatures due to %w", err)
-		}
-		return fn(signatureManifests)
+	signatureManifests, err := predecessors(ctx, c.GraphTarget, desc)
+	if err != nil {
+		return fmt.Errorf("failed to get predecessors during ListSignatures due to %w", err)
 	}
-
-	return errors.New("repositoryClient underlying oras.Target implementation is not supported")
+	return fn(signatureManifests)
 }
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
@@ -112,14 +108,11 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d bytes", sigBlobDesc.Size)
 	}
 
-	if repo, ok := c.Target.(registry.Repository); ok {
-		sigBlob, err := content.FetchAll(ctx, repo.Blobs(), sigBlobDesc)
-		if err != nil {
-			return nil, ocispec.Descriptor{}, err
-		}
-		return sigBlob, sigBlobDesc, nil
+	var fetcher content.Fetcher = c.GraphTarget
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
+		fetcher = repo.Blobs()
 	}
-	sigBlob, err := content.FetchAll(ctx, c.Target, sigBlobDesc)
+	sigBlob, err := content.FetchAll(ctx, fetcher, sigBlobDesc)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
@@ -130,34 +123,18 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
 func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
-	// sanity check
-	if annotations == nil {
-		return ocispec.Descriptor{}, ocispec.Descriptor{}, errors.New("pushing signature blob, but got nil annotations map")
+	var pusher content.Pusher = c.GraphTarget
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
+		pusher = repo.Blobs()
 	}
-	if _, ok := annotations[envelope.AnnotationX509ChainThumbprint]; !ok {
-		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("pushing signature blob, but annotations map missing field %q", envelope.AnnotationX509ChainThumbprint)
-	}
-	signingTime, err := envelope.SigningTime(blob, mediaType)
+	blobDesc, err = oras.PushBytes(ctx, pusher, mediaType, blob)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
-	}
-	annotations[ocispec.AnnotationCreated] = signingTime.Format(time.RFC3339)
-	if repo, ok := c.Target.(registry.Repository); ok {
-		blobDesc, err = oras.PushBytes(ctx, repo.Blobs(), mediaType, blob)
-		if err != nil {
-			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
-		}
-	} else {
-		blobDesc, err = oras.PushBytes(ctx, c.Target, mediaType, blob)
-		if err != nil {
-			return ocispec.Descriptor{}, ocispec.Descriptor{}, err
-		}
 	}
 	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
-
 	return blobDesc, manifestDesc, nil
 }
 
@@ -172,18 +149,13 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 	}
 
 	// get the signature manifest from sigManifestDesc
-	var manifestJSON []byte
-	var err error
-	if repo, ok := c.Target.(registry.Repository); ok {
-		manifestJSON, err = content.FetchAll(ctx, repo.Manifests(), sigManifestDesc)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-	} else {
-		manifestJSON, err = content.FetchAll(ctx, c.Target, sigManifestDesc)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
+	var fetcher content.Fetcher = c.GraphTarget
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
+		fetcher = repo.Manifests()
+	}
+	manifestJSON, err := content.FetchAll(ctx, fetcher, sigManifestDesc)
+	if err != nil {
+		return ocispec.Descriptor{}, err
 	}
 
 	// get the signature blob descriptor from signature manifest
@@ -218,25 +190,12 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		PackImageManifest:   c.OCIImageManifest,
 	}
 
-	return oras.Pack(ctx, c.Target, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	return oras.Pack(ctx, c.GraphTarget, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
 }
 
-// referrers returns referrer nodes of desc in target and filter by artifactType
-func referrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor, artifactType string) ([]ocispec.Descriptor, error) {
+// predecessors returns predecessor nodes of desc in target and filter by artifactType
+func predecessors(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 	var results []ocispec.Descriptor
-	if repo, ok := target.(registry.ReferrerLister); ok {
-		// get referrers directly
-		err := repo.Referrers(ctx, desc, artifactType, func(referrers []ocispec.Descriptor) error {
-			results = append(results, referrers...)
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		return results, nil
-	}
-
-	// find matched referrers in all predecessors
 	predecessors, err := target.Predecessors(ctx, desc)
 	if err != nil {
 		return nil, err
@@ -244,7 +203,7 @@ func referrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc oc
 	for _, node := range predecessors {
 		switch node.MediaType {
 		case ocispec.MediaTypeArtifactManifest:
-			fetched, err := fetchBytes(ctx, target, node)
+			fetched, err := content.FetchAll(ctx, target, node)
 			if err != nil {
 				return nil, err
 			}
@@ -258,7 +217,7 @@ func referrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc oc
 			node.ArtifactType = artifact.ArtifactType
 			node.Annotations = artifact.Annotations
 		case ocispec.MediaTypeImageManifest:
-			fetched, err := fetchBytes(ctx, target, node)
+			fetched, err := content.FetchAll(ctx, target, node)
 			if err != nil {
 				return nil, err
 			}
@@ -274,19 +233,10 @@ func referrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc oc
 		default:
 			continue
 		}
-		if node.ArtifactType != "" && (artifactType == "" || artifactType == node.ArtifactType) {
+		// only keep nodes of "application/vnd.cncf.notary.signature"
+		if node.ArtifactType == ArtifactTypeNotation {
 			results = append(results, node)
 		}
 	}
 	return results, nil
-}
-
-// fetchBytes fetches the content described by the input descriptor
-func fetchBytes(ctx context.Context, fetcher content.Fetcher, desc ocispec.Descriptor) ([]byte, error) {
-	rc, err := fetcher.Fetch(ctx, desc)
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-	return content.ReadAll(rc, desc)
 }

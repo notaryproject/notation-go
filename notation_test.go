@@ -261,7 +261,11 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 type dummySigner struct{}
 
 func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
-	return []byte("ABC"), &signature.SignerInfo{}, nil
+	return []byte("ABC"), &signature.SignerInfo{
+		SignedAttributes: signature.SignedAttributes{
+			SigningTime: time.Now(),
+		},
+	}, nil
 }
 
 type verifyMetadataSigner struct{}
@@ -272,7 +276,11 @@ func (s *verifyMetadataSigner) Sign(ctx context.Context, desc ocispec.Descriptor
 			return nil, nil, errors.New("expected metadata not present in descriptor")
 		}
 	}
-	return []byte("ABC"), &signature.SignerInfo{}, nil
+	return []byte("ABC"), &signature.SignerInfo{
+		SignedAttributes: signature.SignedAttributes{
+			SigningTime: time.Now(),
+		},
+	}, nil
 }
 
 type dummyVerifier struct {
@@ -318,7 +326,7 @@ func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts
 }
 
 func TestSignLocalContent(t *testing.T) {
-	repo, err := registry.NewRepositoryWithOciStore(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +343,7 @@ func TestSignLocalContent(t *testing.T) {
 }
 
 func TestVerifyLocalContent(t *testing.T) {
-	repo, err := registry.NewRepositoryWithOciStore(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}

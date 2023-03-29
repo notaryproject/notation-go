@@ -394,7 +394,7 @@ func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 		PlainHTTP: plainHTTP,
 	}
 	return &repositoryClient{
-		Target: &repo,
+		GraphTarget: &repo,
 	}
 }
 
@@ -402,7 +402,7 @@ func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 // pushing OCI image manifest
 func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
 	return &repositoryClient{
-		Target: &remote.Repository{
+		GraphTarget: &remote.Repository{
 			Client:    client,
 			Reference: ref,
 			PlainHTTP: plainHTTP,
@@ -423,6 +423,7 @@ var (
 	}
 	annotations = map[string]string{
 		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
+		ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
 	}
 	expectedSignatureManifestDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.oci.image.manifest.v1+json",
@@ -437,7 +438,7 @@ var (
 )
 
 func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
-	repo, err := NewRepositoryWithOciStore(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
@@ -469,7 +470,7 @@ func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
 }
 
 func TestOciLayoutRepositoryListAndFetchBlob(t *testing.T) {
-	repo, err := NewRepositoryWithOciStore(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
