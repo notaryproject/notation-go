@@ -186,7 +186,7 @@ func (policyDoc *Document) Validate() error {
 		// Verify signature verification is valid
 		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
-			return fmt.Errorf("trust policy statement %q has invalid signatureVerification. Error: %w", statement.Name, err)
+			return fmt.Errorf("trust policy statement %q has invalid signatureVerification: %w", statement.Name, err)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and
@@ -289,7 +289,7 @@ func LoadDocument() (*Document, error) {
 // SignatureVerification struct throws error if SignatureVerification is invalid
 func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
 	if signatureVerification.VerificationLevel == "" {
-		return nil, errors.New("trust policy statement is missing or has empty signature verification level, it must be specified")
+		return nil, errors.New("signature verification configuration is missing or contains empty verification level, it must be specified")
 	}
 
 	var baseLevel *VerificationLevel
