@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/ocsp"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
@@ -30,9 +33,10 @@ import (
 
 // verifier implements notation.Verifier and notation.skipVerifier
 type verifier struct {
-	trustPolicyDoc *trustpolicy.Document
-	trustStore     truststore.X509TrustStore
-	pluginManager  plugin.Manager
+	trustPolicyDoc   *trustpolicy.Document
+	trustStore       truststore.X509TrustStore
+	pluginManager    plugin.Manager
+	revocationClient *http.Client
 }
 
 // NewFromConfig returns a verifier based on local file system
@@ -61,6 +65,24 @@ func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore
 		trustStore:     trustStore,
 		pluginManager:  pluginManager,
 	}, nil
+}
+
+// NewWithRevocationClient creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
+func NewWithRevocationClient(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient *http.Client) (notation.Verifier, error) {
+	if revocationClient == nil {
+		revocationClient = &http.Client{Timeout: 5 * time.Second}
+	}
+	result, err := New(trustPolicy, trustStore, pluginManager)
+	if err != nil {
+		return nil, err
+	}
+	if v, ok := result.(*verifier); !ok {
+		return result, nil
+	} else {
+		v.revocationClient = revocationClient
+		return v, nil
+	}
+
 }
 
 // SkipVerify validates whether the verification level is skip.
@@ -256,9 +278,14 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
 		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
-		logger.Debugf("Validating revocation (not implemented)")
-		// TODO perform X509 revocation check (not in RC1)
-		// https://github.com/notaryproject/notation-go/issues/110
+		logger.Debugf("Validating revocation")
+		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
+		outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
+		logVerificationResult(logger, revocationResult)
+		if isCriticalFailure(revocationResult) {
+			return revocationResult.Error
+		}
+
 	}
 
 	// perform extended verification using verification plugin if present
@@ -515,6 +542,52 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 	return &notation.ValidationResult{
 		Type:   trustpolicy.TypeAuthenticTimestamp,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+	}
+}
+
+func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client, logger log.Logger) *notation.ValidationResult {
+	r := revocation.New(client, logger)
+	authenticSigningTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
+	// TODO use authenticSigningTime from signerInfo
+	// https://github.com/notaryproject/notation-core-go/issues/38
+	revocationErr := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+
+	var importantErr bool
+	if revocationErr == nil {
+		importantErr = false
+	} else {
+		// If there is an error and it is designated as unimportant, log but pass the validation
+		switch t := revocationErr.(type) {
+		case ocsp.RevokedError:
+			importantErr = true
+		case ocsp.UnknownStatusError:
+			importantErr = true
+		case ocsp.NoOCSPServerError:
+			// Should this be an important error?
+			logger.Debugf("%v", t)
+			logger.Debug("1 or more certificates in the chain did not have OCSP configured. Ignoring these certificates")
+			importantErr = false
+		case ocsp.TimeoutError:
+			logger.Debugf("%v", t)
+			logger.Debug("Revocation unavailable. OCSP requests timed out")
+			importantErr = false
+		default:
+			// For any ocsp.CheckOCSPErrors or other errors
+			importantErr = true
+		}
+	}
+
+	if importantErr {
+		return &notation.ValidationResult{
+			Error:  revocationErr,
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+		}
+	} else {
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+		}
 	}
 }
 

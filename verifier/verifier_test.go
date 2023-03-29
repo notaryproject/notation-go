@@ -5,19 +5,25 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/testhelper"
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"golang.org/x/crypto/ocsp"
 
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -307,6 +313,83 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			outcome, _ := verifier.Verify(context.Background(), ocispec.Descriptor{}, tt.signatureBlob, tt.opts)
 			verifyResult(outcome, expectedResult, tt.expectedErr, t)
 		})
+	}
+}
+
+func createMockOutcome(certChain []*x509.Certificate) *notation.VerificationOutcome {
+	return &notation.VerificationOutcome{
+		EnvelopeContent: &signature.EnvelopeContent{
+			SignerInfo: signature.SignerInfo{
+				SignedAttributes: signature.SignedAttributes{
+					SigningTime: time.Now(),
+				},
+				CertificateChain: certChain,
+			},
+		},
+		VerificationLevel: &trustpolicy.VerificationLevel{
+			Enforcement: map[trustpolicy.ValidationType]trustpolicy.ValidationAction{trustpolicy.TypeRevocation: trustpolicy.ActionEnforce},
+		},
+	}
+}
+
+func TestVerifyRevocation(t *testing.T) {
+	logger := log.GetLogger(context.Background())
+
+	revokableTuples := testhelper.GetRevokableRSAChain(3)
+	revokableChain := []*x509.Certificate{revokableTuples[0].Cert, revokableTuples[1].Cert, revokableTuples[2].Cert}
+
+	goodClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Good}, nil)
+	revokedClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked}, nil)
+	unknownClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown}, nil)
+	timeoutClient := &http.Client{Timeout: 1 * time.Nanosecond}
+
+	t.Run("verifyRevocation non-revoked", func(t *testing.T) {
+		result := verifyRevocation(createMockOutcome(revokableChain), goodClient, logger)
+		if result.Error != nil {
+			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP revoked", func(t *testing.T) {
+		result := verifyRevocation(createMockOutcome(revokableChain), revokedClient, logger)
+		expectedMsg := "certificate is revoked via OCSP"
+		if result.Error == nil || result.Error.Error() != expectedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP unknown", func(t *testing.T) {
+		result := verifyRevocation(createMockOutcome(revokableChain), unknownClient, logger)
+		expectedMsg := "certificate has unknown status via OCSP"
+		if result.Error == nil || result.Error.Error() != expectedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation timeout", func(t *testing.T) {
+		result := verifyRevocation(createMockOutcome(revokableChain), timeoutClient, logger)
+		if result.Error != nil {
+			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
+		}
+	})
+}
+
+func TestNewWithRevocationClient(t *testing.T) {
+	policy := dummyPolicyDocument()
+	store := truststore.NewX509TrustStore(dir.ConfigFS())
+	pm := mock.PluginManager{}
+	client := &http.Client{Timeout: 2 * time.Second}
+	v, err := NewWithRevocationClient(&policy, store, pm, client)
+
+	if err != nil {
+		t.Fatalf("expected NewWithRevocationClient constructor to succeed, but got %v", err)
+	}
+
+	expectedV := &verifier{
+		trustPolicyDoc:   &policy,
+		trustStore:       store,
+		pluginManager:    pm,
+		revocationClient: client,
+	}
+	if !reflect.DeepEqual(expectedV, v) {
+		t.Fatalf("expected %v to be created, but got %v", expectedV, v)
 	}
 }
 

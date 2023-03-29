@@ -25,7 +25,7 @@ var examplePolicyDocument = trustpolicy.Document{
 		{
 			Name:                  "test-statement-name",
 			RegistryScopes:        []string{"example/software"},
-			SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
+			SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name, Override: map[trustpolicy.ValidationType]trustpolicy.ValidationAction{trustpolicy.TypeRevocation: trustpolicy.ActionSkip}},
 			TrustStores:           []string{"ca:valid-trust-store"},
 			TrustedIdentities:     []string{"*"},
 		},
