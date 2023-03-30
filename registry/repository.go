@@ -201,11 +201,11 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 		return nil, err
 	}
 	for _, node := range predecessors {
-		if node.Size > maxManifestSizeLimit {
-			return nil, fmt.Errorf("referrer node too large: %d bytes", node.Size)
-		}
 		switch node.MediaType {
 		case ocispec.MediaTypeArtifactManifest:
+			if node.Size > maxManifestSizeLimit {
+				return nil, fmt.Errorf("referrer node too large: %d bytes", node.Size)
+			}
 			fetched, err := content.FetchAll(ctx, target, node)
 			if err != nil {
 				return nil, err
@@ -220,6 +220,9 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			node.ArtifactType = artifact.ArtifactType
 			node.Annotations = artifact.Annotations
 		case ocispec.MediaTypeImageManifest:
+			if node.Size > maxManifestSizeLimit {
+				return nil, fmt.Errorf("referrer node too large: %d bytes", node.Size)
+			}
 			fetched, err := content.FetchAll(ctx, target, node)
 			if err != nil {
 				return nil, err
