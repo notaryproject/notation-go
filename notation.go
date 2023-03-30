@@ -247,7 +247,7 @@ type Verifier interface {
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifierVerifyOptions) (*VerificationOutcome, error)
 }
 
-type skipVerifier interface {
+type verifySkipper interface {
 	// SkipVerify validates whether the verification level is skip.
 	SkipVerify(ctx context.Context, opts VerifierVerifyOptions) (bool, *trustpolicy.VerificationLevel, error)
 }
@@ -297,7 +297,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 		UserMetadata:      verifyOpts.UserMetadata,
 	}
 
-	if skipChecker, ok := verifier.(skipVerifier); ok {
+	if skipChecker, ok := verifier.(verifySkipper); ok {
 		logger.Info("Checking whether signature verification should be skipped or not")
 		skip, verificationLevel, err := skipChecker.SkipVerify(ctx, opts)
 		if err != nil {

@@ -28,7 +28,7 @@ import (
 	"oras.land/oras-go/v2/content"
 )
 
-// verifier implements notation.Verifier and notation.skipVerifier
+// verifier implements notation.Verifier and notation.verifySkipper
 type verifier struct {
 	trustPolicyDoc *trustpolicy.Document
 	trustStore     truststore.X509TrustStore

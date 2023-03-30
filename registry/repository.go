@@ -34,17 +34,16 @@ type RepositoryOptions struct {
 
 // repositoryClient implements Repository
 type repositoryClient struct {
-	// oras.GraphTarget specifies the type of the target.
-	// Implementations that are supported in Notation:
-	// remote.Repository (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry/remote#Repository)
-	// oci.Store (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/content/oci#Store)
 	oras.GraphTarget
 	RepositoryOptions
 }
 
-// NewRepository returns a new Repository
+// NewRepository returns a new Repository.
 func NewRepository(target oras.GraphTarget) Repository {
 	return &repositoryClient{
+		// Implementations of oras.GraphTarget that are supported in Notation:
+		// remote.Repository (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry/remote#Repository)
+		// oci.Store (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/content/oci#Store)
 		GraphTarget: target,
 	}
 }
@@ -90,9 +89,9 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return repo.Referrers(ctx, desc, ArtifactTypeNotation, fn)
 	}
 
-	signatureManifests, err := predecessors(ctx, c.GraphTarget, desc)
+	signatureManifests, err := signatureReferrers(ctx, c.GraphTarget, desc)
 	if err != nil {
-		return fmt.Errorf("failed to get predecessors during ListSignatures due to %w", err)
+		return fmt.Errorf("failed to get referrers during ListSignatures due to %w", err)
 	}
 	return fn(signatureManifests)
 }
@@ -193,14 +192,18 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 	return oras.Pack(ctx, c.GraphTarget, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
 }
 
-// predecessors returns predecessor nodes of desc in target and filter by artifactType
-func predecessors(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+// signatureReferrers returns referrer nodes of desc in target filtered by
+// the "application/vnd.cncf.notary.signature" artifact type
+func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 	var results []ocispec.Descriptor
 	predecessors, err := target.Predecessors(ctx, desc)
 	if err != nil {
 		return nil, err
 	}
 	for _, node := range predecessors {
+		if node.Size > maxManifestSizeLimit {
+			return nil, fmt.Errorf("referrer node too large: %d bytes", node.Size)
+		}
 		switch node.MediaType {
 		case ocispec.MediaTypeArtifactManifest:
 			fetched, err := content.FetchAll(ctx, target, node)

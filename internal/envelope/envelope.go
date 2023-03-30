@@ -7,9 +7,6 @@ import (
 
 	"github.com/notaryproject/notation-core-go/signature"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-
-	_ "github.com/notaryproject/notation-core-go/signature/cose"
-	_ "github.com/notaryproject/notation-core-go/signature/jws"
 )
 
 // MediaTypePayloadV1 is the supported content type for signature's payload.
