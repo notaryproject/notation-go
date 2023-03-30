@@ -289,7 +289,7 @@ func LoadDocument() (*Document, error) {
 // SignatureVerification struct throws error if SignatureVerification is invalid
 func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
 	if signatureVerification.VerificationLevel == "" {
-		return nil, errors.New("signature verification configuration is missing or contains empty verification level, it must be specified")
+		return nil, errors.New("signature verification level is empty or missing in the trust policy statement")
 	}
 
 	var baseLevel *VerificationLevel
