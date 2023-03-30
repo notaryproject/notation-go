@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/revocation"
-	"github.com/notaryproject/notation-core-go/revocation/ocsp"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
@@ -550,38 +549,30 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	authenticSigningTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
 	// TODO use authenticSigningTime from signerInfo
 	// https://github.com/notaryproject/notation-core-go/issues/38
-	revocationErr := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+	revocationErrs := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 
 	result := &notation.ValidationResult{
 		Type:   trustpolicy.TypeRevocation,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
 
-	if revocationErr != nil {
-		// If there is an error and it is designated as unimportant, log but pass the validation
-		switch t := revocationErr.(type) {
-		case ocsp.RevokedError:
-			result.Error = t
-		case ocsp.UnknownStatusError:
-			result.Error = t
-		case ocsp.TimeoutError:
-			logger.Debug("Revocation unavailable. OCSP requests timed out")
-			result.Error = t
-		case ocsp.PKIXNoCheckError:
-			// Since CRL is not yet implemented, not considering this an error
-			// Logging and passing validation
-			// TODO: add CRL support
-			// https://github.com/notaryproject/notation-core-go/issues/125
-			logger.Debugf("%v", t)
-		case ocsp.NoOCSPServerError:
-			// Since OCSP cannot ever be checked for this cert, not considering this an error
-			// Logging and passing validation
-			logger.Debugf("%v", t)
-			logger.Debug("1 or more certificates in the chain did not have OCSP configured. Ignoring these certificates")
-		default:
-			// For any ocsp.CheckOCSPErrors or other errors
-			result.Error = revocationErr
+	// Log all non-nil errors as debug
+	for i, serverErrs := range revocationErrs {
+		for _, err := range serverErrs {
+			if err != nil {
+				logger.Debugf("error for certificate #%d in chain: %v", (i + 1), err)
+			}
 		}
+	}
+
+	switch revocation.GetResultFromErrors(revocationErrs) {
+	case revocation.OK:
+		logger.Debug("no important errors encountered while checking revocation, status is OK")
+	case revocation.Revoked:
+		result.Error = errors.New("one or more certificates in the chain were determined to be revoked, status is Revoked")
+	default:
+		// revocation.Unknown
+		result.Error = errors.New("important error(s) encountered during revocation check, status is Unknown")
 	}
 
 	return result

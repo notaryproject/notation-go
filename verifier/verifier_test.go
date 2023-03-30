@@ -344,6 +344,9 @@ func TestVerifyRevocation(t *testing.T) {
 	pkixNoCheckClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown}, nil, false)
 	timeoutClient := &http.Client{Timeout: 1 * time.Nanosecond}
 
+	unknownMsg := "important error(s) encountered during revocation check, status is Unknown"
+	revokedMsg := "one or more certificates in the chain were determined to be revoked, status is Revoked"
+
 	t.Run("verifyRevocation non-revoked", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), goodClient, logger)
 		if result.Error != nil {
@@ -352,29 +355,26 @@ func TestVerifyRevocation(t *testing.T) {
 	})
 	t.Run("verifyRevocation OCSP revoked", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), revokedClient, logger)
-		expectedMsg := "certificate is revoked via OCSP"
-		if result.Error == nil || result.Error.Error() != expectedMsg {
-			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedMsg, result.Error)
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
 	})
 	t.Run("verifyRevocation OCSP unknown", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), unknownClient, logger)
-		expectedMsg := "certificate has unknown status via OCSP"
-		if result.Error == nil || result.Error.Error() != expectedMsg {
-			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedMsg, result.Error)
+		if result.Error == nil || result.Error.Error() != unknownMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
 		}
 	})
 	t.Run("verifyRevocation missing id-pkix-ocsp-nocheck", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), pkixNoCheckClient, logger)
-		if result.Error != nil {
-			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
+		if result.Error == nil || result.Error.Error() != unknownMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
 		}
 	})
 	t.Run("verifyRevocation timeout", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), timeoutClient, logger)
-		expectedMsg := fmt.Sprintf("exceeded timeout threshold of %.2f seconds for OCSP check", timeoutClient.Timeout.Seconds())
-		if result.Error == nil || result.Error.Error() != expectedMsg {
-			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedMsg, result.Error)
+		if result.Error == nil || result.Error.Error() != unknownMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
 		}
 	})
 }
