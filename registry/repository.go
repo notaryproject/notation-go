@@ -60,11 +60,11 @@ func NewRepositoryWithOptions(target oras.GraphTarget, opts RepositoryOptions) R
 // NewOCIRepository returns a new Repository with oci.Store as
 // its oras.GraphTarget. `path` denotes directory path to the target OCI layout.
 func NewOCIRepository(path string, opts RepositoryOptions) (Repository, error) {
-	dir, err := os.Stat(path)
+	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCI store: %w", err)
 	}
-	if !dir.IsDir() {
+	if !fileInfo.IsDir() {
 		return nil, fmt.Errorf("failed to create OCI store: the input path is not a directory")
 	}
 	ociStore, err := oci.New(path)
