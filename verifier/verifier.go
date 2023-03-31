@@ -565,7 +565,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		}
 	}
 
-	switch revocation.GetResultFromErrors(revocationErrs) {
+	switch revocation.ResultFromErrors(revocationErrs) {
 	case revocation.OK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
 	case revocation.Revoked:
