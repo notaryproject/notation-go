@@ -48,9 +48,9 @@ func Example_remoteSign() {
 	// exampleSignOptions is an example of notation.SignOptions.
 	exampleSignOptions := notation.SignOptions{
 		SignerSignOptions: notation.SignerSignOptions{
-			ArtifactReference:  exampleArtifactReference,
 			SignatureMediaType: exampleSignatureMediaType,
 		},
+		ArtifactReference: exampleArtifactReference,
 	}
 
 	// remote sign core process

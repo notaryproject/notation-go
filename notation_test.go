@@ -302,9 +302,10 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 }
 
 var (
-	ociLayoutPath = filepath.FromSlash("./internal/testdata/oci-layout")
-	reference     = "local/oci-layout@sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
-	signaturePath = filepath.FromSlash("./internal/testdata/cose_signature.sig")
+	ociLayoutPath     = filepath.FromSlash("./internal/testdata/oci-layout")
+	reference         = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
+	artifactReference = "local/oci-layout@sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
+	signaturePath     = filepath.FromSlash("./internal/testdata/cose_signature.sig")
 )
 
 type ociDummySigner struct{}
@@ -332,9 +333,9 @@ func TestSignLocalContent(t *testing.T) {
 	}
 	signOpts := SignOptions{
 		SignerSignOptions: SignerSignOptions{
-			ArtifactReference:  reference,
 			SignatureMediaType: cose.MediaTypeEnvelope,
 		},
+		ArtifactReference: reference,
 	}
 	_, err = Sign(context.Background(), &ociDummySigner{}, repo, signOpts)
 	if err != nil {
@@ -348,7 +349,7 @@ func TestVerifyLocalContent(t *testing.T) {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
 	verifyOpts := VerifyOptions{
-		ArtifactReference:    reference,
+		ArtifactReference:    artifactReference,
 		MaxSignatureAttempts: math.MaxInt64,
 	}
 	policyDocument := dummyPolicyDocument()

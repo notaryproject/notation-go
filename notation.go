@@ -26,10 +26,6 @@ var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
 // SignerSignOptions contains parameters for Signer.Sign.
 type SignerSignOptions struct {
-	// ArtifactReference sets the reference of the artifact that needs to be
-	// signed.
-	ArtifactReference string
-
 	// SignatureMediaType is the envelope type of the signature.
 	// Currently both `application/jose+json` and `application/cose` are
 	// supported.
@@ -66,6 +62,10 @@ type signerAnnotation interface {
 type SignOptions struct {
 	SignerSignOptions
 
+	// ArtifactReference sets the reference of the artifact that needs to be
+	// signed.
+	ArtifactReference string
+
 	// UserMetadata contains key-value pairs that are added to the signature
 	// payload
 	UserMetadata map[string]string
@@ -89,23 +89,10 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	}
 
 	logger := log.GetLogger(ctx)
-	ref, err := orasRegistry.ParseReference(signOpts.ArtifactReference)
-	if err != nil {
-		return ocispec.Descriptor{}, err
-	}
-	if ref.Reference == "" {
-		return ocispec.Descriptor{}, errors.New("reference is missing digest or tag")
-	}
-	targetDesc, err := repo.Resolve(ctx, ref.Reference)
+	targetDesc, err := repo.Resolve(ctx, signOpts.ArtifactReference)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
 	}
-	if ref.ValidateReferenceAsDigest() != nil {
-		// artifactRef is not a digest reference
-		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
-		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
-	}
-
 	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -114,7 +101,6 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-
 	var pluginAnnotations map[string]string
 	if signerAnts, ok := signer.(signerAnnotation); ok {
 		pluginAnnotations = signerAnts.PluginAnnotations()
