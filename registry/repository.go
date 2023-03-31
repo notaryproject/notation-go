@@ -39,11 +39,11 @@ type repositoryClient struct {
 }
 
 // NewRepository returns a new Repository.
+// Known implementations of oras.GraphTarget:
+// - [remote.Repository](https://pkg.go.dev/oras.land/oras-go/v2/registry/remote#Repository)
+// - [oci.Store](https://pkg.go.dev/oras.land/oras-go/v2/content/oci#Store)
 func NewRepository(target oras.GraphTarget) Repository {
 	return &repositoryClient{
-		// Implementations of oras.GraphTarget that are supported in Notation:
-		// remote.Repository (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/registry/remote#Repository)
-		// oci.Store (https://pkg.go.dev/oras.land/oras-go/v2@v2.0.1/content/oci#Store)
 		GraphTarget: target,
 	}
 }
