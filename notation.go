@@ -63,7 +63,7 @@ type SignOptions struct {
 	SignerSignOptions
 
 	// ArtifactReference sets the reference of the artifact that needs to be
-	// signed.
+	// signed. It can be a tag, a digest or a full reference.
 	ArtifactReference string
 
 	// UserMetadata contains key-value pairs that are added to the signature
@@ -92,6 +92,14 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	targetDesc, err := repo.Resolve(ctx, signOpts.ArtifactReference)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
+	}
+	if signOpts.ArtifactReference != targetDesc.Digest.String() {
+		ref, err := orasRegistry.ParseReference(signOpts.ArtifactReference)
+		if err != nil || ref.ValidateReferenceAsDigest() != nil {
+			// ArtifactReference is not a digest reference
+			logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
+			logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
+		}
 	}
 	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
 	if err != nil {
@@ -207,7 +215,7 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 // VerifierVerifyOptions contains parameters for Verifier.Verify.
 type VerifierVerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is been
-	// verified against to.
+	// verified against to. It must be a full reference.
 	ArtifactReference string
 
 	// SignatureMediaType is the envelope type of the signature.
