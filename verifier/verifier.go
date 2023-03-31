@@ -72,7 +72,7 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	if err != nil {
 		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
@@ -100,7 +100,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
