@@ -75,13 +75,14 @@ func NewWithRevocationClient(trustPolicy *trustpolicy.Document, trustStore trust
 	if err != nil {
 		return nil, err
 	}
-	if v, ok := result.(*verifier); !ok {
-		return result, nil
-	} else {
-		v.revocationClient = revocationClient
-		return v, nil
-	}
 
+	v, ok := result.(*verifier)
+	if !ok {
+		// should never occur, but checking just in case
+		return nil, errors.New("unable to create verifier with client for revocation")
+	}
+	v.revocationClient = revocationClient
+	return v, nil
 }
 
 // SkipVerify validates whether the verification level is skip.
