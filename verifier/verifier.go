@@ -277,7 +277,8 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// check if we need to bypass the revocation check, since revocation can be
 	// skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
-		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
+		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) &&
+		!slices.Contains(pluginCapabilities, proto.CapabilityTrustedIdentityVerifier) {
 		logger.Debugf("Validating revocation")
 		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
 		outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
@@ -285,7 +286,6 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		if isCriticalFailure(revocationResult) {
 			return revocationResult.Error
 		}
-
 	}
 
 	// perform extended verification using verification plugin if present
@@ -546,7 +546,16 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 }
 
 func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client, logger log.Logger) *notation.ValidationResult {
-	r := revocation.New(client)
+	r, err := revocation.New(client)
+	if err != nil {
+		logger.Debug("no HTTP client provided for revocation checking")
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+			Error:  errors.New("unable to check revocation status, an HTTP client must be provided"),
+		}
+	}
+
 	authenticSigningTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
 	// TODO use authenticSigningTime from signerInfo
 	// https://github.com/notaryproject/notation-core-go/issues/38
