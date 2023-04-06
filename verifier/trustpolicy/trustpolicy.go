@@ -232,7 +232,7 @@ func (policyDoc *Document) Validate() error {
 // GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
 // statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+// see https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
 func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {
