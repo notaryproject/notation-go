@@ -89,18 +89,21 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	}
 
 	logger := log.GetLogger(ctx)
-	targetDesc, err := repo.Resolve(ctx, signOpts.ArtifactReference)
+	artifactRef := signOpts.ArtifactReference
+	if ref, err := orasRegistry.ParseReference(artifactRef); err == nil {
+		// artifactRef is a valid full reference
+		artifactRef = ref.Reference
+	}
+	targetDesc, err := repo.Resolve(ctx, artifactRef)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
 	}
-	if signOpts.ArtifactReference != targetDesc.Digest.String() {
-		ref, err := orasRegistry.ParseReference(signOpts.ArtifactReference)
-		if err != nil || ref.ValidateReferenceAsDigest() != nil {
-			// ArtifactReference is not a digest reference
-			logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", ref.Reference)
-			logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", ref.Reference, targetDesc.Digest.String())
-		}
+	if artifactRef != targetDesc.Digest.String() {
+		// artifactRef is not a digest reference
+		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", artifactRef)
+		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", artifactRef, targetDesc.Digest.String())
 	}
+
 	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
 	if err != nil {
 		return ocispec.Descriptor{}, err
