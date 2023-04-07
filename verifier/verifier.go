@@ -559,7 +559,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	authenticSigningTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
 	// TODO use authenticSigningTime from signerInfo
 	// https://github.com/notaryproject/notation-core-go/issues/38
-	revocationErrs := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+	revocationResult := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 
 	result := &notation.ValidationResult{
 		Type:   trustpolicy.TypeRevocation,
@@ -567,15 +567,33 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	}
 
 	// Log all non-nil errors as debug
-	for i, serverErrs := range revocationErrs {
-		for _, err := range serverErrs {
+	for i, certResult := range revocationResult {
+		for _, err := range certResult.ServerResults {
 			if err != nil {
 				logger.Debugf("error for certificate #%d in chain: %v", (i + 1), err)
 			}
 		}
 	}
 
-	switch revocation.ResultFromErrors(revocationErrs) {
+	currResult := revocation.OK
+	for _, certResult := range revocationResult {
+		switch certResult.Result {
+		case revocation.OK:
+			continue
+		case revocation.Revoked:
+			currResult = revocation.Revoked
+			// will break out of loop after this
+		default:
+			// revocation.Unknown
+			currResult = revocation.Unknown
+			continue
+		}
+		if currResult == revocation.Revoked {
+			break
+		}
+	}
+
+	switch currResult {
 	case revocation.OK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
 	case revocation.Revoked:
