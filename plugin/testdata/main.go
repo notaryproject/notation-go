@@ -25,6 +25,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		os.Stdout.Write(data)
+		os.Stdout.Write(data) // #nosec: This is a test util
 	}
 }

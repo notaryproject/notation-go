@@ -199,6 +199,7 @@ type execCommander struct{}
 
 func (c execCommander) Output(ctx context.Context, name string, command proto.Command, req []byte) ([]byte, []byte, error) {
 	var stdout, stderr bytes.Buffer
+	// #nosec: This has been audited
 	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
 	cmd.Stderr = &stderr

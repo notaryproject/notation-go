@@ -246,8 +246,10 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 		if slices.Contains(policyStatement.RegistryScopes, trustpolicy.Wildcard) {
 			// we need to deep copy because we can't use the loop variable
 			// address. see https://stackoverflow.com/a/45967429
+			// #nosec: This has been manually audited
 			wildcardPolicy = (&policyStatement).clone()
 		} else if slices.Contains(policyStatement.RegistryScopes, artifactPath) {
+			// #nosec: This has been manually audited
 			applicablePolicy = (&policyStatement).clone()
 		}
 	}
