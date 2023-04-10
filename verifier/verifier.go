@@ -60,16 +60,17 @@ func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore
 		return nil, err
 	}
 	return &verifier{
-		trustPolicyDoc: trustPolicy,
-		trustStore:     trustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   trustPolicy,
+		trustStore:       trustStore,
+		pluginManager:    pluginManager,
+		revocationClient: &http.Client{Timeout: 5 * time.Second},
 	}, nil
 }
 
 // NewWithRevocationClient creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
 func NewWithRevocationClient(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient *http.Client) (notation.Verifier, error) {
 	if revocationClient == nil {
-		revocationClient = &http.Client{Timeout: 5 * time.Second}
+		return nil, errors.New("revocationClient cannot be nil")
 	}
 	result, err := New(trustPolicy, trustStore, pluginManager)
 	if err != nil {
@@ -277,9 +278,9 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// check if we need to bypass the revocation check, since revocation can be
 	// skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
-		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) &&
-		!slices.Contains(pluginCapabilities, proto.CapabilityTrustedIdentityVerifier) {
-		logger.Debugf("Validating revocation")
+		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
+
+		logger.Debug("Validating revocation")
 		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
 		outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
 		logVerificationResult(logger, revocationResult)
@@ -548,48 +549,44 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client, logger log.Logger) *notation.ValidationResult {
 	r, err := revocation.New(client)
 	if err != nil {
-		logger.Debug("no HTTP client provided for revocation checking")
+		logger.Debug("error while calling revocation.New: %s", err.Error())
 		return &notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-			Error:  errors.New("unable to check revocation status, an HTTP client must be provided"),
+			Error:  errors.New("unable to check revocation status"),
 		}
 	}
 
-	authenticSigningTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
-	// TODO use authenticSigningTime from signerInfo
-	// https://github.com/notaryproject/notation-core-go/issues/38
-	revocationResult := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+	signingTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
+	revocationResult := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, signingTime)
 
 	result := &notation.ValidationResult{
 		Type:   trustpolicy.TypeRevocation,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
 
-	// Log all non-nil errors as debug
+	currResult := revocation.OK
 	for i, certResult := range revocationResult {
+		// Log all non-nil errors as debug
 		for _, err := range certResult.ServerResults {
 			if err != nil {
-				logger.Debugf("error for certificate #%d in chain: %v", (i + 1), err)
+				logger.Debugf("error for certificate #%d in chain with subject %v: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject, err)
 			}
 		}
-	}
-
-	currResult := revocation.OK
-	for _, certResult := range revocationResult {
-		switch certResult.Result {
-		case revocation.OK:
-			continue
-		case revocation.Revoked:
-			currResult = revocation.Revoked
-			// will break out of loop after this
-		default:
-			// revocation.Unknown
-			currResult = revocation.Unknown
-			continue
-		}
-		if currResult == revocation.Revoked {
-			break
+		if currResult != revocation.Revoked {
+			switch certResult.Result {
+			case revocation.OK:
+				// do not overwrite any result
+				continue
+			case revocation.Revoked:
+				currResult = revocation.Revoked
+				// after this is set, the switch will be skipped to avoid
+				// overwriting the revoked result
+			default:
+				// revocation.Unknown
+				// overwrite result of OK, but not Revoked
+				currResult = revocation.Unknown
+			}
 		}
 	}
 
@@ -597,10 +594,10 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	case revocation.OK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
 	case revocation.Revoked:
-		result.Error = errors.New("one or more certificates in the chain were determined to be revoked, status is Revoked")
+		result.Error = errors.New("signing certificate(s) revoked")
 	default:
 		// revocation.Unknown
-		result.Error = errors.New("important error(s) encountered during revocation check, status is Unknown")
+		result.Error = errors.New("signing certificate(s) revocation status is unknown")
 	}
 
 	return result
