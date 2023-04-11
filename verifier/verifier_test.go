@@ -378,7 +378,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
 			trustpolicy.TypeRevocation:   trustpolicy.ActionEnforce,
 		}
-		var expectedErr error = errors.New("signing certificate(s) revoked")
+		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", leaf.Cert.Subject.String())
 		expectedResult := notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: trustpolicy.ActionEnforce,
@@ -407,7 +407,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
 			trustpolicy.TypeRevocation:   trustpolicy.ActionLog,
 		}
-		var expectedErr error = errors.New("signing certificate(s) revoked")
+		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", leaf.Cert.Subject.String())
 		expectedResult := notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: trustpolicy.ActionLog,
@@ -470,8 +470,8 @@ func TestVerifyRevocation(t *testing.T) {
 	pkixNoCheckClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown}, nil, false)
 	timeoutClient := &http.Client{Timeout: 1 * time.Nanosecond}
 
-	unknownMsg := "signing certificate(s) revocation status is unknown"
-	revokedMsg := "signing certificate(s) revoked"
+	unknownMsg := fmt.Sprintf("signing certificate with subject %q revocation status is unknown", revokableChain[0].Subject.String())
+	revokedMsg := fmt.Sprintf("signing certificate with subject %q is revoked", revokableChain[0].Subject.String())
 
 	t.Run("verifyRevocation nil client", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), nil, logger)
@@ -500,8 +500,8 @@ func TestVerifyRevocation(t *testing.T) {
 	})
 	t.Run("verifyRevocation missing id-pkix-ocsp-nocheck", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), pkixNoCheckClient, logger)
-		if result.Error == nil || result.Error.Error() != unknownMsg {
-			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
+		if result.Error != nil {
+			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
 		}
 	})
 	t.Run("verifyRevocation timeout", func(t *testing.T) {

@@ -54,6 +54,14 @@ func NewFromConfig() (notation.Verifier, error) {
 
 // New creates a new verifier given trustPolicy, trustStore and pluginManager
 func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
+	return NewWithRevocationClient(trustPolicy, trustStore, pluginManager, &http.Client{Timeout: 5 * time.Second})
+}
+
+// NewWithRevocationClient creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
+func NewWithRevocationClient(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient *http.Client) (notation.Verifier, error) {
+	if revocationClient == nil {
+		return nil, errors.New("revocationClient cannot be nil")
+	}
 	if trustPolicy == nil || trustStore == nil {
 		return nil, errors.New("trustPolicy or trustStore cannot be nil")
 	}
@@ -64,27 +72,8 @@ func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore
 		trustPolicyDoc:   trustPolicy,
 		trustStore:       trustStore,
 		pluginManager:    pluginManager,
-		revocationClient: &http.Client{Timeout: 5 * time.Second},
+		revocationClient: revocationClient,
 	}, nil
-}
-
-// NewWithRevocationClient creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
-func NewWithRevocationClient(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient *http.Client) (notation.Verifier, error) {
-	if revocationClient == nil {
-		return nil, errors.New("revocationClient cannot be nil")
-	}
-	result, err := New(trustPolicy, trustStore, pluginManager)
-	if err != nil {
-		return nil, err
-	}
-
-	v, ok := result.(*verifier)
-	if !ok {
-		// should never occur, but checking just in case
-		return nil, errors.New("unable to create verifier with client for revocation")
-	}
-	v.revocationClient = revocationClient
-	return v, nil
 }
 
 // SkipVerify validates whether the verification level is skip.
@@ -567,26 +556,32 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	}
 
 	currResult := revocation_base.OK
+	storedCertSubject := ""
 	for i, certResult := range revocationResult {
 		// Log all non-nil errors as debug
 		for _, err := range certResult.ServerResults {
 			if err != nil {
-				logger.Debugf("error for certificate #%d in chain with subject %v: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject, err)
+				logger.Debugf("error for certificate #%d in chain with subject %v: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), err)
 			}
 		}
 		if currResult != revocation_base.Revoked {
 			switch certResult.Result {
-			case revocation_base.OK:
+			case revocation_base.OK, revocation_base.NonRevokable:
 				// do not overwrite any result
 				continue
 			case revocation_base.Revoked:
 				currResult = revocation_base.Revoked
+				storedCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
 				// after this is set, the switch will be skipped to avoid
 				// overwriting the revoked result
 			default:
 				// revocation_base.Unknown
 				// overwrite result of OK, but not Revoked
 				currResult = revocation_base.Unknown
+				// keep subject closest to leaf
+				if storedCertSubject == "" {
+					storedCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
+				}
 			}
 		}
 	}
@@ -595,10 +590,10 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	case revocation_base.OK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
 	case revocation_base.Revoked:
-		result.Error = errors.New("signing certificate(s) revoked")
+		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", storedCertSubject)
 	default:
 		// revocation_base.Unknown
-		result.Error = errors.New("signing certificate(s) revocation status is unknown")
+		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", storedCertSubject)
 	}
 
 	return result
