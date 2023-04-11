@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/revocation"
+	revocation_base "github.com/notaryproject/notation-core-go/revocation/base"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
@@ -565,7 +566,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
 
-	currResult := revocation.OK
+	currResult := revocation_base.OK
 	for i, certResult := range revocationResult {
 		// Log all non-nil errors as debug
 		for _, err := range certResult.ServerResults {
@@ -573,30 +574,30 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 				logger.Debugf("error for certificate #%d in chain with subject %v: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject, err)
 			}
 		}
-		if currResult != revocation.Revoked {
+		if currResult != revocation_base.Revoked {
 			switch certResult.Result {
-			case revocation.OK:
+			case revocation_base.OK:
 				// do not overwrite any result
 				continue
-			case revocation.Revoked:
-				currResult = revocation.Revoked
+			case revocation_base.Revoked:
+				currResult = revocation_base.Revoked
 				// after this is set, the switch will be skipped to avoid
 				// overwriting the revoked result
 			default:
-				// revocation.Unknown
+				// revocation_base.Unknown
 				// overwrite result of OK, but not Revoked
-				currResult = revocation.Unknown
+				currResult = revocation_base.Unknown
 			}
 		}
 	}
 
 	switch currResult {
-	case revocation.OK:
+	case revocation_base.OK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
-	case revocation.Revoked:
+	case revocation_base.Revoked:
 		result.Error = errors.New("signing certificate(s) revoked")
 	default:
-		// revocation.Unknown
+		// revocation_base.Unknown
 		result.Error = errors.New("signing certificate(s) revocation status is unknown")
 	}
 
