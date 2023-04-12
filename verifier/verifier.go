@@ -555,7 +555,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
 
-	currResult := revocation_base.OK
+	currResult := revocation_base.ResultOK
 	storedCertSubject := ""
 	for i, certResult := range revocationResult {
 		// Log all non-nil errors as debug
@@ -564,20 +564,20 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 				logger.Debugf("error for certificate #%d in chain with subject %v: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), err)
 			}
 		}
-		if currResult != revocation_base.Revoked {
+		if currResult != revocation_base.ResultRevoked {
 			switch certResult.Result {
-			case revocation_base.OK, revocation_base.NonRevokable:
+			case revocation_base.ResultOK, revocation_base.ResultNonRevokable:
 				// do not overwrite any result
 				continue
-			case revocation_base.Revoked:
-				currResult = revocation_base.Revoked
+			case revocation_base.ResultRevoked:
+				currResult = revocation_base.ResultRevoked
 				storedCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
 				// after this is set, the switch will be skipped to avoid
 				// overwriting the revoked result
 			default:
-				// revocation_base.Unknown
+				// revocation_base.ResultUnknown
 				// overwrite result of OK, but not Revoked
-				currResult = revocation_base.Unknown
+				currResult = revocation_base.ResultUnknown
 				// keep subject closest to leaf
 				if storedCertSubject == "" {
 					storedCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
@@ -587,12 +587,12 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	}
 
 	switch currResult {
-	case revocation_base.OK:
+	case revocation_base.ResultOK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
-	case revocation_base.Revoked:
+	case revocation_base.ResultRevoked:
 		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", storedCertSubject)
 	default:
-		// revocation_base.Unknown
+		// revocation_base.ResultUnknown
 		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", storedCertSubject)
 	}
 
