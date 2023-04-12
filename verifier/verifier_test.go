@@ -463,6 +463,7 @@ func TestVerifyRevocation(t *testing.T) {
 
 	revokableTuples := testhelper.GetRevokableRSAChain(3)
 	revokableChain := []*x509.Certificate{revokableTuples[0].Cert, revokableTuples[1].Cert, revokableTuples[2].Cert}
+	invalidChain := []*x509.Certificate{revokableTuples[1].Cert, revokableTuples[0].Cert, revokableTuples[2].Cert}
 
 	goodClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Good}, nil, true)
 	revokedClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked}, nil, true)
@@ -475,7 +476,14 @@ func TestVerifyRevocation(t *testing.T) {
 
 	t.Run("verifyRevocation nil client", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain), nil, logger)
-		expectedErrMsg := "unable to check revocation status"
+		expectedErrMsg := "unable to check revocation status, err: invalid input: a non-nil httpClient must be specified"
+		if result.Error == nil || result.Error.Error() != expectedErrMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation invalid chain", func(t *testing.T) {
+		result := verifyRevocation(createMockOutcome(invalidChain), goodClient, logger)
+		expectedErrMsg := "unable to check revocation status, err: invalid chain: expected chain to be correct and complete: invalid certificates or certificate with subject \"CN=Notation Test Revokable RSA Chain Cert 2,O=Notary,L=Seattle,ST=WA,C=US\" is not issued by \"CN=Notation Test Revokable RSA Chain Cert 3,O=Notary,L=Seattle,ST=WA,C=US\". Error: x509: invalid signature: parent certificate cannot sign this kind of certificate"
 		if result.Error == nil || result.Error.Error() != expectedErrMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
 		}
@@ -547,7 +555,7 @@ func TestNewWithRevocationClient(t *testing.T) {
 		}
 	})
 
-	t.Run("fail with nil client", func(t *testing.T) {
+	t.Run("fail with nil trust policy", func(t *testing.T) {
 		v, err := NewWithRevocationClient(nil, store, pm, client)
 
 		expectedErrMsg := "trustPolicy or trustStore cannot be nil"

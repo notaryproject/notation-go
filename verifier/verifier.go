@@ -539,16 +539,24 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client, logger log.Logger) *notation.ValidationResult {
 	r, err := revocation.New(client)
 	if err != nil {
-		logger.Debug("error while calling revocation.New: %s", err.Error())
+		logger.Debug("error while creating a revocation client, err: %s", err.Error())
 		return &notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-			Error:  errors.New("unable to check revocation status"),
+			Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
 		}
 	}
 
 	signingTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
-	revocationResult := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, signingTime)
+	revocationResult, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, signingTime)
+	if err != nil {
+		logger.Debug("error while checking revocation status, err: %s", err.Error())
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+			Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
+		}
+	}
 
 	result := &notation.ValidationResult{
 		Type:   trustpolicy.TypeRevocation,
