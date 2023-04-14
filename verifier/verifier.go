@@ -563,45 +563,40 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
 
-	currResult := revocation_result.ResultOK
-	storedCertSubject := ""
+	currResult := revocation_result.ResultUnknown
+	numOKResults := 0
+	leafmostProblematicCertSubject := ""
 	for i, certResult := range revocationResult {
-		// Log all non-nil errors as debug
-		for _, err := range certResult.ServerResults {
-			if err != nil {
-				logger.Debugf("error for certificate #%d in chain with subject %v: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), err)
+		for _, serverResult := range certResult.ServerResults {
+			if serverResult != nil {
+				logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), serverResult.Server, serverResult.Error)
 			}
 		}
-		if currResult != revocation_result.ResultRevoked {
-			switch certResult.Result {
-			case revocation_result.ResultOK, revocation_result.ResultNonRevokable:
-				// do not overwrite any result
-				continue
-			case revocation_result.ResultRevoked:
+
+		if certResult.Result == revocation_result.ResultOK || certResult.Result == revocation_result.ResultNonRevokable {
+			numOKResults++
+		} else {
+			if certResult.Result == revocation_result.ResultRevoked {
 				currResult = revocation_result.ResultRevoked
-				storedCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
-				// after this is set, the switch will be skipped to avoid
-				// overwriting the revoked result
-			default:
-				// revocation_result.ResultUnknown
-				// overwrite result of OK, but not Revoked
-				currResult = revocation_result.ResultUnknown
-				// keep subject closest to leaf
-				if storedCertSubject == "" {
-					storedCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
-				}
+			}
+
+			if leafmostProblematicCertSubject == "" {
+				leafmostProblematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
 			}
 		}
+	}
+	if numOKResults == len(revocationResult) {
+		currResult = revocation_result.ResultOK
 	}
 
 	switch currResult {
 	case revocation_result.ResultOK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
 	case revocation_result.ResultRevoked:
-		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", storedCertSubject)
+		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", leafmostProblematicCertSubject)
 	default:
 		// revocation_result.ResultUnknown
-		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", storedCertSubject)
+		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", leafmostProblematicCertSubject)
 	}
 
 	return result
