@@ -582,6 +582,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 			if certResult.Result == revocation_result.ResultRevoked && finalResult == revocation_result.ResultUnknown {
 				leafmostProblematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
 				finalResult = revocation_result.ResultRevoked
+				break
 			}
 
 			if leafmostProblematicCertSubject == "" {
