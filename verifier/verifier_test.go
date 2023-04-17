@@ -472,11 +472,13 @@ func TestVerifyRevocation(t *testing.T) {
 	goodClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Good}, nil, true)
 	revokedClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked}, nil, true)
 	unknownClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown}, nil, true)
+	multiClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown, ocsp.Revoked}, nil, true)
 	pkixNoCheckClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Good}, nil, false)
 	timeoutClient := &http.Client{Timeout: 1 * time.Nanosecond}
 
 	unknownMsg := fmt.Sprintf("signing certificate with subject %q revocation status is unknown", revokableChain[0].Subject.String())
 	revokedMsg := fmt.Sprintf("signing certificate with subject %q is revoked", revokableChain[0].Subject.String())
+	multiMsg := fmt.Sprintf("signing certificate with subject %q is revoked", revokableChain[1].Subject.String())
 
 	t.Run("verifyRevocation nil client", func(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), nil, logger)
@@ -508,6 +510,12 @@ func TestVerifyRevocation(t *testing.T) {
 		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), unknownClient, logger)
 		if result.Error == nil || result.Error.Error() != unknownMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP unknown then revoked", func(t *testing.T) {
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), multiClient, logger)
+		if result.Error == nil || result.Error.Error() != multiMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", multiMsg, result.Error)
 		}
 	})
 	t.Run("verifyRevocation missing id-pkix-ocsp-nocheck", func(t *testing.T) {

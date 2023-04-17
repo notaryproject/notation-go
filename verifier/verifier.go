@@ -579,7 +579,8 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		if certResult.Result == revocation_result.ResultOK || certResult.Result == revocation_result.ResultNonRevokable {
 			numOKResults++
 		} else {
-			if certResult.Result == revocation_result.ResultRevoked {
+			if certResult.Result == revocation_result.ResultRevoked && finalResult == revocation_result.ResultUnknown {
+				leafmostProblematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
 				finalResult = revocation_result.ResultRevoked
 			}
 
