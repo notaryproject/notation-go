@@ -54,11 +54,11 @@ func NewFromConfig() (notation.Verifier, error) {
 
 // New creates a new verifier given trustPolicy, trustStore and pluginManager
 func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
-	return NewWithRevocationClient(trustPolicy, trustStore, pluginManager, &http.Client{Timeout: 5 * time.Second})
+	return NewWithOptions(trustPolicy, trustStore, pluginManager, &http.Client{Timeout: 5 * time.Second})
 }
 
-// NewWithRevocationClient creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
-func NewWithRevocationClient(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient *http.Client) (notation.Verifier, error) {
+// NewWithOptions creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
+func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient *http.Client) (notation.Verifier, error) {
 	if revocationClient == nil {
 		return nil, errors.New("revocationClient cannot be nil")
 	}
@@ -548,6 +548,9 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	}
 
 	signingTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
+	if signingTime.IsZero() {
+		signingTime = time.Now()
+	}
 	revocationResult, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, signingTime)
 	if err != nil {
 		logger.Debug("error while checking revocation status, err: %s", err.Error())
@@ -563,9 +566,9 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
 
-	currResult := revocation_result.ResultUnknown
+	finalResult := revocation_result.ResultUnknown
 	numOKResults := 0
-	leafmostProblematicCertSubject := ""
+	var leafmostProblematicCertSubject string
 	for i, certResult := range revocationResult {
 		for _, serverResult := range certResult.ServerResults {
 			if serverResult != nil {
@@ -577,7 +580,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 			numOKResults++
 		} else {
 			if certResult.Result == revocation_result.ResultRevoked {
-				currResult = revocation_result.ResultRevoked
+				finalResult = revocation_result.ResultRevoked
 			}
 
 			if leafmostProblematicCertSubject == "" {
@@ -586,10 +589,10 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 		}
 	}
 	if numOKResults == len(revocationResult) {
-		currResult = revocation_result.ResultOK
+		finalResult = revocation_result.ResultOK
 	}
 
-	switch currResult {
+	switch finalResult {
 	case revocation_result.ResultOK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
 	case revocation_result.ResultRevoked:
