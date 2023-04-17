@@ -36,7 +36,7 @@ type verifier struct {
 	trustPolicyDoc   *trustpolicy.Document
 	trustStore       truststore.X509TrustStore
 	pluginManager    plugin.Manager
-	revocationClient *http.Client
+	revocationClient revocation.Revocation
 }
 
 // NewFromConfig returns a verifier based on local file system
@@ -54,11 +54,15 @@ func NewFromConfig() (notation.Verifier, error) {
 
 // New creates a new verifier given trustPolicy, trustStore and pluginManager
 func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
-	return NewWithOptions(trustPolicy, trustStore, pluginManager, &http.Client{Timeout: 5 * time.Second})
+	r, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+	if err != nil {
+		return nil, err
+	}
+	return NewWithOptions(trustPolicy, trustStore, pluginManager, r)
 }
 
 // NewWithOptions creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
-func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient *http.Client) (notation.Verifier, error) {
+func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient revocation.Revocation) (notation.Verifier, error) {
 	if revocationClient == nil {
 		return nil, errors.New("revocationClient cannot be nil")
 	}
@@ -536,14 +540,12 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 	}
 }
 
-func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client, logger log.Logger) *notation.ValidationResult {
-	r, err := revocation.New(client)
-	if err != nil {
-		logger.Debug("error while creating a revocation client, err: %s", err.Error())
+func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revocation, logger log.Logger) *notation.ValidationResult {
+	if r == nil {
 		return &notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-			Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
+			Error:  fmt.Errorf("unable to check revocation status, revocation client cannot be nil"),
 		}
 	}
 
@@ -568,27 +570,30 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 
 	finalResult := revocation_result.ResultUnknown
 	numOKResults := 0
-	var leafmostProblematicCertSubject string
-	for i, certResult := range revocationResult {
-		for _, serverResult := range certResult.ServerResults {
+	var problematicCertSubject string
+	revokedFound := false
+	var revokedCertSubject string
+	for i := len(revocationResult) - 1; i >= 0; i-- {
+		for _, serverResult := range revocationResult[i].ServerResults {
 			if serverResult != nil {
 				logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), serverResult.Server, serverResult.Error)
 			}
 		}
 
-		if certResult.Result == revocation_result.ResultOK || certResult.Result == revocation_result.ResultNonRevokable {
+		if revocationResult[i].Result == revocation_result.ResultOK || revocationResult[i].Result == revocation_result.ResultNonRevokable {
 			numOKResults++
 		} else {
-			if certResult.Result == revocation_result.ResultRevoked && finalResult == revocation_result.ResultUnknown {
-				leafmostProblematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
-				finalResult = revocation_result.ResultRevoked
-				break
-			}
-
-			if leafmostProblematicCertSubject == "" {
-				leafmostProblematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
+			finalResult = revocationResult[i].Result
+			problematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
+			if revocationResult[i].Result == revocation_result.ResultRevoked {
+				revokedFound = true
+				revokedCertSubject = problematicCertSubject
 			}
 		}
+	}
+	if revokedFound {
+		problematicCertSubject = revokedCertSubject
+		finalResult = revocation_result.ResultRevoked
 	}
 	if numOKResults == len(revocationResult) {
 		finalResult = revocation_result.ResultOK
@@ -598,10 +603,10 @@ func verifyRevocation(outcome *notation.VerificationOutcome, client *http.Client
 	case revocation_result.ResultOK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
 	case revocation_result.ResultRevoked:
-		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", leafmostProblematicCertSubject)
+		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
 	default:
 		// revocation_result.ResultUnknown
-		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", leafmostProblematicCertSubject)
+		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
 	}
 
 	return result
