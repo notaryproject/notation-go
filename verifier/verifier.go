@@ -558,8 +558,11 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		}
 	}
 
-	signingTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
-	revocationResult, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, signingTime)
+	authenticSigningTime, err := outcome.EnvelopeContent.SignerInfo.GetAuthenticSigningTime()
+	if err != nil {
+		logger.Debugf("not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
+	}
+	revocationResult, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 	if err != nil {
 		logger.Debug("error while checking revocation status, err: %s", err.Error())
 		return &notation.ValidationResult{
