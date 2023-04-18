@@ -480,6 +480,8 @@ func TestVerifyRevocation(t *testing.T) {
 
 	goodClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Good}, nil, true)
 	revokedClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked}, nil, true)
+	revokedInvalidityDate := time.Now().Add(-1 * time.Hour)
+	revokedInvalidityClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked}, &revokedInvalidityDate, true)
 	unknownClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown}, nil, true)
 	unknownRevokedClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown, ocsp.Revoked}, nil, true)
 	revokedUnknownClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked, ocsp.Unknown}, nil, true)
@@ -518,8 +520,18 @@ func TestVerifyRevocation(t *testing.T) {
 			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
 		}
 	})
-	t.Run("verifyRevocation OCSP revoked", func(t *testing.T) {
+	t.Run("verifyRevocation OCSP revoked no invalidity", func(t *testing.T) {
 		revocationClient, err := revocation.New(revokedClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP revoked with invalidiy", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedInvalidityClient)
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
@@ -578,8 +590,31 @@ func TestVerifyRevocation(t *testing.T) {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
 		}
 	})
-	t.Run("verifyRevocation older signing time", func(t *testing.T) {
+	t.Run("verifyRevocation older signing time no invalidity", func(t *testing.T) {
 		revocationClient, err := revocation.New(revokedClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour)), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation zero signing time no invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, zeroTime), revocationClient, logger)
+		if !zeroTime.IsZero() {
+			t.Fatalf("exected zeroTime.IsZero() to be true")
+		}
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation older signing time with invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedInvalidityClient)
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
@@ -588,8 +623,8 @@ func TestVerifyRevocation(t *testing.T) {
 			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
 		}
 	})
-	t.Run("verifyRevocation zero signing time", func(t *testing.T) {
-		revocationClient, err := revocation.New(revokedClient)
+	t.Run("verifyRevocation zero signing time with invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedInvalidityClient)
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
