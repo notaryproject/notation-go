@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/revocation"
-	revocation_result "github.com/notaryproject/notation-core-go/revocation/result"
+	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
@@ -550,9 +550,6 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	}
 
 	signingTime := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningTime
-	if signingTime.IsZero() {
-		signingTime = time.Now()
-	}
 	revocationResult, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, signingTime)
 	if err != nil {
 		logger.Debug("error while checking revocation status, err: %s", err.Error())
@@ -568,24 +565,22 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
 
-	finalResult := revocation_result.ResultUnknown
+	finalResult := revocationresult.ResultUnknown
 	numOKResults := 0
 	var problematicCertSubject string
 	revokedFound := false
 	var revokedCertSubject string
 	for i := len(revocationResult) - 1; i >= 0; i-- {
-		for _, serverResult := range revocationResult[i].ServerResults {
-			if serverResult != nil {
-				logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), serverResult.Server, serverResult.Error)
-			}
+		if revocationResult[i].ServerResults[0].Error != nil {
+			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), revocationResult[i].ServerResults[0].Server, revocationResult[i].ServerResults[0].Error)
 		}
 
-		if revocationResult[i].Result == revocation_result.ResultOK || revocationResult[i].Result == revocation_result.ResultNonRevokable {
+		if revocationResult[i].Result == revocationresult.ResultOK || revocationResult[i].Result == revocationresult.ResultNonRevokable {
 			numOKResults++
 		} else {
 			finalResult = revocationResult[i].Result
 			problematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
-			if revocationResult[i].Result == revocation_result.ResultRevoked {
+			if revocationResult[i].Result == revocationresult.ResultRevoked {
 				revokedFound = true
 				revokedCertSubject = problematicCertSubject
 			}
@@ -593,19 +588,19 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	}
 	if revokedFound {
 		problematicCertSubject = revokedCertSubject
-		finalResult = revocation_result.ResultRevoked
+		finalResult = revocationresult.ResultRevoked
 	}
 	if numOKResults == len(revocationResult) {
-		finalResult = revocation_result.ResultOK
+		finalResult = revocationresult.ResultOK
 	}
 
 	switch finalResult {
-	case revocation_result.ResultOK:
+	case revocationresult.ResultOK:
 		logger.Debug("no important errors encountered while checking revocation, status is OK")
-	case revocation_result.ResultRevoked:
+	case revocationresult.ResultRevoked:
 		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
 	default:
-		// revocation_result.ResultUnknown
+		// revocationresult.ResultUnknown
 		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
 	}
 
