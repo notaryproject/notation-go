@@ -324,7 +324,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, re
 	}
 
 	var verificationOutcomes []*VerificationOutcome
-	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be less than: %d", remoteOpts.MaxSignatureAttempts)}
+	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("total number of signatures associated with an artifact should be at most: %d", remoteOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 
 	var verificationFailedErr error = ErrorVerificationFailed{}
