@@ -39,6 +39,14 @@ type verifier struct {
 	revocationClient revocation.Revocation
 }
 
+// VerifierOptions specifies additional parameters that can be set when using
+// the NewWithOptions constructor
+type VerifierOptions struct {
+	// RevocationClient is an implementation of revocation.Revocation to use for
+	// verifying revocation
+	RevocationClient revocation.Revocation
+}
+
 // NewFromConfig returns a verifier based on local file system
 func NewFromConfig() (notation.Verifier, error) {
 	// load trust policy
@@ -54,17 +62,18 @@ func NewFromConfig() (notation.Verifier, error) {
 
 // New creates a new verifier given trustPolicy, trustStore and pluginManager
 func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
-	r, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
-	if err != nil {
-		return nil, err
-	}
-	return NewWithOptions(trustPolicy, trustStore, pluginManager, r)
+	return NewWithOptions(trustPolicy, trustStore, pluginManager, VerifierOptions{})
 }
 
 // NewWithOptions creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
-func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, revocationClient revocation.Revocation) (notation.Verifier, error) {
+func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
+	revocationClient := opts.RevocationClient
 	if revocationClient == nil {
-		return nil, errors.New("revocationClient cannot be nil")
+		var err error
+		revocationClient, err = revocation.New(&http.Client{Timeout: 5 * time.Second})
+		if err != nil {
+			return nil, err
+		}
 	}
 	if trustPolicy == nil || trustStore == nil {
 		return nil, errors.New("trustPolicy or trustStore cannot be nil")

@@ -456,7 +456,8 @@ func createMockOutcome(certChain []*x509.Certificate, signingTime time.Time) *no
 		EnvelopeContent: &signature.EnvelopeContent{
 			SignerInfo: signature.SignerInfo{
 				SignedAttributes: signature.SignedAttributes{
-					SigningTime: signingTime,
+					SigningTime:   signingTime,
+					SigningScheme: signature.SigningSchemeX509SigningAuthority,
 				},
 				CertificateChain: certChain,
 			},
@@ -469,7 +470,7 @@ func createMockOutcome(certChain []*x509.Certificate, signingTime time.Time) *no
 
 func TestVerifyRevocation(t *testing.T) {
 	logger := log.GetLogger(context.Background())
-	zeroTime := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
+	zeroTime := time.Time{}
 
 	revokableTuples := testhelper.GetRevokableRSAChain(3)
 	revokableTuples[0].Cert.NotBefore = zeroTime
@@ -647,6 +648,7 @@ func TestNewWithOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
+	opts := VerifierOptions{RevocationClient: r}
 	t.Run("successful call from New (default value)", func(t *testing.T) {
 		v, err := New(&policy, store, pm)
 
@@ -670,8 +672,31 @@ func TestNewWithOptions(t *testing.T) {
 			t.Fatal("expected nonnil revocationClient")
 		}
 	})
+	t.Run("successful with empty options", func(t *testing.T) {
+		v, err := NewWithOptions(&policy, store, pm, VerifierOptions{})
+
+		if err != nil {
+			t.Fatalf("expected NewWithOptions constructor to succeed with empty options, but got %v", err)
+		}
+		verifierV, ok := v.(*verifier)
+		if !ok {
+			t.Fatal("expected constructor to return a verifier object")
+		}
+		if !(verifierV.trustPolicyDoc == &policy) {
+			t.Fatalf("expected trustPolicyDoc %v, but got %v", &policy, verifierV.trustPolicyDoc)
+		}
+		if !(verifierV.trustStore == store) {
+			t.Fatalf("expected trustStore %v, but got %v", store, verifierV.trustStore)
+		}
+		if !reflect.DeepEqual(verifierV.pluginManager, pm) {
+			t.Fatalf("expected pluginManager %v, but got %v", pm, verifierV.pluginManager)
+		}
+		if verifierV.revocationClient == nil {
+			t.Fatal("expected nonnil revocationClient")
+		}
+	})
 	t.Run("successful with client", func(t *testing.T) {
-		v, err := NewWithOptions(&policy, store, pm, r)
+		v, err := NewWithOptions(&policy, store, pm, opts)
 
 		if err != nil {
 			t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
@@ -687,25 +712,12 @@ func TestNewWithOptions(t *testing.T) {
 			t.Fatalf("expected %v to be created, but got %v", expectedV, v)
 		}
 	})
-
-	t.Run("fail with nil client", func(t *testing.T) {
-		v, err := NewWithOptions(&policy, store, pm, nil)
-
-		expectedErrMsg := "revocationClient cannot be nil"
-		if err.Error() != expectedErrMsg {
-			t.Fatalf("expected NewWithOptions constructor to fail with %v, but got %v", expectedErrMsg, err.Error())
-		}
-		if v != nil {
-			t.Fatal("expected constructor to return nil")
-		}
-	})
-
 	t.Run("fail with nil trust policy", func(t *testing.T) {
-		v, err := NewWithOptions(nil, store, pm, r)
+		v, err := NewWithOptions(nil, store, pm, opts)
 
 		expectedErrMsg := "trustPolicy or trustStore cannot be nil"
-		if err.Error() != expectedErrMsg {
-			t.Fatalf("expected NewWithOptions constructor to fail with %v, but got %v", expectedErrMsg, err.Error())
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected NewWithOptions constructor to fail with %v, but got %v", expectedErrMsg, err)
 		}
 		if v != nil {
 			t.Fatal("expected constructor to return nil")
