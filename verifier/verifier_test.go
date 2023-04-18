@@ -345,16 +345,15 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 	pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 
 	// Get revokable certs and set up mock client (will always say certs are revoked)
-	leaf := testhelper.GetRevokableRSALeafCertificate()
-	root := testhelper.GetRSARootCertificate()
-	httpClient := testhelper.MockClient([]testhelper.RSACertTuple{leaf, root}, []ocsp.ResponseStatus{ocsp.Revoked}, nil, true)
+	revokableChain := testhelper.GetRevokableRSAChain(2)
+	httpClient := testhelper.MockClient(revokableChain, []ocsp.ResponseStatus{ocsp.Revoked}, nil, true)
 	revocationClient, err := revocation.New(httpClient)
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
 
 	// Generate blob with revokable certs
-	internalSigner, err := signer.New(leaf.PrivateKey, []*x509.Certificate{leaf.Cert, root.Cert})
+	internalSigner, err := signer.New(revokableChain[0].PrivateKey, []*x509.Certificate{revokableChain[0].Cert, revokableChain[1].Cert})
 	if err != nil {
 		t.Fatalf("Unexpected error while creating signer: %v", err)
 	}
@@ -371,7 +370,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
 			trustpolicy.TypeRevocation:   trustpolicy.ActionEnforce,
 		}
-		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", leaf.Cert.Subject.String())
+		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", revokableChain[0].Cert.Subject.String())
 		expectedResult := notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: trustpolicy.ActionEnforce,
@@ -400,7 +399,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
 			trustpolicy.TypeRevocation:   trustpolicy.ActionLog,
 		}
-		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", leaf.Cert.Subject.String())
+		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", revokableChain[0].Cert.Subject.String())
 		expectedResult := notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: trustpolicy.ActionLog,
