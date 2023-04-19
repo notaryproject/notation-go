@@ -1,0 +1,19 @@
+{
+    "schemaVersion": 2,
+    "manifests": [
+        {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0",
+            "size": 481,
+            "annotations": {
+                "io.containerd.image.name": "docker.io/library/alpine:v2",
+                "org.opencontainers.image.created": "2023-03-13T02:31:43Z",
+                "org.opencontainers.image.ref.name": "v2"
+            },
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    ]
+}

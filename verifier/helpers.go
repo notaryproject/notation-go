@@ -34,26 +34,6 @@ var VerificationPluginHeaders = []string{
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
-// ValidateCerts ensures certs from input are CA certificates or self-signed.
-// It's designed to be used when user implements their own
-// truststore.X509TrustStore.
-func ValidateCerts(certs []*x509.Certificate) error {
-	if len(certs) < 1 {
-		return errors.New("certs is empty")
-	}
-	for _, cert := range certs {
-		if !cert.IsCA {
-			if err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature); err != nil {
-				return fmt.Errorf(
-					"certificate with subject %q is not a CA certificate or self-signed signing certificate",
-					cert.Subject,
-				)
-			}
-		}
-	}
-	return nil
-}
-
 // semVerRegEx is takenfrom https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
 var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 

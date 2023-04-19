@@ -7,13 +7,17 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 )
@@ -69,7 +73,10 @@ const (
 	}`
 )
 
-var validDigestWithAlgoSlice = []string{validDigestWithAlgo, validDigestWithAlgo2}
+var (
+	validDigestWithAlgoSlice = []string{validDigestWithAlgo, validDigestWithAlgo2}
+	signaturePath            = filepath.FromSlash("../internal/testdata/jws_signature.sig")
+)
 
 type args struct {
 	ctx                   context.Context
@@ -309,6 +316,10 @@ func TestListSignatures(t *testing.T) {
 }
 
 func TestPushSignature(t *testing.T) {
+	signature, err := os.ReadFile(signaturePath)
+	if err != nil {
+		t.Fatalf("failed to read signature: %v", err)
+	}
 	tests := []struct {
 		name           string
 		args           args
@@ -320,20 +331,25 @@ func TestPushSignature(t *testing.T) {
 			name:      "failed to upload signature",
 			expectErr: true,
 			args: args{
-				reference:    referenceWithInvalidHost,
-				signature:    make([]byte, 0),
-				ctx:          context.Background(),
-				remoteClient: mockRemoteClient{},
+				reference:          referenceWithInvalidHost,
+				signatureMediaType: joseTag,
+				signature:          signature,
+				ctx:                context.Background(),
+				remoteClient:       mockRemoteClient{},
 			},
 		},
 		{
 			name:      "successfully uploaded signature manifest",
 			expectErr: false,
 			args: args{
-				reference:    validReference,
-				signature:    make([]byte, 0),
-				ctx:          context.Background(),
-				remoteClient: mockRemoteClient{},
+				reference:          validReference,
+				signatureMediaType: joseTag,
+				signature:          signature,
+				ctx:                context.Background(),
+				remoteClient:       mockRemoteClient{},
+				annotations: map[string]string{
+					envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
+				},
 			},
 		},
 	}
@@ -357,8 +373,11 @@ func TestPushSignatureImageManifest(t *testing.T) {
 		t.Fatalf("failed to parse reference")
 	}
 	client := newRepositoryClientWithImageManifest(mockRemoteClient{}, ref, false)
-
-	_, manifestDesc, err := client.PushSignature(context.Background(), coseTag, make([]byte, 0), ocispec.Descriptor{}, nil)
+	signature, err := os.ReadFile(signaturePath)
+	if err != nil {
+		t.Fatalf("failed to read signature: %v", err)
+	}
+	_, manifestDesc, err := client.PushSignature(context.Background(), joseTag, signature, ocispec.Descriptor{}, annotations)
 	if err != nil {
 		t.Fatalf("failed to push signature")
 	}
@@ -375,7 +394,7 @@ func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 		PlainHTTP: plainHTTP,
 	}
 	return &repositoryClient{
-		Repository: &repo,
+		GraphTarget: &repo,
 	}
 }
 
@@ -383,7 +402,7 @@ func newRepositoryClient(client remote.Client, ref registry.Reference, plainHTTP
 // pushing OCI image manifest
 func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Reference, plainHTTP bool) *repositoryClient {
 	return &repositoryClient{
-		Repository: &remote.Repository{
+		GraphTarget: &remote.Repository{
 			Client:    client,
 			Reference: ref,
 			PlainHTTP: plainHTTP,
@@ -391,5 +410,98 @@ func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Ref
 		RepositoryOptions: RepositoryOptions{
 			OCIImageManifest: true,
 		},
+	}
+}
+
+var (
+	ociLayoutPath      = filepath.FromSlash("../internal/testdata/oci-layout")
+	reference          = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
+	expectedTargetDesc = ocispec.Descriptor{
+		MediaType: "application/vnd.oci.image.manifest.v1+json",
+		Digest:    "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0",
+		Size:      481,
+	}
+	annotations = map[string]string{
+		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
+		ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
+	}
+	expectedSignatureManifestDesc = ocispec.Descriptor{
+		MediaType: "application/vnd.oci.image.manifest.v1+json",
+		Digest:    "sha256:baeaea44f55c94499b7e082bd3c98ad5ec40fdf23ef89cdf4e5db6b83e4f18f5",
+		Size:      728,
+	}
+	expectedSignatureBlobDesc = ocispec.Descriptor{
+		MediaType: joseTag,
+		Digest:    "sha256:586c5e0f341d7d07e835a06b7c9f21c21fff4f4a85933079e5859f99ba0ad02d",
+		Size:      2078,
+	}
+)
+
+func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
+	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	if err != nil {
+		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
+	}
+	targetDesc, err := repo.Resolve(context.Background(), reference)
+	if err != nil {
+		t.Fatalf("failed to resolve reference: %v", err)
+	}
+	if !content.Equal(targetDesc, expectedTargetDesc) {
+		t.Fatalf("failed to resolve reference. expected descriptor: %v, but got: %v", expectedTargetDesc, targetDesc)
+	}
+	signature, err := os.ReadFile(signaturePath)
+	if err != nil {
+		t.Fatalf("failed to read signature: %v", err)
+	}
+	_, signatureManifestDesc, err := repo.PushSignature(context.Background(), joseTag, signature, targetDesc, annotations)
+	if err != nil {
+		t.Fatalf("failed to push signature: %v", err)
+	}
+	if !content.Equal(expectedSignatureManifestDesc, signatureManifestDesc) {
+		t.Fatalf("expected desc: %v, got: %v", expectedSignatureManifestDesc, signatureManifestDesc)
+	}
+	expectedAnnotations := map[string]string{
+		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
+		ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
+	}
+	if !reflect.DeepEqual(expectedAnnotations, signatureManifestDesc.Annotations) {
+		t.Fatalf("expected annotations: %v, but got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
+	}
+}
+
+func TestOciLayoutRepositoryListAndFetchBlob(t *testing.T) {
+	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	if err != nil {
+		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
+	}
+	targetDesc, err := repo.Resolve(context.Background(), reference)
+	if err != nil {
+		t.Fatalf("failed to resolve reference: %v", err)
+	}
+	err = repo.ListSignatures(context.Background(), targetDesc, func(signatureManifests []ocispec.Descriptor) error {
+		if len(signatureManifests) == 0 {
+			return fmt.Errorf("expected to find signature in the OCI layout folder, but got none")
+		}
+		var found bool
+		for _, sigManifestDesc := range signatureManifests {
+			if !content.Equal(sigManifestDesc, expectedSignatureManifestDesc) {
+				continue
+			}
+			_, sigDesc, err := repo.FetchSignatureBlob(context.Background(), sigManifestDesc)
+			if err != nil {
+				return fmt.Errorf("failed to fetch blob: %w", err)
+			}
+			if !content.Equal(expectedSignatureBlobDesc, sigDesc) {
+				return fmt.Errorf("expected to get signature blob desc: %v, got: %v", expectedSignatureBlobDesc, sigDesc)
+			}
+			found = true
+		}
+		if !found {
+			return fmt.Errorf("expected to find the signature with manifest desc: %v, but failed", expectedSignatureManifestDesc)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

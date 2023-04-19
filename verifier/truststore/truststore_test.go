@@ -2,10 +2,12 @@ package truststore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
 
+	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go/dir"
 )
 
@@ -43,19 +45,44 @@ func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
 }
 
 func TestLoadTrustStoreWithLeafCerts(t *testing.T) {
-	failurePath := filepath.FromSlash("../testdata/truststore/x509/ca/trust-store-with-leaf-certs/non-ca.crt")
-	expectedErr := fmt.Errorf("certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" from file %q is not a CA certificate or self-signed signing certificate", failurePath)
+	expectedErrMsg := "certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" from ca/trust-store-with-leaf-certs is not a CA certificate or self-signed signing certificate"
 	_, err := trustStore.GetCertificates(context.Background(), "ca", "trust-store-with-leaf-certs")
-	if err == nil || err.Error() != expectedErr.Error() {
-		t.Fatalf("leaf cert in a trust store should return error: %q", expectedErr)
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("leaf cert in a trust store should return error: %s", expectedErrMsg)
 	}
 }
 
 func TestLoadTrustStoreWithLeafCertsInSingleFile(t *testing.T) {
-	failurePath := filepath.FromSlash("../testdata/truststore/x509/ca/trust-store-with-leaf-certs-in-single-file/RootAndLeafCerts.crt")
-	expectedErr := fmt.Errorf("certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" from file %q is not a CA certificate or self-signed signing certificate", failurePath)
+	expectedErrMsg := "certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" from ca/trust-store-with-leaf-certs-in-single-file is not a CA certificate or self-signed signing certificate"
 	_, err := trustStore.GetCertificates(context.Background(), "ca", "trust-store-with-leaf-certs-in-single-file")
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("leaf cert in a trust store should return error: %s", expectedErrMsg)
+	}
+}
+
+// TestValidCerts tests valid trust store cert
+func TestValidateCerts(t *testing.T) {
+	joinedPath := filepath.FromSlash("../testdata/truststore/x509/ca/valid-trust-store/GlobalSign.der")
+	certs, err := corex509.ReadCertificateFile(joinedPath)
+	if err != nil {
+		t.Fatalf("error while reading certificates from %q: %q", joinedPath, err)
+	}
+	err = ValidateCerts(certs, "ca", "valid-trust-store")
+	if err != nil {
+		t.Fatalf("expected to get nil err, but got %q", err)
+	}
+}
+
+// TestValidateCertsWithLeafCert tests invalid trust store leaf cert
+func TestValidateCertsWithLeafCert(t *testing.T) {
+	failurePath := filepath.FromSlash("../testdata/truststore/x509/ca/trust-store-with-leaf-certs/non-ca.crt")
+	certs, err := corex509.ReadCertificateFile(failurePath)
+	if err != nil {
+		t.Fatalf("error while reading certificates from %q: %q", failurePath, err)
+	}
+	expectedErr := errors.New("certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" from ca/trust-store-with-leaf-certs is not a CA certificate or self-signed signing certificate")
+	err = ValidateCerts(certs, "ca", "trust-store-with-leaf-certs")
 	if err == nil || err.Error() != expectedErr.Error() {
-		t.Fatalf("leaf cert in a trust store should return error: %q", expectedErr)
+		t.Fatalf("leaf cert in a trust store should return error %q, but got %q", expectedErr, err)
 	}
 }

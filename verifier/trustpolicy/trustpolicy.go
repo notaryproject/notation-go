@@ -230,11 +230,10 @@ func (policyDoc *Document) Validate() error {
 }
 
 // GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
-// statement that applies to the given registry URI. If no applicable trust
+// statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/main/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+// see https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
 func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
-
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {
 		return nil, err
@@ -253,7 +252,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	}
 
 	if applicablePolicy != nil {
-		// a policy with exact match for registry URI takes precedence over
+		// a policy with exact match for registry scope takes precedence over
 		// a wildcard (*) policy.
 		return applicablePolicy, nil
 	} else if wildcardPolicy != nil {
@@ -390,7 +389,6 @@ func validateTrustStore(statement TrustPolicy) error {
 // validateTrustedIdentities validates if the policy statement is following the
 // Notary V2 spec rules for trusted identities
 func validateTrustedIdentities(statement TrustPolicy) error {
-
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
 	if len(statement.TrustedIdentities) > 1 && slices.Contains(statement.TrustedIdentities, trustpolicy.Wildcard) {
@@ -438,7 +436,6 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 // Notary V2 spec rules for registry scopes
 func validateRegistryScopes(policyDoc *Document) error {
 	registryScopeCount := make(map[string]int)
-
 	for _, statement := range policyDoc.TrustPolicies {
 		// Verify registry scopes are valid
 		if len(statement.RegistryScopes) == 0 {
@@ -520,7 +517,7 @@ func validateRegistryScopeFormat(scope string) error {
 	// https://github.com/distribution/distribution/blob/main/reference/regexp.go#L31
 	domainRegexp := regexp.MustCompile(`^(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?$`)
 	repositoryRegexp := regexp.MustCompile(`^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?$`)
-	errorMessage := "registry scope %q is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository"
+	errorMessage := "registry scope %q is not valid, make sure it is a fully qualified registry URL without the scheme/protocol, e.g domain.com/my/repository OR a local trust policy scope, e.g local/myOCILayout"
 	domain, repository, found := strings.Cut(scope, "/")
 	if !found {
 		return fmt.Errorf(errorMessage, scope)
