@@ -1,14 +1,19 @@
 package envelope
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // MediaTypePayloadV1 is the supported content type for signature's payload.
-const MediaTypePayloadV1 = "application/vnd.cncf.notary.payload.v1+json"
+const (
+	MediaTypePayloadV1            = "application/vnd.cncf.notary.payload.v1+json"
+	AnnotationX509ChainThumbprint = "io.cncf.notary.x509chain.thumbprint#S256"
+)
 
 // Payload describes the content that gets signed.
 type Payload struct {
@@ -34,4 +39,17 @@ func SanitizeTargetArtifact(targetArtifact ocispec.Descriptor) ocispec.Descripto
 		Size:        targetArtifact.Size,
 		Annotations: targetArtifact.Annotations,
 	}
+}
+
+// SigningTime returns the signing time of a signature envelope blob
+func SigningTime(signerInfo *signature.SignerInfo) (time.Time, error) {
+	// sanity check
+	if signerInfo == nil {
+		return time.Time{}, errors.New("failed to generate annotations: signerInfo cannot be nil")
+	}
+	signingTime := signerInfo.SignedAttributes.SigningTime
+	if signingTime.IsZero() {
+		return time.Time{}, errors.New("signing time is missing")
+	}
+	return signingTime.UTC(), nil
 }

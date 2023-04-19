@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
+	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -28,7 +33,7 @@ func TestSignSuccess(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			opts := RemoteSignOptions{}
+			opts := SignOptions{}
 			opts.ExpiryDuration = tc.dur
 			opts.ArtifactReference = mock.SampleArtifactUri
 
@@ -42,7 +47,7 @@ func TestSignSuccess(t *testing.T) {
 
 func TestSignSuccessWithUserMetadata(t *testing.T) {
 	repo := mock.NewRepository()
-	opts := RemoteSignOptions{}
+	opts := SignOptions{}
 	opts.ArtifactReference = mock.SampleArtifactUri
 	opts.UserMetadata = expectedMetadata
 
@@ -63,7 +68,7 @@ func TestSignWithInvalidExpiry(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			opts := RemoteSignOptions{}
+			opts := SignOptions{}
 			opts.ExpiryDuration = tc.dur
 
 			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
@@ -85,7 +90,7 @@ func TestSignWithInvalidUserMetadata(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			_, err := Sign(context.Background(), &dummySigner{}, repo, RemoteSignOptions{UserMetadata: tc.metadata})
+			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{UserMetadata: tc.metadata})
 			if err == nil {
 				b.Fatalf("Expected error but not found")
 			}
@@ -102,11 +107,11 @@ func TestRegistryResolveError(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
-	repo.ResolveError = errors.New(errorMessage)
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	repo.ResolveError = errors.New("network error")
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
-	if err == nil || !errors.Is(err, expectedErr) {
+	if err == nil || err.Error() != errorMessage {
 		t.Fatalf("RegistryResolve expected: %v got: %v", expectedErr, err)
 	}
 }
@@ -120,9 +125,9 @@ func TestVerifyEmptyReference(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
-	opts := RemoteVerifyOptions{ArtifactReference: "localhost/test", MaxSignatureAttempts: 50}
+	opts := VerifyOptions{ArtifactReference: "localhost/test", MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
-	if err == nil || !errors.Is(err, expectedErr) {
+	if err == nil || err.Error() != errorMessage {
 		t.Fatalf("VerifyTagReference expected: %v got: %v", expectedErr, err)
 	}
 }
@@ -136,9 +141,9 @@ func TestVerifyTagReferenceFailed(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
-	opts := RemoteVerifyOptions{ArtifactReference: "localhost/UPPERCASE/test", MaxSignatureAttempts: 50}
+	opts := VerifyOptions{ArtifactReference: "localhost/UPPERCASE/test", MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
-	if err == nil || !errors.Is(err, expectedErr) {
+	if err == nil || err.Error() != errorMessage {
 		t.Fatalf("VerifyTagReference expected: %v got: %v", expectedErr, err)
 	}
 }
@@ -148,7 +153,7 @@ func TestSkippedSignatureVerification(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
 
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err != nil || outcomes[0].VerificationLevel.Name != trustpolicy.LevelSkip.Name {
@@ -160,12 +165,12 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
-	errorMessage := fmt.Sprintf("no signature is associated with %q, make sure the image was signed successfully", mock.SampleArtifactUri)
+	errorMessage := fmt.Sprintf("no signature is associated with %q, make sure the artifact was signed successfully", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
 	repo.ListSignaturesResponse = []ocispec.Descriptor{}
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -177,12 +182,12 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
-	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the registry, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
+	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the Repository, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
 	repo.FetchSignatureBlobError = errors.New("network error")
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -196,7 +201,7 @@ func TestVerifyValid(t *testing.T) {
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
 	// mock the repository
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err != nil {
@@ -211,7 +216,7 @@ func TestMaxSignatureAttemptsMissing(t *testing.T) {
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", 0)}
 
 	// mock the repository
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -226,7 +231,7 @@ func TestVerifyFailed(t *testing.T) {
 	expectedErr := ErrorVerificationFailed{}
 
 	// mock the repository
-	opts := RemoteVerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err == nil || !errors.Is(err, expectedErr) {
@@ -255,19 +260,27 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 
 type dummySigner struct{}
 
-func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
-	return []byte("ABC"), &signature.SignerInfo{}, nil
+func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+	return []byte("ABC"), &signature.SignerInfo{
+		SignedAttributes: signature.SignedAttributes{
+			SigningTime: time.Now(),
+		},
+	}, nil
 }
 
 type verifyMetadataSigner struct{}
 
-func (s *verifyMetadataSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *verifyMetadataSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	for k, v := range expectedMetadata {
 		if desc.Annotations[k] != v {
 			return nil, nil, errors.New("expected metadata not present in descriptor")
 		}
 	}
-	return []byte("ABC"), &signature.SignerInfo{}, nil
+	return []byte("ABC"), &signature.SignerInfo{
+		SignedAttributes: signature.SignedAttributes{
+			SigningTime: time.Now(),
+		},
+	}, nil
 }
 
 type dummyVerifier struct {
@@ -277,7 +290,7 @@ type dummyVerifier struct {
 	VerificationLevel trustpolicy.VerificationLevel
 }
 
-func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifyOptions) (*VerificationOutcome, error) {
+func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifierVerifyOptions) (*VerificationOutcome, error) {
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
 		VerificationLevel:   &v.VerificationLevel,
@@ -286,4 +299,64 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 		return outcome, errors.New("failed verify")
 	}
 	return outcome, nil
+}
+
+var (
+	ociLayoutPath     = filepath.FromSlash("./internal/testdata/oci-layout")
+	reference         = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
+	artifactReference = "local/oci-layout@sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
+	signaturePath     = filepath.FromSlash("./internal/testdata/cose_signature.sig")
+)
+
+type ociDummySigner struct{}
+
+func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+	sigBlob, err := os.ReadFile(signaturePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	sigEnv, err := signature.ParseEnvelope(opts.SignatureMediaType, sigBlob)
+	if err != nil {
+		return nil, nil, err
+	}
+	content, err := sigEnv.Content()
+	if err != nil {
+		return nil, nil, err
+	}
+	return sigBlob, &content.SignerInfo, nil
+}
+
+func TestSignLocalContent(t *testing.T) {
+	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	signOpts := SignOptions{
+		SignerSignOptions: SignerSignOptions{
+			SignatureMediaType: cose.MediaTypeEnvelope,
+		},
+		ArtifactReference: reference,
+	}
+	_, err = Sign(context.Background(), &ociDummySigner{}, repo, signOpts)
+	if err != nil {
+		t.Fatalf("failed to Sign: %v", err)
+	}
+}
+
+func TestVerifyLocalContent(t *testing.T) {
+	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	if err != nil {
+		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
+	}
+	verifyOpts := VerifyOptions{
+		ArtifactReference:    artifactReference,
+		MaxSignatureAttempts: math.MaxInt64,
+	}
+	policyDocument := dummyPolicyDocument()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	// verify signatures inside the OCI layout folder
+	_, _, err = Verify(context.Background(), &verifier, repo, verifyOpts)
+	if err != nil {
+		t.Fatalf("failed to verify local content: %v", err)
+	}
 }

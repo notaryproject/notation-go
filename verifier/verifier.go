@@ -31,7 +31,7 @@ import (
 	"oras.land/oras-go/v2/content"
 )
 
-// verifier implements notation.Verifier and notation.skipVerifier
+// verifier implements notation.Verifier and notation.verifySkipper
 type verifier struct {
 	trustPolicyDoc   *trustpolicy.Document
 	trustStore       truststore.X509TrustStore
@@ -90,15 +90,15 @@ func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X50
 }
 
 // SkipVerify validates whether the verification level is skip.
-func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *trustpolicy.VerificationLevel, error) {
+func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyOptions) (bool, *trustpolicy.VerificationLevel, error) {
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("Check verification level against artifact %v", artifactRef)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
+	logger.Debugf("Check verification level against artifact %v", opts.ArtifactReference)
+	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
@@ -115,18 +115,18 @@ func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *t
 // successful verification.
 // If nil signature is present and the verification level is not 'skip',
 // an error will be returned.
-func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifyOptions) (*notation.VerificationOutcome, error) {
+func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifierVerifyOptions) (*notation.VerificationOutcome, error) {
 	artifactRef := opts.ArtifactReference
 	envelopeMediaType := opts.SignatureMediaType
 	pluginConfig := opts.PluginConfig
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, opts.SignatureMediaType)
+	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, envelopeMediaType)
 	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 

@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
+	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
 )
 
@@ -32,35 +34,66 @@ type RepositoryOptions struct {
 
 // repositoryClient implements Repository
 type repositoryClient struct {
-	registry.Repository
+	oras.GraphTarget
 	RepositoryOptions
 }
 
-// NewRepository returns a new Repository
-func NewRepository(repo registry.Repository) Repository {
+// NewRepository returns a new Repository.
+// Known implementations of oras.GraphTarget:
+// - [remote.Repository](https://pkg.go.dev/oras.land/oras-go/v2/registry/remote#Repository)
+// - [oci.Store](https://pkg.go.dev/oras.land/oras-go/v2/content/oci#Store)
+func NewRepository(target oras.GraphTarget) Repository {
 	return &repositoryClient{
-		Repository: repo,
+		GraphTarget: target,
 	}
 }
 
 // NewRepositoryWithOptions returns a new Repository with user specified
 // options.
-func NewRepositoryWithOptions(repo registry.Repository, opts RepositoryOptions) Repository {
+func NewRepositoryWithOptions(target oras.GraphTarget, opts RepositoryOptions) Repository {
 	return &repositoryClient{
-		Repository:        repo,
+		GraphTarget:       target,
 		RepositoryOptions: opts,
 	}
 }
 
+// NewOCIRepository returns a new Repository with oci.Store as
+// its oras.GraphTarget. `path` denotes directory path to the target OCI layout.
+func NewOCIRepository(path string, opts RepositoryOptions) (Repository, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OCI store: %w", err)
+	}
+	if !fileInfo.IsDir() {
+		return nil, fmt.Errorf("failed to create OCI store: the input path is not a directory")
+	}
+	ociStore, err := oci.New(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OCI store: %w", err)
+	}
+	return NewRepositoryWithOptions(ociStore, opts), nil
+}
+
 // Resolve resolves a reference(tag or digest) to a manifest descriptor
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
-	return c.Repository.Manifests().Resolve(ctx, reference)
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
+		return repo.Manifests().Resolve(ctx, reference)
+	}
+	return c.GraphTarget.Resolve(ctx, reference)
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
 // artifact manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	return c.Repository.Referrers(ctx, desc, ArtifactTypeNotation, fn)
+	if repo, ok := c.GraphTarget.(registry.ReferrerLister); ok {
+		return repo.Referrers(ctx, desc, ArtifactTypeNotation, fn)
+	}
+
+	signatureManifests, err := signatureReferrers(ctx, c.GraphTarget, desc)
+	if err != nil {
+		return fmt.Errorf("failed to get referrers during ListSignatures due to %w", err)
+	}
+	return fn(signatureManifests)
 }
 
 // FetchSignatureBlob returns signature envelope blob and descriptor given
@@ -73,7 +106,12 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	if sigBlobDesc.Size > maxBlobSizeLimit {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d bytes", sigBlobDesc.Size)
 	}
-	sigBlob, err := content.FetchAll(ctx, c.Repository.Blobs(), sigBlobDesc)
+
+	var fetcher content.Fetcher = c.GraphTarget
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
+		fetcher = repo.Blobs()
+	}
+	sigBlob, err := content.FetchAll(ctx, fetcher, sigBlobDesc)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
@@ -84,16 +122,18 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 // linked signature envelope blob. Upon successful, PushSignature returns
 // signature envelope blob and manifest descriptors.
 func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
-	blobDesc, err = oras.PushBytes(ctx, c.Repository.Blobs(), mediaType, blob)
+	var pusher content.Pusher = c.GraphTarget
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
+		pusher = repo.Blobs()
+	}
+	blobDesc, err = oras.PushBytes(ctx, pusher, mediaType, blob)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
-
 	manifestDesc, err = c.uploadSignatureManifest(ctx, subject, blobDesc, annotations)
 	if err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
-
 	return blobDesc, manifestDesc, nil
 }
 
@@ -106,13 +146,19 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 	if sigManifestDesc.Size > maxManifestSizeLimit {
 		return ocispec.Descriptor{}, fmt.Errorf("signature manifest too large: %d bytes", sigManifestDesc.Size)
 	}
-	manifestJSON, err := content.FetchAll(ctx, c.Repository.Manifests(), sigManifestDesc)
+
+	// get the signature manifest from sigManifestDesc
+	var fetcher content.Fetcher = c.GraphTarget
+	if repo, ok := c.GraphTarget.(registry.Repository); ok {
+		fetcher = repo.Manifests()
+	}
+	manifestJSON, err := content.FetchAll(ctx, fetcher, sigManifestDesc)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
 
+	// get the signature blob descriptor from signature manifest
 	var signatureBlobs []ocispec.Descriptor
-
 	// OCI image manifest
 	if sigManifestDesc.MediaType == ocispec.MediaTypeImageManifest {
 		var sigManifest ocispec.Manifest
@@ -143,5 +189,60 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		PackImageManifest:   c.OCIImageManifest,
 	}
 
-	return oras.Pack(ctx, c.Repository, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	return oras.Pack(ctx, c.GraphTarget, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+}
+
+// signatureReferrers returns referrer nodes of desc in target filtered by
+// the "application/vnd.cncf.notary.signature" artifact type
+func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	var results []ocispec.Descriptor
+	predecessors, err := target.Predecessors(ctx, desc)
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range predecessors {
+		switch node.MediaType {
+		case ocispec.MediaTypeArtifactManifest:
+			if node.Size > maxManifestSizeLimit {
+				return nil, fmt.Errorf("referrer node too large: %d bytes", node.Size)
+			}
+			fetched, err := content.FetchAll(ctx, target, node)
+			if err != nil {
+				return nil, err
+			}
+			var artifact ocispec.Artifact
+			if err := json.Unmarshal(fetched, &artifact); err != nil {
+				return nil, err
+			}
+			if artifact.Subject == nil || !content.Equal(*artifact.Subject, desc) {
+				continue
+			}
+			node.ArtifactType = artifact.ArtifactType
+			node.Annotations = artifact.Annotations
+		case ocispec.MediaTypeImageManifest:
+			if node.Size > maxManifestSizeLimit {
+				return nil, fmt.Errorf("referrer node too large: %d bytes", node.Size)
+			}
+			fetched, err := content.FetchAll(ctx, target, node)
+			if err != nil {
+				return nil, err
+			}
+			var image ocispec.Manifest
+			if err := json.Unmarshal(fetched, &image); err != nil {
+				return nil, err
+			}
+			if image.Subject == nil || !content.Equal(*image.Subject, desc) {
+				continue
+			}
+			node.ArtifactType = image.Config.MediaType
+			node.Annotations = image.Annotations
+		default:
+			continue
+		}
+		// only keep nodes of "application/vnd.cncf.notary.signature"
+		if node.ArtifactType == ArtifactTypeNotation {
+			results = append(results, node)
+		}
+	}
+	return results, nil
 }
