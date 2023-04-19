@@ -646,7 +646,7 @@ func TestVerifyRevocation(t *testing.T) {
 		outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme = "unsupported scheme"
 
 		time, err := outcome.EnvelopeContent.SignerInfo.GetAuthenticSigningTime()
-		expectedErr := errors.New("cannot get an AuthenticSigningTime with this information")
+		expectedErr := errors.New("authenticSigningTime not found")
 		if !time.IsZero() || err == nil || err.Error() != expectedErr.Error() {
 			t.Fatalf("expected GetAuthenticSigningTime to fail with %v, but got %v", expectedErr, err)
 		}
