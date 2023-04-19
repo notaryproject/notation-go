@@ -65,7 +65,8 @@ func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore
 	return NewWithOptions(trustPolicy, trustStore, pluginManager, VerifierOptions{})
 }
 
-// NewWithOptions creates a new verifier given trustPolicy, trustStore, pluginManager, and revocationClient
+// NewWithOptions creates a new verifier given trustPolicy, trustStore,
+// pluginManager, and VerifierOptions
 func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
 	revocationClient := opts.RevocationClient
 	if revocationClient == nil {
@@ -562,7 +563,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	if err != nil {
 		logger.Debugf("not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
 	}
-	revocationResult, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 	if err != nil {
 		logger.Debug("error while checking revocation status, err: %s", err.Error())
 		return &notation.ValidationResult{
@@ -582,17 +583,17 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	var problematicCertSubject string
 	revokedFound := false
 	var revokedCertSubject string
-	for i := len(revocationResult) - 1; i >= 0; i-- {
-		if revocationResult[i].ServerResults[0].Error != nil {
-			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), revocationResult[i].ServerResults[0].Server, revocationResult[i].ServerResults[0].Error)
+	for i := len(certResults) - 1; i >= 0; i-- {
+		if certResults[i].ServerResults[0].Error != nil {
+			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
 		}
 
-		if revocationResult[i].Result == revocationresult.ResultOK || revocationResult[i].Result == revocationresult.ResultNonRevokable {
+		if certResults[i].Result == revocationresult.ResultOK || certResults[i].Result == revocationresult.ResultNonRevokable {
 			numOKResults++
 		} else {
-			finalResult = revocationResult[i].Result
+			finalResult = certResults[i].Result
 			problematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
-			if revocationResult[i].Result == revocationresult.ResultRevoked {
+			if certResults[i].Result == revocationresult.ResultRevoked {
 				revokedFound = true
 				revokedCertSubject = problematicCertSubject
 			}
@@ -602,7 +603,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		problematicCertSubject = revokedCertSubject
 		finalResult = revocationresult.ResultRevoked
 	}
-	if numOKResults == len(revocationResult) {
+	if numOKResults == len(certResults) {
 		finalResult = revocationresult.ResultOK
 	}
 

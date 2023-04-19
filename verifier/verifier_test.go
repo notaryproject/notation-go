@@ -339,7 +339,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 	payload := envelope.Payload{
 		TargetArtifact: desc,
 	}
-	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts := notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	pluginManager := mock.PluginManager{}
 	pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 	pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
@@ -357,7 +357,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error while creating signer: %v", err)
 	}
-	envelopeBlob, _, err := internalSigner.Sign(context.Background(), payload.TargetArtifact, notation.SignOptions{ExpiryDuration: 24 * time.Hour, SignatureMediaType: "application/jose+json"})
+	envelopeBlob, _, err := internalSigner.Sign(context.Background(), payload.TargetArtifact, notation.SignerSignOptions{ExpiryDuration: 24 * time.Hour, SignatureMediaType: "application/jose+json"})
 	if err != nil {
 		t.Fatalf("Unexpected error while generating blob: %v", err)
 	}
