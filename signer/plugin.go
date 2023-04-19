@@ -52,7 +52,7 @@ func (s *pluginSigner) PluginAnnotations() map[string]string {
 
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
-func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Invoking plugin's get-plugin-metadata command")
 	req := &proto.GetMetadataRequest{
@@ -72,7 +72,7 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions, metadata *proto.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions, metadata *proto.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature by plugin")
 	config := s.mergeConfig(opts.PluginConfig)
@@ -105,7 +105,7 @@ func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 	return genericSigner.Sign(ctx, desc, opts)
 }
 
-func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature envelope by plugin")
 	payload := envelope.Payload{TargetArtifact: envelope.SanitizeTargetArtifact(desc)}

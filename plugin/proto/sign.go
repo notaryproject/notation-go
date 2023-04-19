@@ -17,7 +17,7 @@ type DescribeKeyResponse struct {
 	KeyID string `json:"keyId"`
 
 	// One of following supported key types:
-	// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
+	// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 	KeySpec KeySpec `json:"keySpec"`
 }
 

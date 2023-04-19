@@ -191,7 +191,7 @@ func TestInvalidRegistryScopes(t *testing.T) {
 		policyStatement.RegistryScopes = []string{scope}
 		policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 		err := policyDoc.Validate()
-		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository" {
+		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is a fully qualified registry URL without the scheme/protocol, e.g domain.com/my/repository OR a local trust policy scope, e.g local/myOCILayout" {
 			t.Fatalf("invalid registry scope should return error. Error : %q", err)
 		}
 	}
@@ -545,7 +545,7 @@ func TestLoadDocument(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	_, err := LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s/trustpolicy.json", tempRoot) {
+	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy)) {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
 
@@ -584,6 +584,9 @@ func TestLoadDocument(t *testing.T) {
 	policyDoc2 := dummyPolicyDocument()
 	policyJson2, _ := json.Marshal(policyDoc2)
 	err = os.WriteFile(path, policyJson2, 0000)
+	if err != nil {
+		t.Fatalf("TestLoadPolicyDocument write policy file failed. Error: %v", err)
+	}
 	err = os.Chmod(path, 0000)
 	if err != nil {
 		t.Fatalf("TestLoadPolicyDocument create policy file with bad permissions failed. Error: %v", err)

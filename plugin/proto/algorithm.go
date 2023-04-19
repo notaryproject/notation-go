@@ -12,7 +12,7 @@ type KeySpec string
 
 // one of the following supported key spec names.
 //
-// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
+// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
 	KeySpecRSA2048 KeySpec = "RSA-2048"
 	KeySpecRSA3072 KeySpec = "RSA-3072"
@@ -80,7 +80,7 @@ type HashAlgorithm string
 
 // one of the following supported hash algorithm names.
 //
-// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
+// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
 	HashAlgorithmSHA256 HashAlgorithm = "SHA-256"
 	HashAlgorithmSHA384 HashAlgorithm = "SHA-384"
@@ -117,7 +117,7 @@ type SignatureAlgorithm string
 
 // one of the following supported signing algorithm names.
 //
-// https://github.com/notaryproject/notaryproject/blob/main/signature-specification.md#algorithm-selection
+// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
 	SignatureAlgorithmECDSA_SHA256      SignatureAlgorithm = "ECDSA-SHA-256"
 	SignatureAlgorithmECDSA_SHA384      SignatureAlgorithm = "ECDSA-SHA-384"

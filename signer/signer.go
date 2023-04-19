@@ -72,7 +72,7 @@ func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
-func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic signing for %v in signature media type %v", desc.Digest, opts.SignatureMediaType)
 	// Generate payload to be signed.

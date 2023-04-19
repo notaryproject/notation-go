@@ -204,7 +204,7 @@ func TestSigner_Sign_EnvelopeNotSupported(t *testing.T) {
 	signer := pluginSigner{
 		plugin: newMockPlugin(nil, nil, signature.KeySpec{Type: signature.KeyTypeRSA, Size: 2048}),
 	}
-	opts := notation.SignOptions{SignatureMediaType: "unsupported"}
+	opts := notation.SignerSignOptions{SignatureMediaType: "unsupported"}
 	testSignerError(t, signer, fmt.Sprintf("signature envelope format with media type %q is not supported", opts.SignatureMediaType), opts)
 }
 
@@ -216,7 +216,7 @@ func TestSigner_Sign_DescribeKeyIDMismatch(t *testing.T) {
 				plugin: newMockPlugin(nil, nil, signature.KeySpec{}),
 				keyID:  "1",
 			}
-			testSignerError(t, signer, fmt.Sprintf("keyID in describeKey response %q does not match request %q", respKeyId, signer.keyID), notation.SignOptions{SignatureMediaType: envelopeType})
+			testSignerError(t, signer, fmt.Sprintf("keyID in describeKey response %q does not match request %q", respKeyId, signer.keyID), notation.SignerSignOptions{SignatureMediaType: envelopeType})
 		})
 	}
 }
@@ -228,7 +228,7 @@ func TestSigner_Sign_ExpiryInValid(t *testing.T) {
 			signer := pluginSigner{
 				plugin: newMockPlugin(keyCertPairCollections[0].key, keyCertPairCollections[0].certs, ks),
 			}
-			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignOptions{ExpiryDuration: -24 * time.Hour, SignatureMediaType: envelopeType})
+			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignerSignOptions{ExpiryDuration: -24 * time.Hour, SignatureMediaType: envelopeType})
 			wantEr := "expiry cannot be equal or before the signing time"
 			if err == nil || !strings.Contains(err.Error(), wantEr) {
 				t.Errorf("Signer.Sign() error = %v, wantErr %v", err, wantEr)
@@ -245,7 +245,7 @@ func TestSigner_Sign_InvalidCertChain(t *testing.T) {
 			signer := pluginSigner{
 				plugin: mockPlugin,
 			}
-			testSignerError(t, signer, "x509: malformed certificate", notation.SignOptions{SignatureMediaType: envelopeType})
+			testSignerError(t, signer, "x509: malformed certificate", notation.SignerSignOptions{SignatureMediaType: envelopeType})
 		})
 	}
 }
@@ -259,7 +259,7 @@ func TestSigner_Sign_InvalidDescriptor(t *testing.T) {
 			signer := pluginSigner{
 				plugin: mockPlugin,
 			}
-			testSignerError(t, signer, "during signing, following unknown attributes were added to subject descriptor: [\"additional_field\"]", notation.SignOptions{SignatureMediaType: envelopeType})
+			testSignerError(t, signer, "during signing, following unknown attributes were added to subject descriptor: [\"additional_field\"]", notation.SignerSignOptions{SignatureMediaType: envelopeType})
 		})
 	}
 }
@@ -272,7 +272,7 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 			signer := pluginSigner{
 				plugin: mockPlugin,
 			}
-			testSignerError(t, signer, "signature is invalid", notation.SignOptions{SignatureMediaType: envelopeType})
+			testSignerError(t, signer, "signature is invalid", notation.SignerSignOptions{SignatureMediaType: envelopeType})
 		})
 	}
 }
@@ -301,7 +301,7 @@ func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
 			signer := pluginSigner{
 				plugin: p,
 			}
-			testSignerError(t, signer, "failed GenerateEnvelope", notation.SignOptions{SignatureMediaType: envelopeType})
+			testSignerError(t, signer, "failed GenerateEnvelope", notation.SignerSignOptions{SignatureMediaType: envelopeType})
 		})
 	}
 }
@@ -347,7 +347,7 @@ func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
 	}
 }
 
-func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts notation.SignOptions) {
+func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts notation.SignerSignOptions) {
 	t.Helper()
 	_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, opts)
 	if err == nil || !strings.Contains(err.Error(), wantEr) {

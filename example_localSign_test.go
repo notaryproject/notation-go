@@ -44,8 +44,8 @@ func Example_localSign() {
 	// signature mediaTypes are supported.
 	exampleSignatureMediaType := cose.MediaTypeEnvelope
 
-	// exampleSignOptions is an example of notation.SignOptions.
-	exampleSignOptions := notation.SignOptions{
+	// exampleSignOptions is an example of notation.SignerSignOptions.
+	exampleSignOptions := notation.SignerSignOptions{
 		SignatureMediaType: exampleSignatureMediaType,
 		SigningAgent:       "example signing agent",
 	}

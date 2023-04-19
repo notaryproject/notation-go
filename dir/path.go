@@ -13,7 +13,7 @@
 //     file, err := dir.ConfigFS().Open(dir.PathTrustPolicy)
 //
 //   - Get the path of trustpolicy.json:
-//     path, err := dir.ConfigFS().SysPath(dir.trustpolicy)
+//     path, err := dir.ConfigFS().SysPath(dir.PathTrustPolicy)
 //
 //   - Set custom configurations directory:
 //     dir.UserConfigDir = '/path/to/configurations/'
