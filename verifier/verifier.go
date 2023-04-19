@@ -609,7 +609,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 
 	switch finalResult {
 	case revocationresult.ResultOK:
-		logger.Debug("no important errors encountered while checking revocation, status is OK")
+		logger.Debug("no verification impacting errors encountered while checking revocation, status is OK")
 	case revocationresult.ResultRevoked:
 		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
 	default:
