@@ -645,10 +645,10 @@ func TestVerifyRevocation(t *testing.T) {
 		outcome := createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour))
 		outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme = "unsupported scheme"
 
-		time, err := outcome.EnvelopeContent.SignerInfo.GetAuthenticSigningTime()
+		time, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
 		expectedErr := errors.New("authenticSigningTime not found")
 		if !time.IsZero() || err == nil || err.Error() != expectedErr.Error() {
-			t.Fatalf("expected GetAuthenticSigningTime to fail with %v, but got %v", expectedErr, err)
+			t.Fatalf("expected AuthenticSigningTime to fail with %v, but got %v", expectedErr, err)
 		}
 
 		result := verifyRevocation(outcome, revocationClient, logger)
