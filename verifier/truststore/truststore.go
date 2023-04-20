@@ -87,8 +87,8 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 		if err != nil {
 			return nil, fmt.Errorf("error while reading certificates from %q: %w", joinedPath, err)
 		}
-		if err := ValidateCerts(certs, storeType, namedStore); err != nil {
-			return nil, err
+		if err := ValidateCertificates(certs); err != nil {
+			return nil, fmt.Errorf("error while validating certificates from %q: %w", joinedPath, err)
 		}
 		certificates = append(certificates, certs...)
 	}
@@ -98,20 +98,18 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 	return certificates, nil
 }
 
-// ValidateCerts ensures certs from trust store are CA certificates or
-// self-signed.
-func ValidateCerts(certs []*x509.Certificate, storeType Type, namedStore string) error {
+// ValidateCertificates ensures certificates from trust store are
+// CA certificates or self-signed.
+func ValidateCertificates(certs []*x509.Certificate) error {
 	if len(certs) < 1 {
-		return fmt.Errorf("could not parse a certificate from %s/%s, every file in a trust store must have a PEM or DER certificate in it", storeType, namedStore)
+		return errors.New("input certs cannot be empty")
 	}
 	for _, cert := range certs {
 		if !cert.IsCA {
 			if err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature); err != nil {
 				return fmt.Errorf(
-					"certificate with subject %q from %s/%s is not a CA certificate or self-signed signing certificate",
+					"certificate with subject %q is not a CA certificate or self-signed signing certificate",
 					cert.Subject,
-					storeType,
-					namedStore,
 				)
 			}
 		}
