@@ -562,6 +562,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	authenticSigningTime, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
 	if err != nil {
 		logger.Debugf("not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
+		authenticSigningTime = time.Time{}
 	}
 	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 	if err != nil {
@@ -577,14 +578,13 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		Type:   trustpolicy.TypeRevocation,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
-
 	finalResult := revocationresult.ResultUnknown
 	numOKResults := 0
 	var problematicCertSubject string
 	revokedFound := false
 	var revokedCertSubject string
 	for i := len(certResults) - 1; i >= 0; i-- {
-		if certResults[i].ServerResults[0].Error != nil {
+		if len(certResults[i].ServerResults) > 0 && certResults[i].ServerResults[0].Error != nil {
 			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
 		}
 
