@@ -13,6 +13,8 @@ github.com/golang-jwt/jwt/v4 v4.5.0 h1:7cYmW1XlMY7h7ii7UhUyChSgS5wUJEnm9uZVTGqOW
 github.com/golang-jwt/jwt/v4 v4.5.0/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=
 github.com/notaryproject/notation-core-go v1.0.0-rc.2.0.20230420025358-cefe2efc755e h1:MSDmIlqyM9ii+vR+QqjAHsKAWVYJIPWeWFAubF0VqUg=
 github.com/notaryproject/notation-core-go v1.0.0-rc.2.0.20230420025358-cefe2efc755e/go.mod h1:XWAlhOksW+c9AA/TyobkPv5Xoz8RWGwOAoDdybZLEiI=
+github.com/notaryproject/notation-core-go v1.0.0-rc.3 h1:ukRBOwctPF0bWLFs+ThDHwgj+L3+AHdyaOqmziLp8w0=
+github.com/notaryproject/notation-core-go v1.0.0-rc.3/go.mod h1:XWAlhOksW+c9AA/TyobkPv5Xoz8RWGwOAoDdybZLEiI=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.0-rc2 h1:2zx/Stx4Wc5pIPDvIxHXvXtQFW/7XWJGmnM7r3wg034=
