@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/notaryproject/notation-go/registry/internal/artifactspec"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
@@ -140,8 +141,8 @@ func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, 
 // getSignatureBlobDesc returns signature blob descriptor from
 // signature manifest blobs or layers given signature manifest descriptor
 func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifestDesc ocispec.Descriptor) (ocispec.Descriptor, error) {
-	if sigManifestDesc.MediaType != ocispec.MediaTypeArtifactManifest && sigManifestDesc.MediaType != ocispec.MediaTypeImageManifest {
-		return ocispec.Descriptor{}, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
+	if sigManifestDesc.MediaType != artifactspec.MediaTypeArtifactManifest && sigManifestDesc.MediaType != ocispec.MediaTypeImageManifest {
+		return ocispec.Descriptor{}, fmt.Errorf("sigManifestDesc.MediaType requires %q or %q, got %q", artifactspec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest, sigManifestDesc.MediaType)
 	}
 	if sigManifestDesc.Size > maxManifestSizeLimit {
 		return ocispec.Descriptor{}, fmt.Errorf("signature manifest too large: %d bytes", sigManifestDesc.Size)
@@ -167,7 +168,7 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 		}
 		signatureBlobs = sigManifest.Layers
 	} else { // OCI artifact manifest
-		var sigManifest ocispec.Artifact
+		var sigManifest artifactspec.Artifact
 		if err := json.Unmarshal(manifestJSON, &sigManifest); err != nil {
 			return ocispec.Descriptor{}, err
 		}
@@ -202,7 +203,7 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 	}
 	for _, node := range predecessors {
 		switch node.MediaType {
-		case ocispec.MediaTypeArtifactManifest:
+		case artifactspec.MediaTypeArtifactManifest:
 			if node.Size > maxManifestSizeLimit {
 				return nil, fmt.Errorf("referrer node too large: %d bytes", node.Size)
 			}
@@ -210,7 +211,7 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if err != nil {
 				return nil, err
 			}
-			var artifact ocispec.Artifact
+			var artifact artifactspec.Artifact
 			if err := json.Unmarshal(fetched, &artifact); err != nil {
 				return nil, err
 			}
