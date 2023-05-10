@@ -19,18 +19,8 @@ const (
 )
 
 // RepositoryOptions provides user options when creating a Repository
-type RepositoryOptions struct {
-	// OCIImageManifest specifies if user wants to use OCI image manifest
-	// to store signatures in remote registries.
-	// By default, Notation will use OCI artifact manifest to store signatures.
-	// If OCIImageManifest flag is set to true, Notation will instead use
-	// OCI image manifest.
-	// Note, Notation will not automatically convert between these two types
-	// on any occasion.
-	// OCI artifact manifest: https://github.com/opencontainers/image-spec/blob/v1.1.0-rc2/artifact.md
-	// OCI image manifest: https://github.com/opencontainers/image-spec/blob/v1.1.0-rc2/manifest.md
-	OCIImageManifest bool
-}
+// it is kept for future extensibility
+type RepositoryOptions struct{}
 
 // repositoryClient implements Repository
 type repositoryClient struct {
@@ -186,7 +176,7 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 	opts := oras.PackOptions{
 		Subject:             &subject,
 		ManifestAnnotations: annotations,
-		PackImageManifest:   c.OCIImageManifest,
+		PackImageManifest:   true,
 	}
 
 	return oras.Pack(ctx, c.GraphTarget, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)

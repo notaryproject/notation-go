@@ -43,8 +43,7 @@ func Example_localVerify() {
 	// signature mediaTypes are supported.
 	exampleSignatureMediaType := cose.MediaTypeEnvelope
 
-	// exampleTargetDescriptor is an example of the target OCI artifact manifest
-	// descriptor.
+	// exampleTargetDescriptor is an example of the target manifest descriptor.
 	exampleTargetDescriptor := ocispec.Descriptor{
 		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:    "sha256:c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c",

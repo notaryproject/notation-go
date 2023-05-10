@@ -407,9 +407,6 @@ func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Ref
 			Reference: ref,
 			PlainHTTP: plainHTTP,
 		},
-		RepositoryOptions: RepositoryOptions{
-			OCIImageManifest: true,
-		},
 	}
 }
 
@@ -438,7 +435,7 @@ var (
 )
 
 func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
-	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
@@ -470,7 +467,7 @@ func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
 }
 
 func TestOciLayoutRepositoryListAndFetchBlob(t *testing.T) {
-	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{OCIImageManifest: true})
+	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}

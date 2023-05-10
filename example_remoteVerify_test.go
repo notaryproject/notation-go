@@ -67,7 +67,7 @@ func Example_remoteVerify() {
 	}
 
 	// remote verify core process
-	// upon successful verification, the target OCI artifact manifest descriptor
+	// upon successful verification, the target manifest descriptor
 	// and signature verification outcome are returned.
 	targetDesc, _, err := notation.Verify(context.Background(), exampleVerifier, exampleRepo, exampleVerifyOptions)
 	if err != nil {
