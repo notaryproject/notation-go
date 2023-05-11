@@ -74,7 +74,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 }
 
 // ListSignatures returns signature manifests filtered by fn given the
-// artifact manifest descriptor
+// target artifact's manifest descriptor
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
 	if repo, ok := c.GraphTarget.(registry.ReferrerLister); ok {
 		return repo.Referrers(ctx, desc, ArtifactTypeNotation, fn)

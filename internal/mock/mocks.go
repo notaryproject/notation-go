@@ -73,7 +73,7 @@ var (
 		Annotations: Annotations,
 	}
 	SigManfiestDescriptor = ocispec.Descriptor{
-		MediaType:   "application/vnd.cncf.oras.artifact.manifest.v1+json",
+		MediaType:   "application/vnd.oci.image.manifest.v1+json",
 		Digest:      SampleDigest,
 		Size:        300,
 		Annotations: Annotations,
