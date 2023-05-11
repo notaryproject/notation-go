@@ -327,7 +327,7 @@ func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts
 }
 
 func TestSignLocalContent(t *testing.T) {
-	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +344,7 @@ func TestSignLocalContent(t *testing.T) {
 }
 
 func TestVerifyLocalContent(t *testing.T) {
-	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{OCIImageManifest: true})
+	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
