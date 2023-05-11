@@ -15,6 +15,7 @@ import (
 
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/slices"
+	"github.com/notaryproject/notation-go/registry/internal/artifactspec"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/content"
@@ -233,7 +234,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
 				signatureManifestDesc: ocispec.Descriptor{
-					MediaType: ocispec.MediaTypeArtifactManifest,
+					MediaType: artifactspec.MediaTypeArtifactManifest,
 					Digest:    digest.Digest(invalidDigest),
 				},
 			},
@@ -248,7 +249,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
 				signatureManifestDesc: ocispec.Descriptor{
-					MediaType: ocispec.MediaTypeArtifactManifest,
+					MediaType: artifactspec.MediaTypeArtifactManifest,
 					Digest:    digest.Digest(validDigestWithAlgo2),
 				},
 			},
