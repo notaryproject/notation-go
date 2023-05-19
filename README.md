@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/notaryproject/notation-go.svg)](https://pkg.go.dev/github.com/notaryproject/notation-go@main)
 
-A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts. Based on Notation standard.
+A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts. Based on Notary Project standard.
 
 ## Table of Contents
 - [Core Documents](#core-documents)

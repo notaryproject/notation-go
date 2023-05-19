@@ -261,7 +261,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create Notation trust policy: %s", artifactReference, trustPolicyLink)
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: %s", artifactReference, trustPolicyLink)
 	}
 }
 
@@ -271,7 +271,7 @@ func LoadDocument() (*Document, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, os.ErrNotExist):
-			return nil, fmt.Errorf("trust policy is not present. To create Notation trust policy: %s", trustPolicyLink)
+			return nil, fmt.Errorf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink)
 		case errors.Is(err, os.ErrPermission):
 			return nil, fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
 		default:
@@ -282,7 +282,7 @@ func LoadDocument() (*Document, error) {
 	policyDocument := &Document{}
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
-		return nil, fmt.Errorf("malformed trust policy. To create Notation trust policy: %s", trustPolicyLink)
+		return nil, fmt.Errorf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink)
 	}
 	return policyDocument, nil
 }
@@ -371,7 +371,7 @@ func (t *TrustPolicy) clone() *TrustPolicy {
 }
 
 // validateTrustStore validates if the policy statement is following the
-// Notation spec rules for truststores
+// Notary Project spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
 	for _, trustStore := range statement.TrustStores {
 		storeType, namedStore, found := strings.Cut(trustStore, ":")
@@ -390,7 +390,7 @@ func validateTrustStore(statement TrustPolicy) error {
 }
 
 // validateTrustedIdentities validates if the policy statement is following the
-// Notation spec rules for trusted identities
+// Notary Project spec rules for trusted identities
 func validateTrustedIdentities(statement TrustPolicy) error {
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
@@ -436,7 +436,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 }
 
 // validateRegistryScopes validates if the policy document is following the
-// Notation spec rules for registry scopes
+// Notary Project spec rules for registry scopes
 func validateRegistryScopes(policyDoc *Document) error {
 	registryScopeCount := make(map[string]int)
 	for _, statement := range policyDoc.TrustPolicies {
