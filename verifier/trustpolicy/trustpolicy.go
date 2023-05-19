@@ -271,7 +271,7 @@ func LoadDocument() (*Document, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, os.ErrNotExist):
-			return nil, fmt.Errorf("trust policy is not present, please create trust policy at %s.\nHow to create the Notation trust policy: %q", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink)
+			return nil, fmt.Errorf("trust policy is not present, please create trust policy at %s.\nHow to create the Notation trust policy: %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink)
 		case errors.Is(err, os.ErrPermission):
 			return nil, fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
 		default:
