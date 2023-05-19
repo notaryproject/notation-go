@@ -261,7 +261,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes.\nTo set up Notation trust policy: %s", artifactReference, trustPolicyLink)
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. How to set up Notation trust policy: %s", artifactReference, trustPolicyLink)
 	}
 }
 
@@ -271,7 +271,7 @@ func LoadDocument() (*Document, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, os.ErrNotExist):
-			return nil, fmt.Errorf("trust policy is not present, please create trust policy at %s.\nTo set up Notation trust policy: %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink)
+			return nil, fmt.Errorf("trust policy is not present, please create trust policy at %s. How to set up Notation trust policy: %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink)
 		case errors.Is(err, os.ErrPermission):
 			return nil, fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
 		default:
@@ -282,7 +282,7 @@ func LoadDocument() (*Document, error) {
 	policyDocument := &Document{}
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
-		return nil, fmt.Errorf("malformed trustpolicy.json file.\nTo set up Notation trust policy: %s", trustPolicyLink)
+		return nil, fmt.Errorf("malformed trustpolicy.json file. How to set up Notation trust policy: %s", trustPolicyLink)
 	}
 	return policyDocument, nil
 }

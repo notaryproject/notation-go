@@ -519,7 +519,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 
 	// non-existing Registry Scope
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
-	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes.\nTo set up Notation trust policy: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. How to set up Notation trust policy: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
 
@@ -546,7 +546,7 @@ func TestLoadDocument(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	_, err := LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s.\nTo set up Notation trust policy: %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink) {
+	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s. How to set up Notation trust policy: %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink) {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
 
