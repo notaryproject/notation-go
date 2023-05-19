@@ -104,7 +104,7 @@ func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 	}
 	opts := notation.VerifierVerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
 	_, err := verifier.Verify(context.Background(), ocispec.Descriptor{}, []byte{}, opts)
-	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable trust policy"}) {
+	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create Notation trust policy: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
 		t.Fatalf("no applicable trust policy must throw error")
 	}
 }
