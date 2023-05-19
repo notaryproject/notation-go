@@ -7,7 +7,7 @@ import (
 	ldapv3 "github.com/go-ldap/ldap/v3"
 )
 
-// ParseDistinguishedName parses a DN name and validates Notary V2 rules
+// ParseDistinguishedName parses a DN name and validates Notation rules
 func ParseDistinguishedName(name string) (map[string]string, error) {
 	if strings.Contains(name, "=#") {
 		return nil, fmt.Errorf("unsupported distinguished name (DN) %q: notation does not support x509.subject identities containing \"=#\"", name)

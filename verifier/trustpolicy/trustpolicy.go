@@ -19,6 +19,9 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
+// trustPolicyLink is a tutorial link for creating Notation's trust policy.
+const trustPolicyLink = "https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"
+
 // ValidationType is an enum for signature verification types such as Integrity,
 // Authenticity, etc.
 type ValidationType string
@@ -268,7 +271,7 @@ func LoadDocument() (*Document, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, os.ErrNotExist):
-			return nil, fmt.Errorf("trust policy is not present, please create trust policy at %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
+			return nil, fmt.Errorf("trust policy is not present, please create trust policy at %s. How to create the Notation trust policy: %q", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink)
 		case errors.Is(err, os.ErrPermission):
 			return nil, fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
 		default:
@@ -368,7 +371,7 @@ func (t *TrustPolicy) clone() *TrustPolicy {
 }
 
 // validateTrustStore validates if the policy statement is following the
-// Notary V2 spec rules for truststores
+// Notation spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
 	for _, trustStore := range statement.TrustStores {
 		storeType, namedStore, found := strings.Cut(trustStore, ":")
@@ -387,7 +390,7 @@ func validateTrustStore(statement TrustPolicy) error {
 }
 
 // validateTrustedIdentities validates if the policy statement is following the
-// Notary V2 spec rules for trusted identities
+// Notation spec rules for trusted identities
 func validateTrustedIdentities(statement TrustPolicy) error {
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
@@ -433,7 +436,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 }
 
 // validateRegistryScopes validates if the policy document is following the
-// Notary V2 spec rules for registry scopes
+// Notation spec rules for registry scopes
 func validateRegistryScopes(policyDoc *Document) error {
 	registryScopeCount := make(map[string]int)
 	for _, statement := range policyDoc.TrustPolicies {

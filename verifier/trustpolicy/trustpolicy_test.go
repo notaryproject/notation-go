@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -545,7 +546,7 @@ func TestLoadDocument(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	_, err := LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy)) {
+	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s. How to create the Notation trust policy: %q", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy), trustPolicyLink) {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
 
@@ -578,6 +579,9 @@ func TestLoadDocument(t *testing.T) {
 	}
 
 	// existing policy file with bad permissions
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	tempRoot = t.TempDir()
 	dir.UserConfigDir = tempRoot
 	path = filepath.Join(tempRoot, "trustpolicy.json")
