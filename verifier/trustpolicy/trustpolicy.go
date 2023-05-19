@@ -235,7 +235,7 @@ func (policyDoc *Document) Validate() error {
 // GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
 // statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+// see https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.2/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
 func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {
@@ -261,7 +261,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes.\nFor more details: %s", artifactReference, trustPolicyLink)
 	}
 }
 
@@ -282,7 +282,7 @@ func LoadDocument() (*Document, error) {
 	policyDocument := &Document{}
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
-		return nil, errors.New("malformed trustpolicy.json file")
+		return nil, fmt.Errorf("malformed trustpolicy.json file.\nHow to create the Notation trust policy: %s", trustPolicyLink)
 	}
 	return policyDocument, nil
 }
