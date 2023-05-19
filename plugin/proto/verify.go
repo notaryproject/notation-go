@@ -22,7 +22,7 @@ type Signature struct {
 	CertificateChain      [][]byte           `json:"certificateChain"`
 }
 
-// CriticalAttributes contains all Notary V2 defined critical
+// CriticalAttributes contains all Notary Project defined critical
 // attributes and their values in the signature envelope
 type CriticalAttributes struct {
 	ContentType          string                 `json:"contentType"`
