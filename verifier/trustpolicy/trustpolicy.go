@@ -19,6 +19,9 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
+// trustPolicyLink is a tutorial link for creating Notation's trust policy.
+const trustPolicyLink = "https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"
+
 // ValidationType is an enum for signature verification types such as Integrity,
 // Authenticity, etc.
 type ValidationType string
@@ -232,7 +235,7 @@ func (policyDoc *Document) Validate() error {
 // GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
 // statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy-specification.md#selecting-a-trust-policy-based-on-artifact-uri
+// see https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.2/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
 func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {
@@ -258,7 +261,7 @@ func (trustPolicyDoc *Document) GetApplicableTrustPolicy(artifactReference strin
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy", artifactReference)
+		return nil, fmt.Errorf("artifact %q has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: %s", artifactReference, trustPolicyLink)
 	}
 }
 
@@ -268,7 +271,7 @@ func LoadDocument() (*Document, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, os.ErrNotExist):
-			return nil, fmt.Errorf("trust policy is not present, please create trust policy at %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
+			return nil, fmt.Errorf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink)
 		case errors.Is(err, os.ErrPermission):
 			return nil, fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy))
 		default:
@@ -279,7 +282,7 @@ func LoadDocument() (*Document, error) {
 	policyDocument := &Document{}
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
-		return nil, errors.New("malformed trustpolicy.json file")
+		return nil, fmt.Errorf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink)
 	}
 	return policyDocument, nil
 }
@@ -368,7 +371,7 @@ func (t *TrustPolicy) clone() *TrustPolicy {
 }
 
 // validateTrustStore validates if the policy statement is following the
-// Notary V2 spec rules for truststores
+// Notary Project spec rules for truststores
 func validateTrustStore(statement TrustPolicy) error {
 	for _, trustStore := range statement.TrustStores {
 		storeType, namedStore, found := strings.Cut(trustStore, ":")
@@ -387,7 +390,7 @@ func validateTrustStore(statement TrustPolicy) error {
 }
 
 // validateTrustedIdentities validates if the policy statement is following the
-// Notary V2 spec rules for trusted identities
+// Notary Project spec rules for trusted identities
 func validateTrustedIdentities(statement TrustPolicy) error {
 	// If there is a wildcard in trusted identies, there shouldn't be any other
 	//identities
@@ -433,7 +436,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 }
 
 // validateRegistryScopes validates if the policy document is following the
-// Notary V2 spec rules for registry scopes
+// Notary Project spec rules for registry scopes
 func validateRegistryScopes(policyDoc *Document) error {
 	registryScopeCount := make(map[string]int)
 	for _, statement := range policyDoc.TrustPolicies {

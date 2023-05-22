@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -518,7 +519,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 
 	// non-existing Registry Scope
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
-	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy" {
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
 
@@ -545,7 +546,7 @@ func TestLoadDocument(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	_, err := LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s", filepath.Join(dir.UserConfigDir, dir.PathTrustPolicy)) {
+	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink) {
 		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
 	}
 
@@ -578,6 +579,9 @@ func TestLoadDocument(t *testing.T) {
 	}
 
 	// existing policy file with bad permissions
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	tempRoot = t.TempDir()
 	dir.UserConfigDir = tempRoot
 	path = filepath.Join(tempRoot, "trustpolicy.json")
