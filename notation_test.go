@@ -148,6 +148,23 @@ func TestVerifyTagReferenceFailed(t *testing.T) {
 	}
 }
 
+func TestVerifyDigestNotMatchResolve(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	repo.MissMatchDigest = true
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
+	errorMessage := fmt.Sprintf("user input digest %s does not match the resolved digest %s", mock.SampleDigest, mock.ZeroDigest)
+	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
+
+	// mock the repository
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+	if err == nil || err.Error() != errorMessage {
+		t.Fatalf("VerifyTagReference expected: %v got: %v", expectedErr, err)
+	}
+}
+
 func TestSkippedSignatureVerification(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()

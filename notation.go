@@ -324,6 +324,8 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 		// artifactRef is not a digest reference
 		logger.Infof("Resolved artifact tag `%s` to digest `%s` before verification", ref.Reference, artifactDescriptor.Digest.String())
 		logger.Warn("The resolved digest may not point to the same signed artifact, since tags are mutable")
+	} else if ref.Reference != artifactDescriptor.Digest.String() {
+		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("user input digest %s does not match the resolved digest %s", ref.Reference, artifactDescriptor.Digest.String())}
 	}
 
 	var verificationOutcomes []*VerificationOutcome
