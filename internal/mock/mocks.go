@@ -112,6 +112,7 @@ type Repository struct {
 	FetchSignatureBlobResponse []byte
 	FetchSignatureBlobError    error
 	MissMatchDigest            bool
+	ExceededNumOfSignatures    bool
 }
 
 func NewRepository() Repository {
@@ -135,6 +136,9 @@ func (t Repository) Resolve(ctx context.Context, reference string) (ocispec.Desc
 }
 
 func (t Repository) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
+	if t.ExceededNumOfSignatures {
+		t.ListSignaturesResponse = []ocispec.Descriptor{SigManfiestDescriptor, SigManfiestDescriptor}
+	}
 	err := fn(t.ListSignaturesResponse)
 	if err != nil {
 		return err

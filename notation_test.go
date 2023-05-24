@@ -241,6 +241,22 @@ func TestMaxSignatureAttemptsMissing(t *testing.T) {
 	}
 }
 
+func TestExceededMaxSignatureAttempts(t *testing.T) {
+	policyDocument := dummyPolicyDocument()
+	repo := mock.NewRepository()
+	repo.ExceededNumOfSignatures = true
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
+	expectedErr := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", 1)}
+
+	// mock the repository
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 1}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err == nil || !errors.Is(err, expectedErr) {
+		t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+	}
+}
+
 func TestVerifyFailed(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
