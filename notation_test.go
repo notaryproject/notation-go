@@ -246,7 +246,7 @@ func TestExceededMaxSignatureAttempts(t *testing.T) {
 	repo := mock.NewRepository()
 	repo.ExceededNumOfSignatures = true
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
-	expectedErr := ErrorVerificationFailed{Msg: fmt.Sprintf("the number of signatures has surpassed the maximum limit of %d that can be evaluated", 1)}
+	expectedErr := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", 1)}
 
 	// mock the repository
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 1}
