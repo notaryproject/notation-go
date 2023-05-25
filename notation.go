@@ -17,6 +17,7 @@ import (
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	orasRegistry "oras.land/oras-go/v2/registry"
 )
@@ -98,12 +99,17 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
 	}
+	// artifactRef is a tag or a digest, if it's a digest it has to match
+	// the resolved digest
 	if artifactRef != targetDesc.Digest.String() {
-		// artifactRef is not a digest reference
+		if _, err := digest.Parse(artifactRef); err == nil {
+			// artifactRef is a digest, but does not match the resolved digest
+			return ocispec.Descriptor{}, fmt.Errorf("user input digest %s does not match the resolved digest %s", artifactRef, targetDesc.Digest.String())
+		}
+		// artifactRef is a tag
 		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", artifactRef)
 		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", artifactRef, targetDesc.Digest.String())
 	}
-
 	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
 	if err != nil {
 		return ocispec.Descriptor{}, err
