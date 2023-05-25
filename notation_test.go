@@ -161,7 +161,23 @@ func TestVerifyDigestNotMatchResolve(t *testing.T) {
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 	if err == nil || err.Error() != errorMessage {
-		t.Fatalf("VerifyTagReference expected: %v got: %v", expectedErr, err)
+		t.Fatalf("VerifyDigestNotMatch expected: %v got: %v", expectedErr, err)
+	}
+}
+
+func TestSignDigestNotMatchResolve(t *testing.T) {
+	repo := mock.NewRepository()
+	repo.MissMatchDigest = true
+	signOpts := SignOptions{
+		ArtifactReference: mock.SampleArtifactUri,
+	}
+
+	errorMessage := fmt.Sprintf("user input digest %s does not match the resolved digest %s", mock.SampleDigest, mock.ZeroDigest)
+	expectedErr := fmt.Errorf(errorMessage)
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, signOpts)
+	if err == nil || err.Error() != errorMessage {
+		t.Fatalf("SignDigestNotMatch expected: %v got: %v", expectedErr, err)
 	}
 }
 
