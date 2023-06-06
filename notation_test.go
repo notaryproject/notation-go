@@ -187,9 +187,9 @@ func TestSkippedSignatureVerification(t *testing.T) {
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
 
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
-	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
+	_, outcome, err := Verify(context.Background(), &verifier, repo, opts)
 
-	if err != nil || outcomes[0].VerificationLevel.Name != trustpolicy.LevelSkip.Name {
+	if err != nil || outcome.VerificationLevel.Name != trustpolicy.LevelSkip.Name {
 		t.Fatalf("\"skip\" verification level must pass overall signature verification")
 	}
 }

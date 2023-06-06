@@ -279,7 +279,7 @@ type VerifyOptions struct {
 // successful signature verification outcome.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
-func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, verifyOpts VerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
+func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, verifyOpts VerifyOptions) (ocispec.Descriptor, *VerificationOutcome, error) {
 	logger := log.GetLogger(ctx)
 
 	// sanity check
@@ -308,7 +308,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 		}
 		if skip {
 			logger.Infoln("Verification skipped for", verifyOpts.ArtifactReference)
-			return ocispec.Descriptor{}, []*VerificationOutcome{{VerificationLevel: verificationLevel}}, nil
+			return ocispec.Descriptor{}, &VerificationOutcome{VerificationLevel: verificationLevel}, nil
 		}
 		logger.Info("Check over. Trust policy is not configured to skip signature verification")
 	}
@@ -334,7 +334,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("user input digest %s does not match the resolved digest %s", ref.Reference, artifactDescriptor.Digest.String())}
 	}
 
-	var verificationOutcomes []*VerificationOutcome
+	var verificationOutcome *VerificationOutcome
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", verifyOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 
@@ -376,7 +376,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 			}
 			// at this point, the signature is verified successfully. Add
 			// it to the verificationOutcomes.
-			verificationOutcomes = append(verificationOutcomes, outcome)
+			verificationOutcome = outcome
 			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 
 			// early break on success
@@ -392,7 +392,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 
 	if err != nil && !errors.Is(err, errDoneVerification) {
 		if errors.Is(err, errExceededMaxVerificationLimit) {
-			return ocispec.Descriptor{}, verificationOutcomes, err
+			return ocispec.Descriptor{}, verificationOutcome, err
 		}
 		return ocispec.Descriptor{}, nil, err
 	}
@@ -403,13 +403,13 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	}
 
 	// Verification Failed
-	if len(verificationOutcomes) == 0 {
+	if verificationOutcome == nil {
 		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
-		return ocispec.Descriptor{}, verificationOutcomes, verificationFailedErr
+		return ocispec.Descriptor{}, verificationOutcome, verificationFailedErr
 	}
 
 	// Verification Succeeded
-	return artifactDescriptor, verificationOutcomes, nil
+	return artifactDescriptor, verificationOutcome, nil
 }
 
 func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[string]string) (map[string]string, error) {
