@@ -60,7 +60,6 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 	if err != nil {
 		return nil, err
 	}
-
 	// throw error if path is not a directory or is a symlink or does not exist.
 	fileInfo, err := os.Lstat(path)
 	if err != nil {
@@ -73,7 +72,6 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 	if !mode.IsDir() || mode&fs.ModeSymlink != 0 {
 		return nil, fmt.Errorf("%q is not a regular directory (symlinks are not supported)", path)
 	}
-
 	files, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -89,40 +87,33 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 		if err != nil {
 			return nil, fmt.Errorf("error while reading certificates from %q: %w", joinedPath, err)
 		}
-
-		if err := validateCerts(certs, joinedPath); err != nil {
-			return nil, err
+		if err := ValidateCertificates(certs); err != nil {
+			return nil, fmt.Errorf("error while validating certificates from %q: %w", joinedPath, err)
 		}
-
 		certificates = append(certificates, certs...)
 	}
-
 	if len(certificates) < 1 {
 		return nil, fmt.Errorf("trust store %q has no x509 certificates", path)
 	}
-
 	return certificates, nil
 }
 
-func validateCerts(certs []*x509.Certificate, path string) error {
-	// to prevent any trust store misconfigurations, ensure there is at least
-	// one certificate from each file.
+// ValidateCertificates ensures certificates from trust store are
+// CA certificates or self-signed.
+func ValidateCertificates(certs []*x509.Certificate) error {
 	if len(certs) < 1 {
-		return fmt.Errorf("could not parse a certificate from %q, every file in a trust store must have a PEM or DER certificate in it", path)
+		return errors.New("input certs cannot be empty")
 	}
-
 	for _, cert := range certs {
 		if !cert.IsCA {
 			if err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature); err != nil {
 				return fmt.Errorf(
-					"certificate with subject %q from file %q is not a CA certificate or self-signed signing certificate",
+					"certificate with subject %q is not a CA certificate or self-signed signing certificate",
 					cert.Subject,
-					path,
 				)
 			}
 		}
 	}
-
 	return nil
 }
 

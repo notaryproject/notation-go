@@ -5,19 +5,28 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/notaryproject/notation-core-go/revocation"
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/testhelper"
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-go/signer"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"golang.org/x/crypto/ocsp"
 
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -78,7 +87,7 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			opts := notation.VerifyOptions{ArtifactReference: tt.uri}
+			opts := notation.VerifierVerifyOptions{ArtifactReference: tt.uri}
 			_, err := verifier.Verify(context.Background(), ocispec.Descriptor{}, []byte{}, opts)
 			if err != nil != tt.wantErr {
 				t.Fatalf("TestInvalidArtifactUriValidations expected error for %q", tt.uri)
@@ -93,9 +102,9 @@ func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 		trustPolicyDoc: &policyDocument,
 		pluginManager:  mock.PluginManager{},
 	}
-	opts := notation.VerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
+	opts := notation.VerifierVerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
 	_, err := verifier.Verify(context.Background(), ocispec.Descriptor{}, []byte{}, opts)
-	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable trust policy"}) {
+	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
 		t.Fatalf("no applicable trust policy must throw error")
 	}
 }
@@ -125,7 +134,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 		verificationType  trustpolicy.ValidationType
 		verificationLevel *trustpolicy.VerificationLevel
 		policyDocument    trustpolicy.Document
-		opts              notation.VerifyOptions
+		opts              notation.VerifierVerifyOptions
 		expectedErr       error
 	}
 
@@ -140,7 +149,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeIntegrity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/unsupported+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/unsupported+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -153,7 +162,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeIntegrity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 		})
 	}
 
@@ -166,7 +175,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeIntegrity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -179,7 +188,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 		})
 	}
 
@@ -193,7 +202,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -208,7 +217,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -223,7 +232,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -238,7 +247,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -253,7 +262,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -266,7 +275,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeExpiry,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 		})
 	}
 
@@ -279,7 +288,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			verificationType:  trustpolicy.TypeExpiry,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
-			opts:              notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
+			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
 			expectedErr:       expectedErr,
 		})
 	}
@@ -299,15 +308,441 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 			pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 
+			revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+			if err != nil {
+				t.Fatalf("unexpected error while creating revocation object: %v", err)
+			}
 			verifier := verifier{
-				trustPolicyDoc: &tt.policyDocument,
-				trustStore:     truststore.NewX509TrustStore(dir.ConfigFS()),
-				pluginManager:  pluginManager,
+				trustPolicyDoc:   &tt.policyDocument,
+				trustStore:       truststore.NewX509TrustStore(dir.ConfigFS()),
+				pluginManager:    pluginManager,
+				revocationClient: revocationClient,
 			}
 			outcome, _ := verifier.Verify(context.Background(), ocispec.Descriptor{}, tt.signatureBlob, tt.opts)
 			verifyResult(outcome, expectedResult, tt.expectedErr, t)
 		})
 	}
+}
+
+func TestVerifyRevocationEnvelope(t *testing.T) {
+	// Test values
+	desc := ocispec.Descriptor{
+		MediaType:    "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:       "sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e",
+		Size:         528,
+		URLs:         []string{},
+		Annotations:  map[string]string{},
+		Data:         []byte("test data"),
+		Platform:     nil,
+		ArtifactType: "",
+	}
+	payload := envelope.Payload{
+		TargetArtifact: desc,
+	}
+	opts := notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	pluginManager := mock.PluginManager{}
+	pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
+	pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
+
+	// Get revokable certs and set up mock client (will always say certs are revoked)
+	revokableChain := testhelper.GetRevokableRSAChain(2)
+	httpClient := testhelper.MockClient(revokableChain, []ocsp.ResponseStatus{ocsp.Revoked}, nil, true)
+	revocationClient, err := revocation.New(httpClient)
+	if err != nil {
+		t.Fatalf("unexpected error while creating revocation object: %v", err)
+	}
+
+	// Generate blob with revokable certs
+	internalSigner, err := signer.New(revokableChain[0].PrivateKey, []*x509.Certificate{revokableChain[0].Cert, revokableChain[1].Cert})
+	if err != nil {
+		t.Fatalf("Unexpected error while creating signer: %v", err)
+	}
+	envelopeBlob, _, err := internalSigner.Sign(context.Background(), payload.TargetArtifact, notation.SignerSignOptions{ExpiryDuration: 24 * time.Hour, SignatureMediaType: "application/jose+json"})
+	if err != nil {
+		t.Fatalf("Unexpected error while generating blob: %v", err)
+	}
+
+	t.Run("enforced revoked cert", func(t *testing.T) {
+		testedLevel := trustpolicy.LevelStrict
+		policyDoc := dummyPolicyDocument()
+		policyDoc.TrustPolicies[0].SignatureVerification.VerificationLevel = testedLevel.Name
+		policyDoc.TrustPolicies[0].SignatureVerification.Override = map[trustpolicy.ValidationType]trustpolicy.ValidationAction{
+			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
+			trustpolicy.TypeRevocation:   trustpolicy.ActionEnforce,
+		}
+		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", revokableChain[0].Cert.Subject.String())
+		expectedResult := notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: trustpolicy.ActionEnforce,
+			Error:  expectedErr,
+		}
+
+		dir.UserConfigDir = "testdata"
+
+		verifier := verifier{
+			trustPolicyDoc:   &policyDoc,
+			trustStore:       truststore.NewX509TrustStore(dir.ConfigFS()),
+			pluginManager:    pluginManager,
+			revocationClient: revocationClient,
+		}
+		outcome, err := verifier.Verify(context.Background(), desc, envelopeBlob, opts)
+		if err == nil || err.Error() != expectedErr.Error() {
+			t.Fatalf("Expected verify to fail with %v, but got %v", expectedErr, err)
+		}
+		verifyResult(outcome, expectedResult, expectedErr, t)
+	})
+	t.Run("log revoked cert", func(t *testing.T) {
+		testedLevel := trustpolicy.LevelStrict
+		policyDoc := dummyPolicyDocument()
+		policyDoc.TrustPolicies[0].SignatureVerification.VerificationLevel = testedLevel.Name
+		policyDoc.TrustPolicies[0].SignatureVerification.Override = map[trustpolicy.ValidationType]trustpolicy.ValidationAction{
+			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
+			trustpolicy.TypeRevocation:   trustpolicy.ActionLog,
+		}
+		var expectedErr error = fmt.Errorf("signing certificate with subject %q is revoked", revokableChain[0].Cert.Subject.String())
+		expectedResult := notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: trustpolicy.ActionLog,
+			Error:  expectedErr,
+		}
+
+		dir.UserConfigDir = "testdata"
+
+		verifier := verifier{
+			trustPolicyDoc:   &policyDoc,
+			trustStore:       truststore.NewX509TrustStore(dir.ConfigFS()),
+			pluginManager:    pluginManager,
+			revocationClient: revocationClient,
+		}
+		ctx := context.Background()
+		outcome, err := verifier.Verify(ctx, desc, envelopeBlob, opts)
+		if err != nil {
+			t.Fatalf("Unexpected error while verifying: %v", err)
+		}
+		verifyResult(outcome, expectedResult, expectedErr, t)
+	})
+	t.Run("skip revoked cert", func(t *testing.T) {
+		testedLevel := trustpolicy.LevelStrict
+		policyDoc := dummyPolicyDocument()
+		policyDoc.TrustPolicies[0].SignatureVerification.VerificationLevel = testedLevel.Name
+		policyDoc.TrustPolicies[0].SignatureVerification.Override = map[trustpolicy.ValidationType]trustpolicy.ValidationAction{
+			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
+			trustpolicy.TypeRevocation:   trustpolicy.ActionSkip,
+		}
+
+		dir.UserConfigDir = "testdata"
+
+		verifier := verifier{
+			trustPolicyDoc:   &policyDoc,
+			trustStore:       truststore.NewX509TrustStore(dir.ConfigFS()),
+			pluginManager:    pluginManager,
+			revocationClient: revocationClient,
+		}
+		outcome, err := verifier.Verify(context.Background(), desc, envelopeBlob, opts)
+		if err != nil {
+			t.Fatalf("Unexpected error while verifying: %v", err)
+		}
+		for _, result := range outcome.VerificationResults {
+			if result.Type == trustpolicy.TypeRevocation {
+				t.Fatal("expected no result for TypeRevocation after skip")
+			}
+		}
+	})
+}
+
+func createMockOutcome(certChain []*x509.Certificate, signingTime time.Time) *notation.VerificationOutcome {
+	return &notation.VerificationOutcome{
+		EnvelopeContent: &signature.EnvelopeContent{
+			SignerInfo: signature.SignerInfo{
+				SignedAttributes: signature.SignedAttributes{
+					SigningTime:   signingTime,
+					SigningScheme: signature.SigningSchemeX509SigningAuthority,
+				},
+				CertificateChain: certChain,
+			},
+		},
+		VerificationLevel: &trustpolicy.VerificationLevel{
+			Enforcement: map[trustpolicy.ValidationType]trustpolicy.ValidationAction{trustpolicy.TypeRevocation: trustpolicy.ActionEnforce},
+		},
+	}
+}
+
+func TestVerifyRevocation(t *testing.T) {
+	logger := log.GetLogger(context.Background())
+	zeroTime := time.Time{}
+
+	revokableTuples := testhelper.GetRevokableRSAChain(3)
+	revokableTuples[0].Cert.NotBefore = zeroTime
+	revokableTuples[1].Cert.NotBefore = zeroTime
+	revokableTuples[2].Cert.NotBefore = zeroTime
+	revokableChain := []*x509.Certificate{revokableTuples[0].Cert, revokableTuples[1].Cert, revokableTuples[2].Cert}
+	invalidChain := []*x509.Certificate{revokableTuples[1].Cert, revokableTuples[0].Cert, revokableTuples[2].Cert}
+
+	goodClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Good}, nil, true)
+	revokedClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked}, nil, true)
+	revokedInvalidityDate := time.Now().Add(-1 * time.Hour)
+	revokedInvalidityClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked}, &revokedInvalidityDate, true)
+	unknownClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown}, nil, true)
+	unknownRevokedClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Unknown, ocsp.Revoked}, nil, true)
+	revokedUnknownClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Revoked, ocsp.Unknown}, nil, true)
+	pkixNoCheckClient := testhelper.MockClient(revokableTuples, []ocsp.ResponseStatus{ocsp.Good}, nil, false)
+	timeoutClient := &http.Client{Timeout: 1 * time.Nanosecond}
+
+	unknownMsg := fmt.Sprintf("signing certificate with subject %q revocation status is unknown", revokableChain[0].Subject.String())
+	revokedMsg := fmt.Sprintf("signing certificate with subject %q is revoked", revokableChain[0].Subject.String())
+	multiMsg := fmt.Sprintf("signing certificate with subject %q is revoked", revokableChain[1].Subject.String())
+
+	t.Run("verifyRevocation nil client", func(t *testing.T) {
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), nil, logger)
+		expectedErrMsg := "unable to check revocation status, revocation client cannot be nil"
+		if result.Error == nil || result.Error.Error() != expectedErrMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation invalid chain", func(t *testing.T) {
+		revocationClient, err := revocation.New(goodClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(invalidChain, time.Now()), revocationClient, logger)
+		expectedErrMsg := "unable to check revocation status, err: invalid chain: expected chain to be correct and complete: invalid certificates or certificate with subject \"CN=Notation Test Revokable RSA Chain Cert 2,O=Notary,L=Seattle,ST=WA,C=US\" is not issued by \"CN=Notation Test Revokable RSA Chain Cert 3,O=Notary,L=Seattle,ST=WA,C=US\". Error: x509: invalid signature: parent certificate cannot sign this kind of certificate"
+		if result.Error == nil || result.Error.Error() != expectedErrMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation non-revoked", func(t *testing.T) {
+		revocationClient, err := revocation.New(goodClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error != nil {
+			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP revoked no invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP revoked with invalidiy", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedInvalidityClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP unknown", func(t *testing.T) {
+		revocationClient, err := revocation.New(unknownClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != unknownMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP unknown then revoked", func(t *testing.T) {
+		revocationClient, err := revocation.New(unknownRevokedClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != multiMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", multiMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation OCSP revoked then unknown", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedUnknownClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation missing id-pkix-ocsp-nocheck", func(t *testing.T) {
+		revocationClient, err := revocation.New(pkixNoCheckClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error != nil {
+			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
+		}
+	})
+	t.Run("verifyRevocation timeout", func(t *testing.T) {
+		revocationClient, err := revocation.New(timeoutClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != unknownMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation older signing time no invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour)), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation zero signing time no invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, zeroTime), revocationClient, logger)
+		if !zeroTime.IsZero() {
+			t.Fatalf("exected zeroTime.IsZero() to be true")
+		}
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation older signing time with invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedInvalidityClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour)), revocationClient, logger)
+		if result.Error != nil {
+			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
+		}
+	})
+	t.Run("verifyRevocation zero signing time with invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedInvalidityClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		result := verifyRevocation(createMockOutcome(revokableChain, zeroTime), revocationClient, logger)
+		if !zeroTime.IsZero() {
+			t.Fatalf("exected zeroTime.IsZero() to be true")
+		}
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+	t.Run("verifyRevocation non-authentic signing time with invalidity", func(t *testing.T) {
+		revocationClient, err := revocation.New(revokedInvalidityClient)
+		if err != nil {
+			t.Fatalf("unexpected error while creating revocation object: %v", err)
+		}
+		// Specifying older signing time (which should succeed), but will use zero time since no authentic signing time
+		outcome := createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour))
+		outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme = "unsupported scheme"
+
+		time, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
+		expectedErr := errors.New("authenticSigningTime not found")
+		if !time.IsZero() || err == nil || err.Error() != expectedErr.Error() {
+			t.Fatalf("expected AuthenticSigningTime to fail with %v, but got %v", expectedErr, err)
+		}
+
+		result := verifyRevocation(outcome, revocationClient, logger)
+
+		if result.Error == nil || result.Error.Error() != revokedMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
+		}
+	})
+}
+
+func TestNewWithOptions(t *testing.T) {
+	policy := dummyPolicyDocument()
+	store := truststore.NewX509TrustStore(dir.ConfigFS())
+	pm := mock.PluginManager{}
+	client := &http.Client{Timeout: 2 * time.Second}
+	r, err := revocation.New(client)
+	if err != nil {
+		t.Fatalf("unexpected error while creating revocation object: %v", err)
+	}
+	opts := VerifierOptions{RevocationClient: r}
+	t.Run("successful call from New (default value)", func(t *testing.T) {
+		v, err := New(&policy, store, pm)
+
+		if err != nil {
+			t.Fatalf("expected New constructor to succeed with default client, but got %v", err)
+		}
+		verifierV, ok := v.(*verifier)
+		if !ok {
+			t.Fatal("expected constructor to return a verifier object")
+		}
+		if !(verifierV.trustPolicyDoc == &policy) {
+			t.Fatalf("expected trustPolicyDoc %v, but got %v", &policy, verifierV.trustPolicyDoc)
+		}
+		if !(verifierV.trustStore == store) {
+			t.Fatalf("expected trustStore %v, but got %v", store, verifierV.trustStore)
+		}
+		if !reflect.DeepEqual(verifierV.pluginManager, pm) {
+			t.Fatalf("expected pluginManager %v, but got %v", pm, verifierV.pluginManager)
+		}
+		if verifierV.revocationClient == nil {
+			t.Fatal("expected nonnil revocationClient")
+		}
+	})
+	t.Run("successful with empty options", func(t *testing.T) {
+		v, err := NewWithOptions(&policy, store, pm, VerifierOptions{})
+
+		if err != nil {
+			t.Fatalf("expected NewWithOptions constructor to succeed with empty options, but got %v", err)
+		}
+		verifierV, ok := v.(*verifier)
+		if !ok {
+			t.Fatal("expected constructor to return a verifier object")
+		}
+		if !(verifierV.trustPolicyDoc == &policy) {
+			t.Fatalf("expected trustPolicyDoc %v, but got %v", &policy, verifierV.trustPolicyDoc)
+		}
+		if !(verifierV.trustStore == store) {
+			t.Fatalf("expected trustStore %v, but got %v", store, verifierV.trustStore)
+		}
+		if !reflect.DeepEqual(verifierV.pluginManager, pm) {
+			t.Fatalf("expected pluginManager %v, but got %v", pm, verifierV.pluginManager)
+		}
+		if verifierV.revocationClient == nil {
+			t.Fatal("expected nonnil revocationClient")
+		}
+	})
+	t.Run("successful with client", func(t *testing.T) {
+		v, err := NewWithOptions(&policy, store, pm, opts)
+
+		if err != nil {
+			t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
+		}
+
+		expectedV := &verifier{
+			trustPolicyDoc:   &policy,
+			trustStore:       store,
+			pluginManager:    pm,
+			revocationClient: r,
+		}
+		if !reflect.DeepEqual(expectedV, v) {
+			t.Fatalf("expected %v to be created, but got %v", expectedV, v)
+		}
+	})
+	t.Run("fail with nil trust policy", func(t *testing.T) {
+		v, err := NewWithOptions(nil, store, pm, opts)
+
+		expectedErrMsg := "trustPolicy or trustStore cannot be nil"
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected NewWithOptions constructor to fail with %v, but got %v", expectedErrMsg, err)
+		}
+		if v != nil {
+			t.Fatal("expected constructor to return nil")
+		}
+	})
 }
 
 func TestVerificationPluginInteractions(t *testing.T) {
@@ -331,12 +766,17 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager := mock.PluginManager{}
 	pluginManager.GetPluginError = errors.New("plugin not found")
 
-	v := verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+	revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+	if err != nil {
+		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	opts := notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	v := verifier{
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
+	}
+	opts := notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err := v.Verify(context.Background(), ocispec.Descriptor{}, pluginSigEnv, opts)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "error while locating the verification plugin \"plugin-name\", make sure the plugin is installed successfully before verifying the signature. error: plugin not found" {
 		t.Fatalf("verification should fail if the verification plugin is not found")
@@ -347,11 +787,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilitySignatureGenerator}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), ocispec.Descriptor{}, pluginSigEnv, opts)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "digital signature requires plugin \"plugin-name\" with signature verification capabilities (\"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\" and/or \"SIGNATURE_VERIFIER.REVOCATION_CHECK\") installed" {
 		t.Fatalf("verification should fail if the verification plugin is not found")
@@ -370,11 +811,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), mock.ImageDescriptor, pluginSigEnv, opts)
 	if err != nil || outcome.Error != nil {
 		t.Fatalf("verification should succeed when the verification plugin succeeds for trusted identity verification. error : %v", outcome.Error)
@@ -394,11 +836,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), ocispec.Descriptor{}, pluginSigEnv, opts)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "trusted identify verification by plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
 		t.Fatalf("verification should fail when the verification plugin fails for trusted identity verification. error : %v", outcome.Error)
@@ -417,11 +860,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), mock.ImageDescriptor, pluginSigEnv, opts)
 	if err != nil || outcome.Error != nil {
 		t.Fatalf("verification should succeed when the verification plugin succeeds for revocation verification. error : %v", outcome.Error)
@@ -441,11 +885,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), ocispec.Descriptor{}, pluginSigEnv, opts)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "revocation check by verification plugin \"plugin-name\" failed with reason \"i feel like failing today\"" {
 		t.Fatalf("verification should fail when the verification plugin fails for revocation check verification. error : %v", outcome.Error)
@@ -467,11 +912,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), mock.ImageDescriptor, pluginSigEnv, opts)
 	if err != nil || outcome.Error != nil {
 		t.Fatalf("verification should succeed when the verification plugin succeeds for both trusted identity and revocation check verifications. error : %v", outcome.Error)
@@ -484,11 +930,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginRunnerExecuteError = errors.New("revocation plugin should not be invoked when the trust policy skips revocation check")
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	trustPolicy, err := (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
@@ -510,11 +957,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginRunnerExecuteError = errors.New("invalid plugin response")
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	trustPolicy, err = (&policyDocument).GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		t.Fatalf("cannot get trustPolicy")
@@ -542,11 +990,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), mock.ImageDescriptor, pluginSigEnv, opts)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "extended critical attribute \"SomeKey\" was not processed by the verification plugin \"plugin-name\" (all extended critical attributes must be processed by the verification plugin)" {
 		t.Fatalf("verification should fail when the verification plugin fails to process an extended critical attribute. error : %v", outcome.Error)
@@ -561,11 +1010,12 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	}
 
 	v = verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
-	opts = notation.VerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
+	opts = notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"}
 	outcome, err = v.Verify(context.Background(), mock.ImageDescriptor, pluginSigEnv, opts)
 	if err == nil || outcome.Error == nil || outcome.Error.Error() != "verification plugin \"plugin-name\" failed to verify \"SIGNATURE_VERIFIER.TRUSTED_IDENTITY\"" {
 		t.Fatalf("verification should fail when the verification plugin does not return response for a capability. error : %v", outcome.Error)
@@ -618,11 +1068,15 @@ func TestVerifyUserMetadata(t *testing.T) {
 	pluginManager := mock.PluginManager{}
 	pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 	pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
-
+	revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+	if err != nil {
+		t.Fatalf("unexpected error while creating revocation object: %v", err)
+	}
 	verifier := verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     truststore.NewX509TrustStore(dir.ConfigFS()),
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       truststore.NewX509TrustStore(dir.ConfigFS()),
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}
 
 	tests := []struct {
@@ -642,7 +1096,7 @@ func TestVerifyUserMetadata(t *testing.T) {
 				context.Background(),
 				mock.MetadataSigEnvDescriptor,
 				mock.MockSigEnvWithMetadata,
-				notation.VerifyOptions{
+				notation.VerifierVerifyOptions{
 					ArtifactReference:  mock.SampleArtifactUri,
 					SignatureMediaType: "application/jose+json",
 					UserMetadata:       tt.metadata,
@@ -683,12 +1137,17 @@ func TestPluginVersionCompatibility(t *testing.T) {
 	}
 	dir.UserConfigDir = "testdata"
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
-	v := verifier{
-		trustPolicyDoc: &policyDocument,
-		trustStore:     x509TrustStore,
-		pluginManager:  pluginManager,
+	revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+	if err != nil {
+		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	opts := notation.VerifyOptions{ArtifactReference: "localhost:5000/net-monitor@sha256:fe7e9333395060c2f5e63cf36a38fba10176f183b4163a5794e081a480abba5f", SignatureMediaType: "application/jose+json"}
+	v := verifier{
+		trustPolicyDoc:   &policyDocument,
+		trustStore:       x509TrustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
+	}
+	opts := notation.VerifierVerifyOptions{ArtifactReference: "localhost:5000/net-monitor@sha256:fe7e9333395060c2f5e63cf36a38fba10176f183b4163a5794e081a480abba5f", SignatureMediaType: "application/jose+json"}
 
 	tests := []struct {
 		minPluginVerTests []byte

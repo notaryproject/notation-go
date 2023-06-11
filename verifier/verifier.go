@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/notaryproject/notation-core-go/revocation"
+	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
@@ -28,11 +31,20 @@ import (
 	"oras.land/oras-go/v2/content"
 )
 
-// verifier implements notation.Verifier and notation.skipVerifier
+// verifier implements notation.Verifier and notation.verifySkipper
 type verifier struct {
-	trustPolicyDoc *trustpolicy.Document
-	trustStore     truststore.X509TrustStore
-	pluginManager  plugin.Manager
+	trustPolicyDoc   *trustpolicy.Document
+	trustStore       truststore.X509TrustStore
+	pluginManager    plugin.Manager
+	revocationClient revocation.Revocation
+}
+
+// VerifierOptions specifies additional parameters that can be set when using
+// the NewWithOptions constructor
+type VerifierOptions struct {
+	// RevocationClient is an implementation of revocation.Revocation to use for
+	// verifying revocation
+	RevocationClient revocation.Revocation
 }
 
 // NewFromConfig returns a verifier based on local file system
@@ -50,6 +62,20 @@ func NewFromConfig() (notation.Verifier, error) {
 
 // New creates a new verifier given trustPolicy, trustStore and pluginManager
 func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
+	return NewWithOptions(trustPolicy, trustStore, pluginManager, VerifierOptions{})
+}
+
+// NewWithOptions creates a new verifier given trustPolicy, trustStore,
+// pluginManager, and VerifierOptions
+func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
+	revocationClient := opts.RevocationClient
+	if revocationClient == nil {
+		var err error
+		revocationClient, err = revocation.New(&http.Client{Timeout: 5 * time.Second})
+		if err != nil {
+			return nil, err
+		}
+	}
 	if trustPolicy == nil || trustStore == nil {
 		return nil, errors.New("trustPolicy or trustStore cannot be nil")
 	}
@@ -57,22 +83,23 @@ func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore
 		return nil, err
 	}
 	return &verifier{
-		trustPolicyDoc: trustPolicy,
-		trustStore:     trustStore,
-		pluginManager:  pluginManager,
+		trustPolicyDoc:   trustPolicy,
+		trustStore:       trustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
 	}, nil
 }
 
 // SkipVerify validates whether the verification level is skip.
-func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *trustpolicy.VerificationLevel, error) {
+func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyOptions) (bool, *trustpolicy.VerificationLevel, error) {
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("Check verification level against artifact %v", artifactRef)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
+	logger.Debugf("Check verification level against artifact %v", opts.ArtifactReference)
+	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
@@ -89,18 +116,18 @@ func (v *verifier) SkipVerify(ctx context.Context, artifactRef string) (bool, *t
 // successful verification.
 // If nil signature is present and the verification level is not 'skip',
 // an error will be returned.
-func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifyOptions) (*notation.VerificationOutcome, error) {
+func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts notation.VerifierVerifyOptions) (*notation.VerificationOutcome, error) {
 	artifactRef := opts.ArtifactReference
 	envelopeMediaType := opts.SignatureMediaType
 	pluginConfig := opts.PluginConfig
 	logger := log.GetLogger(ctx)
 
-	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, opts.SignatureMediaType)
+	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, envelopeMediaType)
 	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Debugf("Trust policy configuration: %+v", trustPolicy)
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
@@ -256,9 +283,14 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
 		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
-		logger.Debugf("Validating revocation (not implemented)")
-		// TODO perform X509 revocation check (not in RC1)
-		// https://github.com/notaryproject/notation-go/issues/110
+
+		logger.Debug("Validating revocation")
+		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
+		outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
+		logVerificationResult(logger, revocationResult)
+		if isCriticalFailure(revocationResult) {
+			return revocationResult.Error
+		}
 	}
 
 	// perform extended verification using verification plugin if present
@@ -516,6 +548,76 @@ func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.V
 		Type:   trustpolicy.TypeAuthenticTimestamp,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 	}
+}
+
+func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revocation, logger log.Logger) *notation.ValidationResult {
+	if r == nil {
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+			Error:  fmt.Errorf("unable to check revocation status, revocation client cannot be nil"),
+		}
+	}
+
+	authenticSigningTime, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
+	if err != nil {
+		logger.Debugf("not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
+		authenticSigningTime = time.Time{}
+	}
+	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+	if err != nil {
+		logger.Debug("error while checking revocation status, err: %s", err.Error())
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+			Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
+		}
+	}
+
+	result := &notation.ValidationResult{
+		Type:   trustpolicy.TypeRevocation,
+		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+	}
+	finalResult := revocationresult.ResultUnknown
+	numOKResults := 0
+	var problematicCertSubject string
+	revokedFound := false
+	var revokedCertSubject string
+	for i := len(certResults) - 1; i >= 0; i-- {
+		if len(certResults[i].ServerResults) > 0 && certResults[i].ServerResults[0].Error != nil {
+			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
+		}
+
+		if certResults[i].Result == revocationresult.ResultOK || certResults[i].Result == revocationresult.ResultNonRevokable {
+			numOKResults++
+		} else {
+			finalResult = certResults[i].Result
+			problematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
+			if certResults[i].Result == revocationresult.ResultRevoked {
+				revokedFound = true
+				revokedCertSubject = problematicCertSubject
+			}
+		}
+	}
+	if revokedFound {
+		problematicCertSubject = revokedCertSubject
+		finalResult = revocationresult.ResultRevoked
+	}
+	if numOKResults == len(certResults) {
+		finalResult = revocationresult.ResultOK
+	}
+
+	switch finalResult {
+	case revocationresult.ResultOK:
+		logger.Debug("no verification impacting errors encountered while checking revocation, status is OK")
+	case revocationresult.ResultRevoked:
+		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
+	default:
+		// revocationresult.ResultUnknown
+		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
+	}
+
+	return result
 }
 
 func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {

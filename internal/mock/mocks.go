@@ -65,6 +65,7 @@ var MockCaCompatiblePluginVerSigEnv_1_0_0 []byte
 var (
 	SampleArtifactUri = "registry.acme-rockets.io/software/net-monitor@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
 	SampleDigest      = digest.Digest("sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e")
+	ZeroDigest        = digest.Digest("sha256:0000000000000000000000000000000000000000000000000000000000000000")
 	Annotations       = map[string]string{"key": "value"}
 	ImageDescriptor   = ocispec.Descriptor{
 		MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
@@ -73,7 +74,7 @@ var (
 		Annotations: Annotations,
 	}
 	SigManfiestDescriptor = ocispec.Descriptor{
-		MediaType:   "application/vnd.cncf.oras.artifact.manifest.v1+json",
+		MediaType:   "application/vnd.oci.image.manifest.v1+json",
 		Digest:      SampleDigest,
 		Size:        300,
 		Annotations: Annotations,
@@ -110,6 +111,8 @@ type Repository struct {
 	ListSignaturesError        error
 	FetchSignatureBlobResponse []byte
 	FetchSignatureBlobError    error
+	MissMatchDigest            bool
+	ExceededNumOfSignatures    bool
 }
 
 func NewRepository() Repository {
@@ -121,10 +124,21 @@ func NewRepository() Repository {
 }
 
 func (t Repository) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
+	if t.MissMatchDigest {
+		return ocispec.Descriptor{
+			MediaType:   "application/vnd.docker.distribution.manifest.v2+json",
+			Digest:      ZeroDigest,
+			Size:        528,
+			Annotations: Annotations,
+		}, nil
+	}
 	return t.ResolveResponse, t.ResolveError
 }
 
 func (t Repository) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
+	if t.ExceededNumOfSignatures {
+		t.ListSignaturesResponse = []ocispec.Descriptor{SigManfiestDescriptor, SigManfiestDescriptor}
+	}
 	err := fn(t.ListSignaturesResponse)
 	if err != nil {
 		return err

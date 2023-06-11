@@ -14,7 +14,7 @@ type Repository interface {
 	Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error)
 
 	// ListSignatures returns signature manifests filtered by fn given the
-	// artifact manifest descriptor
+	// target artifact's manifest descriptor
 	ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error
 
 	// FetchSignatureBlob returns signature envelope blob and descriptor for

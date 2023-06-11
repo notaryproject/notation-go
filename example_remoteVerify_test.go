@@ -60,16 +60,16 @@ func Example_remoteVerify() {
 	}
 	exampleRepo := registry.NewRepository(remoteRepo)
 
-	// exampleRemoteVerifyOptions is an example of notation.RemoteVerifyOptions.
-	exampleRemoteVerifyOptions := notation.RemoteVerifyOptions{
+	// exampleVerifyOptions is an example of notation.VerifyOptions.
+	exampleVerifyOptions := notation.VerifyOptions{
 		ArtifactReference:    exampleArtifactReference,
 		MaxSignatureAttempts: 50,
 	}
 
 	// remote verify core process
-	// upon successful verification, the target OCI artifact manifest descriptor
+	// upon successful verification, the target manifest descriptor
 	// and signature verification outcome are returned.
-	targetDesc, _, err := notation.Verify(context.Background(), exampleVerifier, exampleRepo, exampleRemoteVerifyOptions)
+	targetDesc, _, err := notation.Verify(context.Background(), exampleVerifier, exampleRepo, exampleVerifyOptions)
 	if err != nil {
 		panic(err) // Handle error
 	}

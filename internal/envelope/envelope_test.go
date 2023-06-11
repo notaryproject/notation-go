@@ -3,6 +3,7 @@ package envelope
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
@@ -82,6 +83,26 @@ func TestValidatePayloadContentType(t *testing.T) {
 	expect := errors.New("payload content type \"invalid\" not supported")
 	if !isErrEqual(expect, err) {
 		t.Fatalf("ValidatePayloadContentType() expects error: %v, but got: %v.", expect, err)
+	}
+}
+
+func TestSigningTime(t *testing.T) {
+	testTime, err := time.Parse(time.RFC3339, "2023-03-14T04:45:22Z")
+	if err != nil {
+		t.Fatal("failed to generate time")
+	}
+	signerInfo := signature.SignerInfo{
+		SignedAttributes: signature.SignedAttributes{
+			SigningTime: testTime,
+		},
+	}
+	signingTime, err := SigningTime(&signerInfo)
+	if err != nil {
+		t.Fatalf("failed to get signing time from signature: %v", err)
+	}
+	expectedSigningTime := "2023-03-14T04:45:22Z"
+	if signingTime.Format(time.RFC3339) != expectedSigningTime {
+		t.Fatalf("expected signing time: %q, got: %q", expectedSigningTime, signingTime.Format(time.RFC3339))
 	}
 }
 

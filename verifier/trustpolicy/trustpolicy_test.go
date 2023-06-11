@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/notaryproject/notation-go/dir"
@@ -191,7 +193,7 @@ func TestInvalidRegistryScopes(t *testing.T) {
 		policyStatement.RegistryScopes = []string{scope}
 		policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 		err := policyDoc.Validate()
-		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is the fully qualified registry URL without the scheme/protocol. e.g domain.com/my/repository" {
+		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is a fully qualified registry URL without the scheme/protocol, e.g domain.com/my/repository OR a local trust policy scope, e.g local/myOCILayout" {
 			t.Fatalf("invalid registry scope should return error. Error : %q", err)
 		}
 	}
@@ -289,7 +291,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "invalid"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has invalid signatureVerification. Error: invalid signature verification level \"invalid\"" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has invalid signatureVerification: invalid signature verification level \"invalid\"" {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
@@ -518,7 +520,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 
 	// non-existing Registry Scope
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
-	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy" {
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
 
@@ -541,55 +543,69 @@ func TestApplicableTrustPolicy(t *testing.T) {
 }
 
 func TestLoadDocument(t *testing.T) {
-	// non-existing policy file
-	tempRoot := t.TempDir()
-	dir.UserConfigDir = tempRoot
-	_, err := LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("trust policy is not present, please create trust policy at %s/trustpolicy.json", tempRoot) {
-		t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
-	}
 
-	// existing invalid json file
-	tempRoot = t.TempDir()
-	dir.UserConfigDir = tempRoot
-	path := filepath.Join(tempRoot, "invalid.json")
-	err = os.WriteFile(path, []byte(`{"invalid`), 0600)
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
-	}
-	_, err = LoadDocument()
-	if err == nil {
-		t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
-	}
+	t.Run("non-existing policy file", func(t *testing.T) {
+		tempRoot := t.TempDir()
+		dir.UserConfigDir = tempRoot
+		if _, err := LoadDocument(); err == nil || err.Error() != fmt.Sprintf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink) {
+			t.Fatalf("TestLoadPolicyDocument should throw error for non existent policy")
+		}
+	})
 
-	// existing policy file
-	tempRoot = t.TempDir()
-	dir.UserConfigDir = tempRoot
-	path = filepath.Join(tempRoot, "trustpolicy.json")
-	policyDoc1 := dummyPolicyDocument()
-	policyJson, _ := json.Marshal(policyDoc1)
-	err = os.WriteFile(path, policyJson, 0600)
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
-	}
-	_, err = LoadDocument()
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
-	}
+	t.Run("invalid json file", func(t *testing.T) {
+		tempRoot := t.TempDir()
+		dir.UserConfigDir = tempRoot
+		path := filepath.Join(tempRoot, "invalid.json")
+		if err := os.WriteFile(path, []byte(`{"invalid`), 0600); err != nil {
+			t.Fatalf("TestLoadPolicyDocument create invalid policy file failed. Error: %v", err)
+		}
+		if _, err := LoadDocument(); err == nil {
+			t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
+		}
+	})
 
-	// existing policy file with bad permissions
-	tempRoot = t.TempDir()
-	dir.UserConfigDir = tempRoot
-	path = filepath.Join(tempRoot, "trustpolicy.json")
-	policyDoc2 := dummyPolicyDocument()
-	policyJson2, _ := json.Marshal(policyDoc2)
-	err = os.WriteFile(path, policyJson2, 0000)
-	err = os.Chmod(path, 0000)
-	if err != nil {
-		t.Fatalf("TestLoadPolicyDocument create policy file with bad permissions failed. Error: %v", err)
-	}
-	_, err = LoadDocument()
-	if err == nil || err.Error() != fmt.Sprintf("unable to read trust policy due to file permissions, please verify the permissions of %s/trustpolicy.json", tempRoot) {
-		t.Fatalf("TestLoadPolicyDocument should throw error for a policy file with bad permissions. Error: %v", err)
-	}
+	t.Run("valid policy file", func(t *testing.T) {
+		tempRoot := t.TempDir()
+		dir.UserConfigDir = tempRoot
+		path := filepath.Join(tempRoot, "trustpolicy.json")
+		policyDoc1 := dummyPolicyDocument()
+		policyJson, _ := json.Marshal(policyDoc1)
+		if err := os.WriteFile(path, policyJson, 0600); err != nil {
+			t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
+		}
+		if _, err := LoadDocument(); err != nil {
+			t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
+		}
+	})
+
+	t.Run("policy file with bad permissions", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
+		tempRoot := t.TempDir()
+		dir.UserConfigDir = tempRoot
+		policyJson, _ := json.Marshal([]byte("Some String"))
+		path := filepath.Join(tempRoot, "trustpolicy.json")
+		if err := os.WriteFile(path, policyJson, 0000); err != nil {
+			t.Fatalf("TestLoadPolicyDocument write policy file failed. Error: %v", err)
+		}
+		_, err := LoadDocument()
+		if err == nil || err.Error() != fmt.Sprintf("unable to read trust policy due to file permissions, please verify the permissions of %s/trustpolicy.json", tempRoot) {
+			t.Fatalf("TestLoadPolicyDocument should throw error for a policy file with bad permissions. Error: %v", err)
+		}
+	})
+
+	t.Run("symlink policy file", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
+		tempRoot := t.TempDir()
+		dir.UserConfigDir = tempRoot
+
+		os.Symlink("some/filepath", filepath.Join(tempRoot, "trustpolicy.json"))
+		_, err := LoadDocument()
+		if err == nil || !strings.HasPrefix(err.Error(), "trust policy is not a regular file (symlinks are not supported)") {
+			t.Fatalf("TestLoadPolicyDocument should throw error for a symlink policy file. Error: %v", err)
+		}
+	})
 }

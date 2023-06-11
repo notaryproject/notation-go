@@ -25,7 +25,7 @@ var examplePolicyDocument = trustpolicy.Document{
 		{
 			Name:                  "test-statement-name",
 			RegistryScopes:        []string{"example/software"},
-			SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
+			SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name, Override: map[trustpolicy.ValidationType]trustpolicy.ValidationAction{trustpolicy.TypeRevocation: trustpolicy.ActionSkip}},
 			TrustStores:           []string{"ca:valid-trust-store"},
 			TrustedIdentities:     []string{"*"},
 		},
@@ -43,8 +43,7 @@ func Example_localVerify() {
 	// signature mediaTypes are supported.
 	exampleSignatureMediaType := cose.MediaTypeEnvelope
 
-	// exampleTargetDescriptor is an example of the target OCI artifact manifest
-	// descriptor.
+	// exampleTargetDescriptor is an example of the target manifest descriptor.
 	exampleTargetDescriptor := ocispec.Descriptor{
 		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:    "sha256:c0d488a800e4127c334ad20d61d7bc21b4097540327217dfab52262adc02380c",
@@ -54,8 +53,8 @@ func Example_localVerify() {
 	// exampleSignatureEnvelope is a valid signature envelope.
 	exampleSignatureEnvelope := generateExampleSignatureEnvelope()
 
-	// exampleVerifyOptions is an example of notation.VerifyOptions
-	exampleVerifyOptions := notation.VerifyOptions{
+	// exampleVerifyOptions is an example of notation.VerifierVerifyOptions
+	exampleVerifyOptions := notation.VerifierVerifyOptions{
 		ArtifactReference:  exampleArtifactReference,
 		SignatureMediaType: exampleSignatureMediaType,
 	}
