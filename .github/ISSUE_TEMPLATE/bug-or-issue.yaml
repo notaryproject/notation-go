@@ -52,8 +52,8 @@ body:
     validations:
       required: true
     attributes:
-      label: What is the version of your Notation CLI or Notation Library?
-      description: "For the CLI, you can use the command `notation version` to get it. For the libraries check the `go.mod` file."
+      label: What is the version of your notation-go Library?
+      description: "Check the `go.mod` file for the library version."
   - type: markdown
     attributes:
       value: |
