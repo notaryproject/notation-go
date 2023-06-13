@@ -39,14 +39,14 @@ body:
       required: true
     attributes:
       label: "How can we reproduce it?"
-      description: "Detailed steps to reproduce the behavior. Commands and their outputs are always helpful. If the bug is in a library, code snippets work as well."
+      description: "Detailed steps to reproduce the behavior, code snippets are welcome."
   - type: textarea
     id: environment
     validations:
       required: true
     attributes:
       label: Describe your environment 
-      description: "Notation installation method (e.g. wget, curl, brew, apt-get, yum, chocolate, MSI) if applicable / OS version / Shell type (e.g. zsh, bash, cmd.exe, Bash on Windows) / Golang version if applicable"
+      description: "OS and Golang version"
   - type: textarea
     id: version
     validations:
