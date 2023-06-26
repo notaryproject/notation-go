@@ -436,7 +436,7 @@ func validateTrustedIdentities(statement TrustPolicy) error {
 				}
 				dn, err := pkix.ParseDistinguishedName(identityValue)
 				if err != nil {
-					return err
+					return fmt.Errorf("trust policy statement %q has trusted identity %q with invalid identity value: %w", statement.Name, identity, err)
 				}
 				parsedDNs = append(parsedDNs, parsedDN{RawString: identity, ParsedMap: dn})
 			}
