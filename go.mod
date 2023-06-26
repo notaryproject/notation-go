@@ -9,7 +9,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc.3
 	github.com/veraison/go-cose v1.1.0
 	golang.org/x/crypto v0.9.0
-	golang.org/x/mod v0.10.0
+	golang.org/x/mod v0.11.0
 	oras.land/oras-go/v2 v2.2.0
 )
 
