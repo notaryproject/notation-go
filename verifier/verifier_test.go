@@ -308,7 +308,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 			pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 
-			revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+			revocationClient, err := revocation.New(&http.Client{Timeout: 2 * time.Second})
 			if err != nil {
 				t.Fatalf("unexpected error while creating revocation object: %v", err)
 			}
@@ -766,7 +766,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager := mock.PluginManager{}
 	pluginManager.GetPluginError = errors.New("plugin not found")
 
-	revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+	revocationClient, err := revocation.New(&http.Client{Timeout: 2 * time.Second})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
@@ -1068,7 +1068,7 @@ func TestVerifyUserMetadata(t *testing.T) {
 	pluginManager := mock.PluginManager{}
 	pluginManager.GetPluginError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
 	pluginManager.PluginRunnerLoadError = errors.New("plugin should not be invoked when verification plugin is not specified in the signature")
-	revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+	revocationClient, err := revocation.New(&http.Client{Timeout: 2 * time.Second})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
@@ -1137,7 +1137,7 @@ func TestPluginVersionCompatibility(t *testing.T) {
 	}
 	dir.UserConfigDir = "testdata"
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
-	revocationClient, err := revocation.New(&http.Client{Timeout: 5 * time.Second})
+	revocationClient, err := revocation.New(&http.Client{Timeout: 2 * time.Second})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
