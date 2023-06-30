@@ -129,7 +129,7 @@ func (s *SigningKeys) Get(keyName string) (KeySuite, error) {
 func (s *SigningKeys) GetDefault() (KeySuite, error) {
 	if s.Default == nil {
 		return KeySuite{}, errors.New("default signing key not set." +
-			" Please set default singing key or specify a key name")
+			" Please set default signing key or specify a key name")
 	}
 
 	return s.Get(*s.Default)

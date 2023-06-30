@@ -54,11 +54,11 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(sampleSigningKeysInfo.Default, got.Default) {
-			t.Fatal("singingKeysInfo test failed.")
+			t.Fatal("signingKeysInfo test failed.")
 		}
 
 		if !reflect.DeepEqual(sampleSigningKeysInfo.Keys, got.Keys) {
-			t.Fatal("singingKeysInfo test failed.")
+			t.Fatal("signingKeysInfo test failed.")
 		}
 	})
 
