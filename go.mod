@@ -6,7 +6,7 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.5
 	github.com/notaryproject/notation-core-go v1.0.0-rc.4
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.1.0-rc.3
+	github.com/opencontainers/image-spec v1.1.0-rc4
 	github.com/veraison/go-cose v1.1.0
 	golang.org/x/crypto v0.10.0
 	golang.org/x/mod v0.11.0
