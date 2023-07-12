@@ -29,4 +29,4 @@ permissions:
 
 jobs:
   check-license:
-    uses: Two-Hearts/notation-core-go/.github/workflows/reusable-license-checker.yml@license
+    uses: notaryproject/notation-core-go/.github/workflows/reusable-license-checker.yml@main
