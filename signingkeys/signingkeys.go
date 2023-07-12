@@ -1,4 +1,4 @@
-package config
+package signingkeys
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 
+	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin"
@@ -40,15 +41,13 @@ type KeySuite struct {
 var errorKeyNameEmpty = errors.New("key name cannot be empty")
 var errKeyNotFound = errors.New("signing key not found")
 
+// cachedSigningKey is the in-memory copy of the signingkeys.json file.
+var cachedSigningKey *SigningKeys
+
 // SigningKeys reflects the signingkeys.json file.
 type SigningKeys struct {
 	Default *string    `json:"default,omitempty"`
 	Keys    []KeySuite `json:"keys"`
-}
-
-// NewSigningKeys creates a new signingkeys config file
-func NewSigningKeys() *SigningKeys {
-	return &SigningKeys{Keys: []KeySuite{}}
 }
 
 // Add adds new signing key
@@ -135,6 +134,15 @@ func (s *SigningKeys) GetDefault() (KeySuite, error) {
 	return s.Get(*s.Default)
 }
 
+func (s *SigningKeys) Resolve(name string) (KeySuite, error) {
+	// if name is empty, look for default signing key
+	if name == "" {
+		return s.GetDefault()
+	}
+
+	return s.Get(name)
+}
+
 // Remove deletes given signing keys and returns a slice of deleted key names
 func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 	var deletedNames []string
@@ -181,33 +189,46 @@ func (s *SigningKeys) Save() error {
 		return err
 	}
 
-	return save(path, s)
+	return file.Save(path, s)
 }
 
-// LoadSigningKeys reads the signingkeys.json file
+// LoadFromCache returns the cached signingkeys.json if present else
+// reads the signingkeys.json file  and return a default config if not found.
+func LoadFromCache() (*SigningKeys, error) {
+	if cachedSigningKey != nil {
+		return cachedSigningKey, nil
+	}
+
+	return Load()
+}
+
+// Load reads the signingkeys.json file
 // or return a default config if not found.
-func LoadSigningKeys() (*SigningKeys, error) {
-	var config SigningKeys
-	err := load(dir.PathSigningKeys, &config)
+func Load() (*SigningKeys, error) {
+	var signingKeys SigningKeys
+	err := file.Load(dir.PathSigningKeys, &signingKeys)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return NewSigningKeys(), nil
+			return &SigningKeys{Keys: []KeySuite{}}, nil
 		}
 		return nil, err
 	}
 
-	if err := validateKeys(&config); err != nil {
+	if err := validateKeys(&signingKeys); err != nil {
 		return nil, err
 	}
 
-	return &config, nil
+	// update cache with latest read
+	cachedSigningKey = &signingKeys
+
+	return cachedSigningKey, nil
 }
 
-// LoadExecSaveSigningKeys loads signing key, executes given function and
+// LoadExecSave loads signing key, executes given function and
 // then saves the signing key
-func LoadExecSaveSigningKeys(fn func(keys *SigningKeys) error) error {
+func LoadExecSave(fn func(keys *SigningKeys) error) error {
 	// core process
-	signingKeys, err := LoadSigningKeys()
+	signingKeys, err := Load()
 	if err != nil {
 		return err
 	}

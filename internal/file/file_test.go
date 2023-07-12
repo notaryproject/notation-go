@@ -1,4 +1,4 @@
-package config
+package file
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ func TestLoadNonExistentFile(t *testing.T) {
 	dir.UserConfigDir = "testdata/valid"
 
 	var config string
-	err := load("non-existent", &config)
+	err := Load("non-existent", &config)
 	if err == nil {
 		t.Fatalf("load() expected error but not found")
 	}
@@ -27,7 +27,7 @@ func TestLoadSymlink(t *testing.T) {
 
 	expectedError := fmt.Sprintf("\"%s/%s\" is not a regular file (symlinks are not supported)", dir.UserConfigDir, fileName)
 	var config string
-	err := load(fileName, &config)
+	err := Load(fileName, &config)
 	if err != nil && err.Error() != expectedError {
 		t.Fatalf("load() expected error= %s but found= %v", expectedError, err)
 	}

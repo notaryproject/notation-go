@@ -1,4 +1,4 @@
-package config
+package signingkeys
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/testhelper"
@@ -44,10 +46,10 @@ var sampleSigningKeysInfo = SigningKeys{
 	},
 }
 
-func TestLoadSigningKeysInfo(t *testing.T) {
+func TestLoad(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
-		dir.UserConfigDir = "./testdata/valid"
-		got, err := LoadSigningKeys()
+		dir.UserConfigDir = "../testdata/valid"
+		got, err := Load()
 		if err != nil {
 			t.Errorf("LoadSigningKeysInfo() error = \"%v\"", err)
 			return
@@ -64,8 +66,8 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 
 	t.Run("DuplicateKeys", func(t *testing.T) {
 		expectedErr := "malformed signingkeys.json: multiple keys with name 'wabbit-networks' found"
-		dir.UserConfigDir = "./testdata/malformed-duplicate"
-		_, err := LoadSigningKeys()
+		dir.UserConfigDir = "../testdata/malformed-duplicate"
+		_, err := Load()
 		if err == nil || err.Error() != expectedErr {
 			t.Errorf("LoadSigningKeysInfo() error expected = \"%v\" but found = \"%v\"", expectedErr, err)
 		}
@@ -73,10 +75,30 @@ func TestLoadSigningKeysInfo(t *testing.T) {
 
 	t.Run("InvalidDefault", func(t *testing.T) {
 		expectedErr := "malformed signingkeys.json: default key 'missing-default' not found"
-		dir.UserConfigDir = "./testdata/malformed-invalid-default"
-		_, err := LoadSigningKeys()
+		dir.UserConfigDir = "../testdata/malformed-invalid-default"
+		_, err := Load()
 		if err == nil || err.Error() != expectedErr {
 			t.Errorf("LoadSigningKeysInfo() error expected = \"%v\" but found = \"%v\"", expectedErr, err)
+		}
+	})
+
+	t.Run("signingkeys.json without read permission", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
+		dir.UserConfigDir = "../testdata/valid_signingkeys"
+		defer func() error {
+			// restore the permission
+			return os.Chmod(filepath.Join(dir.UserConfigDir, "signingkeys.json"), 0644)
+		}()
+
+		// forbid reading the file
+		if err := os.Chmod(filepath.Join(dir.UserConfigDir, "signingkeys.json"), 0000); err != nil {
+			t.Error(err)
+		}
+		_, err := Load()
+		if !strings.Contains(err.Error(), "permission denied") {
+			t.Error("should error with permission denied")
 		}
 	})
 }
@@ -86,7 +108,7 @@ func TestSaveSigningKeys(t *testing.T) {
 		root := t.TempDir()
 		dir.UserConfigDir = root
 		sampleSigningKeysInfo.Save()
-		info, err := LoadSigningKeys()
+		info, err := Load()
 		if err != nil {
 			t.Fatal("Load signingkeys.json from temp dir failed.")
 		}
@@ -106,7 +128,7 @@ func TestSaveSigningKeys(t *testing.T) {
 		sampleSigningKeysInfoNoDefault := deepCopySigningKeys(sampleSigningKeysInfo)
 		sampleSigningKeysInfoNoDefault.Default = nil
 		sampleSigningKeysInfoNoDefault.Save()
-		info, err := LoadSigningKeys()
+		info, err := Load()
 		if err != nil {
 			t.Fatal("Load signingkeys.json from temp dir failed.")
 		}
@@ -384,6 +406,36 @@ func TestRemove(t *testing.T) {
 	t.Run("InvalidName", func(t *testing.T) {
 		if _, err := testSigningKeysInfo.Remove(""); err == nil {
 			t.Error("expected Get() to fail for invalid key name")
+		}
+	})
+}
+
+func TestResolveKey(t *testing.T) {
+	defer func(oldDir string) {
+		dir.UserConfigDir = oldDir
+	}(dir.UserConfigDir)
+
+	t.Run("valid e2e key", func(t *testing.T) {
+		dir.UserConfigDir = "../testdata/valid_signingkeys"
+		sKeys, _ := Load()
+		keySuite, err := sKeys.Resolve("e2e")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if keySuite.Name != "e2e" {
+			t.Error("key name is not correct.")
+		}
+	})
+
+	t.Run("key name is empty (using default key)", func(t *testing.T) {
+		dir.UserConfigDir = "../testdata/valid_signingkeys"
+		sKeys, _ := Load()
+		keySuite, err := sKeys.Resolve("")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if keySuite.Name != "e2e" {
+			t.Error("key name is not correct.")
 		}
 	})
 }
