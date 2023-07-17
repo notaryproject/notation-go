@@ -5,8 +5,10 @@ package config
 import (
 	"errors"
 	"io/fs"
+	"strings"
 
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/file"
 )
 
 // Config reflects the config.json file.
@@ -15,14 +17,11 @@ type Config struct {
 	InsecureRegistries []string          `json:"insecureRegistries"`
 	CredentialsStore   string            `json:"credsStore,omitempty"`
 	CredentialHelpers  map[string]string `json:"credHelpers,omitempty"`
-	// SignatureFormat defines the signature envelope type for signing
-	SignatureFormat string `json:"signatureFormat,omitempty"`
+	SignatureFormat    string            `json:"signatureFormat,omitempty"`
 }
 
-// NewConfig creates a new config file
-func NewConfig() *Config {
-	return &Config{}
-}
+// cachedConfig is the in-memory copy of the config.json file.
+var cachedConfig *Config
 
 // Save stores the config to file
 func (c *Config) Save() error {
@@ -30,19 +29,44 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	return save(path, c)
+	return file.Save(path, c)
 }
 
-// LoadConfig reads the config from file or return a default config if not found.
-func LoadConfig() (*Config, error) {
+// IsRegistryInsecure returns true if given registry is configured to use http
+// for communication
+func (c *Config) IsRegistryInsecure(target string) bool {
+	for _, registry := range c.InsecureRegistries {
+		if strings.EqualFold(registry, target) {
+			return true
+		}
+	}
+	return false
+}
+
+// LoadFromCache returns the in-memory copy of config.json and
+// reads the config from file, if not found.
+func LoadFromCache() (*Config, error) {
+	if cachedConfig != nil {
+		return cachedConfig, nil
+	}
+
+	return Load()
+}
+
+// Load reads the config from file or return a default config if not found.
+func Load() (*Config, error) {
 	var config Config
 
-	err := load(dir.PathConfigFile, &config)
+	err := file.Load(dir.PathConfigFile, &config)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return NewConfig(), nil
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
 		}
-		return nil, err
+
+		config = Config{}
 	}
-	return &config, nil
+
+	// update cache with latest read
+	cachedConfig = &config
+	return cachedConfig, nil
 }
