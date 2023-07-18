@@ -11,17 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+name: License Checker
+
 on:
-  issues:
-    types:
-      - opened
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  add-to-project:
-    name: Add issue to project
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/add-to-project@main
-        with:
-          project-url: https://github.com/orgs/notaryproject/projects/10
-          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+  check-license:
+    uses: notaryproject/notation-core-go/.github/workflows/reusable-license-checker.yml@main
