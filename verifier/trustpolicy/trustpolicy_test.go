@@ -206,7 +206,21 @@ func TestInvalidRegistryScopes(t *testing.T) {
 		policyStatement.RegistryScopes = []string{scope}
 		policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 		err := policyDoc.Validate()
-		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is a fully qualified registry URL without the scheme/protocol, e.g domain.com/my/repository OR a local trust policy scope, e.g local/myOCILayout" {
+		if err == nil || err.Error() != "registry scope \""+scope+"\" is not valid, make sure it is a fully qualified repository without the scheme, protocol or tag. For example domain.com/my/repository or a local scope like local/myOCILayout" {
+			t.Fatalf("invalid registry scope should return error. Error : %q", err)
+		}
+	}
+
+	// Test invalid scope with wild card suffix
+
+	invalidWildCardScopes := []string{"example.com/*", "*/", "example*/", "ex*test"}
+	for _, scope := range invalidWildCardScopes {
+		policyDoc := dummyPolicyDocument()
+		policyStatement := dummyPolicyStatement()
+		policyStatement.RegistryScopes = []string{scope}
+		policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+		err := policyDoc.Validate()
+		if err == nil || err.Error() != "registry scope \""+scope+"\" with wild card(s) is not valid, make sure it is a fully qualified repository without the scheme, protocol or tag. For example domain.com/my/repository or a local scope like local/myOCILayout" {
 			t.Fatalf("invalid registry scope should return error. Error : %q", err)
 		}
 	}
@@ -215,7 +229,7 @@ func TestInvalidRegistryScopes(t *testing.T) {
 // TestValidRegistryScopes tests valid scopes are accepted
 func TestValidRegistryScopes(t *testing.T) {
 	validScopes := []string{
-		"example.com/rep", "example.com:8080/rep/rep2", "example.com/rep/subrep/subsub",
+		"*", "example.com/rep", "example.com:8080/rep/rep2", "example.com/rep/subrep/subsub",
 		"10.10.10.10:8080/rep/rep2", "domain/rep", "domain:1234/rep",
 	}
 
