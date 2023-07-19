@@ -205,7 +205,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		return err
 	}
 
-	var installedPlugin plugin.Plugin
+	var installedPlugin plugin.VerifyPlugin
 	if verificationPluginName != "" {
 		logger.Debugf("Finding verification plugin %s", verificationPluginName)
 		verificationPluginMinVersion, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
@@ -633,7 +633,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	return result
 }
 
-func executePlugin(ctx context.Context, installedPlugin plugin.Plugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {
+func executePlugin(ctx context.Context, installedPlugin plugin.VerifyPlugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {
 	logger := log.GetLogger(ctx)
 	// sanity check
 	if installedPlugin == nil {
