@@ -6,9 +6,9 @@
 
 A collection of libraries for Notation, provides the ability to sign, verify, push, and pull OCI artifacts. Based on the Notary Project standard. You can develop your own client for signing and verifying artifacts by using the Notation Golang library.
 
-Notation Golang library reaches stable in July, 2023 and is in active development status.
+Notation Golang library reaches stable in July 2023 and is in active development status.
 
-> **Note** The documentation for Notation is available [here](https://notaryproject.dev/docs/). You can also find the Notary Project [README](https://github.com/notaryproject/.github/blob/main/README.md) to learn about the overall Notary Project.
+> **Note** The Notation documentation is available [here](https://notaryproject.dev/docs/). You can also find the Notary Project [README](https://github.com/notaryproject/.github/blob/main/README.md) to learn about the overall Notary Project.
 
 ## Table of Contents
 - [Core Documents](#core-documents)
