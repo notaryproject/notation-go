@@ -100,7 +100,7 @@ func LocalKeyPath(name string) (keyPath, certPath string) {
 //
 // items includes named-store and cert-file names.
 // the directory follows the pattern of
-// {NOTATION_CONFIG}/truststore/x509/{named-store}/{cert-file}
+// {NOTATION_CONFIG}/truststore/x509/{store-type}/{named-store}/{cert-file}
 func X509TrustStoreDir(items ...string) string {
 	pathItems := []string{TrustStoreDir, "x509"}
 	pathItems = append(pathItems, items...)

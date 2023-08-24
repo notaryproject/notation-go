@@ -352,6 +352,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	numOfSignatureProcessed := 0
 
 	var verificationFailedErr error = ErrorVerificationFailed{}
+	var verificationSucceeded bool
 
 	// get signature manifests
 	logger.Debug("Fetching signature manifests")
@@ -380,16 +381,17 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
-
 				if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
 					verificationFailedErr = outcome.Error
 				}
-
+				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
-			// at this point, the signature is verified successfully. Add
-			// it to the verificationOutcomes.
-			verificationOutcomes = append(verificationOutcomes, outcome)
+			// at this point, the signature is verified successfully
+			verificationSucceeded = true
+			// on success, verificationOutcomes only contains the
+			// succeeded outcome
+			verificationOutcomes = []*VerificationOutcome{outcome}
 			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 
 			// early break on success
@@ -416,7 +418,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	}
 
 	// Verification Failed
-	if len(verificationOutcomes) == 0 {
+	if !verificationSucceeded {
 		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
 		return ocispec.Descriptor{}, verificationOutcomes, verificationFailedErr
 	}
