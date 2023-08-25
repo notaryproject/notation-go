@@ -383,9 +383,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
-				if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
-					verificationFailedErr = outcome.Error
-				}
 				outcome.SignatureManifestDescriptor = &sigManifestDesc
 				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
