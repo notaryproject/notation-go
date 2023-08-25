@@ -360,7 +360,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	logger.Debug("Fetching signature manifests")
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
-		for _, sigManifestDesc := range signatureManifests {
+		for ind, sigManifestDesc := range signatureManifests {
 			if numOfSignatureProcessed >= verifyOpts.MaxSignatureAttempts {
 				break
 			}
@@ -383,7 +383,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
-				outcome.SignatureManifestDescriptor = &sigManifestDesc
+				outcome.SignatureManifestDescriptor = &signatureManifests[ind]
 				outcomeCopy := *outcome
 				verificationOutcomes = append(verificationOutcomes, &outcomeCopy)
 				continue
@@ -392,7 +392,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 			verificationSucceeded = true
 			// on success, verificationOutcomes only contains the
 			// succeeded outcome
-			outcome.SignatureManifestDescriptor = &sigManifestDesc
+			outcome.SignatureManifestDescriptor = &signatureManifests[ind]
 			verificationOutcomes = []*VerificationOutcome{outcome}
 			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 
