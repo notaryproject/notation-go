@@ -193,10 +193,13 @@ type ValidationResult struct {
 	Error error
 }
 
-// VerificationOutcome encapsulates a signature blob's descriptor, its content,
-// the verification level and results for each verification type that was
-// performed.
+// VerificationOutcome encapsulates a signature manifest's descriptor,
+// its envelope blob, its content, the verification level and results for each
+// verification type that was performed.
 type VerificationOutcome struct {
+	// SignatureManifestDescriptor
+	SignatureManifestDescriptor *ocispec.Descriptor
+
 	// RawSignature is the signature envelope blob
 	RawSignature []byte
 
@@ -347,12 +350,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("user input digest %s does not match the resolved digest %s", ref.Reference, artifactDescriptor.Digest.String())}
 	}
 
+	var verificationSucceeded bool
 	var verificationOutcomes []*VerificationOutcome
+	var verificationFailedErr error = ErrorVerificationFailed{}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", verifyOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
-
-	var verificationFailedErr error = ErrorVerificationFailed{}
-	var verificationSucceeded bool
 
 	// get signature manifests
 	logger.Debug("Fetching signature manifests")
@@ -384,6 +386,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 				if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
 					verificationFailedErr = outcome.Error
 				}
+				outcome.SignatureManifestDescriptor = &sigManifestDesc
 				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
@@ -391,6 +394,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 			verificationSucceeded = true
 			// on success, verificationOutcomes only contains the
 			// succeeded outcome
+			outcome.SignatureManifestDescriptor = &sigManifestDesc
 			verificationOutcomes = []*VerificationOutcome{outcome}
 			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 
