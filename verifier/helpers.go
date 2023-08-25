@@ -58,7 +58,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 	case signature.SigningSchemeX509SigningAuthority:
 		typeToLoad = truststore.TypeSigningAuthority
 	default:
-		return nil, fmt.Errorf("unrecognized signing scheme %q", scheme)
+		return nil, truststore.ErrorTrustStore{WrappedError: fmt.Errorf("error while loading the trust store, unrecognized signing scheme %q", scheme)}
 	}
 
 	processedStoreSet := set.New[string]()
@@ -71,7 +71,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 
 		storeType, name, found := strings.Cut(trustStore, ":")
 		if !found {
-			return nil, fmt.Errorf("trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)
+			return nil, truststore.ErrorTrustStore{WrappedError: fmt.Errorf("error while loading the trust store, trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)}
 		}
 		if typeToLoad != truststore.Type(storeType) {
 			continue

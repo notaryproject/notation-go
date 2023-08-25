@@ -64,49 +64,49 @@ type x509TrustStore struct {
 // GetCertificates returns certificates under storeType/namedStore
 func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error) {
 	if !isValidStoreType(storeType) {
-		return nil, fmt.Errorf("unsupported trust store type: %s", storeType)
+		return nil, ErrorTrustStore{WrappedError: fmt.Errorf("unsupported trust store type: %s", storeType)}
 	}
 	if !file.IsValidFileName(namedStore) {
-		return nil, fmt.Errorf("named store name needs to follow [a-zA-Z0-9_.-]+ format: %s is invalid", namedStore)
+		return nil, ErrorTrustStore{WrappedError: fmt.Errorf("named store name needs to follow [a-zA-Z0-9_.-]+ format: %s is invalid", namedStore)}
 	}
 	path, err := trustStore.trustStorefs.SysPath(dir.X509TrustStoreDir(string(storeType), namedStore))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get path of trust store %s with type %s: %w", namedStore, storeType, err)
+		return nil, ErrorTrustStore{WrappedError: fmt.Errorf("failed to get path of trust store %s with type %s: %w", namedStore, storeType, err)}
 	}
 	// throw error if path is not a directory or is a symlink or does not exist.
 	fileInfo, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrorTrustStoreNonExistence{Msg: fmt.Sprintf("the trust store %q of type %q doesn't exist", namedStore, storeType)}
+			return nil, ErrorNonExistence{WrappedError: fmt.Errorf("the trust store %q of type %q doesn't exist", namedStore, storeType)}
 		}
-		return nil, fmt.Errorf("failed to access the trust store %q: %w", path, err)
+		return nil, ErrorTrustStore{WrappedError: fmt.Errorf("failed to access the trust store %q: %w", path, err)}
 	}
 	mode := fileInfo.Mode()
 	if !mode.IsDir() || mode&fs.ModeSymlink != 0 {
-		return nil, fmt.Errorf("trust store %q is not a regular directory (symlinks are not supported)", path)
+		return nil, ErrorTrustStore{WrappedError: fmt.Errorf("trust store %q is not a regular directory (symlinks are not supported)", path)}
 	}
 	files, err := os.ReadDir(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to access the trust store %q: %w", path, err)
+		return nil, ErrorTrustStore{WrappedError: fmt.Errorf("failed to access the trust store %q: %w", path, err)}
 	}
 
 	var certificates []*x509.Certificate
 	for _, file := range files {
 		joinedPath := filepath.Join(path, file.Name())
 		if file.IsDir() || file.Type()&fs.ModeSymlink != 0 {
-			return nil, fmt.Errorf("trusted certificate %q is not a regular file (directories or symlinks are not supported)", joinedPath)
+			return nil, ErrorCertificate{WrappedError: fmt.Errorf("trusted certificate %q is not a regular file (directories or symlinks are not supported)", joinedPath)}
 		}
 		certs, err := corex509.ReadCertificateFile(joinedPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read the trusted certificate %q: %w", joinedPath, err)
+			return nil, ErrorCertificate{WrappedError: fmt.Errorf("failed to read the trusted certificate %q: %w", joinedPath, err)}
 		}
 		if err := ValidateCertificates(certs); err != nil {
-			return nil, fmt.Errorf("error while validating trusted certificate %q: %w", joinedPath, err)
+			return nil, ErrorCertificate{WrappedError: fmt.Errorf("failed to validate the trusted certificate %q: %w", joinedPath, err)}
 		}
 		certificates = append(certificates, certs...)
 	}
 	if len(certificates) < 1 {
-		return nil, ErrorTrustStoreNonExistence{Msg: fmt.Sprintf("no x509 certificates were found in trust store %q of type %q", namedStore, storeType)}
+		return nil, ErrorNonExistence{WrappedError: fmt.Errorf("no x509 certificates were found in trust store %q of type %q", namedStore, storeType)}
 	}
 	return certificates, nil
 }
