@@ -384,8 +384,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 					return err
 				}
 				outcome.SignatureManifestDescriptor = &signatureManifests[ind]
-				outcomeCopy := *outcome
-				verificationOutcomes = append(verificationOutcomes, &outcomeCopy)
+				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
 			// at this point, the signature is verified successfully
