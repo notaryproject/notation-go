@@ -193,13 +193,10 @@ type ValidationResult struct {
 	Error error
 }
 
-// VerificationOutcome encapsulates a signature manifest's descriptor,
-// its envelope blob, its content, the verification level and results for each
-// verification type that was performed.
+// VerificationOutcome encapsulates a signature envelope blob, its content,
+// the verification level and results for each verification type that was
+// performed.
 type VerificationOutcome struct {
-	// SignatureManifestDescriptor
-	SignatureManifestDescriptor *ocispec.Descriptor
-
 	// RawSignature is the signature envelope blob
 	RawSignature []byte
 
@@ -360,7 +357,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	logger.Debug("Fetching signature manifests")
 	err = repo.ListSignatures(ctx, artifactDescriptor, func(signatureManifests []ocispec.Descriptor) error {
 		// process signatures
-		for ind, sigManifestDesc := range signatureManifests {
+		for _, sigManifestDesc := range signatureManifests {
 			if numOfSignatureProcessed >= verifyOpts.MaxSignatureAttempts {
 				break
 			}
@@ -383,7 +380,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
-				outcome.SignatureManifestDescriptor = &signatureManifests[ind]
+				outcome.Error = fmt.Errorf("failed to verify signature with digest %v, %w", sigManifestDesc.Digest, outcome.Error)
 				verificationOutcomes = append(verificationOutcomes, outcome)
 				continue
 			}
@@ -391,7 +388,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 			verificationSucceeded = true
 			// on success, verificationOutcomes only contains the
 			// succeeded outcome
-			outcome.SignatureManifestDescriptor = &signatureManifests[ind]
 			verificationOutcomes = []*VerificationOutcome{outcome}
 			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 

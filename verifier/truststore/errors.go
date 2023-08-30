@@ -15,37 +15,40 @@ package truststore
 
 // ErrorTrustStore is used when accessing specified trust store failed
 type ErrorTrustStore struct {
-	WrappedError error
+	Msg        string
+	InnerError error
 }
 
 func (e ErrorTrustStore) Error() string {
-	if e.WrappedError != nil {
-		return e.WrappedError.Error()
+	if e.Msg != "" {
+		return e.Msg
+	}
+	if e.InnerError != nil {
+		return e.InnerError.Error()
 	}
 	return "unable to access the trust store"
 }
 
+func (e ErrorTrustStore) Unwrap() error {
+	return e.InnerError
+}
+
 // ErrorCertificate is used when reading a certificate failed
 type ErrorCertificate struct {
-	WrappedError error
+	Msg        string
+	InnerError error
 }
 
 func (e ErrorCertificate) Error() string {
-	if e.WrappedError != nil {
-		return e.WrappedError.Error()
+	if e.Msg != "" {
+		return e.Msg
+	}
+	if e.InnerError != nil {
+		return e.InnerError.Error()
 	}
 	return "unable to read the certificate"
 }
 
-// ErrorNonExistence is used when specified trust store or
-// certificate path does not exist.
-type ErrorNonExistence struct {
-	WrappedError error
-}
-
-func (e ErrorNonExistence) Error() string {
-	if e.WrappedError != nil {
-		return e.WrappedError.Error()
-	}
-	return "unable to find specified trust store or certificate"
+func (e ErrorCertificate) Unwrap() error {
+	return e.InnerError
 }
