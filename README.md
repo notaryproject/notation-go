@@ -4,7 +4,7 @@
 [![Codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/notaryproject/notation-go.svg)](https://pkg.go.dev/github.com/notaryproject/notation-go@main)
 
-notation-go offers libraries for signing, validating, uploading, and downloading OCI artifacts using [Notary Project specifications](https://github.com/notaryproject/specifications). notation-go is used by [notation](https://github.com/notaryproject/notation) CLI for signing and verifying artifacts
+notation-go offers libraries for signing, verifying, uploading, and downloading OCI artifacts using [Notary Project specifications](https://github.com/notaryproject/specifications). notation-go is used by [notation](https://github.com/notaryproject/notation) CLI for signing and verifying artifacts.
 
 notation-go reached a stable release as of July 2023 and continues to be actively developed.
 
