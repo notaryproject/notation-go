@@ -381,7 +381,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 					return err
 				}
 				outcome.Error = fmt.Errorf("failed to verify signature with digest %v, %w", sigManifestDesc.Digest, outcome.Error)
-				verificationOutcomes = append(verificationOutcomes, outcome)
+				verificationFailedErr = errors.Join(verificationFailedErr, outcome.Error)
 				continue
 			}
 			// at this point, the signature is verified successfully

@@ -77,7 +77,7 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 	fileInfo, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrorTrustStore{InnerError: fs.ErrNotExist, Msg: fmt.Sprintf("the trust store %q of type %q doesn't exist", namedStore, storeType)}
+			return nil, ErrorTrustStore{InnerError: err, Msg: fmt.Sprintf("the trust store %q of type %q doesn't exist", namedStore, storeType)}
 		}
 		return nil, ErrorTrustStore{InnerError: fmt.Errorf("failed to access the trust store %q: %w", path, err)}
 	}
