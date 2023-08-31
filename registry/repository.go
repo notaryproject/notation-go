@@ -14,8 +14,10 @@
 package registry
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -24,6 +26,7 @@ import (
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
+	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry"
 )
 
@@ -187,13 +190,40 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 
 // uploadSignatureManifest uploads the signature manifest to the registry
 func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
-	opts := oras.PackOptions{
-		Subject:             &subject,
-		ManifestAnnotations: annotations,
-		PackImageManifest:   true,
+	configDesc, err := pushNotationManifestConfig(ctx, c.GraphTarget)
+	if err != nil {
+		return ocispec.Descriptor{}, err
 	}
 
-	return oras.Pack(ctx, c.GraphTarget, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	opts := oras.PackManifestOptions{
+		Subject:             &subject,
+		ManifestAnnotations: annotations,
+		Layers:              []ocispec.Descriptor{blobDesc},
+		ConfigDescriptor:    configDesc,
+	}
+
+	return oras.PackManifest(ctx, c.GraphTarget, oras.PackManifestVersion1_1_RC4, "", opts)
+}
+
+// pushNotationManifestConfig pushes an empty notation manifest config, if it
+// doesn't exist.
+func pushNotationManifestConfig(ctx context.Context, pusher content.Pusher) (*ocispec.Descriptor, error) {
+	configContent := []byte("{}")
+	desc := content.NewDescriptorFromBytes(ArtifactTypeNotation, configContent)
+	if ros, ok := pusher.(content.ReadOnlyStorage); ok {
+		exists, err := ros.Exists(ctx, desc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check existence: %s: %s: %w", desc.Digest.String(), desc.MediaType, err)
+		}
+		if exists {
+			return &desc, nil
+		}
+	}
+
+	if err := pusher.Push(ctx, desc, bytes.NewReader(configContent)); err != nil && !errors.Is(err, errdef.ErrAlreadyExists) {
+		return nil, fmt.Errorf("failed to push: %s: %s: %w", desc.Digest.String(), desc.MediaType, err)
+	}
+	return &desc, nil
 }
 
 // signatureReferrers returns referrer nodes of desc in target filtered by
