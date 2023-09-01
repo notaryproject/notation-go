@@ -35,6 +35,19 @@ const (
 	maxManifestSizeLimit = 4 * 1024 * 1024  // 4 MiB
 )
 
+var (
+	// notationEmptyConfigDesc is the descriptor of an empty notation manifest
+	// config
+	// reference: https://github.com/notaryproject/specifications/blob/v1.0.0/specs/signature-specification.md#storage
+	notationEmptyConfigDesc = ocispec.Descriptor{
+		MediaType: ArtifactTypeNotation,
+		Digest:    ocispec.DescriptorEmptyJSON.Digest,
+		Size:      ocispec.DescriptorEmptyJSON.Size,
+	}
+	// notationEmptyConfigData is the data of an empty notation manifest config
+	notationEmptyConfigData = ocispec.DescriptorEmptyJSON.Data
+)
+
 // RepositoryOptions provides user options when creating a Repository
 // it is kept for future extensibility
 type RepositoryOptions struct{}
@@ -192,14 +205,14 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
 	configDesc, err := pushNotationManifestConfig(ctx, c.GraphTarget)
 	if err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, fmt.Errorf("failed to push notation manifest config: %w", err)
 	}
 
 	opts := oras.PackManifestOptions{
 		Subject:             &subject,
 		ManifestAnnotations: annotations,
 		Layers:              []ocispec.Descriptor{blobDesc},
-		ConfigDescriptor:    configDesc,
+		ConfigDescriptor:    &configDesc,
 	}
 
 	return oras.PackManifest(ctx, c.GraphTarget, oras.PackManifestVersion1_1_RC4, "", opts)
@@ -207,27 +220,21 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 
 // pushNotationManifestConfig pushes an empty notation manifest config, if it
 // doesn't exist.
-func pushNotationManifestConfig(ctx context.Context, pusher content.Pusher) (*ocispec.Descriptor, error) {
-	// generate a empty config descriptor for notation manifest
-	configContent := []byte("{}")
-	desc := content.NewDescriptorFromBytes(ArtifactTypeNotation, configContent)
-
+func pushNotationManifestConfig(ctx context.Context, pusher content.Storage) (ocispec.Descriptor, error) {
 	// check if the config exists
-	if ros, ok := pusher.(content.ReadOnlyStorage); ok {
-		exists, err := ros.Exists(ctx, desc)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check existence: %s: %s: %w", desc.Digest.String(), desc.MediaType, err)
-		}
-		if exists {
-			return &desc, nil
-		}
+	exists, err := pusher.Exists(ctx, notationEmptyConfigDesc)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("unable to verify existence: %s: %s. Details: %w", notationEmptyConfigDesc.Digest.String(), notationEmptyConfigDesc.MediaType, err)
+	}
+	if exists {
+		return notationEmptyConfigDesc, nil
 	}
 
 	// push the config
-	if err := pusher.Push(ctx, desc, bytes.NewReader(configContent)); err != nil && !errors.Is(err, errdef.ErrAlreadyExists) {
-		return nil, fmt.Errorf("failed to push: %s: %s: %w", desc.Digest.String(), desc.MediaType, err)
+	if err := pusher.Push(ctx, notationEmptyConfigDesc, bytes.NewReader(notationEmptyConfigData)); err != nil && !errors.Is(err, errdef.ErrAlreadyExists) {
+		return ocispec.Descriptor{}, fmt.Errorf("unable to push: %s: %s. Details: %w", notationEmptyConfigDesc.Digest.String(), notationEmptyConfigDesc.MediaType, err)
 	}
-	return &desc, nil
+	return notationEmptyConfigDesc, nil
 }
 
 // signatureReferrers returns referrer nodes of desc in target filtered by
