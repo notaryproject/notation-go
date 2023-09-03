@@ -220,6 +220,8 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 
 // pushNotationManifestConfig pushes an empty notation manifest config, if it
 // doesn't exist.
+//
+// if the config exists, it returns the descriptor of the config without error.
 func pushNotationManifestConfig(ctx context.Context, pusher content.Storage) (ocispec.Descriptor, error) {
 	// check if the config exists
 	exists, err := pusher.Exists(ctx, notationEmptyConfigDesc)
@@ -230,7 +232,7 @@ func pushNotationManifestConfig(ctx context.Context, pusher content.Storage) (oc
 		return notationEmptyConfigDesc, nil
 	}
 
-	// push the config
+	// return nil if the config pushed successfully or it already exists
 	if err := pusher.Push(ctx, notationEmptyConfigDesc, bytes.NewReader(notationEmptyConfigData)); err != nil && !errors.Is(err, errdef.ErrAlreadyExists) {
 		return ocispec.Descriptor{}, fmt.Errorf("unable to push: %s: %s. Details: %w", notationEmptyConfigDesc.Digest.String(), notationEmptyConfigDesc.MediaType, err)
 	}
