@@ -10,7 +10,7 @@ require (
 	github.com/veraison/go-cose v1.1.0
 	golang.org/x/crypto v0.12.0
 	golang.org/x/mod v0.12.0
-	oras.land/oras-go/v2 v2.2.1
+	oras.land/oras-go/v2 v2.3.0
 )
 
 require (
