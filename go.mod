@@ -1,6 +1,6 @@
 module github.com/notaryproject/notation-go
 
-go 1.19
+go 1.20
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.5
