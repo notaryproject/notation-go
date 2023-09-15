@@ -14,8 +14,10 @@
 package registry
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -24,12 +26,26 @@ import (
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
+	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry"
 )
 
 const (
 	maxBlobSizeLimit     = 32 * 1024 * 1024 // 32 MiB
 	maxManifestSizeLimit = 4 * 1024 * 1024  // 4 MiB
+)
+
+var (
+	// notationEmptyConfigDesc is the descriptor of an empty notation manifest
+	// config
+	// reference: https://github.com/notaryproject/specifications/blob/v1.0.0/specs/signature-specification.md#storage
+	notationEmptyConfigDesc = ocispec.Descriptor{
+		MediaType: ArtifactTypeNotation,
+		Digest:    ocispec.DescriptorEmptyJSON.Digest,
+		Size:      ocispec.DescriptorEmptyJSON.Size,
+	}
+	// notationEmptyConfigData is the data of an empty notation manifest config
+	notationEmptyConfigData = ocispec.DescriptorEmptyJSON.Data
 )
 
 // RepositoryOptions provides user options when creating a Repository
@@ -187,13 +203,40 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 
 // uploadSignatureManifest uploads the signature manifest to the registry
 func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
-	opts := oras.PackOptions{
-		Subject:             &subject,
-		ManifestAnnotations: annotations,
-		PackImageManifest:   true,
+	configDesc, err := pushNotationManifestConfig(ctx, c.GraphTarget)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to push notation manifest config: %w", err)
 	}
 
-	return oras.Pack(ctx, c.GraphTarget, ArtifactTypeNotation, []ocispec.Descriptor{blobDesc}, opts)
+	opts := oras.PackManifestOptions{
+		Subject:             &subject,
+		ManifestAnnotations: annotations,
+		Layers:              []ocispec.Descriptor{blobDesc},
+		ConfigDescriptor:    &configDesc,
+	}
+
+	return oras.PackManifest(ctx, c.GraphTarget, oras.PackManifestVersion1_1_RC4, "", opts)
+}
+
+// pushNotationManifestConfig pushes an empty notation manifest config, if it
+// doesn't exist.
+//
+// if the config exists, it returns the descriptor of the config without error.
+func pushNotationManifestConfig(ctx context.Context, pusher content.Storage) (ocispec.Descriptor, error) {
+	// check if the config exists
+	exists, err := pusher.Exists(ctx, notationEmptyConfigDesc)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("unable to verify existence: %s: %s. Details: %w", notationEmptyConfigDesc.Digest.String(), notationEmptyConfigDesc.MediaType, err)
+	}
+	if exists {
+		return notationEmptyConfigDesc, nil
+	}
+
+	// return nil if the config pushed successfully or it already exists
+	if err := pusher.Push(ctx, notationEmptyConfigDesc, bytes.NewReader(notationEmptyConfigData)); err != nil && !errors.Is(err, errdef.ErrAlreadyExists) {
+		return ocispec.Descriptor{}, fmt.Errorf("unable to push: %s: %s. Details: %w", notationEmptyConfigDesc.Digest.String(), notationEmptyConfigDesc.MediaType, err)
+	}
+	return notationEmptyConfigDesc, nil
 }
 
 // signatureReferrers returns referrer nodes of desc in target filtered by

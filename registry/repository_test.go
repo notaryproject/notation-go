@@ -38,6 +38,7 @@ import (
 
 const (
 	zeroDigest               = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	emptyConfigDigest        = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
 	validDigest              = "6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b"
 	validDigest2             = "1834876dcfb05cb167a5c24953eba58c4ac89b1adf57f28f2f9d09af107ee8f2"
 	invalidDigest            = "invaliddigest"
@@ -128,6 +129,11 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 				"Content-Type":          {joseTag},
 				"Docker-Content-Digest": {validDigestWithAlgo2},
 			},
+		}, nil
+	case "/v2/test/blobs/" + emptyConfigDigest:
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(bytes.NewReader([]byte{})),
 		}, nil
 	case "/v2/test/manifests/" + invalidDigest:
 		return &http.Response{}, fmt.Errorf(errMsg)
