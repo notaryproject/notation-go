@@ -349,8 +349,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 
 	var verificationSucceeded bool
 	var verificationOutcomes []*VerificationOutcome
-	var verificationFailedErr error = ErrorVerificationFailed{}
-	var verificationFailedErrorArray = []error{verificationFailedErr}
+	var verificationFailedErrorArray = []error{ErrorVerificationFailed{}}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", verifyOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
 
@@ -418,8 +417,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	// Verification Failed
 	if !verificationSucceeded {
 		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
-		verificationFailedErr = errors.Join(verificationFailedErrorArray...)
-		return ocispec.Descriptor{}, verificationOutcomes, verificationFailedErr
+		return ocispec.Descriptor{}, verificationOutcomes, errors.Join(verificationFailedErrorArray...)
 	}
 
 	// Verification Succeeded
