@@ -13,13 +13,13 @@
 
 package truststore
 
-// ErrorTrustStore is used when accessing specified trust store failed
-type ErrorTrustStore struct {
+// TrustStoreError is used when accessing specified trust store failed
+type TrustStoreError struct {
 	Msg        string
 	InnerError error
 }
 
-func (e ErrorTrustStore) Error() string {
+func (e TrustStoreError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
@@ -29,17 +29,17 @@ func (e ErrorTrustStore) Error() string {
 	return "unable to access the trust store"
 }
 
-func (e ErrorTrustStore) Unwrap() error {
+func (e TrustStoreError) Unwrap() error {
 	return e.InnerError
 }
 
-// ErrorCertificate is used when reading a certificate failed
-type ErrorCertificate struct {
+// CertificateError is used when reading a certificate failed
+type CertificateError struct {
 	Msg        string
 	InnerError error
 }
 
-func (e ErrorCertificate) Error() string {
+func (e CertificateError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
@@ -49,6 +49,6 @@ func (e ErrorCertificate) Error() string {
 	return "unable to read the certificate"
 }
 
-func (e ErrorCertificate) Unwrap() error {
+func (e CertificateError) Unwrap() error {
 	return e.InnerError
 }
