@@ -3,6 +3,7 @@ module github.com/notaryproject/notation-go
 go 1.20
 
 require (
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
 	github.com/go-ldap/ldap/v3 v3.4.5
 	github.com/notaryproject/notation-core-go v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -21,3 +22,5 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 )
+
+replace github.com/AdaLogics/go-fuzz-headers => github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
