@@ -13,7 +13,7 @@ You can also find the Notary Project [README](https://github.com/notaryproject/.
 > **Note** The Notary Project documentation is available [here](https://notaryproject.dev/docs/). 
 
 ## Table of Contents
-- [Core Documents](#core-documents)
+- [Documentation](#documentation)
 - [Code of Conduct](#code-of-conduct)
 - [License](#license)
  
