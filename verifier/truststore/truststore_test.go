@@ -49,8 +49,8 @@ func TestLoadValidTrustStoreWithSelfSignedSigningCertificate(t *testing.T) {
 }
 
 func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
-	failurePath := filepath.FromSlash("../testdata/truststore/x509/ca/trust-store-with-invalid-certs/invalid")
-	expectedErr := fmt.Errorf("failed to read the trusted certificate %q: x509: malformed certificate", failurePath)
+	// testing ../testdata/truststore/x509/ca/trust-store-with-invalid-certs/invalid
+	expectedErr := fmt.Errorf("failed to read the trusted certificate %s in trust store %s of type %s", "invalid", "trust-store-with-invalid-certs", "ca")
 	_, err := trustStore.GetCertificates(context.Background(), "ca", "trust-store-with-invalid-certs")
 	if err == nil || err.Error() != expectedErr.Error() {
 		t.Fatalf("invalid certs should return error: %q", expectedErr)
@@ -58,8 +58,8 @@ func TestLoadTrustStoreWithInvalidCerts(t *testing.T) {
 }
 
 func TestLoadTrustStoreWithLeafCerts(t *testing.T) {
-	failurePath := filepath.FromSlash("../testdata/truststore/x509/ca/trust-store-with-leaf-certs/non-ca.crt")
-	expectedErrMsg := fmt.Sprintf("failed to validate the trusted certificate %q: certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" is not a CA certificate or self-signed signing certificate", failurePath)
+	// testing ../testdata/truststore/x509/ca/trust-store-with-leaf-certs/non-ca.crt
+	expectedErrMsg := fmt.Sprintf("failed to validate the trusted certificate %s in trust store %s of type %s", "non-ca.crt", "trust-store-with-leaf-certs", "ca")
 	_, err := trustStore.GetCertificates(context.Background(), "ca", "trust-store-with-leaf-certs")
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("leaf cert in a trust store should return error: %s, got: %v", expectedErrMsg, err)
@@ -67,8 +67,8 @@ func TestLoadTrustStoreWithLeafCerts(t *testing.T) {
 }
 
 func TestLoadTrustStoreWithLeafCertsInSingleFile(t *testing.T) {
-	failurePath := filepath.FromSlash("../testdata/truststore/x509/ca/trust-store-with-leaf-certs-in-single-file/RootAndLeafCerts.crt")
-	expectedErrMsg := fmt.Sprintf("failed to validate the trusted certificate %q: certificate with subject \"CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US\" is not a CA certificate or self-signed signing certificate", failurePath)
+	// testing ../testdata/truststore/x509/ca/trust-store-with-leaf-certs-in-single-file/RootAndLeafCerts.crt
+	expectedErrMsg := fmt.Sprintf("failed to validate the trusted certificate %s in trust store %s of type %s", "RootAndLeafCerts.crt", "trust-store-with-leaf-certs-in-single-file", "ca")
 	_, err := trustStore.GetCertificates(context.Background(), "ca", "trust-store-with-leaf-certs-in-single-file")
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("leaf cert in a trust store should return error: %s, got: %v", expectedErrMsg, err)
