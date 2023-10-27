@@ -11,7 +11,7 @@ notation-go reached a stable release as of July 2023 and continues to be activel
 Please visit [README](https://github.com/notaryproject/.github/blob/main/README.md) to know more about Notary Project.
 
 > [!NOTE]
-> The Notary Project documentation is available [here](https://notaryproject.dev/docs/). The Notary Project documentation is available [here](https://notaryproject.dev/docs/). 
+> The Notary Project documentation is available [here](https://notaryproject.dev/docs/).
 
 ## Table of Contents
 
