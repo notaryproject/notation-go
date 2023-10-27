@@ -4,22 +4,24 @@
 [![Codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/notaryproject/notation-go.svg)](https://pkg.go.dev/github.com/notaryproject/notation-go@main)
 
-notation-go offers libraries for signing, verifying, uploading, and downloading OCI artifacts using [Notary Project specifications](https://github.com/notaryproject/specifications). notation-go is used by [notation](https://github.com/notaryproject/notation) CLI for signing and verifying artifacts.
+notation-go contains libraries for signing and verification of artifacts as per [Notary Project specifications](https://github.com/notaryproject/specifications). notation-go is being used by [notation](https://github.com/notaryproject/notation) CLI for signing and verifying artifacts.
 
-notation-go reached a stable release as of July 2023 and continues to be actively developed.
+notation-go reached a stable release as of July 2023 and continues to be actively developed and maintained.
 
-You can also find the Notary Project [README](https://github.com/notaryproject/.github/blob/main/README.md) to learn about the overall Notary Project.
+Please visit [README](https://github.com/notaryproject/.github/blob/main/README.md) to know more about Notary Project.
 
-> **Note** The Notary Project documentation is available [here](https://notaryproject.dev/docs/). 
+> [!NOTE]
+> The Notary Project documentation is available [here](https://notaryproject.dev/docs/). The Notary Project documentation is available [here](https://notaryproject.dev/docs/). 
 
 ## Table of Contents
+
 - [Documentation](#documentation)
 - [Code of Conduct](#code-of-conduct)
 - [License](#license)
  
 ## Documentation
 
-All examples and library documentation are available at [Go Reference](https://pkg.go.dev/github.com/notaryproject/notation-go@main#section-documentation).
+Library documentation is available at [Go Reference](https://pkg.go.dev/github.com/notaryproject/notation-go).
 
 ## Code of Conduct
 
