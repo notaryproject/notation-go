@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"os"
 	"path"
 
 	"github.com/notaryproject/notation-go/dir"
@@ -81,4 +82,16 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		return fs.SkipDir
 	})
 	return plugins, nil
+}
+
+// Uninstall uninstalls a plugin on the system by its name
+func (m *CLIManager) Uninstall(ctx context.Context, name string) error {
+	pluginDirPath, err := m.pluginFS.SysPath(name)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(pluginDirPath); err != nil {
+		return err
+	}
+	return os.RemoveAll(pluginDirPath)
 }

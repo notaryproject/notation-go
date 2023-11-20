@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/fs"
+	"os"
 	"reflect"
 	"testing"
 	"testing/fstest"
@@ -85,6 +86,30 @@ func TestManager_List(t *testing.T) {
 			t.Fatalf("got plugins = %v, want %v", plugins, want)
 		}
 	})
+}
+
+func TestManager_Uninstall(t *testing.T) {
+	executor = testCommander{stdout: metadataJSON(validMetadata)}
+	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "./testdata/plugins"))
+	if err := os.MkdirAll("./testdata/plugins/toUninstall", 0600); err != nil {
+		t.Errorf("failed to create toUninstall dir: %v", err)
+	}
+	defer os.RemoveAll("./testdata/plugins/toUninstall")
+	pluginFile, err := os.Create("./testdata/plugins/toUninstall/toUninstall")
+	if err != nil {
+		t.Errorf("failed to create toUninstall file: %v", err)
+	}
+	if err := pluginFile.Close(); err != nil {
+		t.Errorf("failed to close toUninstall file: %v", err)
+	}
+	if err := mgr.Uninstall(context.Background(), "toUninstall"); err != nil {
+		t.Errorf("Manager.Uninstall() err %v, want nil", err)
+	}
+
+	expectedErrorMsg := "CreateFile testdata\\plugins\\non-exist: The system cannot find the file specified."
+	if err := mgr.Uninstall(context.Background(), "non-exist"); err == nil || err.Error() != expectedErrorMsg {
+		t.Errorf("Manager.Uninstall() err %v, want %s", err, expectedErrorMsg)
+	}
 }
 
 func metadataJSON(m proto.GetMetadataResponse) []byte {
