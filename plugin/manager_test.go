@@ -91,24 +91,25 @@ func TestManager_List(t *testing.T) {
 func TestManager_Uninstall(t *testing.T) {
 	executor = testCommander{stdout: metadataJSON(validMetadata)}
 	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "./testdata/plugins"))
-	if err := os.MkdirAll("./testdata/plugins/toUninstall", 0600); err != nil {
-		t.Errorf("failed to create toUninstall dir: %v", err)
+	if err := os.MkdirAll("./testdata/plugins/toUninstall", 0666); err != nil {
+		t.Fatalf("failed to create toUninstall dir: %v", err)
 	}
 	defer os.RemoveAll("./testdata/plugins/toUninstall")
 	pluginFile, err := os.Create("./testdata/plugins/toUninstall/toUninstall")
 	if err != nil {
-		t.Errorf("failed to create toUninstall file: %v", err)
+		t.Fatalf("failed to create toUninstall file: %v", err)
 	}
 	if err := pluginFile.Close(); err != nil {
-		t.Errorf("failed to close toUninstall file: %v", err)
+		t.Fatalf("failed to close toUninstall file: %v", err)
 	}
+	// test uninstall valid plugin
 	if err := mgr.Uninstall(context.Background(), "toUninstall"); err != nil {
-		t.Errorf("Manager.Uninstall() err %v, want nil", err)
+		t.Fatalf("Manager.Uninstall() err %v, want nil", err)
 	}
-
+	// test uninstall non-exist plugin
 	expectedErrorMsg := "CreateFile testdata\\plugins\\non-exist: The system cannot find the file specified."
 	if err := mgr.Uninstall(context.Background(), "non-exist"); err == nil || err.Error() != expectedErrorMsg {
-		t.Errorf("Manager.Uninstall() err %v, want %s", err, expectedErrorMsg)
+		t.Fatalf("Manager.Uninstall() err %v, want %s", err, expectedErrorMsg)
 	}
 }
 
