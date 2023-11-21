@@ -107,7 +107,7 @@ func TestManager_Uninstall(t *testing.T) {
 		t.Fatalf("Manager.Uninstall() err %v, want nil", err)
 	}
 	// test uninstall non-exist plugin
-	expectedErrorMsg := "CreateFile testdata\\plugins\\non-exist: The system cannot find the file specified."
+	expectedErrorMsg := "stat testdata/plugins/non-exist: no such file or directory"
 	if err := mgr.Uninstall(context.Background(), "non-exist"); err == nil || err.Error() != expectedErrorMsg {
 		t.Fatalf("Manager.Uninstall() err %v, want %s", err, expectedErrorMsg)
 	}
