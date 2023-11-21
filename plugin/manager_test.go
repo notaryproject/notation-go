@@ -91,7 +91,7 @@ func TestManager_List(t *testing.T) {
 func TestManager_Uninstall(t *testing.T) {
 	executor = testCommander{stdout: metadataJSON(validMetadata)}
 	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "./testdata/plugins"))
-	if err := os.MkdirAll("./testdata/plugins/toUninstall", 0666); err != nil {
+	if err := os.MkdirAll("./testdata/plugins/toUninstall", 0777); err != nil {
 		t.Fatalf("failed to create toUninstall dir: %v", err)
 	}
 	defer os.RemoveAll("./testdata/plugins/toUninstall")
