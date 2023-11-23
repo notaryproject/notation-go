@@ -446,7 +446,7 @@ func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolic
 
 	if err != nil {
 		return &notation.ValidationResult{
-			Error:  notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while loading the trust store, %v", err)},
+			Error:  err,
 			Type:   trustpolicy.TypeAuthenticity,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 		}

@@ -193,7 +193,7 @@ type ValidationResult struct {
 	Error error
 }
 
-// VerificationOutcome encapsulates a signature blob's descriptor, its content,
+// VerificationOutcome encapsulates a signature envelope blob, its content,
 // the verification level and results for each verification type that was
 // performed.
 type VerificationOutcome struct {
@@ -347,11 +347,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("user input digest %s does not match the resolved digest %s", ref.Reference, artifactDescriptor.Digest.String())}
 	}
 
+	var verificationSucceeded bool
 	var verificationOutcomes []*VerificationOutcome
+	var verificationFailedErrorArray = []error{ErrorVerificationFailed{}}
 	errExceededMaxVerificationLimit := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", verifyOpts.MaxSignatureAttempts)}
 	numOfSignatureProcessed := 0
-
-	var verificationFailedErr error = ErrorVerificationFailed{}
 
 	// get signature manifests
 	logger.Debug("Fetching signature manifests")
@@ -380,16 +380,15 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 					logger.Error("Got nil outcome. Expecting non-nil outcome on verification failure")
 					return err
 				}
-
-				if _, ok := outcome.Error.(ErrorUserMetadataVerificationFailed); ok {
-					verificationFailedErr = outcome.Error
-				}
-
+				outcome.Error = fmt.Errorf("failed to verify signature with digest %v, %w", sigManifestDesc.Digest, outcome.Error)
+				verificationFailedErrorArray = append(verificationFailedErrorArray, outcome.Error)
 				continue
 			}
-			// at this point, the signature is verified successfully. Add
-			// it to the verificationOutcomes.
-			verificationOutcomes = append(verificationOutcomes, outcome)
+			// at this point, the signature is verified successfully
+			verificationSucceeded = true
+			// on success, verificationOutcomes only contains the
+			// succeeded outcome
+			verificationOutcomes = []*VerificationOutcome{outcome}
 			logger.Debugf("Signature verification succeeded for artifact %v with signature digest %v", artifactDescriptor.Digest, sigManifestDesc.Digest)
 
 			// early break on success
@@ -416,9 +415,9 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	}
 
 	// Verification Failed
-	if len(verificationOutcomes) == 0 {
+	if !verificationSucceeded {
 		logger.Debugf("Signature verification failed for all the signatures associated with artifact %v", artifactDescriptor.Digest)
-		return ocispec.Descriptor{}, verificationOutcomes, verificationFailedErr
+		return ocispec.Descriptor{}, verificationOutcomes, errors.Join(verificationFailedErrorArray...)
 	}
 
 	// Verification Succeeded
