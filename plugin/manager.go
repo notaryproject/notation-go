@@ -131,9 +131,9 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 			}
 			switch {
 			case comp < 0:
-				return nil, nil, ErrInstallLowerVersion{Msg: fmt.Sprintf("The installing plugin version %s is lower than the existing plugin version %s.", newPluginMetadata.Version, existingPluginMetadata.Version)}
+				return nil, nil, ErrInstallLowerVersion{Msg: fmt.Sprintf("the installing plugin version %s is lower than the existing plugin version %s", newPluginMetadata.Version, existingPluginMetadata.Version)}
 			case comp == 0:
-				return nil, nil, ErrInstallEqualVersion{Msg: fmt.Sprintf("Plugin %s with version %s already exists.", pluginName, existingPluginMetadata.Version)}
+				return nil, nil, ErrInstallEqualVersion{Msg: fmt.Sprintf("plugin %s with version %s already exists", pluginName, existingPluginMetadata.Version)}
 			}
 		}
 	}

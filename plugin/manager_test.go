@@ -221,7 +221,7 @@ func TestManager_Install(t *testing.T) {
 			newPluginStdout:       metadataJSON(validMetadata),
 		}
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
-		expectedErrorMsg := "Plugin foo with version 1.0.0 already exists."
+		expectedErrorMsg := "plugin foo with version 1.0.0 already exists"
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -235,7 +235,7 @@ func TestManager_Install(t *testing.T) {
 			newPluginStdout:       metadataJSON(validMetadataLowerVersion),
 		}
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
-		expectedErrorMsg := "The installing plugin version 0.1.0 is lower than the existing plugin version 1.0.0."
+		expectedErrorMsg := "the installing plugin version 0.1.0 is lower than the existing plugin version 1.0.0"
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
