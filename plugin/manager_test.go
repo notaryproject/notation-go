@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"testing/fstest"
 
@@ -90,6 +91,9 @@ var invalidContractVersionMetadata = proto.GetMetadataResponse{
 }
 
 func TestManager_Get(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	executor = testCommander{stdout: metadataJSON(validMetadata)}
 	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "./testdata/plugins"))
 	_, err := mgr.Get(context.Background(), "foo")
@@ -127,6 +131,9 @@ func TestManager_List(t *testing.T) {
 }
 
 func TestManager_Install(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	existedPluginFilePath := "testdata/plugins/foo/notation-foo"
 	newPluginFilePath := "testdata/foo/notation-foo"
 	newPluginDir := filepath.Dir(newPluginFilePath)
@@ -171,7 +178,7 @@ func TestManager_Install(t *testing.T) {
 		}
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, true)
 		if err != nil {
-			t.Fatalf("expecting error to be nil, bug got %v", err)
+			t.Fatalf("expecting error to be nil, but got %v", err)
 		}
 	})
 
@@ -193,20 +200,16 @@ func TestManager_Install(t *testing.T) {
 			newPluginFilePath: newPluginFilePath,
 			newPluginStdout:   metadataJSON(validMetadataBar),
 		}
+		defer mgr.Uninstall(context.Background(), "bar")
 		existingPluginMetadata, newPluginMetadata, err := mgr.Install(context.Background(), newPluginFilePath, false)
 		if err != nil {
-			t.Fatalf("expecting error to be nil, bug got %v", err)
+			t.Fatalf("expecting error to be nil, but got %v", err)
 		}
 		if existingPluginMetadata != nil {
-			t.Fatalf("expecting existingPluginMetadata to be nil, bug got %v", existingPluginMetadata)
+			t.Fatalf("expecting existingPluginMetadata to be nil, but got %v", existingPluginMetadata)
 		}
 		if newPluginMetadata.Version != validMetadataBar.Version {
 			t.Fatalf("new plugin version mismatch, new plugin version: %s, but got: %s", validMetadataBar.Version, newPluginMetadata.Version)
-		}
-		// clean up
-		err = mgr.Uninstall(context.Background(), "bar")
-		if err != nil {
-			t.Fatal("failed to clean up test plugin bar")
 		}
 	})
 
@@ -219,7 +222,7 @@ func TestManager_Install(t *testing.T) {
 		}
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
 		if err == nil || err.Error() != ErrInstallEqualVersion.Error() {
-			t.Fatalf("expecting error %v, bug got %v", ErrInstallEqualVersion, err)
+			t.Fatalf("expecting error %v, but got %v", ErrInstallEqualVersion, err)
 		}
 	})
 
@@ -232,7 +235,7 @@ func TestManager_Install(t *testing.T) {
 		}
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
 		if err == nil || err.Error() != ErrInstallLowerVersion.Error() {
-			t.Fatalf("expecting error %v, bug got %v", ErrInstallLowerVersion, err)
+			t.Fatalf("expecting error %v, but got %v", ErrInstallLowerVersion, err)
 		}
 	})
 
@@ -257,7 +260,7 @@ func TestManager_Install(t *testing.T) {
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
 		expectedErrorMsg := "failed to get plugin name from file path: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
 		if err == nil || err.Error() != expectedErrorMsg {
-			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
 	})
 
@@ -270,7 +273,7 @@ func TestManager_Install(t *testing.T) {
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
 		expectedErrorMsg := "failed to create new CLI plugin: stat testdata/bar/notation-bar: no such file or directory"
 		if err == nil || err.Error() != expectedErrorMsg {
-			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
 	})
 
@@ -295,7 +298,7 @@ func TestManager_Install(t *testing.T) {
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
 		expectedErrorMsg := "failed to get metadata of new plugin: executable name must be \"notation-foobar\" instead of \"notation-bar\""
 		if err == nil || err.Error() != expectedErrorMsg {
-			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
 	})
 
@@ -309,12 +312,15 @@ func TestManager_Install(t *testing.T) {
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
 		expectedErrorMsg := "failed to get metadata of existing plugin: executable name must be \"notation-bar\" instead of \"notation-foo\""
 		if err == nil || err.Error() != expectedErrorMsg {
-			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
 	})
 }
 
 func TestManager_Uninstall(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	executor = testCommander{stdout: metadataJSON(validMetadata)}
 	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "./testdata/plugins"))
 	if err := os.MkdirAll("./testdata/plugins/toUninstall", 0777); err != nil {

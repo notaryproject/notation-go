@@ -97,8 +97,10 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	return plugins, nil
 }
 
-// Install installs a plugin at filePath to the system,
-// err == nil if and only if the installation succeeded.
+// Install installs a plugin at filePath to the system.
+//
+// It returns the new plugin metadata and a nil eror if and only if
+// the installation succeeded.
 //
 // If plugin already exists, and overwrite is not set, then the new plugin
 // version MUST be higher than the existing plugin version.
