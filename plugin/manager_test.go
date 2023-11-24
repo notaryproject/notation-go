@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"testing/fstest"
@@ -36,8 +37,45 @@ func (t testCommander) Output(ctx context.Context, path string, command proto.Co
 	return t.stdout, t.stderr, t.err
 }
 
+type testInstallCommander struct {
+	existedPluginFilePath string
+	existedPluginStdout   []byte
+	existedPluginStderr   []byte
+	existedPluginErr      error
+	newPluginFilePath     string
+	newPluginStdout       []byte
+	newPluginStderr       []byte
+	newPluginErr          error
+	err                   error
+}
+
+func (t testInstallCommander) Output(ctx context.Context, path string, command proto.Command, req []byte) ([]byte, []byte, error) {
+	if path == t.existedPluginFilePath {
+		return t.existedPluginStdout, t.existedPluginStderr, t.existedPluginErr
+	}
+	if path == t.newPluginFilePath {
+		return t.newPluginStdout, t.newPluginStderr, t.newPluginErr
+	}
+	return nil, nil, t.err
+}
+
 var validMetadata = proto.GetMetadataResponse{
-	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
+	Name: "foo", Description: "friendly", Version: "1.0.0", URL: "example.com",
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+}
+
+var validMetadataHigherVersion = proto.GetMetadataResponse{
+	Name: "foo", Description: "friendly", Version: "1.1.0", URL: "example.com",
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+}
+
+var validMetadataLowerVersion = proto.GetMetadataResponse{
+	Name: "foo", Description: "friendly", Version: "0.1.0", URL: "example.com",
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+}
+
+var validMetadataBar = proto.GetMetadataResponse{
+	Name: "bar", Description: "friendly", Version: "1.0.0", URL: "example.com",
 	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
 }
 
@@ -84,6 +122,194 @@ func TestManager_List(t *testing.T) {
 		want := []string{"foo", "bar"}
 		if reflect.DeepEqual(want, plugins) {
 			t.Fatalf("got plugins = %v, want %v", plugins, want)
+		}
+	})
+}
+
+func TestManager_Install(t *testing.T) {
+	existedPluginFilePath := "testdata/plugins/foo/notation-foo"
+	newPluginFilePath := "testdata/foo/notation-foo"
+	newPluginDir := filepath.Dir(newPluginFilePath)
+	if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+		t.Fatalf("failed to create %s: %v", newPluginDir, err)
+	}
+	defer os.RemoveAll(newPluginDir)
+	pluginFile, err := os.Create(newPluginFilePath)
+	if err != nil {
+		t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
+	}
+	if err := pluginFile.Close(); err != nil {
+		t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+	}
+	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "testdata/plugins"))
+
+	t.Run("success install with higher version", func(t *testing.T) {
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadata),
+			newPluginStdout:       metadataJSON(validMetadataHigherVersion),
+		}
+		existingPluginMetadata, newPluginMetadata, err := mgr.Install(context.Background(), newPluginFilePath, false)
+		if err != nil {
+			t.Fatalf("expecting error to be nil, but got %v", err)
+		}
+		if existingPluginMetadata.Version != validMetadata.Version {
+			t.Fatalf("existing plugin version mismatch, existing plugin version: %s, but got: %s", validMetadata.Version, existingPluginMetadata.Version)
+		}
+		if newPluginMetadata.Version != validMetadataHigherVersion.Version {
+			t.Fatalf("new plugin version mismatch, new plugin version: %s, but got: %s", validMetadataHigherVersion.Version, newPluginMetadata.Version)
+		}
+	})
+
+	t.Run("success install with lower version and overwrite", func(t *testing.T) {
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadata),
+			newPluginStdout:       metadataJSON(validMetadataLowerVersion),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, true)
+		if err != nil {
+			t.Fatalf("expecting error to be nil, bug got %v", err)
+		}
+	})
+
+	t.Run("success install without existing plugin", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/notation-bar"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		pluginFile, err := os.Create(newPluginFilePath)
+		if err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
+		}
+		if err := pluginFile.Close(); err != nil {
+			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+		}
+		executor = testInstallCommander{
+			newPluginFilePath: newPluginFilePath,
+			newPluginStdout:   metadataJSON(validMetadataBar),
+		}
+		existingPluginMetadata, newPluginMetadata, err := mgr.Install(context.Background(), newPluginFilePath, false)
+		if err != nil {
+			t.Fatalf("expecting error to be nil, bug got %v", err)
+		}
+		if existingPluginMetadata != nil {
+			t.Fatalf("expecting existingPluginMetadata to be nil, bug got %v", existingPluginMetadata)
+		}
+		if newPluginMetadata.Version != validMetadataBar.Version {
+			t.Fatalf("new plugin version mismatch, new plugin version: %s, but got: %s", validMetadataBar.Version, newPluginMetadata.Version)
+		}
+		// clean up
+		err = mgr.Uninstall(context.Background(), "bar")
+		if err != nil {
+			t.Fatal("failed to clean up test plugin bar")
+		}
+	})
+
+	t.Run("fail to install due to equal version", func(t *testing.T) {
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadata),
+			newPluginStdout:       metadataJSON(validMetadata),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
+		if err == nil || err.Error() != ErrInstallEqualVersion.Error() {
+			t.Fatalf("expecting error %v, bug got %v", ErrInstallEqualVersion, err)
+		}
+	})
+
+	t.Run("fail to install due to lower version", func(t *testing.T) {
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadata),
+			newPluginStdout:       metadataJSON(validMetadataLowerVersion),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
+		if err == nil || err.Error() != ErrInstallLowerVersion.Error() {
+			t.Fatalf("expecting error %v, bug got %v", ErrInstallLowerVersion, err)
+		}
+	})
+
+	t.Run("fail to install due to wrong plugin executable file name format", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/bar"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		pluginFile, err := os.Create(newPluginFilePath)
+		if err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
+		}
+		if err := pluginFile.Close(); err != nil {
+			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+		}
+		executor = testInstallCommander{
+			newPluginFilePath: newPluginFilePath,
+			newPluginStdout:   metadataJSON(validMetadataBar),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
+		expectedErrorMsg := "failed to get plugin name from file path: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
+		}
+	})
+
+	t.Run("fail to install due to new plugin executable file does not exist", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/notation-bar"
+		executor = testInstallCommander{
+			newPluginFilePath: newPluginFilePath,
+			newPluginStdout:   metadataJSON(validMetadataBar),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
+		expectedErrorMsg := "failed to create new CLI plugin: stat testdata/bar/notation-bar: no such file or directory"
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
+		}
+	})
+
+	t.Run("fail to install due to invalid new plugin metadata", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/notation-bar"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		pluginFile, err := os.Create(newPluginFilePath)
+		if err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
+		}
+		if err := pluginFile.Close(); err != nil {
+			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+		}
+		executor = testInstallCommander{
+			newPluginFilePath: newPluginFilePath,
+			newPluginStdout:   metadataJSON(invalidMetadataName),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
+		expectedErrorMsg := "failed to get metadata of new plugin: executable name must be \"notation-foobar\" instead of \"notation-bar\""
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
+		}
+	})
+
+	t.Run("fail to install due to invalid existing plugin metadata", func(t *testing.T) {
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadataBar),
+			newPluginStdout:       metadataJSON(validMetadata),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
+		expectedErrorMsg := "failed to get metadata of existing plugin: executable name must be \"notation-bar\" instead of \"notation-foo\""
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, bug got %v", expectedErrorMsg, err)
 		}
 	})
 }

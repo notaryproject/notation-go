@@ -16,11 +16,16 @@ package plugin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/internal/file"
+	"github.com/notaryproject/notation-go/internal/semver"
+	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
 // ErrNotCompliant is returned by plugin methods when the response is not
@@ -29,6 +34,14 @@ var ErrNotCompliant = errors.New("plugin not compliant")
 
 // ErrNotRegularFile is returned when the plugin file is not an regular file.
 var ErrNotRegularFile = errors.New("not regular file")
+
+// ErrInstallLowerVersion is returned when installing a plugin with version
+// lower than the exisiting plugin version.
+var ErrInstallLowerVersion = errors.New("installing plugin with version lower than the existing plugin version")
+
+// ErrInstallEqualVersion is returned when installing a plugin with version
+// equal to the exisiting plugin version.
+var ErrInstallEqualVersion = errors.New("installing plugin with version equal to the existing plugin version")
 
 // Manager manages plugins installed on the system.
 type Manager interface {
@@ -82,6 +95,72 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		return fs.SkipDir
 	})
 	return plugins, nil
+}
+
+// Install installs a plugin at filePath to the system,
+// err == nil if and only if the installation succeeded.
+//
+// If plugin already exists, and overwrite is not set, then the new plugin
+// version MUST be higher than the existing plugin version.
+// If overwrite is set, version check is skipped.
+// On sucess, existing plugin metadata and new plugin metadata are returned.
+//
+// If plugin does not exist, directly install the plugin from filePath.
+// On success, the new plugin metadata is returned.
+func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite bool) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
+	// validate and get new plugin metadata
+	pluginName, err := ExtractPluginNameFromFileName(filepath.Base(filePath))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get plugin name from file path: %w", err)
+	}
+	newPlugin, err := NewCLIPlugin(ctx, pluginName, filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
+	}
+	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get metadata of new plugin: %w", err)
+	}
+	// check plugin existence and get existing plugin metadata
+	var existingPluginMetadata *proto.GetMetadataResponse
+	existingPlugin, err := m.Get(ctx, pluginName)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, nil, fmt.Errorf("failed to get existing plugin: %w", err)
+		}
+	} else { // plugin already exists
+		var err error
+		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
+		}
+		if !overwrite { // overwrite is not set, check version
+			comp, err := semver.ComparePluginVersion(newPluginMetadata.Version, existingPluginMetadata.Version)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to compare plugin versions: %w", err)
+			}
+			switch {
+			case comp < 0:
+				return nil, nil, ErrInstallLowerVersion
+			case comp == 0:
+				return nil, nil, ErrInstallEqualVersion
+			}
+		}
+	}
+	pluginDirPath, err := m.pluginFS.SysPath(pluginName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
+	}
+	_, err = file.CopyToDir(filePath, pluginDirPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to copy plugin executable file from %s to %s: %w", filePath, pluginDirPath, err)
+	}
+	// plugin is always executable
+	pluginFilePath := path.Join(pluginDirPath, binName(pluginName))
+	if err := os.Chmod(pluginFilePath, 0700); err != nil {
+		return nil, nil, fmt.Errorf("failed to change the plugin executable file mode: %w", err)
+	}
+	return existingPluginMetadata, newPluginMetadata, nil
 }
 
 // Uninstall uninstalls a plugin on the system by its name

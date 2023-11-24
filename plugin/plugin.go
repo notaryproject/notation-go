@@ -25,7 +25,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
@@ -74,7 +76,7 @@ type CLIPlugin struct {
 	path string
 }
 
-// NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
+// NewCLIPlugin returns a *CLIPlugin.
 func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	// validate file existence
 	fi, err := os.Stat(path)
@@ -250,4 +252,15 @@ func validate(metadata *proto.GetMetadataResponse) error {
 		)
 	}
 	return nil
+}
+
+// ExtractPluginNameFromFileName checks if fileName is a valid plugin file name
+// and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
+func ExtractPluginNameFromFileName(fileName string) (string, error) {
+	fname := file.FileNameWithoutExtension(fileName)
+	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
+	if !found {
+		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
+	}
+	return pluginName, nil
 }

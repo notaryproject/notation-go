@@ -13,9 +13,57 @@
 
 package file
 
-import "regexp"
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
 
 // IsValidFileName checks if a file name is cross-platform compatible
 func IsValidFileName(fileName string) bool {
 	return regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`).MatchString(fileName)
+}
+
+// CopyToDir copies the src file to dst. Existing file will be overwritten.
+func CopyToDir(src, dst string) (int64, error) {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return 0, err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return 0, fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer source.Close()
+
+	if err := os.MkdirAll(dst, 0700); err != nil {
+		return 0, err
+	}
+	dstFile := filepath.Join(dst, filepath.Base(src))
+	destination, err := os.Create(dstFile)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+	err = destination.Chmod(0600)
+	if err != nil {
+		return 0, err
+	}
+	return io.Copy(destination, source)
+}
+
+// FileNameWithoutExtension returns the file name without extension.
+// For example,
+// when input is xyz.exe, output is xyz
+// when input is xyz.tar.gz, output is xyz.tar
+func FileNameWithoutExtension(fileName string) string {
+	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
