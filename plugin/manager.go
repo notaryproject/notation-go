@@ -115,6 +115,9 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get plugin name from file path: %w", err)
 	}
+	if err := validatePluginFileExtensionAgainstOS(filePath, pluginName); err != nil {
+		return nil, nil, err
+	}
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, filePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)

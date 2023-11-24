@@ -225,6 +225,17 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 	return stdout.Bytes(), nil, nil
 }
 
+// ExtractPluginNameFromFileName checks if fileName is a valid plugin file name
+// and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
+func ExtractPluginNameFromFileName(fileName string) (string, error) {
+	fname := file.FileNameWithoutExtension(fileName)
+	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
+	if !found {
+		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
+	}
+	return pluginName, nil
+}
+
 // validate checks if the metadata is correctly populated.
 func validate(metadata *proto.GetMetadataResponse) error {
 	if metadata.Name == "" {
@@ -254,13 +265,16 @@ func validate(metadata *proto.GetMetadataResponse) error {
 	return nil
 }
 
-// ExtractPluginNameFromFileName checks if fileName is a valid plugin file name
-// and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
-func ExtractPluginNameFromFileName(fileName string) (string, error) {
-	fname := file.FileNameWithoutExtension(fileName)
-	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
-	if !found {
-		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
+// validatePluginFileExtensionAgainstOS validates if plugin executable file
+// aligns with the runtime OS.
+//
+// On windows, `.exe` extension is required.
+// On other OS, MUST not have the `.exe` extension.
+func validatePluginFileExtensionAgainstOS(filePath string, pluginName string) error {
+	pluginFile := filepath.Base(filePath)
+	expectedPluginFile := binName(pluginName)
+	if filepath.Ext(pluginFile) != filepath.Ext(expectedPluginFile) {
+		return fmt.Errorf("invalid plugin file name extension. Expecting file %s, but got %s", expectedPluginFile, pluginFile)
 	}
-	return pluginName, nil
+	return nil
 }
