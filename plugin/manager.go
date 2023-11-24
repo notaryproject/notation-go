@@ -28,21 +28,6 @@ import (
 	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
-// ErrNotCompliant is returned by plugin methods when the response is not
-// compliant.
-var ErrNotCompliant = errors.New("plugin not compliant")
-
-// ErrNotRegularFile is returned when the plugin file is not an regular file.
-var ErrNotRegularFile = errors.New("not regular file")
-
-// ErrInstallLowerVersion is returned when installing a plugin with version
-// lower than the exisiting plugin version.
-var ErrInstallLowerVersion = errors.New("installing plugin with version lower than the existing plugin version")
-
-// ErrInstallEqualVersion is returned when installing a plugin with version
-// equal to the exisiting plugin version.
-var ErrInstallEqualVersion = errors.New("installing plugin with version equal to the existing plugin version")
-
 // Manager manages plugins installed on the system.
 type Manager interface {
 	Get(ctx context.Context, name string) (Plugin, error)
@@ -146,9 +131,9 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 			}
 			switch {
 			case comp < 0:
-				return nil, nil, ErrInstallLowerVersion
+				return nil, nil, ErrInstallLowerVersion{Msg: fmt.Sprintf("The installing plugin version %s is lower than the existing plugin version %s.", newPluginMetadata.Version, existingPluginMetadata.Version)}
 			case comp == 0:
-				return nil, nil, ErrInstallEqualVersion
+				return nil, nil, ErrInstallEqualVersion{Msg: fmt.Sprintf("Plugin %s with version %s already exists.", pluginName, existingPluginMetadata.Version)}
 			}
 		}
 	}
