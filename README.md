@@ -1,20 +1,27 @@
-# Notation
+# notation-go
 
 [![Build Status](https://github.com/notaryproject/notation-go/actions/workflows/build.yml/badge.svg?event=push&branch=main)](https://github.com/notaryproject/notation-go/actions/workflows/build.yml?query=workflow%3Abuild+event%3Apush+branch%3Amain)
-[![codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
+[![Codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/notaryproject/notation-go.svg)](https://pkg.go.dev/github.com/notaryproject/notation-go@main)
 
-A collection of libraries for supporting Notation sign, verify, push, pull of oci artifacts. Based on Notary Project standard.
+notation-go contains libraries for signing and verification of artifacts as per [Notary Project specifications](https://github.com/notaryproject/specifications). notation-go is being used by [notation](https://github.com/notaryproject/notation) CLI for signing and verifying artifacts.
+
+notation-go reached a stable release as of July 2023 and continues to be actively developed and maintained.
+
+Please visit [README](https://github.com/notaryproject/.github/blob/main/README.md) to know more about Notary Project.
+
+> [!NOTE]
+> The Notary Project documentation is available [here](https://notaryproject.dev/docs/).
 
 ## Table of Contents
-- [Core Documents](#core-documents)
+
+- [Documentation](#documentation)
 - [Code of Conduct](#code-of-conduct)
 - [License](#license)
+ 
+## Documentation
 
-## Core Documents
-
-* [Governance for Notation](https://github.com/notaryproject/notary/blob/master/GOVERNANCE.md)
-* [Maintainers and reviewers list](https://github.com/notaryproject/notary/blob/master/MAINTAINERS)
+Library documentation is available at [Go Reference](https://pkg.go.dev/github.com/notaryproject/notation-go).
 
 ## Code of Conduct
 
