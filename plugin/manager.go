@@ -116,7 +116,7 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 	existingPlugin, err := m.Get(ctx, pluginName)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return nil, nil, fmt.Errorf("failed to get existing plugin: %w", err)
+			return nil, nil, fmt.Errorf("failed to check plugin existence: %w", err)
 		}
 	} else { // plugin already exists
 		var err error
