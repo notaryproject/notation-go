@@ -61,8 +61,11 @@ func CopyToDir(src, dst string) (int64, error) {
 }
 
 // FileNameWithoutExtension returns the file name without extension.
+//
 // For example,
+//
 // when input is xyz.exe, output is xyz
+//
 // when input is xyz.tar.gz, output is xyz.tar
 func FileNameWithoutExtension(fileName string) string {
 	return strings.TrimSuffix(fileName, filepath.Ext(fileName))

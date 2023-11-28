@@ -96,11 +96,12 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 // On success, the new plugin metadata is returned.
 func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite bool) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
 	// validate and get new plugin metadata
-	pluginName, err := ExtractPluginNameFromFileName(filepath.Base(filePath))
+	pluginFile := filepath.Base(filePath)
+	pluginName, err := ExtractPluginNameFromFileName(pluginFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get plugin name from file path: %w", err)
 	}
-	if err := validatePluginFileExtensionAgainstOS(filePath, pluginName); err != nil {
+	if err := validatePluginFileExtensionAgainstOS(pluginFile, pluginName); err != nil {
 		return nil, nil, err
 	}
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, filePath)
@@ -146,7 +147,7 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 		return nil, nil, fmt.Errorf("failed to copy plugin executable file from %s to %s: %w", filePath, pluginDirPath, err)
 	}
 	// plugin is always executable
-	pluginFilePath := path.Join(pluginDirPath, binName(pluginName))
+	pluginFilePath := path.Join(pluginDirPath, pluginFile)
 	if err := os.Chmod(pluginFilePath, 0700); err != nil {
 		return nil, nil, fmt.Errorf("failed to change the plugin executable file mode: %w", err)
 	}

@@ -11,6 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package semver provides functions related to semanic version.
+// This package is based on "golang.org/x/mod/semver"
 package semver
 
 import (
