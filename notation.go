@@ -54,6 +54,9 @@ type SignerSignOptions struct {
 
 	// SigningAgent sets the signing agent name
 	SigningAgent string
+
+	// TSA denotes the TSA server URL
+	TSAServerURL string
 }
 
 // Signer is a generic interface for signing an artifact.

@@ -36,6 +36,7 @@ type Type string
 const (
 	TypeCA               Type = "ca"
 	TypeSigningAuthority Type = "signingAuthority"
+	TypeTSA              Type = "tsa"
 )
 
 var (

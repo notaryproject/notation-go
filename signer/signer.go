@@ -110,6 +110,7 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
 		SigningAgent:  signingAgentId,
+		TSAServerURL:  opts.TSAServerURL,
 	}
 
 	// Add expiry only if ExpiryDuration is not zero

@@ -60,31 +60,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 	default:
 		return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the trust store, unrecognized signing scheme %q", scheme)}
 	}
-
-	processedStoreSet := set.New[string]()
-	var certificates []*x509.Certificate
-	for _, trustStore := range policy.TrustStores {
-		if processedStoreSet.Contains(trustStore) {
-			// we loaded this trust store already
-			continue
-		}
-
-		storeType, name, found := strings.Cut(trustStore, ":")
-		if !found {
-			return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the trust store, trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)}
-		}
-		if typeToLoad != truststore.Type(storeType) {
-			continue
-		}
-
-		certs, err := x509TrustStore.GetCertificates(ctx, typeToLoad, name)
-		if err != nil {
-			return nil, err
-		}
-		certificates = append(certificates, certs...)
-		processedStoreSet.Add(trustStore)
-	}
-	return certificates, nil
+	return loadX509TrustStoresWithType(ctx, typeToLoad, policy, x509TrustStore)
 }
 
 // isCriticalFailure checks whether a VerificationResult fails the entire
@@ -160,4 +136,42 @@ func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, 
 
 func isVersionSemverValid(version string) bool {
 	return semVerRegEx.MatchString(version)
+}
+
+func loadX509TSATrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
+	var typeToLoad truststore.Type
+	switch scheme {
+	case signature.SigningSchemeX509:
+		typeToLoad = truststore.TypeTSA
+	default:
+		return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the TSA trust store, signing scheme must be notary.x509, but got %s", scheme)}
+	}
+	return loadX509TrustStoresWithType(ctx, typeToLoad, policy, x509TrustStore)
+}
+
+func loadX509TrustStoresWithType(ctx context.Context, trustStoreType truststore.Type, policy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
+	processedStoreSet := set.New[string]()
+	var certificates []*x509.Certificate
+	for _, trustStore := range policy.TrustStores {
+		if processedStoreSet.Contains(trustStore) {
+			// we loaded this trust store already
+			continue
+		}
+
+		storeType, name, found := strings.Cut(trustStore, ":")
+		if !found {
+			return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the trust store, trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)}
+		}
+		if trustStoreType != truststore.Type(storeType) {
+			continue
+		}
+
+		certs, err := x509TrustStore.GetCertificates(ctx, trustStoreType, name)
+		if err != nil {
+			return nil, err
+		}
+		certificates = append(certificates, certs...)
+		processedStoreSet.Add(trustStore)
+	}
+	return certificates, nil
 }
