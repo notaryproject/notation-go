@@ -23,4 +23,4 @@ require (
 	golang.org/x/sync v0.4.0 // indirect
 )
 
-replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20231201035326-ac03000e2df3
+replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20231204081632-05b04634606c

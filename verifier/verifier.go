@@ -583,8 +583,10 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			ts, accuracy := info.Timestamp()
 			timeStampLowerLimit = ts.Add(-accuracy)
 			timeStampUpperLimit = ts.Add(accuracy)
+			fmt.Printf("tsa time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
 		}
 		for _, cert := range signerInfo.CertificateChain {
+			fmt.Printf("cert validiy time range: [%v, %v]\n", cert.NotBefore, cert.NotAfter)
 			if timeStampLowerLimit.Before(cert.NotBefore) {
 				invalidTimestamp = true
 				err = fmt.Errorf("certificate %q is not valid yet, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))

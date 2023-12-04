@@ -43,6 +43,7 @@ var (
 	Types = []Type{
 		TypeCA,
 		TypeSigningAuthority,
+		TypeTSA,
 	}
 )
 
