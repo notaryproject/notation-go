@@ -95,7 +95,7 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 // version MUST be higher than the existing plugin version.
 //
 // If overwrite is set, version check is skipped. If existing
-// plugin is malfunctioning, it will be overwritten as well.
+// plugin is malfunctioning, it will be overwritten.
 func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite bool) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
 	// validate and get new plugin metadata
 	pluginFile := filepath.Base(filePath)
