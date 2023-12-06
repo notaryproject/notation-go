@@ -31,7 +31,7 @@ func TestCopyToDir(t *testing.T) {
 		}
 
 		destDir := filepath.Join(tempDir, "b")
-		if _, err := CopyToDir(filename, destDir); err != nil {
+		if err := CopyToDir(filename, destDir); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -54,7 +54,7 @@ func TestCopyToDir(t *testing.T) {
 		}
 		defer os.Chmod(tempDir, 0700)
 
-		if _, err := CopyToDir(filename, destDir); err == nil {
+		if err := CopyToDir(filename, destDir); err == nil {
 			t.Fatal("should have error")
 		}
 	})
@@ -62,7 +62,7 @@ func TestCopyToDir(t *testing.T) {
 	t.Run("not a regular file", func(t *testing.T) {
 		tempDir := t.TempDir()
 		destDir := t.TempDir()
-		if _, err := CopyToDir(tempDir, destDir); err == nil {
+		if err := CopyToDir(tempDir, destDir); err == nil {
 			t.Fatal("should have error")
 		}
 	})
@@ -85,7 +85,7 @@ func TestCopyToDir(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chmod(filename, 0600)
-		if _, err := CopyToDir(filename, destDir); err == nil {
+		if err := CopyToDir(filename, destDir); err == nil {
 			t.Fatal("should have error")
 		}
 	})
@@ -108,7 +108,7 @@ func TestCopyToDir(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chmod(destTempDir, 0700)
-		if _, err := CopyToDir(filename, filepath.Join(destTempDir, "a")); err == nil {
+		if err := CopyToDir(filename, filepath.Join(destTempDir, "a")); err == nil {
 			t.Fatal("should have error")
 		}
 	})
@@ -131,7 +131,7 @@ func TestCopyToDir(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chmod(destTempDir, 0700)
-		if _, err := CopyToDir(filename, destTempDir); err == nil {
+		if err := CopyToDir(filename, destTempDir); err == nil {
 			t.Fatal("should have error")
 		}
 	})
@@ -145,7 +145,7 @@ func TestCopyToDir(t *testing.T) {
 		}
 
 		destDir := filepath.Join(tempDir, "b")
-		if _, err := CopyToDir(filename, destDir); err != nil {
+		if err := CopyToDir(filename, destDir); err != nil {
 			t.Fatal(err)
 		}
 		validFileContent(t, filepath.Join(destDir, "file.txt"), data)

@@ -310,7 +310,7 @@ func TestValidatePluginFileExtensionAgainstOS(t *testing.T) {
 		}
 
 		err = validatePluginFileExtensionAgainstOS("notation-foo", "foo")
-		expectedErrorMsg := "invalid plugin file name extension. Expecting file notation-foo.exe, but got notation-foo"
+		expectedErrorMsg := "invalid plugin file extension. Expecting file notation-foo.exe, but got notation-foo"
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -322,7 +322,7 @@ func TestValidatePluginFileExtensionAgainstOS(t *testing.T) {
 	}
 
 	err = validatePluginFileExtensionAgainstOS("notation-foo.exe", "foo")
-	expectedErrorMsg := "invalid plugin file name extension. Expecting file notation-foo, but got notation-foo.exe"
+	expectedErrorMsg := "invalid plugin file extension. Expecting file notation-foo, but got notation-foo.exe"
 	if err == nil || err.Error() != expectedErrorMsg {
 		t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 	}

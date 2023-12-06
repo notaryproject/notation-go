@@ -83,17 +83,19 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 }
 
 // Install installs a plugin at filePath to the system.
-//
-// It returns the new plugin metadata and a nil eror if and only if
+// It returns the new plugin metadata and a nil error if and only if
 // the installation succeeded.
 //
-// If plugin already exists, and overwrite is not set, then the new plugin
-// version MUST be higher than the existing plugin version.
-// If overwrite is set, version check is skipped.
-// On sucess, existing plugin metadata and new plugin metadata are returned.
-//
-// If plugin does not exist, directly install the plugin from filePath.
+// If plugin does not exist, directly install from filePath.
 // On success, the new plugin metadata is returned.
+//
+// If plugin already exists:
+//
+// If overwrite is not set, then the new plugin
+// version MUST be higher than the existing plugin version.
+//
+// If overwrite is set, version check is skipped. If existing
+// plugin is malfunctioning, it will be overwritten as well.
 func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite bool) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
 	// validate and get new plugin metadata
 	pluginFile := filepath.Base(filePath)
@@ -122,7 +124,7 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 	} else { // plugin already exists
 		var err error
 		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
-		if err != nil {
+		if err != nil && !overwrite { // fail only if overwrite is not set
 			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
 		}
 		if !overwrite { // overwrite is not set, check version
@@ -132,7 +134,7 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 			}
 			switch {
 			case comp < 0:
-				return nil, nil, ErrInstallLowerVersion{Msg: fmt.Sprintf("the installing plugin version %s is lower than the existing plugin version %s", newPluginMetadata.Version, existingPluginMetadata.Version)}
+				return nil, nil, ErrPluginDowngrade{Msg: fmt.Sprintf("the installing plugin version %s is lower than the existing plugin version %s", newPluginMetadata.Version, existingPluginMetadata.Version)}
 			case comp == 0:
 				return nil, nil, ErrInstallEqualVersion{Msg: fmt.Sprintf("plugin %s with version %s already exists", pluginName, existingPluginMetadata.Version)}
 			}
@@ -142,8 +144,7 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
 	}
-	_, err = file.CopyToDir(filePath, pluginDirPath)
-	if err != nil {
+	if err := file.CopyToDir(filePath, pluginDirPath); err != nil {
 		return nil, nil, fmt.Errorf("failed to copy plugin executable file from %s to %s: %w", filePath, pluginDirPath, err)
 	}
 	// plugin is always executable

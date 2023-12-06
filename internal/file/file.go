@@ -28,36 +28,37 @@ func IsValidFileName(fileName string) bool {
 }
 
 // CopyToDir copies the src file to dst. Existing file will be overwritten.
-func CopyToDir(src, dst string) (int64, error) {
+func CopyToDir(src, dst string) error {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	if !sourceFileStat.Mode().IsRegular() {
-		return 0, fmt.Errorf("%s is not a regular file", src)
+		return fmt.Errorf("%s is not a regular file", src)
 	}
 
 	source, err := os.Open(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer source.Close()
 
 	if err := os.MkdirAll(dst, 0700); err != nil {
-		return 0, err
+		return err
 	}
 	dstFile := filepath.Join(dst, filepath.Base(src))
 	destination, err := os.Create(dstFile)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer destination.Close()
 	err = destination.Chmod(0600)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return io.Copy(destination, source)
+	_, err = io.Copy(destination, source)
+	return err
 }
 
 // FileNameWithoutExtension returns the file name without extension.

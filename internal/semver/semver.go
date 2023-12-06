@@ -17,30 +17,35 @@ package semver
 
 import (
 	"fmt"
-	"strings"
+	"regexp"
 
 	"golang.org/x/mod/semver"
 )
+
+// SemVerRegEx is takenfrom https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+var SemVerRegEx = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
+
+// IsVersionSemverValid returns true if version is a valid semantic version
+func IsVersionSemverValid(version string) bool {
+	return SemVerRegEx.MatchString(version)
+}
 
 // ComparePluginVersion validates and compares two plugin semantic versions.
 //
 // The result will be 0 if v == w, -1 if v < w, or +1 if v > w.
 func ComparePluginVersion(v, w string) (int, error) {
-	// golang.org/x/mod/semver requires semantic version strings must begin
-	// with a leading "v". Adding prefix "v" in case the input plugin version
-	// does not have it.
-	// Reference: https://pkg.go.dev/golang.org/x/mod/semver#pkg-overview
-	if !strings.HasPrefix(v, "v") {
-		v = "v" + v
-	}
-	if !semver.IsValid(v) {
+	// sanity check
+	// a valid semantic version should not have prefix `v`
+	// Reference: https://semver.org/#semantic-versioning-200
+	if !IsVersionSemverValid(v) {
 		return 0, fmt.Errorf("%s is not a valid semantic version", v)
 	}
-	if !strings.HasPrefix(w, "v") {
-		w = "v" + w
-	}
-	if !semver.IsValid(w) {
+	if !IsVersionSemverValid(w) {
 		return 0, fmt.Errorf("%s is not a valid semantic version", w)
 	}
-	return semver.Compare(v, w), nil
+
+	// golang.org/x/mod/semver requires semantic version strings must begin
+	// with a leading "v". Adding prefix "v" to the inputs.
+	// Reference: https://pkg.go.dev/golang.org/x/mod/semver#pkg-overview
+	return semver.Compare("v"+v, "v"+w), nil
 }

@@ -273,7 +273,7 @@ func TestManager_Install(t *testing.T) {
 			newPluginStdout:   metadataJSON(validMetadataBar),
 		}
 		_, _, err = mgr.Install(context.Background(), newPluginFilePath, false)
-		expectedErrorMsg := "invalid plugin file name extension. Expecting file notation-bar, but got notation-bar.exe"
+		expectedErrorMsg := "invalid plugin file extension. Expecting file notation-bar, but got notation-bar.exe"
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -328,6 +328,19 @@ func TestManager_Install(t *testing.T) {
 		expectedErrorMsg := "failed to get metadata of existing plugin: executable name must be \"notation-bar\" instead of \"notation-foo\""
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
+	})
+
+	t.Run("success to install with overwrite and invalid existing plugin metadata", func(t *testing.T) {
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadataBar),
+			newPluginStdout:       metadataJSON(validMetadata),
+		}
+		_, _, err = mgr.Install(context.Background(), newPluginFilePath, true)
+		if err != nil {
+			t.Fatalf("expecting error to be nil, but got %v", err)
 		}
 	})
 }
