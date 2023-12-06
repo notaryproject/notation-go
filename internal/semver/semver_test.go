@@ -16,24 +16,25 @@ package semver
 import "testing"
 
 func TestComparePluginVersion(t *testing.T) {
-	comp, err := ComparePluginVersion("v1.0.0", "v1.0.1")
-	if err != nil || comp >= 0 {
-		t.Fatal("expected nil err and negative comp")
-	}
+	t.Run("compare with lower version", func(t *testing.T) {
+		comp, err := ComparePluginVersion("1.0.0", "1.0.1")
+		if err != nil || comp >= 0 {
+			t.Fatal("expected nil err and negative comp")
+		}
+	})
 
-	comp, err = ComparePluginVersion("1.0.0", "1.0.1")
-	if err != nil || comp >= 0 {
-		t.Fatal("expected nil err and negative comp")
-	}
+	t.Run("compare with equal version", func(t *testing.T) {
+		comp, err := ComparePluginVersion("1.0.1", "1.0.1")
+		if err != nil || comp != 0 {
+			t.Fatal("expected nil err and comp equal to 0")
+		}
+	})
 
-	comp, err = ComparePluginVersion("1.0.1", "1.0.1")
-	if err != nil || comp != 0 {
-		t.Fatal("expected nil err and comp equal to 0")
-	}
-
-	expectedErrMsg := "vabc is not a valid semantic version"
-	_, err = ComparePluginVersion("abc", "1.0.1")
-	if err == nil || err.Error() != expectedErrMsg {
-		t.Fatalf("expected err %s, got %s", expectedErrMsg, err)
-	}
+	t.Run("failed due to invalid semantic version", func(t *testing.T) {
+		expectedErrMsg := "v1.0.0 is not a valid semantic version"
+		_, err := ComparePluginVersion("v1.0.0", "1.0.1")
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected err %s, but got %s", expectedErrMsg, err)
+		}
+	})
 }
