@@ -87,7 +87,6 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 // the installation succeeded.
 //
 // If plugin does not exist, directly install from filePath.
-// On success, the new plugin metadata is returned.
 //
 // If plugin already exists:
 //
