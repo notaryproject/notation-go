@@ -22,26 +22,26 @@ var ErrNotCompliant = errors.New("plugin not compliant")
 // ErrNotRegularFile is returned when the plugin file is not an regular file.
 var ErrNotRegularFile = errors.New("not regular file")
 
-// ErrPluginDowngrade is returned when installing a plugin with version
+// PluginDowngradeError is returned when installing a plugin with version
 // lower than the exisiting plugin version.
-type ErrPluginDowngrade struct {
+type PluginDowngradeError struct {
 	Msg string
 }
 
-func (e ErrPluginDowngrade) Error() string {
+func (e PluginDowngradeError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
 	return "installing plugin with version lower than the existing plugin version"
 }
 
-// ErrInstallEqualVersion is returned when installing a plugin with version
+// InstallEqualVersionError is returned when installing a plugin with version
 // equal to the exisiting plugin version.
-type ErrInstallEqualVersion struct {
+type InstallEqualVersionError struct {
 	Msg string
 }
 
-func (e ErrInstallEqualVersion) Error() string {
+func (e InstallEqualVersionError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}

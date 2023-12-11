@@ -225,9 +225,9 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 	return stdout.Bytes(), nil, nil
 }
 
-// ExtractPluginNameFromFileName checks if fileName is a valid plugin file name
+// ParsePluginName checks if fileName is a valid plugin file name
 // and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
-func ExtractPluginNameFromFileName(fileName string) (string, error) {
+func ParsePluginName(fileName string) (string, error) {
 	fname := file.TrimFileExtension(fileName)
 	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
 	if !found {

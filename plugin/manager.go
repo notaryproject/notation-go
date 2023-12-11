@@ -82,11 +82,26 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	return plugins, nil
 }
 
-// Install installs a plugin at filePath to the system.
-// It returns the new plugin metadata and a nil error if and only if
-// the installation succeeded.
+// CLIInstallOptions provides user customized options for plugin installation
+type CLIInstallOptions struct {
+	// PluginPath can be path of:
+	//
+	// 1. A directory which contains plugin related files. Sub-directories are
+	// ignored. It MUST contain one and only one valid plugin executable file
+	// following spec: https://github.com/notaryproject/specifications/blob/v1.0.0/specs/plugin-extensibility.md#installation
+	//
+	// 2. A single valid plugin executalbe file.
+	PluginPath string
+
+	// Overwrite is a boolean flag. When set, always install the new plugin.
+	Overwrite bool
+}
+
+// Install installs a plugin to the system. It returns existing
+// plugin metadata, new plugin metadata, and error. It returns nil error
+// if and only if the installation succeeded.
 //
-// If plugin does not exist, directly install from filePath.
+// If plugin does not exist, directly install from PluginPath.
 //
 // If plugin already exists:
 //
@@ -95,17 +110,32 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 //
 // If overwrite is set, version check is skipped. If existing
 // plugin is malfunctioning, it will be overwritten.
-func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite bool) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
-	// validate and get new plugin metadata
-	pluginFile := filepath.Base(filePath)
-	pluginName, err := ExtractPluginNameFromFileName(pluginFile)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get plugin name from file path: %w", err)
+func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
+	// initialization
+	overwrite := installOpts.Overwrite
+	if installOpts.PluginPath == "" {
+		return nil, nil, errors.New("plugin path cannot be empty")
 	}
-	if err := validatePluginFileExtensionAgainstOS(pluginFile, pluginName); err != nil {
+	var installFromSingleFile bool
+	var pluginFile, pluginName string
+	pluginFile, pluginName, err := parsePluginFromDir(installOpts.PluginPath)
+	if err != nil {
+		if !errors.Is(err, file.ErrNotDirectory) {
+			return nil, nil, fmt.Errorf("failed to validate plugin directory: %w", err)
+		}
+		// input is not a dir
+		installFromSingleFile = true
+		pluginFile = installOpts.PluginPath
+		pluginName, err = ParsePluginName(filepath.Base(pluginFile))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get plugin name from file path: %w", err)
+		}
+	}
+	// validate and get new plugin metadata
+	if err := validatePluginFileExtensionAgainstOS(filepath.Base(pluginFile), pluginName); err != nil {
 		return nil, nil, err
 	}
-	newPlugin, err := NewCLIPlugin(ctx, pluginName, filePath)
+	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
 	}
@@ -126,16 +156,16 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 		if err != nil && !overwrite { // fail only if overwrite is not set
 			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
 		}
-		if !overwrite { // overwrite is not set, check version
+		if !overwrite { // err is nil, and overwrite is not set, check version
 			comp, err := semver.ComparePluginVersion(newPluginMetadata.Version, existingPluginMetadata.Version)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to compare plugin versions: %w", err)
 			}
 			switch {
 			case comp < 0:
-				return nil, nil, ErrPluginDowngrade{Msg: fmt.Sprintf("the installing plugin version %s is lower than the existing plugin version %s", newPluginMetadata.Version, existingPluginMetadata.Version)}
+				return nil, nil, PluginDowngradeError{Msg: fmt.Sprintf("the installing plugin version %s is lower than the existing plugin version %s", newPluginMetadata.Version, existingPluginMetadata.Version)}
 			case comp == 0:
-				return nil, nil, ErrInstallEqualVersion{Msg: fmt.Sprintf("plugin %s with version %s already exists", pluginName, existingPluginMetadata.Version)}
+				return nil, nil, InstallEqualVersionError{Msg: fmt.Sprintf("plugin %s with version %s already exists", pluginName, existingPluginMetadata.Version)}
 			}
 		}
 	}
@@ -143,11 +173,17 @@ func (m *CLIManager) Install(ctx context.Context, filePath string, overwrite boo
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
 	}
-	if err := file.CopyToDir(filePath, pluginDirPath); err != nil {
-		return nil, nil, fmt.Errorf("failed to copy plugin executable file from %s to %s: %w", filePath, pluginDirPath, err)
+	if installFromSingleFile {
+		if err := file.CopyToDir(pluginFile, pluginDirPath); err != nil {
+			return nil, nil, fmt.Errorf("failed to copy plugin executable file from %s to %s: %w", pluginFile, pluginDirPath, err)
+		}
+	} else {
+		if err := file.CopyDirToDir(installOpts.PluginPath, pluginDirPath); err != nil {
+			return nil, nil, fmt.Errorf("failed to copy plugin files from %s to %s: %w", installOpts.PluginPath, pluginDirPath, err)
+		}
 	}
-	// plugin is always executable
-	pluginFilePath := path.Join(pluginDirPath, pluginFile)
+	// plugin binary file is always executable
+	pluginFilePath := path.Join(pluginDirPath, filepath.Base(pluginFile))
 	if err := os.Chmod(pluginFilePath, 0700); err != nil {
 		return nil, nil, fmt.Errorf("failed to change the plugin executable file mode: %w", err)
 	}
@@ -165,4 +201,60 @@ func (m *CLIManager) Uninstall(ctx context.Context, name string) error {
 		return err
 	}
 	return os.RemoveAll(pluginDirPath)
+}
+
+// parsePluginFromDir checks if a dir is a valid plugin dir which contains
+// one and only one valid plugin executable file. Sub-directories are ignored.
+//
+// On success, the plugin executable file path, plugin name and
+// nil error are returned.
+func parsePluginFromDir(path string) (string, string, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return "", "", err
+	}
+	if !fi.Mode().IsDir() {
+		return "", "", file.ErrNotDirectory
+	}
+	// walk the path
+	var pluginExecutableFile string
+	var pluginName string
+	var foundPluginExecutableFile bool
+	if err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// skip sub-directories
+		if d.IsDir() && d.Name() != filepath.Base(path) {
+			return fs.SkipDir
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode().IsRegular() {
+			if pluginName, err = ParsePluginName(d.Name()); err != nil {
+				// file name does not follow the notation-{plugin-name} format
+				return nil
+			}
+			isExec, err := isExecutableFile(p)
+			if err != nil {
+				return err
+			}
+			if isExec {
+				if foundPluginExecutableFile {
+					return fmt.Errorf("found more than one valid plugin executable files under %s", path)
+				}
+				foundPluginExecutableFile = true
+				pluginExecutableFile = p
+			}
+		}
+		return nil
+	}); err != nil {
+		return "", "", err
+	}
+	if !foundPluginExecutableFile {
+		return "", "", fmt.Errorf("no valid plugin executable file was found under %s", path)
+	}
+	return pluginExecutableFile, pluginName, nil
 }

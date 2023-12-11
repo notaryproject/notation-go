@@ -17,17 +17,19 @@ package semver
 
 import (
 	"fmt"
-	"regexp"
+	"strings"
 
 	"golang.org/x/mod/semver"
 )
 
-// SemVerRegEx is takenfrom https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-var SemVerRegEx = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
-
-// IsVersionSemverValid returns true if version is a valid semantic version
-func IsVersionSemverValid(version string) bool {
-	return SemVerRegEx.MatchString(version)
+// IsSemverValid returns true if version is a valid semantic version
+func IsSemverValid(version string) bool {
+	// a valid semanic version MUST not have prefix 'v'
+	if strings.HasPrefix(version, "v") {
+		return false
+	}
+	// golang package "golang.org/x/mod/semver" requires prefix 'v'
+	return semver.IsValid("v" + version)
 }
 
 // ComparePluginVersion validates and compares two plugin semantic versions.
@@ -37,10 +39,10 @@ func ComparePluginVersion(v, w string) (int, error) {
 	// sanity check
 	// a valid semantic version should not have prefix `v`
 	// Reference: https://semver.org/#semantic-versioning-200
-	if !IsVersionSemverValid(v) {
+	if !IsSemverValid(v) {
 		return 0, fmt.Errorf("%s is not a valid semantic version", v)
 	}
-	if !IsVersionSemverValid(w) {
+	if !IsSemverValid(w) {
 		return 0, fmt.Errorf("%s is not a valid semantic version", w)
 	}
 

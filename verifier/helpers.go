@@ -149,7 +149,7 @@ func getVerificationPluginMinVersion(signerInfo *signature.SignerInfo) (string, 
 	if strings.TrimSpace(version) == "" {
 		return "", fmt.Errorf("%v from extended attribute is an empty string", HeaderVerificationPluginMinVersion)
 	}
-	if !notationsemver.IsVersionSemverValid(version) {
+	if !notationsemver.IsSemverValid(version) {
 		return "", fmt.Errorf("%v from extended attribute is not a valid SemVer", HeaderVerificationPluginMinVersion)
 	}
 	return version, nil

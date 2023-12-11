@@ -16,8 +16,25 @@
 
 package plugin
 
-import "github.com/notaryproject/notation-go/plugin/proto"
+import (
+	"errors"
+	"os"
+
+	"github.com/notaryproject/notation-go/plugin/proto"
+)
 
 func binName(name string) string {
 	return proto.Prefix + name
+}
+
+// isExecutableFile checks if a file at filePath is executable
+func isExecutableFile(filePath string) (bool, error) {
+	fi, err := os.Stat(filePath)
+	if err != nil {
+		return false, err
+	}
+	if !fi.Mode().IsRegular() {
+		return false, errors.New("not regular file")
+	}
+	return fi.Mode()&0100 != 0, nil
 }

@@ -14,13 +14,20 @@
 package file
 
 import (
-	"fmt"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
+
+// ErrNotRegularFile is returned when the file is not an regular file.
+var ErrNotRegularFile = errors.New("not regular file")
+
+// ErrNotDirectory is returned when the path is not a directory.
+var ErrNotDirectory = errors.New("not directory")
 
 // IsValidFileName checks if a file name is cross-platform compatible
 func IsValidFileName(fileName string) bool {
@@ -35,7 +42,7 @@ func CopyToDir(src, dst string) error {
 	}
 
 	if !sourceFileStat.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file", src)
+		return ErrNotRegularFile
 	}
 
 	source, err := os.Open(src)
@@ -59,6 +66,36 @@ func CopyToDir(src, dst string) error {
 	}
 	_, err = io.Copy(destination, source)
 	return err
+}
+
+// CopyDirToDir copies contents in src dir to dst dir. Only regular files are
+// copied. Existing files will be overwritten.
+func CopyDirToDir(src, dst string) error {
+	fi, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !fi.Mode().IsDir() {
+		return ErrNotDirectory
+	}
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// skip sub-directories
+		if d.IsDir() && d.Name() != filepath.Base(path) {
+			return fs.SkipDir
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		// only copy regular files
+		if info.Mode().IsRegular() {
+			return CopyToDir(path, dst)
+		}
+		return nil
+	})
 }
 
 // TrimFileExtension returns the file name without extension.
