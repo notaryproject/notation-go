@@ -279,7 +279,7 @@ func TestManager_Install(t *testing.T) {
 			PluginPath: newPluginFilePath,
 		}
 		_, _, err = mgr.Install(context.Background(), installOpts)
-		expectedErrorMsg := "failed to get plugin name from file path: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
+		expectedErrorMsg := "failed to get plugin name from file path testdata/bar/bar: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -323,7 +323,7 @@ func TestManager_Install(t *testing.T) {
 			PluginPath: newPluginFilePath,
 		}
 		_, _, err = mgr.Install(context.Background(), installOpts)
-		expectedErrorMsg := "failed to validate plugin directory: stat testdata/bar/notation-bar: no such file or directory"
+		expectedErrorMsg := "failed to parse plugin from directory testdata/bar/notation-bar: stat testdata/bar/notation-bar: no such file or directory"
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
