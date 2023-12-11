@@ -155,7 +155,7 @@ func TestCopyToDir(t *testing.T) {
 func TestFileNameWithoutExtension(t *testing.T) {
 	input := "testfile.tar.gz"
 	expectedOutput := "testfile.tar"
-	actualOutput := FileNameWithoutExtension(input)
+	actualOutput := TrimFileExtension(input)
 	if actualOutput != expectedOutput {
 		t.Errorf("expected '%s', but got '%s'", expectedOutput, actualOutput)
 	}

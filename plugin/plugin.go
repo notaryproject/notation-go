@@ -228,7 +228,7 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 // ExtractPluginNameFromFileName checks if fileName is a valid plugin file name
 // and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
 func ExtractPluginNameFromFileName(fileName string) (string, error) {
-	fname := file.FileNameWithoutExtension(fileName)
+	fname := file.TrimFileExtension(fileName)
 	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
 	if !found {
 		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
