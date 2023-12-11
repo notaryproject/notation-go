@@ -407,6 +407,9 @@ func TestManager_Install(t *testing.T) {
 		if err := pluginFile.Close(); err != nil {
 			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
 		}
+		if err := pluginFile.Chmod(0700); err != nil {
+			t.Fatalf("failed to chmod %s: %v", newPluginFilePath, err)
+		}
 		pluginLibFile, err := os.Create(newPluginLibPath)
 		if err != nil {
 			t.Fatalf("failed to create %s: %v", newPluginLibPath, err)
