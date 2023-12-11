@@ -14,7 +14,6 @@
 package plugin
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 
@@ -32,7 +31,7 @@ func isExecutableFile(filePath string) (bool, error) {
 		return false, err
 	}
 	if !fi.Mode().IsRegular() {
-		return false, errors.New("not regular file")
+		return false, ErrNotRegularFile
 	}
 	return filepath.Ext(filepath.Base(filePath)) == ".exe", nil
 }
