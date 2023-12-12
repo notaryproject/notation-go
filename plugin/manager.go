@@ -138,7 +138,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			return nil, nil, fmt.Errorf("failed to check if file %s is executable: %w", pluginExecutableFile, err)
 		}
 		if !isExec {
-			return nil, nil, fmt.Errorf("file %s is not executable: %w", pluginExecutableFile, err)
+			return nil, nil, fmt.Errorf("file %s is not executable", pluginExecutableFile)
 		}
 	}
 	// validate and get new plugin metadata
