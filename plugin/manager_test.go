@@ -141,7 +141,7 @@ func TestManager_Install(t *testing.T) {
 		t.Fatalf("failed to create %s: %v", newPluginDir, err)
 	}
 	defer os.RemoveAll(newPluginDir)
-	if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+	if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
 		t.Fatal(err)
 	}
 	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "testdata/plugins"))
@@ -191,7 +191,7 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
 			t.Fatal(err)
 		}
 		executor = testInstallCommander{
@@ -255,7 +255,7 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
 			t.Fatal(err)
 		}
 		executor = testInstallCommander{
@@ -272,14 +272,14 @@ func TestManager_Install(t *testing.T) {
 		}
 	})
 
-	t.Run("fail to install due to invalid new plugin file extension", func(t *testing.T) {
-		newPluginFilePath := "testdata/bar/notation-bar.exe"
+	t.Run("fail to install due to wrong plugin file permission", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/notation-bar"
 		newPluginDir := filepath.Dir(newPluginFilePath)
 		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		if err := createFileAndChmod(newPluginFilePath, 0066); err != nil {
+		if err := createFileAndChmod(newPluginFilePath, 0600); err != nil {
 			t.Fatal(err)
 		}
 		executor = testInstallCommander{
@@ -289,7 +289,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "file notation-bar.exe is not executable"
+		expectedErrorMsg := "file notation-bar is not executable"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -319,12 +319,8 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		pluginFile, err := os.Create(newPluginFilePath)
-		if err != nil {
-			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
-		}
-		if err := pluginFile.Close(); err != nil {
-			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+			t.Fatal(err)
 		}
 		executor = testInstallCommander{
 			newPluginFilePath: newPluginFilePath,
@@ -334,7 +330,7 @@ func TestManager_Install(t *testing.T) {
 			PluginPath: newPluginFilePath,
 		}
 		expectedErrorMsg := "failed to get metadata of new plugin: executable name must be \"notation-foobar\" instead of \"notation-bar\""
-		_, _, err = mgr.Install(context.Background(), installOpts)
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -386,7 +382,7 @@ func TestManager_Install(t *testing.T) {
 		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := createFileAndChmod(newPluginLibPath, 0666); err != nil {
+		if err := createFileAndChmod(newPluginLibPath, 0600); err != nil {
 			t.Fatal(err)
 		}
 		executor = testInstallCommander{
@@ -418,7 +414,7 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
 			t.Fatal(err)
 		}
 		executor = testInstallCommander{
@@ -437,7 +433,7 @@ func TestManager_Install(t *testing.T) {
 		}
 	})
 
-	t.Run("fail to install from plugin dir due to more than one plugin executable file", func(t *testing.T) {
+	t.Run("fail to install from plugin dir due to more than one plugin executable files", func(t *testing.T) {
 		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
 		newPluginFilePath := "testdata/foo/notation-foo1"
 		newPluginFilePath2 := "testdata/foo/notation-foo2"
