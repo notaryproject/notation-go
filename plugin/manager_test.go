@@ -296,6 +296,30 @@ func TestManager_Install(t *testing.T) {
 		}
 	})
 
+	t.Run("fail to install due to invalid new plugin file extension", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/notation-bar.exe"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+			t.Fatal(err)
+		}
+		executor = testInstallCommander{
+			newPluginFilePath: newPluginFilePath,
+			newPluginStdout:   metadataJSON(validMetadataBar),
+		}
+		installOpts := CLIInstallOptions{
+			PluginPath: newPluginFilePath,
+		}
+		expectedErrorMsg := "invalid plugin file extension. Expecting file notation-bar, but got notation-bar.exe"
+		_, _, err := mgr.Install(context.Background(), installOpts)
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
+	})
+
 	t.Run("fail to install due to new plugin executable file does not exist", func(t *testing.T) {
 		newPluginFilePath := "testdata/bar/notation-bar"
 		executor = testInstallCommander{

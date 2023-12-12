@@ -264,3 +264,16 @@ func validate(metadata *proto.GetMetadataResponse) error {
 	}
 	return nil
 }
+
+// validatePluginFileExtensionAgainstOS validates if plugin executable file
+// extension aligns with the runtime OS.
+//
+// On windows, `.exe` extension is required.
+// On other OS, MUST not have the `.exe` extension.
+func validatePluginFileExtensionAgainstOS(fileName, pluginName string) error {
+	expectedPluginFile := binName(pluginName)
+	if filepath.Ext(fileName) != filepath.Ext(expectedPluginFile) {
+		return fmt.Errorf("invalid plugin file extension. Expecting file %s, but got %s", expectedPluginFile, fileName)
+	}
+	return nil
+}
