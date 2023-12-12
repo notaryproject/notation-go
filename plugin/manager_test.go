@@ -279,7 +279,7 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+		if err := createFileAndChmod(newPluginFilePath, 0066); err != nil {
 			t.Fatal(err)
 		}
 		executor = testInstallCommander{
@@ -289,7 +289,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "invalid plugin file extension. Expecting file notation-bar, but got notation-bar.exe"
+		expectedErrorMsg := "file notation-bar.exe is not executable"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
