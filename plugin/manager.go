@@ -184,7 +184,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
 	}
-	// clean up before installation
+	// clean up before installation, this guarantees idempotent for install
 	if err := os.RemoveAll(pluginDirPath); err != nil {
 		return nil, nil, fmt.Errorf("failed to clean up %s before installation: %w", pluginDirPath, err)
 	}
