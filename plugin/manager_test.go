@@ -141,12 +141,8 @@ func TestManager_Install(t *testing.T) {
 		t.Fatalf("failed to create %s: %v", newPluginDir, err)
 	}
 	defer os.RemoveAll(newPluginDir)
-	pluginFile, err := os.Create(newPluginFilePath)
-	if err != nil {
-		t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
-	}
-	if err := pluginFile.Close(); err != nil {
-		t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+	if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+		t.Fatal(err)
 	}
 	mgr := NewCLIManager(mockfs.NewSysFSWithRootMock(fstest.MapFS{}, "testdata/plugins"))
 
@@ -183,8 +179,7 @@ func TestManager_Install(t *testing.T) {
 			PluginPath: newPluginFilePath,
 			Overwrite:  true,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
-		if err != nil {
+		if _, _, err := mgr.Install(context.Background(), installOpts); err != nil {
 			t.Fatalf("expecting error to be nil, but got %v", err)
 		}
 	})
@@ -196,12 +191,8 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		pluginFile, err := os.Create(newPluginFilePath)
-		if err != nil {
-			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
-		}
-		if err := pluginFile.Close(); err != nil {
-			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+			t.Fatal(err)
 		}
 		executor = testInstallCommander{
 			newPluginFilePath: newPluginFilePath,
@@ -233,8 +224,8 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
 		expectedErrorMsg := "plugin foo with version 1.0.0 already exists"
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -250,8 +241,8 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
 		expectedErrorMsg := "the installing plugin version 0.1.0 is lower than the existing plugin version 1.0.0"
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -264,12 +255,8 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		pluginFile, err := os.Create(newPluginFilePath)
-		if err != nil {
-			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
-		}
-		if err := pluginFile.Close(); err != nil {
-			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+			t.Fatal(err)
 		}
 		executor = testInstallCommander{
 			newPluginFilePath: newPluginFilePath,
@@ -278,8 +265,8 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
 		expectedErrorMsg := "failed to get plugin name from file path testdata/bar/bar: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -292,12 +279,8 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		pluginFile, err := os.Create(newPluginFilePath)
-		if err != nil {
-			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
-		}
-		if err := pluginFile.Close(); err != nil {
-			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
+		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+			t.Fatal(err)
 		}
 		executor = testInstallCommander{
 			newPluginFilePath: newPluginFilePath,
@@ -306,8 +289,8 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
 		expectedErrorMsg := "invalid plugin file extension. Expecting file notation-bar, but got notation-bar.exe"
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -322,8 +305,8 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
 		expectedErrorMsg := "failed to parse plugin from directory testdata/bar/notation-bar: stat testdata/bar/notation-bar: no such file or directory"
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -350,8 +333,8 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
 		expectedErrorMsg := "failed to get metadata of new plugin: executable name must be \"notation-foobar\" instead of \"notation-bar\""
+		_, _, err = mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -367,8 +350,8 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
 		expectedErrorMsg := "failed to get metadata of existing plugin: executable name must be \"notation-bar\" instead of \"notation-foo\""
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
@@ -385,7 +368,7 @@ func TestManager_Install(t *testing.T) {
 			PluginPath: newPluginFilePath,
 			Overwrite:  true,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
+		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err != nil {
 			t.Fatalf("expecting error to be nil, but got %v", err)
 		}
@@ -400,22 +383,11 @@ func TestManager_Install(t *testing.T) {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		pluginFile, err := os.Create(newPluginFilePath)
-		if err != nil {
-			t.Fatalf("failed to create %s: %v", newPluginFilePath, err)
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+			t.Fatal(err)
 		}
-		if err := pluginFile.Chmod(0700); err != nil {
-			t.Fatalf("failed to chmod %s: %v", newPluginFilePath, err)
-		}
-		if err := pluginFile.Close(); err != nil {
-			t.Fatalf("failed to close %s: %v", newPluginFilePath, err)
-		}
-		pluginLibFile, err := os.Create(newPluginLibPath)
-		if err != nil {
-			t.Fatalf("failed to create %s: %v", newPluginLibPath, err)
-		}
-		if err := pluginLibFile.Close(); err != nil {
-			t.Fatalf("failed to close %s: %v", newPluginLibPath, err)
+		if err := createFileAndChmod(newPluginLibPath, 0666); err != nil {
+			t.Fatal(err)
 		}
 		executor = testInstallCommander{
 			existedPluginFilePath: existedPluginFilePath,
@@ -426,9 +398,74 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		_, _, err = mgr.Install(context.Background(), installOpts)
-		if err != nil {
-			t.Fatalf("expecting error to be nil, but got %v", err)
+		expectedErrorMsg := "failed to get metadata of existing plugin: executable name must be \"notation-bar\" instead of \"notation-foo\""
+		existingPluginMetadata, newPluginMetadata, err := mgr.Install(context.Background(), installOpts)
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
+		if existingPluginMetadata.Version != "1.0.0" {
+			t.Fatalf("expecting existing plugin metadata to be 1.0.0, but got %s", existingPluginMetadata.Version)
+		}
+		if newPluginMetadata.Version != "1.1.0" {
+			t.Fatalf("expecting new plugin metadata to be 1.1.0, but got %s", newPluginMetadata.Version)
+		}
+	})
+
+	t.Run("fail to install from plugin dir due to no plugin executable file", func(t *testing.T) {
+		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
+		newPluginFilePath := "testdata/foo/foo"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		if err := createFileAndChmod(newPluginFilePath, 0666); err != nil {
+			t.Fatal(err)
+		}
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadata),
+			newPluginStdout:       metadataJSON(validMetadataHigherVersion),
+		}
+		installOpts := CLIInstallOptions{
+			PluginPath: newPluginDir,
+		}
+		expectedErrorMsg := "no plugin executable file was found under testdata/foo"
+		_, _, err := mgr.Install(context.Background(), installOpts)
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
+	})
+
+	t.Run("fail to install from plugin dir due to more than one plugin executable file", func(t *testing.T) {
+		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
+		newPluginFilePath := "testdata/foo/notation-foo1"
+		newPluginFilePath2 := "testdata/foo/notation-foo2"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := createFileAndChmod(newPluginFilePath2, 0700); err != nil {
+			t.Fatal(err)
+		}
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadata),
+			newPluginStdout:       metadataJSON(validMetadataHigherVersion),
+		}
+		installOpts := CLIInstallOptions{
+			PluginPath: newPluginDir,
+		}
+		expectedErrorMsg := "found more than one plugin executable files under testdata/foo"
+		_, _, err := mgr.Install(context.Background(), installOpts)
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
 		}
 	})
 }
@@ -467,4 +504,15 @@ func metadataJSON(m proto.GetMetadataResponse) []byte {
 		panic(err)
 	}
 	return d
+}
+
+func createFileAndChmod(path string, mode fs.FileMode) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if err := f.Chmod(mode); err != nil {
+		return err
+	}
+	return f.Close()
 }
