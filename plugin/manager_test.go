@@ -398,10 +398,9 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		expectedErrorMsg := "failed to get metadata of existing plugin: executable name must be \"notation-bar\" instead of \"notation-foo\""
 		existingPluginMetadata, newPluginMetadata, err := mgr.Install(context.Background(), installOpts)
-		if err == nil || err.Error() != expectedErrorMsg {
-			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		if err != nil {
+			t.Fatalf("expecting nil error, but got %v", err)
 		}
 		if existingPluginMetadata.Version != "1.0.0" {
 			t.Fatalf("expecting existing plugin metadata to be 1.0.0, but got %s", existingPluginMetadata.Version)
@@ -431,7 +430,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		expectedErrorMsg := "no plugin executable file was found under testdata/foo"
+		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: no plugin executable file was found under testdata/foo"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -462,7 +461,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		expectedErrorMsg := "found more than one plugin executable files under testdata/foo"
+		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: found more than one plugin executable files under testdata/foo"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
