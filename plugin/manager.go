@@ -249,7 +249,7 @@ func parsePluginFromDir(path string) (string, string, error) {
 			}
 			if isExec {
 				if foundPluginExecutableFile {
-					return fmt.Errorf("found more than one plugin executable files under %s", path)
+					return errors.New("found more than one plugin executable files")
 				}
 				foundPluginExecutableFile = true
 				pluginExecutableFile = p
@@ -260,7 +260,7 @@ func parsePluginFromDir(path string) (string, string, error) {
 		return "", "", err
 	}
 	if !foundPluginExecutableFile {
-		return "", "", fmt.Errorf("no plugin executable file was found under %s", path)
+		return "", "", errors.New("no plugin executable file was found")
 	}
 	return pluginExecutableFile, pluginName, nil
 }

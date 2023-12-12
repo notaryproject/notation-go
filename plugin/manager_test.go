@@ -430,7 +430,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: no plugin executable file was found under testdata/foo"
+		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: no plugin executable file was found"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -461,7 +461,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: found more than one plugin executable files under testdata/foo"
+		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: found more than one plugin executable files"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
