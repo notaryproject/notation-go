@@ -179,9 +179,14 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			}
 		}
 	}
+	// core process
 	pluginDirPath, err := m.pluginFS.SysPath(pluginName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
+	}
+	// clean up before installation
+	if err := os.RemoveAll(pluginDirPath); err != nil {
+		return nil, nil, fmt.Errorf("failed to clean up %s before installation: %w", pluginDirPath, err)
 	}
 	if installFromNonDir {
 		if err := file.CopyToDir(pluginExecutableFile, pluginDirPath); err != nil {
