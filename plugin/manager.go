@@ -92,7 +92,7 @@ type CLIInstallOptions struct {
 	// It may contain extra lib files and LICENSE files.
 	// On success, these files will be installed as well.
 	//
-	// 2. A single plugin executalbe file following the spec.
+	// 2. A single plugin executable file following the spec.
 	PluginPath string
 
 	// Overwrite is a boolean flag. When set, always install the new plugin.
@@ -119,9 +119,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		return nil, nil, errors.New("plugin path cannot be empty")
 	}
 	var installFromNonDir bool
-	var pluginExecutableFile, pluginName string
-	var err error
-	pluginExecutableFile, pluginName, err = parsePluginFromDir(installOpts.PluginPath)
+	pluginExecutableFile, pluginName, err := parsePluginFromDir(installOpts.PluginPath)
 	if err != nil {
 		if !errors.Is(err, file.ErrNotDirectory) {
 			return nil, nil, fmt.Errorf("failed to parse plugin from directory %s: %w", installOpts.PluginPath, err)
