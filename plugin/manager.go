@@ -154,7 +154,6 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		return nil, nil, fmt.Errorf("failed to get metadata of new plugin: %w", err)
 	}
 	// check plugin existence and get existing plugin metadata
-	var pluginExists bool
 	var existingPluginMetadata *proto.GetMetadataResponse
 	existingPlugin, err := m.Get(ctx, pluginName)
 	if err != nil {
@@ -162,7 +161,6 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			return nil, nil, fmt.Errorf("failed to check plugin existence: %w", err)
 		}
 	} else { // plugin already exists
-		pluginExists = true
 		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
 		if err != nil && !overwrite { // fail only if overwrite is not set
 			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
@@ -186,32 +184,23 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
 	}
-	// back up existing plugin
-	if pluginExists {
-		if err := os.Rename(pluginDirPath, pluginDirPath+".bak"); err != nil {
-			return nil, nil, fmt.Errorf("failed to backup existing plugin %s before installation: %w", pluginDirPath, err)
-		}
+	// clean up before installation, this guarantees idempotent for install
+	if err := os.RemoveAll(pluginDirPath); err != nil {
+		return nil, nil, fmt.Errorf("failed to clean up %s before installation: %w", pluginDirPath, err)
 	}
 	if installFromNonDir {
 		if err := file.CopyToDir(pluginExecutableFile, pluginDirPath); err != nil {
-			defer cleanupOnInstallFailure(pluginDirPath, pluginDirPath+".bak", pluginExists)
 			return nil, nil, fmt.Errorf("failed to copy plugin executable file from %s to %s: %w", pluginExecutableFile, pluginDirPath, err)
 		}
 	} else {
 		if err := file.CopyDirToDir(installOpts.PluginPath, pluginDirPath); err != nil {
-			defer cleanupOnInstallFailure(pluginDirPath, pluginDirPath+".bak", pluginExists)
 			return nil, nil, fmt.Errorf("failed to copy plugin files from %s to %s: %w", installOpts.PluginPath, pluginDirPath, err)
 		}
 	}
 	// plugin binary file is always executable
 	pluginFilePath := path.Join(pluginDirPath, filepath.Base(pluginExecutableFile))
 	if err := os.Chmod(pluginFilePath, 0700); err != nil {
-		defer cleanupOnInstallFailure(pluginDirPath, pluginDirPath+".bak", pluginExists)
 		return nil, nil, fmt.Errorf("failed to change the plugin executable file mode: %w", err)
-	}
-	// on success, remove the old plugin's back-up if eixsts
-	if pluginExists {
-		defer os.RemoveAll(pluginDirPath + ".bak")
 	}
 	return existingPluginMetadata, newPluginMetadata, nil
 }
@@ -286,16 +275,4 @@ func parsePluginFromDir(path string) (string, string, error) {
 		return "", "", errors.New("no plugin executable file was found")
 	}
 	return pluginExecutableFile, pluginName, nil
-}
-
-// cleanupOnInstallFailure is called when CLIManager.Install failed at core
-// process, in this case, the plugin's original stage is recovered.
-func cleanupOnInstallFailure(pluginDirPath string, pluginBackupPath string, pluginExists bool) error {
-	// clean up on failure
-	_ = os.RemoveAll(pluginDirPath)
-	// recover if old plugin exists
-	if pluginExists {
-		return os.Rename(pluginBackupPath, pluginDirPath)
-	}
-	return nil
 }
