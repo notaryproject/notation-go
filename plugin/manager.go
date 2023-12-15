@@ -178,16 +178,16 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			}
 		}
 	}
-	// core process
-	pluginDirPath, err := m.pluginFS.SysPath(pluginName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
-	}
 	// clean up before installation, this guarantees idempotent for install
 	if err := m.Uninstall(ctx, pluginName); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, nil, fmt.Errorf("failed to clean up plugin %s before installation: %w", pluginName, err)
 		}
+	}
+	// core process
+	pluginDirPath, err := m.pluginFS.SysPath(pluginName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
 	}
 	if installFromNonDir {
 		if err := file.CopyToDir(pluginExecutableFile, pluginDirPath); err != nil {
@@ -197,11 +197,6 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		if err := file.CopyDirToDir(installOpts.PluginPath, pluginDirPath); err != nil {
 			return nil, nil, fmt.Errorf("failed to copy plugin files from %s to %s: %w", installOpts.PluginPath, pluginDirPath, err)
 		}
-	}
-	// plugin binary file is always executable
-	pluginFilePath := path.Join(pluginDirPath, filepath.Base(pluginExecutableFile))
-	if err := os.Chmod(pluginFilePath, 0700); err != nil {
-		return nil, nil, fmt.Errorf("failed to change the plugin executable file mode: %w", err)
 	}
 	return existingPluginMetadata, newPluginMetadata, nil
 }
