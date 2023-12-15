@@ -265,7 +265,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "failed to get plugin name from file path testdata/bar/bar: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
+		expectedErrorMsg := "failed to read plugin name from file path testdata/bar/bar: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -329,7 +329,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "failed to parse plugin from directory testdata/bar/notation-bar: stat testdata/bar/notation-bar: no such file or directory"
+		expectedErrorMsg := "failed to read plugin from directory testdata/bar/notation-bar: stat testdata/bar/notation-bar: no such file or directory"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -450,7 +450,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: no plugin executable file was found"
+		expectedErrorMsg := "failed to read plugin from directory testdata/foo: no plugin executable file was found"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -481,7 +481,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginDir,
 		}
-		expectedErrorMsg := "failed to parse plugin from directory testdata/foo: found more than one plugin executable files"
+		expectedErrorMsg := "failed to read plugin from directory testdata/foo: found more than one plugin executable files"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)

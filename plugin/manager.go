@@ -116,20 +116,20 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	// initialization
 	overwrite := installOpts.Overwrite
 	if installOpts.PluginPath == "" {
-		return nil, nil, errors.New("plugin path cannot be empty")
+		return nil, nil, errors.New("plugin source path cannot be empty")
 	}
 	var installFromNonDir bool
 	pluginExecutableFile, pluginName, err := parsePluginFromDir(installOpts.PluginPath)
 	if err != nil {
 		if !errors.Is(err, file.ErrNotDirectory) {
-			return nil, nil, fmt.Errorf("failed to parse plugin from directory %s: %w", installOpts.PluginPath, err)
+			return nil, nil, fmt.Errorf("failed to read plugin from directory %s: %w", installOpts.PluginPath, err)
 		}
 		// input is not a dir, check if it's a single plugin executable file
 		installFromNonDir = true
 		pluginExecutableFile = installOpts.PluginPath
 		pluginName, err = ParsePluginName(filepath.Base(pluginExecutableFile))
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get plugin name from file path %s: %w", pluginExecutableFile, err)
+			return nil, nil, fmt.Errorf("failed to read plugin name from file path %s: %w", pluginExecutableFile, err)
 		}
 		isExec, err := isExecutableFile(pluginExecutableFile)
 		if err != nil {
@@ -155,7 +155,8 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	var existingPluginMetadata *proto.GetMetadataResponse
 	existingPlugin, err := m.Get(ctx, pluginName)
 	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
+		// fail only if overwrite is not set
+		if !errors.Is(err, os.ErrNotExist) && !overwrite {
 			return nil, nil, fmt.Errorf("failed to check plugin existence: %w", err)
 		}
 	} else { // plugin already exists
@@ -203,7 +204,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	return existingPluginMetadata, newPluginMetadata, nil
 }
 
-// Uninstall uninstalls a plugin on the system by its name
+// Uninstall uninstalls a plugin on the system by its name.
 // If the plugin dir does not exist, os.ErrNotExist is returned.
 func (m *CLIManager) Uninstall(ctx context.Context, name string) error {
 	pluginDirPath, err := m.pluginFS.SysPath(name)
