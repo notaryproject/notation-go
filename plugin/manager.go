@@ -184,8 +184,10 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		return nil, nil, fmt.Errorf("failed to get the system path of plugin %s: %w", pluginName, err)
 	}
 	// clean up before installation, this guarantees idempotent for install
-	if err := os.RemoveAll(pluginDirPath); err != nil {
-		return nil, nil, fmt.Errorf("failed to clean up %s before installation: %w", pluginDirPath, err)
+	if err := m.Uninstall(ctx, pluginName); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, nil, fmt.Errorf("failed to clean up plugin %s before installation: %w", pluginName, err)
+		}
 	}
 	if installFromNonDir {
 		if err := file.CopyToDir(pluginExecutableFile, pluginDirPath); err != nil {
@@ -258,13 +260,14 @@ func parsePluginFromDir(path string) (string, string, error) {
 			if err != nil {
 				return err
 			}
-			if isExec {
-				if foundPluginExecutableFile {
-					return errors.New("found more than one plugin executable files")
-				}
-				foundPluginExecutableFile = true
-				pluginExecutableFile = p
+			if !isExec {
+				return nil
 			}
+			if foundPluginExecutableFile {
+				return errors.New("found more than one plugin executable files")
+			}
+			foundPluginExecutableFile = true
+			pluginExecutableFile = p
 		}
 		return nil
 	}); err != nil {

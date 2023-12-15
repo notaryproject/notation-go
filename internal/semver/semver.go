@@ -22,11 +22,11 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// semVerRegEx is takenfrom https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+// semVerRegEx is taken from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
 var semVerRegEx = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 
-// IsValidSemver returns true if version is a valid semantic version
-func IsValidSemver(version string) bool {
+// IsValid returns true if version is a valid semantic version
+func IsValid(version string) bool {
 	return semVerRegEx.MatchString(version)
 }
 
@@ -35,10 +35,10 @@ func IsValidSemver(version string) bool {
 // The result will be 0 if v == w, -1 if v < w, or +1 if v > w.
 func ComparePluginVersion(v, w string) (int, error) {
 	// sanity check
-	if !IsValidSemver(v) {
+	if !IsValid(v) {
 		return 0, fmt.Errorf("%s is not a valid semantic version", v)
 	}
-	if !IsValidSemver(w) {
+	if !IsValid(w) {
 		return 0, fmt.Errorf("%s is not a valid semantic version", w)
 	}
 

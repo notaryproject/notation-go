@@ -232,7 +232,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		pluginVersion := metadata.Version
 
 		//checking if the plugin version is in valid semver format
-		if !notationsemver.IsValidSemver(pluginVersion) {
+		if !notationsemver.IsValid(pluginVersion) {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
 		}
 

@@ -32,8 +32,9 @@ func isExecutableFile(filePath string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if !fi.Mode().IsRegular() {
+	mode := fi.Mode()
+	if !mode.IsRegular() {
 		return false, ErrNotRegularFile
 	}
-	return fi.Mode()&0100 != 0, nil
+	return mode.Perm()&0100 != 0, nil
 }

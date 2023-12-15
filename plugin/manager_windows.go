@@ -16,6 +16,7 @@ package plugin
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/notaryproject/notation-go/plugin/proto"
 )
@@ -33,5 +34,5 @@ func isExecutableFile(filePath string) (bool, error) {
 	if !fi.Mode().IsRegular() {
 		return false, ErrNotRegularFile
 	}
-	return filepath.Ext(filepath.Base(filePath)) == ".exe", nil
+	return strings.EqualFold(filepath.Ext(filepath.Base(filePath)), ".exe"), nil
 }
