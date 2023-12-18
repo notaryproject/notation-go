@@ -34,14 +34,18 @@ func IsValidFileName(fileName string) bool {
 	return regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`).MatchString(fileName)
 }
 
-// CopyToDir copies the src file to dst dir. Existing file will be overwritten.
-// src file permission is preserved.
+// CopyToDir copies the src file to dst dir. All parent directories are created
+// with permissions 0755.
+//
+// Source file's read and execute permissions are preserved for everyone.
+// Write permission is preserved for owner. Group and others cannot write.
+// Existing file will be overwritten.
 func CopyToDir(src, dst string) error {
-	sourceFileStat, err := os.Stat(src)
+	sourceFileInfo, err := os.Stat(src)
 	if err != nil {
 		return err
 	}
-	if !sourceFileStat.Mode().IsRegular() {
+	if !sourceFileInfo.Mode().IsRegular() {
 		return ErrNotRegularFile
 	}
 	source, err := os.Open(src)
@@ -49,7 +53,7 @@ func CopyToDir(src, dst string) error {
 		return err
 	}
 	defer source.Close()
-	if err := os.MkdirAll(dst, 0777); err != nil {
+	if err := os.MkdirAll(dst, 0755); err != nil {
 		return err
 	}
 	dstFile := filepath.Join(dst, filepath.Base(src))
@@ -58,7 +62,7 @@ func CopyToDir(src, dst string) error {
 		return err
 	}
 	defer destination.Close()
-	err = destination.Chmod(sourceFileStat.Mode())
+	err = destination.Chmod(sourceFileInfo.Mode() & os.FileMode(0755))
 	if err != nil {
 		return err
 	}
