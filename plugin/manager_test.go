@@ -241,7 +241,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "the installing plugin version 0.1.0 is lower than the existing plugin version 1.0.0"
+		expectedErrorMsg := "failed to install plugin foo. The installing plugin version 0.1.0 is lower than the existing plugin version 1.0.0"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)

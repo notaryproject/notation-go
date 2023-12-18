@@ -172,7 +172,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			}
 			switch {
 			case comp < 0:
-				return nil, nil, PluginDowngradeError{Msg: fmt.Sprintf("the installing plugin version %s is lower than the existing plugin version %s", newPluginMetadata.Version, existingPluginMetadata.Version)}
+				return nil, nil, PluginDowngradeError{Msg: fmt.Sprintf("failed to install plugin %s. The installing plugin version %s is lower than the existing plugin version %s", pluginName, newPluginMetadata.Version, existingPluginMetadata.Version)}
 			case comp == 0:
 				return nil, nil, InstallEqualVersionError{Msg: fmt.Sprintf("plugin %s with version %s already exists", pluginName, existingPluginMetadata.Version)}
 			}
