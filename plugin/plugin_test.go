@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -269,4 +270,60 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 			t.Fatal("should have an invalid contract version error")
 		}
 	})
+}
+
+func TestExtractPluginNameFromExecutableFileName(t *testing.T) {
+	pluginName, err := ParsePluginName("notation-my-plugin")
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if pluginName != "my-plugin" {
+		t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
+	}
+
+	pluginName, err = ParsePluginName("notation-my-plugin.exe")
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if pluginName != "my-plugin" {
+		t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
+	}
+
+	_, err = ParsePluginName("myPlugin")
+	expectedErrorMsg := "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got myPlugin"
+	if err == nil || err.Error() != expectedErrorMsg {
+		t.Fatalf("expected %s, got %v", expectedErrorMsg, err)
+	}
+
+	_, err = ParsePluginName("my-plugin")
+	expectedErrorMsg = "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got my-plugin"
+	if err == nil || err.Error() != expectedErrorMsg {
+		t.Fatalf("expected %s, got %v", expectedErrorMsg, err)
+	}
+}
+
+func TestValidatePluginFileExtensionAgainstOS(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		err := validatePluginFileExtensionAgainstOS("notation-foo.exe", "foo")
+		if err != nil {
+			t.Fatalf("expecting nil error, but got %s", err)
+		}
+
+		err = validatePluginFileExtensionAgainstOS("notation-foo", "foo")
+		expectedErrorMsg := "invalid plugin file extension. Expecting file notation-foo.exe, but got notation-foo"
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
+		return
+	}
+	err := validatePluginFileExtensionAgainstOS("notation-foo", "foo")
+	if err != nil {
+		t.Fatalf("expecting nil error, but got %s", err)
+	}
+
+	err = validatePluginFileExtensionAgainstOS("notation-foo.exe", "foo")
+	expectedErrorMsg := "invalid plugin file extension. Expecting file notation-foo, but got notation-foo.exe"
+	if err == nil || err.Error() != expectedErrorMsg {
+		t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+	}
 }
