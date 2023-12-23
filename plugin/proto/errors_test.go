@@ -18,11 +18,13 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 func TestRequestError_Error(t *testing.T) {
-	err := RequestError{Code: ErrorCodeAccessDenied, Err: errors.New("an error")}
-	want := string(ErrorCodeAccessDenied) + ": an error"
+	err := RequestError{Code: plugin.ErrorCodeAccessDenied, Err: errors.New("an error")}
+	want := string(plugin.ErrorCodeAccessDenied) + ": an error"
 	if got := err.Error(); got != want {
 		t.Errorf("RequestError.Error() = %v, want %v", got, want)
 	}
@@ -30,7 +32,7 @@ func TestRequestError_Error(t *testing.T) {
 
 func TestRequestError_Unwrap(t *testing.T) {
 	want := errors.New("an error")
-	got := RequestError{Code: ErrorCodeAccessDenied, Err: want}.Unwrap()
+	got := RequestError{Code: plugin.ErrorCodeAccessDenied, Err: want}.Unwrap()
 	if got != want {
 		t.Errorf("RequestError.Unwrap() = %v, want %v", got, want)
 	}
@@ -43,11 +45,11 @@ func TestRequestError_MarshalJSON(t *testing.T) {
 		want []byte
 	}{
 		{"empty", RequestError{}, []byte("{\"errorCode\":\"\"}")},
-		{"with code", RequestError{Code: ErrorCodeAccessDenied}, []byte("{\"errorCode\":\"ACCESS_DENIED\"}")},
-		{"with message", RequestError{Code: ErrorCodeAccessDenied, Err: errors.New("failed")}, []byte("{\"errorCode\":\"ACCESS_DENIED\",\"errorMessage\":\"failed\"}")},
+		{"with code", RequestError{Code: plugin.ErrorCodeAccessDenied}, []byte("{\"errorCode\":\"ACCESS_DENIED\"}")},
+		{"with message", RequestError{Code: plugin.ErrorCodeAccessDenied, Err: errors.New("failed")}, []byte("{\"errorCode\":\"ACCESS_DENIED\",\"errorMessage\":\"failed\"}")},
 		{
 			"with metadata",
-			RequestError{Code: ErrorCodeAccessDenied, Err: errors.New("failed"), Metadata: map[string]string{"a": "b"}},
+			RequestError{Code: plugin.ErrorCodeAccessDenied, Err: errors.New("failed"), Metadata: map[string]string{"a": "b"}},
 			[]byte("{\"errorCode\":\"ACCESS_DENIED\",\"errorMessage\":\"failed\",\"errorMetadata\":{\"a\":\"b\"}}"),
 		},
 	}
@@ -87,7 +89,7 @@ func TestRequestError_UnmarshalJSON(t *testing.T) {
 	}{
 		{"invalid", args{[]byte("")}, RequestError{}, true},
 		{"empty", args{[]byte("{}")}, RequestError{}, true},
-		{"with code", args{[]byte("{\"errorCode\":\"ACCESS_DENIED\"}")}, RequestError{Code: ErrorCodeAccessDenied}, false},
+		{"with code", args{[]byte("{\"errorCode\":\"ACCESS_DENIED\"}")}, RequestError{Code: plugin.ErrorCodeAccessDenied}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -114,10 +116,10 @@ func TestRequestError_Is(t *testing.T) {
 	}{
 		{"nil", RequestError{}, args{nil}, false},
 		{"not same type", RequestError{Err: errors.New("foo")}, args{errors.New("foo")}, false},
-		{"only same code", RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}, args{RequestError{Code: ErrorCodeGeneric, Err: errors.New("bar")}}, false},
-		{"only same message", RequestError{Code: ErrorCodeTimeout, Err: errors.New("foo")}, args{RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}}, false},
-		{"same with nil message", RequestError{Code: ErrorCodeGeneric}, args{RequestError{Code: ErrorCodeGeneric}}, true},
-		{"same", RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}, args{RequestError{Code: ErrorCodeGeneric, Err: errors.New("foo")}}, true},
+		{"only same code", RequestError{Code: plugin.ErrorCodeGeneric, Err: errors.New("foo")}, args{RequestError{Code: plugin.ErrorCodeGeneric, Err: errors.New("bar")}}, false},
+		{"only same message", RequestError{Code: plugin.ErrorCodeTimeout, Err: errors.New("foo")}, args{RequestError{Code: plugin.ErrorCodeGeneric, Err: errors.New("foo")}}, false},
+		{"same with nil message", RequestError{Code: plugin.ErrorCodeGeneric}, args{RequestError{Code: plugin.ErrorCodeGeneric}}, true},
+		{"same", RequestError{Code: plugin.ErrorCodeGeneric, Err: errors.New("foo")}, args{RequestError{Code: plugin.ErrorCodeGeneric, Err: errors.New("foo")}}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

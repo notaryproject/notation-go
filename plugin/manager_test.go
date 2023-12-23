@@ -25,7 +25,7 @@ import (
 	"testing/fstest"
 
 	"github.com/notaryproject/notation-go/internal/mock/mockfs"
-	"github.com/notaryproject/notation-go/plugin/proto"
+	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 type testCommander struct {
@@ -34,7 +34,7 @@ type testCommander struct {
 	err    error
 }
 
-func (t testCommander) Output(ctx context.Context, path string, command proto.Command, req []byte) ([]byte, []byte, error) {
+func (t testCommander) Output(ctx context.Context, path string, command pluginframework.Command, req []byte) ([]byte, []byte, error) {
 	return t.stdout, t.stderr, t.err
 }
 
@@ -50,7 +50,7 @@ type testInstallCommander struct {
 	err                   error
 }
 
-func (t testInstallCommander) Output(ctx context.Context, path string, command proto.Command, req []byte) ([]byte, []byte, error) {
+func (t testInstallCommander) Output(ctx context.Context, path string, command pluginframework.Command, req []byte) ([]byte, []byte, error) {
 	if path == t.existedPluginFilePath {
 		return t.existedPluginStdout, t.existedPluginStderr, t.existedPluginErr
 	}
@@ -60,34 +60,34 @@ func (t testInstallCommander) Output(ctx context.Context, path string, command p
 	return nil, nil, t.err
 }
 
-var validMetadata = proto.GetMetadataResponse{
+var validMetadata = pluginframework.GetMetadataResponse{
 	Name: "foo", Description: "friendly", Version: "1.0.0", URL: "example.com",
-	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 }
 
-var validMetadataHigherVersion = proto.GetMetadataResponse{
+var validMetadataHigherVersion = pluginframework.GetMetadataResponse{
 	Name: "foo", Description: "friendly", Version: "1.1.0", URL: "example.com",
-	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 }
 
-var validMetadataLowerVersion = proto.GetMetadataResponse{
+var validMetadataLowerVersion = pluginframework.GetMetadataResponse{
 	Name: "foo", Description: "friendly", Version: "0.1.0", URL: "example.com",
-	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 }
 
-var validMetadataBar = proto.GetMetadataResponse{
+var validMetadataBar = pluginframework.GetMetadataResponse{
 	Name: "bar", Description: "friendly", Version: "1.0.0", URL: "example.com",
-	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 }
 
-var invalidMetadataName = proto.GetMetadataResponse{
+var invalidMetadataName = pluginframework.GetMetadataResponse{
 	Name: "foobar", Description: "friendly", Version: "1", URL: "example.com",
-	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 }
 
-var invalidContractVersionMetadata = proto.GetMetadataResponse{
+var invalidContractVersionMetadata = pluginframework.GetMetadataResponse{
 	Name: "foo", Description: "friendly", Version: "1", URL: "example.com",
-	SupportedContractVersions: []string{"110.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+	SupportedContractVersions: []string{"110.0"}, Capabilities: []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 }
 
 func TestManager_Get(t *testing.T) {
@@ -517,7 +517,7 @@ func TestManager_Uninstall(t *testing.T) {
 	}
 }
 
-func metadataJSON(m proto.GetMetadataResponse) []byte {
+func metadataJSON(m pluginframework.GetMetadataResponse) []byte {
 	d, err := json.Marshal(m)
 	if err != nil {
 		panic(err)

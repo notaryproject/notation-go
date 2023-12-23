@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 func TestGetMetadata(t *testing.T) {
@@ -33,11 +34,11 @@ func TestGetMetadata(t *testing.T) {
 		exitErr := errors.New("unknown error")
 		stderr := []byte("sad")
 		wantErr := proto.RequestError{
-			Code: proto.ErrorCodeGeneric,
+			Code: plugin.ErrorCodeGeneric,
 			Err:  fmt.Errorf("response is not in JSON format. error: %v, stderr: %s", exitErr, string(stderr))}
-		plugin := CLIPlugin{}
+		cliPlugin := CLIPlugin{}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
-		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+		_, err := cliPlugin.GetMetadata(context.Background(), &plugin.GetMetadataRequest{})
 		if !errors.Is(err, wantErr) {
 			t.Fatalf("should error. got err = %v, want %v", err, wantErr)
 		}
@@ -46,11 +47,11 @@ func TestGetMetadata(t *testing.T) {
 	t.Run("plugin error is a valid json", func(t *testing.T) {
 		stderr := []byte("{\"errorCode\":\"ACCESS_DENIED\"}")
 		pluginErr := errors.New("plugin errors")
-		wantErr := proto.RequestError{Code: proto.ErrorCodeAccessDenied}
+		wantErr := proto.RequestError{Code: plugin.ErrorCodeAccessDenied}
 
-		plugin := CLIPlugin{}
+		cliPlugin := CLIPlugin{}
 		executor = testCommander{stdout: nil, stderr: stderr, err: pluginErr}
-		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+		_, err := cliPlugin.GetMetadata(context.Background(), &plugin.GetMetadataRequest{})
 		if !errors.Is(err, wantErr) {
 			t.Fatalf("should error. got err = %v, want %v", err, wantErr)
 		}
@@ -60,11 +61,11 @@ func TestGetMetadata(t *testing.T) {
 		exitErr := errors.New("system error")
 		stderr := []byte("")
 		wantErr := proto.RequestError{
-			Code: proto.ErrorCodeGeneric,
+			Code: plugin.ErrorCodeGeneric,
 			Err:  fmt.Errorf("response is not in JSON format. error: %v, stderr: %s", exitErr, string(stderr))}
-		plugin := CLIPlugin{}
+		cliPlugin := CLIPlugin{}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
-		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+		_, err := cliPlugin.GetMetadata(context.Background(), &plugin.GetMetadataRequest{})
 		if !errors.Is(err, wantErr) {
 			t.Fatalf("should error. got err = %v, want %v", err, wantErr)
 		}
@@ -74,15 +75,15 @@ func TestGetMetadata(t *testing.T) {
 
 func TestDescribeKey(t *testing.T) {
 	t.Run("DescribeKey test", func(t *testing.T) {
-		keyResp := proto.DescribeKeyResponse{KeyID: "1", KeySpec: "RSA-4096"}
+		keyResp := plugin.DescribeKeyResponse{KeyID: "1", KeySpec: "RSA-4096"}
 		output, err := json.Marshal(keyResp)
 		if err != nil {
 			t.Fatal("should not error.")
 		}
 		executor = testCommander{stdout: output, err: nil}
 
-		plugin := CLIPlugin{}
-		resp, err := plugin.DescribeKey(context.Background(), &proto.DescribeKeyRequest{})
+		cliPlugin := CLIPlugin{}
+		resp, err := cliPlugin.DescribeKey(context.Background(), &plugin.DescribeKeyRequest{})
 		if err != nil {
 			t.Fatalf("should not error. got err = %v", err)
 		}
@@ -94,7 +95,7 @@ func TestDescribeKey(t *testing.T) {
 
 func TestGenerateSignature(t *testing.T) {
 	t.Run("GenerateSignature test", func(t *testing.T) {
-		keyResp := proto.GenerateSignatureResponse{
+		keyResp := plugin.GenerateSignatureResponse{
 			KeyID:            "1",
 			Signature:        []byte("xxxxx"),
 			SigningAlgorithm: "ECDSA-SHA-256",
@@ -106,8 +107,8 @@ func TestGenerateSignature(t *testing.T) {
 		}
 		executor = testCommander{stdout: output, err: nil}
 
-		plugin := CLIPlugin{}
-		resp, err := plugin.GenerateSignature(context.Background(), &proto.GenerateSignatureRequest{})
+		cliPlugin := CLIPlugin{}
+		resp, err := cliPlugin.GenerateSignature(context.Background(), &plugin.GenerateSignatureRequest{})
 		if err != nil {
 			t.Fatalf("should not error. got err = %v", err)
 		}
@@ -119,7 +120,7 @@ func TestGenerateSignature(t *testing.T) {
 
 func TestGenerateEnvelope(t *testing.T) {
 	t.Run("GenerateEnvelope test", func(t *testing.T) {
-		keyResp := proto.GenerateEnvelopeResponse{
+		keyResp := plugin.GenerateEnvelopeResponse{
 			SignatureEnvelope:     []byte("{}"),
 			SignatureEnvelopeType: "jws",
 			Annotations:           map[string]string{},
@@ -130,8 +131,8 @@ func TestGenerateEnvelope(t *testing.T) {
 		}
 		executor = testCommander{stdout: output, err: nil}
 
-		plugin := CLIPlugin{}
-		resp, err := plugin.GenerateEnvelope(context.Background(), &proto.GenerateEnvelopeRequest{})
+		cliPlugin := CLIPlugin{}
+		resp, err := cliPlugin.GenerateEnvelope(context.Background(), &plugin.GenerateEnvelopeRequest{})
 		if err != nil {
 			t.Fatalf("should not error. got err = %v", err)
 		}
@@ -143,8 +144,8 @@ func TestGenerateEnvelope(t *testing.T) {
 
 func TestVerifySignature(t *testing.T) {
 	t.Run("VerifySignature test", func(t *testing.T) {
-		keyResp := proto.VerifySignatureResponse{
-			VerificationResults: map[proto.Capability]*proto.VerificationResult{},
+		keyResp := plugin.VerifySignatureResponse{
+			VerificationResults: map[plugin.Capability]*plugin.VerificationResult{},
 			ProcessedAttributes: []interface{}{"attr1"},
 		}
 		output, err := json.Marshal(keyResp)
@@ -153,8 +154,8 @@ func TestVerifySignature(t *testing.T) {
 		}
 		executor = testCommander{stdout: output, err: nil}
 
-		plugin := CLIPlugin{}
-		resp, err := plugin.VerifySignature(context.Background(), &proto.VerifySignatureRequest{})
+		cliPlugin := CLIPlugin{}
+		resp, err := cliPlugin.VerifySignature(context.Background(), &plugin.VerifySignatureRequest{})
 		if err != nil {
 			t.Fatalf("should not error. got err = %v", err)
 		}
@@ -166,17 +167,17 @@ func TestVerifySignature(t *testing.T) {
 
 func TestValidateMetadata(t *testing.T) {
 	tests := []struct {
-		m       *proto.GetMetadataResponse
+		m       *plugin.GetMetadataResponse
 		wantErr bool
 	}{
-		{&proto.GetMetadataResponse{}, true},
-		{&proto.GetMetadataResponse{Name: "name"}, true},
-		{&proto.GetMetadataResponse{Name: "name", Description: "friendly"}, true},
-		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1"}, true},
-		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com"}, true},
-		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", Capabilities: []proto.Capability{"cap"}}, true},
-		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}}, true},
-		{&proto.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{"cap"}}, false},
+		{&plugin.GetMetadataResponse{}, true},
+		{&plugin.GetMetadataResponse{Name: "name"}, true},
+		{&plugin.GetMetadataResponse{Name: "name", Description: "friendly"}, true},
+		{&plugin.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1"}, true},
+		{&plugin.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com"}, true},
+		{&plugin.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", Capabilities: []plugin.Capability{"cap"}}, true},
+		{&plugin.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}}, true},
+		{&plugin.GetMetadataResponse{Name: "name", Description: "friendly", Version: "1", URL: "example.com", SupportedContractVersions: []string{"1.0"}, Capabilities: []plugin.Capability{"cap"}}, false},
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -218,7 +219,7 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 	}
 	t.Run("command no response", func(t *testing.T) {
 		executor = testCommander{}
-		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		_, err := p.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if !strings.Contains(err.Error(), ErrNotCompliant.Error()) {
 			t.Fatal("should fail the operation.")
 		}
@@ -226,7 +227,7 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 
 	t.Run("invalid json", func(t *testing.T) {
 		executor = testCommander{stdout: []byte("content")}
-		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		_, err := p.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if !strings.Contains(err.Error(), ErrNotCompliant.Error()) {
 			t.Fatal("should fail the operation.")
 		}
@@ -234,15 +235,15 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 
 	t.Run("invalid metadata name", func(t *testing.T) {
 		executor = testCommander{stdout: metadataJSON(invalidMetadataName)}
-		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		_, err := p.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if !strings.Contains(err.Error(), "executable name must be") {
 			t.Fatal("should fail the operation.")
 		}
 	})
 
 	t.Run("invalid metadata content", func(t *testing.T) {
-		executor = testCommander{stdout: metadataJSON(proto.GetMetadataResponse{Name: "foo"})}
-		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		executor = testCommander{stdout: metadataJSON(plugin.GetMetadataResponse{Name: "foo"})}
+		_, err := p.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if !strings.Contains(err.Error(), "invalid metadata") {
 			t.Fatal("should fail the operation.")
 		}
@@ -250,11 +251,11 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 
 	t.Run("valid", func(t *testing.T) {
 		executor = testCommander{stdout: metadataJSON(validMetadata)}
-		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		_, err := p.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if err != nil {
 			t.Fatalf("should valid. got err = %v", err)
 		}
-		metadata, err := p.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+		metadata, err := p.GetMetadata(context.Background(), &plugin.GetMetadataRequest{})
 		if err != nil {
 			t.Fatalf("should valid. got err = %v", err)
 		}
@@ -265,7 +266,7 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 
 	t.Run("invalid contract version", func(t *testing.T) {
 		executor = testCommander{stdout: metadataJSON(invalidContractVersionMetadata)}
-		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		_, err := p.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if err == nil {
 			t.Fatal("should have an invalid contract version error")
 		}

@@ -25,12 +25,13 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/semver"
-	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
+	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 // Manager manages plugins installed on the system.
 type Manager interface {
-	Get(ctx context.Context, name string) (Plugin, error)
+	Get(ctx context.Context, name string) (pluginframework.Plugin, error)
 	List(ctx context.Context) ([]string, error)
 }
 
@@ -47,7 +48,7 @@ func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
 // Get returns a plugin on the system by its name.
 //
 // If the plugin is not found, the error is of type os.ErrNotExist.
-func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
+func (m *CLIManager) Get(ctx context.Context, name string) (pluginframework.Plugin, error) {
 	pluginPath := path.Join(name, binName(name))
 	path, err := m.pluginFS.SysPath(pluginPath)
 	if err != nil {
@@ -59,7 +60,7 @@ func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 }
 
 // List produces a list of the plugin names on the system.
-func (m *CLIManager) List(ctx context.Context) ([]string, error) {
+func (m *CLIManager) List(_ context.Context) ([]string, error) {
 	var plugins []string
 	fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -112,7 +113,7 @@ type CLIInstallOptions struct {
 //
 // If overwrite is set, version check is skipped. If existing
 // plugin is malfunctioning, it will be overwritten.
-func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
+func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*plugin.GetMetadataResponse, *plugin.GetMetadataResponse, error) {
 	// initialization
 	overwrite := installOpts.Overwrite
 	if installOpts.PluginPath == "" {
@@ -147,12 +148,12 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
 	}
-	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get metadata of new plugin: %w", err)
 	}
 	// check plugin existence and get existing plugin metadata
-	var existingPluginMetadata *proto.GetMetadataResponse
+	var existingPluginMetadata *plugin.GetMetadataResponse
 	existingPlugin, err := m.Get(ctx, pluginName)
 	if err != nil {
 		// fail only if overwrite is not set
@@ -160,7 +161,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			return nil, nil, fmt.Errorf("failed to check plugin existence: %w", err)
 		}
 	} else { // plugin already exists
-		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if err != nil && !overwrite { // fail only if overwrite is not set
 			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
 		}
@@ -203,7 +204,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 
 // Uninstall uninstalls a plugin on the system by its name.
 // If the plugin dir does not exist, os.ErrNotExist is returned.
-func (m *CLIManager) Uninstall(ctx context.Context, name string) error {
+func (m *CLIManager) Uninstall(_ context.Context, name string) error {
 	pluginDirPath, err := m.pluginFS.SysPath(name)
 	if err != nil {
 		return err
@@ -216,7 +217,7 @@ func (m *CLIManager) Uninstall(ctx context.Context, name string) error {
 
 // parsePluginFromDir checks if a dir is a valid plugin dir which contains
 // one and only one plugin executable file. The dir may contain extra lib files
-// and LICENSE files. Sub-directories are ignored.
+// and LICENSE files. Subdirectories are ignored.
 //
 // On success, the plugin executable file path, plugin name and
 // nil error are returned.

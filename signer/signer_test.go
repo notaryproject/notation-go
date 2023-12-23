@@ -37,6 +37,7 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -117,7 +118,7 @@ func generateKeyBytes(key crypto.PrivateKey) (keyBytes []byte, err error) {
 	return keyBytes, nil
 }
 
-func prepareTestKeyCertFile(keyCert *keyCertPair, envelopeType, dir string) (string, string, error) {
+func prepareTestKeyCertFile(keyCert *keyCertPair, dir string) (string, string, error) {
 	keyPath, certPath := filepath.Join(dir, keyCert.keySpecName+".key"), filepath.Join(dir, keyCert.keySpecName+".cert")
 	keyBytes, err := generateKeyBytes(keyCert.key)
 	if err != nil {
@@ -138,7 +139,7 @@ func prepareTestKeyCertFile(keyCert *keyCertPair, envelopeType, dir string) (str
 }
 
 func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir string) {
-	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, envelopeType, dir)
+	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, dir)
 	if err != nil {
 		t.Fatalf("prepareTestKeyCertFile() failed: %v", err)
 	}
@@ -209,7 +210,7 @@ func signRSA(digest []byte, hash crypto.Hash, pk *rsa.PrivateKey) ([]byte, error
 	return rsa.SignPSS(rand.Reader, pk, hash, digest, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
 }
 
-func signECDSA(digest []byte, hash crypto.Hash, pk *ecdsa.PrivateKey) ([]byte, error) {
+func signECDSA(digest []byte, pk *ecdsa.PrivateKey) ([]byte, error) {
 	r, s, err := ecdsa.Sign(rand.Reader, pk, digest)
 	if err != nil {
 		return nil, err
@@ -229,7 +230,7 @@ func localSign(payload []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, 
 	case *rsa.PrivateKey:
 		return signRSA(digest, hash, key)
 	case *ecdsa.PrivateKey:
-		return signECDSA(digest, hash, key)
+		return signECDSA(digest, key)
 	default:
 		return nil, errors.New("signing private key not supported")
 	}
@@ -252,7 +253,7 @@ func generateSigningContent() (ocispec.Descriptor, notation.SignerSignOptions) {
 	return desc, sOpts
 }
 
-func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate, metadata *proto.GetMetadataResponse) {
+func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x509.Certificate, metadata *pluginframework.GetMetadataResponse) {
 	// basic verification
 	sigEnv, err := signature.ParseEnvelope(envelopeType, sig)
 	if err != nil {
@@ -276,7 +277,7 @@ func basicVerification(t *testing.T, sig []byte, envelopeType string, trust *x50
 	verifySigningAgent(t, envContent.SignerInfo.UnsignedAttributes.SigningAgent, metadata)
 }
 
-func verifySigningAgent(t *testing.T, signingAgentId string, metadata *proto.GetMetadataResponse) {
+func verifySigningAgent(t *testing.T, signingAgentId string, metadata *pluginframework.GetMetadataResponse) {
 	signingAgentRegex := regexp.MustCompile("^(?P<agent>.*) (?P<name>.*)/(?P<version>.*)$")
 	match := signingAgentRegex.FindStringSubmatch(signingAgentId)
 

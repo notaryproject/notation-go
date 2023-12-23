@@ -32,16 +32,17 @@ import (
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 var (
-	validMetadata = proto.GetMetadataResponse{
+	validMetadata = pluginframework.GetMetadataResponse{
 		Name:        "testPlugin",
 		Description: "plugin for test",
 		Version:     "1.0", URL: "test.com",
-		SupportedContractVersions: []string{proto.ContractVersion},
-		Capabilities:              []proto.Capability{proto.CapabilitySignatureGenerator},
+		SupportedContractVersions: []string{pluginframework.ContractVersion},
+		Capabilities:              []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 	}
 	validSignDescriptor, validSignOpts = generateSigningContent()
 	invalidSignatureEnvelope           = []byte("invalid")
@@ -78,33 +79,33 @@ func newMockPlugin(key crypto.PrivateKey, certs []*x509.Certificate, keySpec sig
 	}
 }
 
-func (p *mockPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
+func (p *mockPlugin) GetMetadata(_ context.Context, _ *pluginframework.GetMetadataRequest) (*pluginframework.GetMetadataResponse, error) {
 	if p.wantEnvelope {
-		return &proto.GetMetadataResponse{
+		return &pluginframework.GetMetadataResponse{
 			Name:                      "testPlugin",
 			Version:                   "1.0",
-			SupportedContractVersions: []string{proto.ContractVersion},
-			Capabilities:              []proto.Capability{proto.CapabilityEnvelopeGenerator},
+			SupportedContractVersions: []string{pluginframework.ContractVersion},
+			Capabilities:              []pluginframework.Capability{pluginframework.CapabilityEnvelopeGenerator},
 		}, nil
 	}
-	return &proto.GetMetadataResponse{
+	return &pluginframework.GetMetadataResponse{
 		Name:                      "testPlugin",
 		Version:                   "1.0",
-		SupportedContractVersions: []string{proto.ContractVersion},
-		Capabilities:              []proto.Capability{proto.CapabilitySignatureGenerator},
+		SupportedContractVersions: []string{pluginframework.ContractVersion},
+		Capabilities:              []pluginframework.Capability{pluginframework.CapabilitySignatureGenerator},
 	}, nil
 }
 
 // DescribeKey returns the KeySpec of a key.
-func (p *mockPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
+func (p *mockPlugin) DescribeKey(_ context.Context, _ *pluginframework.DescribeKeyRequest) (*pluginframework.DescribeKeyResponse, error) {
 	ks, _ := proto.EncodeKeySpec(p.keySpec)
-	return &proto.DescribeKeyResponse{
+	return &pluginframework.DescribeKeyResponse{
 		KeySpec: ks,
 	}, nil
 }
 
 // GenerateSignature generates the raw signature based on the request.
-func (p *mockPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
+func (p *mockPlugin) GenerateSignature(_ context.Context, req *pluginframework.GenerateSignatureRequest) (*pluginframework.GenerateSignatureResponse, error) {
 	sig, err := localSign(req.Payload, p.keySpec.SignatureAlgorithm().Hash(), p.key)
 	var certChain [][]byte
 	for _, cert := range p.certs {
@@ -112,22 +113,22 @@ func (p *mockPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateS
 	}
 	sigAlg, _ := proto.EncodeSigningAlgorithm(p.keySpec.SignatureAlgorithm())
 	if p.invalidSig {
-		return &proto.GenerateSignatureResponse{
+		return &pluginframework.GenerateSignatureResponse{
 			KeyID:            req.KeyID,
 			Signature:        invalidSignatureEnvelope,
-			SigningAlgorithm: string(sigAlg),
+			SigningAlgorithm: pluginframework.SignatureAlgorithm(string(sigAlg)),
 			CertificateChain: certChain,
 		}, err
 	}
 	if p.invalidCertChain {
-		return &proto.GenerateSignatureResponse{
+		return &pluginframework.GenerateSignatureResponse{
 			KeyID:            req.KeyID,
 			Signature:        sig,
 			CertificateChain: [][]byte{{}, {}},
 		}, err
 	}
 
-	return &proto.GenerateSignatureResponse{
+	return &pluginframework.GenerateSignatureResponse{
 		KeyID:            req.KeyID,
 		Signature:        sig,
 		CertificateChain: certChain,
@@ -135,7 +136,7 @@ func (p *mockPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateS
 }
 
 // GenerateEnvelope generates the Envelope with signature based on the request.
-func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
+func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *pluginframework.GenerateEnvelopeRequest) (*pluginframework.GenerateEnvelopeResponse, error) {
 	internalPluginSigner := pluginSigner{
 		plugin: newMockPlugin(p.key, p.certs, p.keySpec),
 	}
@@ -181,7 +182,7 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 		}
 
 		sig, err := sigEnv.Sign(signReq)
-		return &proto.GenerateEnvelopeResponse{
+		return &pluginframework.GenerateEnvelopeResponse{
 			SignatureEnvelope:     sig,
 			SignatureEnvelopeType: req.SignatureEnvelopeType,
 		}, err
@@ -196,13 +197,13 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 		if err != nil {
 			return nil, err
 		}
-		return &proto.GenerateEnvelopeResponse{
+		return &pluginframework.GenerateEnvelopeResponse{
 			SignatureEnvelope:     data,
 			SignatureEnvelopeType: req.SignatureEnvelopeType,
 			Annotations:           p.annotations,
 		}, nil
 	}
-	return &proto.GenerateEnvelopeResponse{}, nil
+	return &pluginframework.GenerateEnvelopeResponse{}, nil
 }
 
 func TestNewFromPluginFailed(t *testing.T) {
@@ -294,7 +295,7 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
+				keySpec, _ := proto.DecodeKeySpec(pluginframework.KeySpec(keyCert.keySpecName))
 				pluginSigner := pluginSigner{
 					plugin: newMockPlugin(keyCert.key, keyCert.certs, keySpec),
 				}
@@ -323,7 +324,7 @@ func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v, keySpec: %v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
+				keySpec, _ := proto.DecodeKeySpec(pluginframework.KeySpec(keyCert.keySpecName))
 				mockPlugin := newMockPlugin(keyCert.key, keyCert.certs, keySpec)
 				mockPlugin.wantEnvelope = true
 				pluginSigner := pluginSigner{
@@ -339,7 +340,7 @@ func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
+				keySpec, _ := proto.DecodeKeySpec(pluginframework.KeySpec(keyCert.keySpecName))
 				annts := map[string]string{"key": "value"}
 				pluginSigner := pluginSigner{
 					plugin: &mockPlugin{
@@ -368,7 +369,7 @@ func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts nota
 	}
 }
 
-func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string, metadata *proto.GetMetadataResponse) {
+func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string, metadata *pluginframework.GetMetadataResponse) {
 	validSignOpts.SignatureMediaType = envelopeType
 	data, signerInfo, err := pluginSigner.Sign(context.Background(), validSignDescriptor, validSignOpts)
 	if err != nil {

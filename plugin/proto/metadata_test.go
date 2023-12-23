@@ -15,26 +15,28 @@ package proto
 
 import (
 	"testing"
+
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 func TestGetMetadataResponse_HasCapability(t *testing.T) {
 	type args struct {
-		capability Capability
+		capability plugin.Capability
 	}
 	tests := []struct {
 		name string
-		m    *GetMetadataResponse
+		m    *plugin.GetMetadataResponse
 		args args
 		want bool
 	}{
-		{"empty capabilities", &GetMetadataResponse{}, args{"cap"}, false},
-		{"other capabilities", &GetMetadataResponse{Capabilities: []Capability{"foo", "baz"}}, args{"cap"}, false},
-		{"empty target capability", &GetMetadataResponse{Capabilities: []Capability{"foo", "baz"}}, args{""}, true},
-		{"found", &GetMetadataResponse{Capabilities: []Capability{"foo", "baz"}}, args{"baz"}, true},
+		{"empty capabilities", &plugin.GetMetadataResponse{}, args{"cap"}, false},
+		{"other capabilities", &plugin.GetMetadataResponse{Capabilities: []plugin.Capability{"foo", "baz"}}, args{"cap"}, false},
+		{"empty target capability", &plugin.GetMetadataResponse{Capabilities: []plugin.Capability{"foo", "baz"}}, args{""}, true},
+		{"found", &plugin.GetMetadataResponse{Capabilities: []plugin.Capability{"foo", "baz"}}, args{"baz"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.m.HasCapability(tt.args.capability); got != tt.want {
+			if got := HasCapability(tt.m, tt.args.capability); got != tt.want {
 				t.Errorf("GetMetadataResponse.HasCapability() = %v, want %v", got, tt.want)
 			}
 		})

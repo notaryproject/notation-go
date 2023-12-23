@@ -17,13 +17,14 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 func TestEncodeKeySpec(t *testing.T) {
 	tests := []struct {
 		name     string
 		keySpec  signature.KeySpec
-		expected KeySpec
+		expected plugin.KeySpec
 	}{
 		{
 			name: "EC 256",
@@ -31,7 +32,7 @@ func TestEncodeKeySpec(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 256,
 			},
-			expected: KeySpecEC256,
+			expected: plugin.KeySpecEC256,
 		},
 		{
 			name: "EC 384",
@@ -39,7 +40,7 @@ func TestEncodeKeySpec(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 384,
 			},
-			expected: KeySpecEC384,
+			expected: plugin.KeySpecEC384,
 		},
 		{
 			name: "EC 521",
@@ -47,7 +48,7 @@ func TestEncodeKeySpec(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 521,
 			},
-			expected: KeySpecEC521,
+			expected: plugin.KeySpecEC521,
 		},
 		{
 			name: "RSA 2048",
@@ -55,7 +56,7 @@ func TestEncodeKeySpec(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 2048,
 			},
-			expected: KeySpecRSA2048,
+			expected: plugin.KeySpecRSA2048,
 		},
 		{
 			name: "RSA 3072",
@@ -63,7 +64,7 @@ func TestEncodeKeySpec(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 3072,
 			},
-			expected: KeySpecRSA3072,
+			expected: plugin.KeySpecRSA3072,
 		},
 		{
 			name: "RSA 4096",
@@ -71,7 +72,7 @@ func TestEncodeKeySpec(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 4096,
 			},
-			expected: KeySpecRSA4096,
+			expected: plugin.KeySpecRSA4096,
 		},
 		{
 			name: "Unsupported key spec",
@@ -96,7 +97,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 	tests := []struct {
 		name     string
 		keySpec  signature.KeySpec
-		expected HashAlgorithm
+		expected plugin.HashAlgorithm
 	}{
 		{
 			name: "EC 256",
@@ -104,7 +105,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 256,
 			},
-			expected: HashAlgorithmSHA256,
+			expected: plugin.HashAlgorithmSHA256,
 		},
 		{
 			name: "EC 384",
@@ -112,7 +113,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 384,
 			},
-			expected: HashAlgorithmSHA384,
+			expected: plugin.HashAlgorithmSHA384,
 		},
 		{
 			name: "EC 521",
@@ -120,7 +121,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 				Type: signature.KeyTypeEC,
 				Size: 521,
 			},
-			expected: HashAlgorithmSHA512,
+			expected: plugin.HashAlgorithmSHA512,
 		},
 		{
 			name: "RSA 2048",
@@ -128,7 +129,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 2048,
 			},
-			expected: HashAlgorithmSHA256,
+			expected: plugin.HashAlgorithmSHA256,
 		},
 		{
 			name: "RSA 3072",
@@ -136,7 +137,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 3072,
 			},
-			expected: HashAlgorithmSHA384,
+			expected: plugin.HashAlgorithmSHA384,
 		},
 		{
 			name: "RSA 4096",
@@ -144,7 +145,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 				Type: signature.KeyTypeRSA,
 				Size: 4096,
 			},
-			expected: HashAlgorithmSHA512,
+			expected: plugin.HashAlgorithmSHA512,
 		},
 		{
 			name: "Unsupported key spec",
@@ -168,13 +169,13 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 func TestDecodeKeySpec(t *testing.T) {
 	tests := []struct {
 		name      string
-		raw       KeySpec
+		raw       plugin.KeySpec
 		expected  signature.KeySpec
 		expectErr bool
 	}{
 		{
 			name: "EC 256",
-			raw:  KeySpecEC256,
+			raw:  plugin.KeySpecEC256,
 			expected: signature.KeySpec{
 				Type: signature.KeyTypeEC,
 				Size: 256,
@@ -183,7 +184,7 @@ func TestDecodeKeySpec(t *testing.T) {
 		},
 		{
 			name: "EC 384",
-			raw:  KeySpecEC384,
+			raw:  plugin.KeySpecEC384,
 			expected: signature.KeySpec{
 				Type: signature.KeyTypeEC,
 				Size: 384,
@@ -192,7 +193,7 @@ func TestDecodeKeySpec(t *testing.T) {
 		},
 		{
 			name: "EC 521",
-			raw:  KeySpecEC521,
+			raw:  plugin.KeySpecEC521,
 			expected: signature.KeySpec{
 				Type: signature.KeyTypeEC,
 				Size: 521,
@@ -201,7 +202,7 @@ func TestDecodeKeySpec(t *testing.T) {
 		},
 		{
 			name: "RSA 2048",
-			raw:  KeySpecRSA2048,
+			raw:  plugin.KeySpecRSA2048,
 			expected: signature.KeySpec{
 				Type: signature.KeyTypeRSA,
 				Size: 2048,
@@ -210,7 +211,7 @@ func TestDecodeKeySpec(t *testing.T) {
 		},
 		{
 			name: "RSA 3072",
-			raw:  KeySpecRSA3072,
+			raw:  plugin.KeySpecRSA3072,
 			expected: signature.KeySpec{
 				Type: signature.KeyTypeRSA,
 				Size: 3072,
@@ -219,7 +220,7 @@ func TestDecodeKeySpec(t *testing.T) {
 		},
 		{
 			name: "RSA 4096",
-			raw:  KeySpecRSA4096,
+			raw:  plugin.KeySpecRSA4096,
 			expected: signature.KeySpec{
 				Type: signature.KeyTypeRSA,
 				Size: 4096,
@@ -251,37 +252,37 @@ func TestEncodeSigningAlgorithm(t *testing.T) {
 	tests := []struct {
 		name     string
 		alg      signature.Algorithm
-		expected SignatureAlgorithm
+		expected plugin.SignatureAlgorithm
 	}{
 		{
 			name:     "RSASSA-PSS with SHA-256",
 			alg:      signature.AlgorithmPS256,
-			expected: SignatureAlgorithmRSASSA_PSS_SHA256,
+			expected: plugin.SignatureAlgorithmRSASSA_PSS_SHA256,
 		},
 		{
 			name:     "RSASSA-PSS with SHA-384",
 			alg:      signature.AlgorithmPS384,
-			expected: SignatureAlgorithmRSASSA_PSS_SHA384,
+			expected: plugin.SignatureAlgorithmRSASSA_PSS_SHA384,
 		},
 		{
 			name:     "RSASSA-PSS with SHA-512",
 			alg:      signature.AlgorithmPS512,
-			expected: SignatureAlgorithmRSASSA_PSS_SHA512,
+			expected: plugin.SignatureAlgorithmRSASSA_PSS_SHA512,
 		},
 		{
 			name:     "ECDSA on secp256r1 with SHA-256",
 			alg:      signature.AlgorithmES256,
-			expected: SignatureAlgorithmECDSA_SHA256,
+			expected: plugin.SignatureAlgorithmECDSA_SHA256,
 		},
 		{
 			name:     "ECDSA on secp384r1 with SHA-384",
 			alg:      signature.AlgorithmES384,
-			expected: SignatureAlgorithmECDSA_SHA384,
+			expected: plugin.SignatureAlgorithmECDSA_SHA384,
 		},
 		{
 			name:     "ECDSA on secp521r1 with SHA-512",
 			alg:      signature.AlgorithmES512,
-			expected: SignatureAlgorithmECDSA_SHA512,
+			expected: plugin.SignatureAlgorithmECDSA_SHA512,
 		},
 		{
 			name:     "unsupported algorithm",
@@ -301,43 +302,43 @@ func TestEncodeSigningAlgorithm(t *testing.T) {
 func TestParseSigningAlgorithm(t *testing.T) {
 	tests := []struct {
 		name      string
-		raw       SignatureAlgorithm
+		raw       plugin.SignatureAlgorithm
 		expected  signature.Algorithm
 		expectErr bool
 	}{
 		{
 			name:      "RSASSA-PSS with SHA-256",
-			raw:       SignatureAlgorithmRSASSA_PSS_SHA256,
+			raw:       plugin.SignatureAlgorithmRSASSA_PSS_SHA256,
 			expected:  signature.AlgorithmPS256,
 			expectErr: false,
 		},
 		{
 			name:      "RSASSA-PSS with SHA-384",
-			raw:       SignatureAlgorithmRSASSA_PSS_SHA384,
+			raw:       plugin.SignatureAlgorithmRSASSA_PSS_SHA384,
 			expected:  signature.AlgorithmPS384,
 			expectErr: false,
 		},
 		{
 			name:      "RSASSA-PSS with SHA-512",
-			raw:       SignatureAlgorithmRSASSA_PSS_SHA512,
+			raw:       plugin.SignatureAlgorithmRSASSA_PSS_SHA512,
 			expected:  signature.AlgorithmPS512,
 			expectErr: false,
 		},
 		{
 			name:      "ECDSA on secp256r1 with SHA-256",
-			raw:       SignatureAlgorithmECDSA_SHA256,
+			raw:       plugin.SignatureAlgorithmECDSA_SHA256,
 			expected:  signature.AlgorithmES256,
 			expectErr: false,
 		},
 		{
 			name:      "ECDSA on secp384r1 with SHA-384",
-			raw:       SignatureAlgorithmECDSA_SHA384,
+			raw:       plugin.SignatureAlgorithmECDSA_SHA384,
 			expected:  signature.AlgorithmES384,
 			expectErr: false,
 		},
 		{
 			name:      "ECDSA on secp521r1 with SHA-512",
-			raw:       SignatureAlgorithmECDSA_SHA512,
+			raw:       plugin.SignatureAlgorithmECDSA_SHA512,
 			expected:  signature.AlgorithmES512,
 			expectErr: false,
 		},

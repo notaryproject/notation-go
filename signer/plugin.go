@@ -21,20 +21,21 @@ import (
 	"fmt"
 	"time"
 
+	"oras.land/oras-go/v2/content"
+
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/log"
-	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"oras.land/oras-go/v2/content"
 )
 
 // pluginSigner signs artifacts and generates signatures.
 // It implements notation.Signer
 type pluginSigner struct {
-	plugin              plugin.SignPlugin
+	plugin              pluginframework.SignPlugin
 	keyID               string
 	pluginConfig        map[string]string
 	manifestAnnotations map[string]string
@@ -43,7 +44,7 @@ type pluginSigner struct {
 // NewFromPlugin creates a notation.Signer that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-func NewFromPlugin(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
+func NewFromPlugin(plugin pluginframework.SignPlugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
 	if plugin == nil {
 		return nil, errors.New("nil plugin")
 	}
@@ -68,7 +69,7 @@ func (s *pluginSigner) PluginAnnotations() map[string]string {
 func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Invoking plugin's get-plugin-metadata command")
-	req := &proto.GetMetadataRequest{
+	req := &pluginframework.GetMetadataRequest{
 		PluginConfig: s.mergeConfig(opts.PluginConfig),
 	}
 	metadata, err := s.plugin.GetMetadata(ctx, req)
@@ -77,15 +78,15 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	}
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign artifact %v in signature media type %v", metadata.Name, metadata.Capabilities, desc.Digest, opts.SignatureMediaType)
-	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
+	if proto.HasCapability(metadata, pluginframework.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts, metadata)
-	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
+	} else if proto.HasCapability(metadata, pluginframework.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions, metadata *proto.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions, metadata *pluginframework.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature by plugin")
 	config := s.mergeConfig(opts.PluginConfig)
@@ -127,7 +128,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
 	// Execute plugin sign command.
-	req := &proto.GenerateEnvelopeRequest{
+	req := &pluginframework.GenerateEnvelopeRequest{
 		KeyID:                   s.keyID,
 		Payload:                 payloadBytes,
 		SignatureEnvelopeType:   opts.SignatureMediaType,
@@ -193,8 +194,8 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 	return c
 }
 
-func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string) (*proto.DescribeKeyResponse, error) {
-	req := &proto.DescribeKeyRequest{
+func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string) (*pluginframework.DescribeKeyResponse, error) {
+	req := &pluginframework.DescribeKeyRequest{
 		KeyID:        s.keyID,
 		PluginConfig: config,
 	}
@@ -272,7 +273,7 @@ func parseCertChain(certChain [][]byte) ([]*x509.Certificate, error) {
 // pluginPrimitiveSigner implements signature.Signer
 type pluginPrimitiveSigner struct {
 	ctx          context.Context
-	plugin       plugin.SignPlugin
+	plugin       pluginframework.SignPlugin
 	keyID        string
 	pluginConfig map[string]string
 	keySpec      signature.KeySpec
@@ -291,7 +292,7 @@ func (s *pluginPrimitiveSigner) Sign(payload []byte) ([]byte, []*x509.Certificat
 		return nil, nil, err
 	}
 
-	req := &proto.GenerateSignatureRequest{
+	req := &pluginframework.GenerateSignatureRequest{
 		KeyID:        s.keyID,
 		KeySpec:      keySpec,
 		Hash:         keySpecHash,
