@@ -33,6 +33,7 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/pkix"
+	notationsemver "github.com/notaryproject/notation-go/internal/semver"
 	"github.com/notaryproject/notation-go/internal/slices"
 	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/log"
@@ -232,7 +233,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		pluginVersion := metadata.Version
 
 		//checking if the plugin version is in valid semver format
-		if !isVersionSemverValid(pluginVersion) {
+		if !notationsemver.IsValid(pluginVersion) {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
 		}
 
