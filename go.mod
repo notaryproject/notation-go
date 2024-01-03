@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/notaryproject/notation-core-go v1.0.1
-	github.com/notaryproject/notation-plugin-framework-go v0.0.0-20231222132521-c8c68d2fe13b
+	github.com/notaryproject/notation-plugin-framework-go v0.0.0-20240103032027-c077edacd1ef
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/veraison/go-cose v1.1.0
@@ -23,5 +23,3 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/sync v0.4.0 // indirect
 )
-
-replace github.com/notaryproject/notation-plugin-framework-go => /Volumes/workplace/notaryproject/notation-plugin-framework-go

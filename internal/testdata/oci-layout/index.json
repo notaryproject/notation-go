@@ -1,1 +1,19 @@
-{"schemaVersion":2,"manifests":[{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0","size":481,"annotations":{"io.containerd.image.name":"docker.io/library/alpine:v2","org.opencontainers.image.created":"2023-03-13T02:31:43Z","org.opencontainers.image.ref.name":"v2"},"platform":{"architecture":"amd64","os":"linux"}},{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:1a0a67c6f7cfea22d50a18f48d857ed36cf8806e6542db1372675100db62d09b","size":723,"annotations":{"io.cncf.notary.x509chain.thumbprint#S256":"[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]","org.opencontainers.image.created":"2023-03-14T04:45:22Z"}},{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:baeaea44f55c94499b7e082bd3c98ad5ec40fdf23ef89cdf4e5db6b83e4f18f5","size":728,"annotations":{"io.cncf.notary.x509chain.thumbprint#S256":"[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]","org.opencontainers.image.created":"2023-03-14T08:10:02Z"}}]}
+{
+    "schemaVersion": 2,
+    "manifests": [
+        {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0",
+            "size": 481,
+            "annotations": {
+                "io.containerd.image.name": "docker.io/library/alpine:v2",
+                "org.opencontainers.image.created": "2023-03-13T02:31:43Z",
+                "org.opencontainers.image.ref.name": "v2"
+            },
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    ]
+}
