@@ -307,6 +307,30 @@ func TestManager_Install(t *testing.T) {
 		}
 	})
 
+	t.Run("fail to install due to plugin executable file name missing plugin name", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/notaiton-"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+			t.Fatal(err)
+		}
+		executor = testInstallCommander{
+			newPluginFilePath: newPluginFilePath,
+			newPluginStdout:   metadataJSON(validMetadataBar),
+		}
+		installOpts := CLIInstallOptions{
+			PluginPath: newPluginFilePath,
+		}
+		expectedErrorMsg := "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got notation-"
+		_, _, err := mgr.Install(context.Background(), installOpts)
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
+	})
+
 	t.Run("fail to install due to wrong plugin file permission", func(t *testing.T) {
 		newPluginFilePath := "testdata/bar/notation-bar"
 		newPluginDir := filepath.Dir(newPluginFilePath)

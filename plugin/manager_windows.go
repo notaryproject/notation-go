@@ -45,7 +45,7 @@ func isExecutableFile(filePath string) (bool, error) {
 func parsePluginName(fileName string) (string, error) {
 	fname := file.TrimFileExtension(fileName)
 	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
-	if !found {
+	if !found || pluginName == "" {
 		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
 	}
 	return pluginName, nil
