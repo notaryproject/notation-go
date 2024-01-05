@@ -223,17 +223,6 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 	return stdout.Bytes(), nil, nil
 }
 
-// ParsePluginName checks if fileName is a valid plugin file name
-// and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
-// func ParsePluginName(fileName string) (string, error) {
-// 	fname := file.TrimFileExtension(fileName)
-// 	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
-// 	if !found {
-// 		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
-// 	}
-// 	return pluginName, nil
-// }
-
 // validate checks if the metadata is correctly populated.
 func validate(metadata *proto.GetMetadataResponse) error {
 	if metadata.Name == "" {
@@ -259,19 +248,6 @@ func validate(metadata *proto.GetMetadataResponse) error {
 			"contract version %q is not in the list of the plugin supported versions %v",
 			proto.ContractVersion, metadata.SupportedContractVersions,
 		)
-	}
-	return nil
-}
-
-// validatePluginFilenameAgainstOS validates if plugin executable file
-// name aligns with the runtime OS.
-//
-// On windows, `.exe` extension is required.
-// On other OS, MUST NOT have the `.exe` extension.
-func validatePluginFilenameAgainstOS(fileName, pluginName string) error {
-	expectedPluginFile := binName(pluginName)
-	if fileName != expectedPluginFile {
-		return fmt.Errorf("invalid plugin file name. Expecting file %s, but got %s", expectedPluginFile, fileName)
 	}
 	return nil
 }

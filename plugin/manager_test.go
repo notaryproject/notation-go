@@ -313,7 +313,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "invalid plugin file extension. Expecting file notation-bar, but got notation-bar.exe"
+		expectedErrorMsg := "invalid plugin file extension. On OS other than windows, plugin executable file cannot have '.exe' file extension"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -514,6 +514,72 @@ func TestManager_Uninstall(t *testing.T) {
 	expectedErrorMsg := "stat testdata/plugins/non-exist: no such file or directory"
 	if err := mgr.Uninstall(context.Background(), "non-exist"); err == nil || err.Error() != expectedErrorMsg {
 		t.Fatalf("Manager.Uninstall() err %v, want %s", err, expectedErrorMsg)
+	}
+}
+
+func TestParsePluginName(t *testing.T) {
+	pluginName, err := parsePluginName("notation-my-plugin")
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if pluginName != "my-plugin" {
+		t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
+	}
+
+	_, err = parsePluginName("myPlugin")
+	expectedErrorMsg := "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got myPlugin"
+	if err == nil || err.Error() != expectedErrorMsg {
+		t.Fatalf("expected %s, got %v", expectedErrorMsg, err)
+	}
+
+	_, err = parsePluginName("my-plugin")
+	expectedErrorMsg = "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got my-plugin"
+	if err == nil || err.Error() != expectedErrorMsg {
+		t.Fatalf("expected %s, got %v", expectedErrorMsg, err)
+	}
+
+	if runtime.GOOS == "windows" {
+		pluginName, err = parsePluginName("notation-my-plugin.exe")
+		if err != nil {
+			t.Fatalf("expected nil err, got %v", err)
+		}
+		if pluginName != "my-plugin" {
+			t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
+		}
+	} else {
+		pluginName, err = parsePluginName("notation-com.example.plugin")
+		if err != nil {
+			t.Fatalf("expected nil err, got %v", err)
+		}
+		if pluginName != "com.example.plugin" {
+			t.Fatalf("expected plugin name com.example.plugin, but got %s", pluginName)
+		}
+	}
+}
+
+func TestValidatePluginFileExtensionAgainstOS(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		err := validatePluginFileExtensionAgainstOS("notation-foo.exe")
+		if err != nil {
+			t.Fatalf("expecting nil error, but got %s", err)
+		}
+
+		err = validatePluginFileExtensionAgainstOS("notation-foo")
+		expectedErrorMsg := "invalid plugin file extension. On windows, plugin executable file MUST have '.exe' file extension"
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
+	} else {
+		err := validatePluginFileExtensionAgainstOS("notation-foo")
+		if err != nil {
+			t.Fatalf("expecting nil error, but got %s", err)
+		}
+
+		err = validatePluginFileExtensionAgainstOS("notation-foo.exe")
+		expectedErrorMsg := "invalid plugin file extension. On OS other than windows, plugin executable file cannot have '.exe' file extension"
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
+		}
 	}
 }
 

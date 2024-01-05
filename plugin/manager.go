@@ -140,7 +140,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		}
 	}
 	// validate and get new plugin metadata
-	if err := validatePluginFilenameAgainstOS(filepath.Base(pluginExecutableFile), pluginName); err != nil {
+	if err := validatePluginFileExtensionAgainstOS(filepath.Base(pluginExecutableFile)); err != nil {
 		return nil, nil, err
 	}
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginExecutableFile)

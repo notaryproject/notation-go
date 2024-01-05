@@ -14,6 +14,7 @@
 package plugin
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,4 +49,16 @@ func parsePluginName(fileName string) (string, error) {
 		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
 	}
 	return pluginName, nil
+}
+
+// validatePluginFileExtensionAgainstOS validates if plugin executable file
+// name aligns with the runtime OS.
+//
+// On windows, `.exe` extension is required.
+// On other OS, MUST NOT have the `.exe` extension.
+func validatePluginFileExtensionAgainstOS(fileName string) error {
+	if !strings.EqualFold(filepath.Ext(fileName), ".exe") {
+		return errors.New("invalid plugin file extension. On windows, plugin executable file MUST have '.exe' file extension")
+	}
+	return nil
 }
