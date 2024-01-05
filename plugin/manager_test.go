@@ -308,7 +308,7 @@ func TestManager_Install(t *testing.T) {
 	})
 
 	t.Run("fail to install due to plugin executable file name missing plugin name", func(t *testing.T) {
-		newPluginFilePath := "testdata/bar/notaiton-"
+		newPluginFilePath := "testdata/bar/notation-"
 		newPluginDir := filepath.Dir(newPluginFilePath)
 		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
