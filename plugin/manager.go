@@ -127,7 +127,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		// input is not a dir, check if it's a single plugin executable file
 		installFromNonDir = true
 		pluginExecutableFile = installOpts.PluginPath
-		pluginName, err = ParsePluginName(filepath.Base(pluginExecutableFile))
+		pluginName, err = parsePluginName(filepath.Base(pluginExecutableFile))
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to read plugin name from file path %s: %w", pluginExecutableFile, err)
 		}
@@ -140,7 +140,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		}
 	}
 	// validate and get new plugin metadata
-	if err := validatePluginFileExtensionAgainstOS(filepath.Base(pluginExecutableFile), pluginName); err != nil {
+	if err := validatePluginFilenameAgainstOS(filepath.Base(pluginExecutableFile), pluginName); err != nil {
 		return nil, nil, err
 	}
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginExecutableFile)
@@ -246,7 +246,7 @@ func parsePluginFromDir(path string) (string, string, error) {
 		}
 		// only take regular files
 		if info.Mode().IsRegular() {
-			if pluginName, err = ParsePluginName(d.Name()); err != nil {
+			if pluginName, err = parsePluginName(d.Name()); err != nil {
 				// file name does not follow the notation-{plugin-name} format,
 				// continue
 				return nil

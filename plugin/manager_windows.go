@@ -14,10 +14,12 @@
 package plugin
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
@@ -35,4 +37,15 @@ func isExecutableFile(filePath string) (bool, error) {
 		return false, ErrNotRegularFile
 	}
 	return strings.EqualFold(filepath.Ext(filepath.Base(filePath)), ".exe"), nil
+}
+
+// parsePluginName checks if fileName is a valid plugin file name
+// and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
+func parsePluginName(fileName string) (string, error) {
+	fname := file.TrimFileExtension(fileName)
+	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
+	if !found {
+		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
+	}
+	return pluginName, nil
 }

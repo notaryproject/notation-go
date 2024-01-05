@@ -25,9 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
-	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
@@ -227,14 +225,14 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 
 // ParsePluginName checks if fileName is a valid plugin file name
 // and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
-func ParsePluginName(fileName string) (string, error) {
-	fname := file.TrimFileExtension(fileName)
-	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
-	if !found {
-		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
-	}
-	return pluginName, nil
-}
+// func ParsePluginName(fileName string) (string, error) {
+// 	fname := file.TrimFileExtension(fileName)
+// 	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
+// 	if !found {
+// 		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fname)
+// 	}
+// 	return pluginName, nil
+// }
 
 // validate checks if the metadata is correctly populated.
 func validate(metadata *proto.GetMetadataResponse) error {
@@ -265,15 +263,15 @@ func validate(metadata *proto.GetMetadataResponse) error {
 	return nil
 }
 
-// validatePluginFileExtensionAgainstOS validates if plugin executable file
-// extension aligns with the runtime OS.
+// validatePluginFilenameAgainstOS validates if plugin executable file
+// name aligns with the runtime OS.
 //
 // On windows, `.exe` extension is required.
-// On other OS, MUST not have the `.exe` extension.
-func validatePluginFileExtensionAgainstOS(fileName, pluginName string) error {
+// On other OS, MUST NOT have the `.exe` extension.
+func validatePluginFilenameAgainstOS(fileName, pluginName string) error {
 	expectedPluginFile := binName(pluginName)
-	if filepath.Ext(fileName) != filepath.Ext(expectedPluginFile) {
-		return fmt.Errorf("invalid plugin file extension. Expecting file %s, but got %s", expectedPluginFile, fileName)
+	if fileName != expectedPluginFile {
+		return fmt.Errorf("invalid plugin file name. Expecting file %s, but got %s", expectedPluginFile, fileName)
 	}
 	return nil
 }
