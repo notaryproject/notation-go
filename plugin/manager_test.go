@@ -265,7 +265,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "failed to read plugin name from file input file: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
+		expectedErrorMsg := "failed to read plugin name from input file: invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got bar"
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
