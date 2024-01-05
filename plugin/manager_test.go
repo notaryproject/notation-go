@@ -80,6 +80,11 @@ var validMetadataBar = proto.GetMetadataResponse{
 	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
 }
 
+var validMetadataBarExample = proto.GetMetadataResponse{
+	Name: "bar.example.plugin", Description: "friendly", Version: "1.0.0", URL: "example.com",
+	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
+}
+
 var invalidMetadataName = proto.GetMetadataResponse{
 	Name: "foobar", Description: "friendly", Version: "1", URL: "example.com",
 	SupportedContractVersions: []string{"1.0"}, Capabilities: []proto.Capability{proto.CapabilitySignatureGenerator},
@@ -199,6 +204,36 @@ func TestManager_Install(t *testing.T) {
 			newPluginStdout:   metadataJSON(validMetadataBar),
 		}
 		defer mgr.Uninstall(context.Background(), "bar")
+		installOpts := CLIInstallOptions{
+			PluginPath: newPluginFilePath,
+		}
+		existingPluginMetadata, newPluginMetadata, err := mgr.Install(context.Background(), installOpts)
+		if err != nil {
+			t.Fatalf("expecting error to be nil, but got %v", err)
+		}
+		if existingPluginMetadata != nil {
+			t.Fatalf("expecting existingPluginMetadata to be nil, but got %v", existingPluginMetadata)
+		}
+		if newPluginMetadata.Version != validMetadataBar.Version {
+			t.Fatalf("new plugin version mismatch, new plugin version: %s, but got: %s", validMetadataBar.Version, newPluginMetadata.Version)
+		}
+	})
+
+	t.Run("success install with file extension", func(t *testing.T) {
+		newPluginFilePath := "testdata/bar/notation-bar.example.plugin"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+			t.Fatal(err)
+		}
+		executor = testInstallCommander{
+			newPluginFilePath: newPluginFilePath,
+			newPluginStdout:   metadataJSON(validMetadataBarExample),
+		}
+		defer mgr.Uninstall(context.Background(), "bar.example.plugin")
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
