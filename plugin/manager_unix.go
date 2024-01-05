@@ -60,7 +60,7 @@ func parsePluginName(fileName string) (string, error) {
 // On other OS, MUST NOT have the `.exe` extension.
 func validatePluginFileExtensionAgainstOS(fileName string) error {
 	if strings.EqualFold(filepath.Ext(fileName), ".exe") {
-		return errors.New("invalid plugin file extension. On OS other than windows, plugin executable file cannot have '.exe' file extension")
+		return errors.New("invalid plugin file extension. On OS other than Windows, plugin executable file cannot have '.exe' file extension")
 	}
 	return nil
 }
