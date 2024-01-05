@@ -272,16 +272,8 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 	})
 }
 
-func TestExtractPluginNameFromExecutableFileName(t *testing.T) {
+func TestParsePluginName(t *testing.T) {
 	pluginName, err := parsePluginName("notation-my-plugin")
-	if err != nil {
-		t.Fatalf("expected nil err, got %v", err)
-	}
-	if pluginName != "my-plugin" {
-		t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
-	}
-
-	pluginName, err = parsePluginName("notation-my-plugin.exe")
 	if err != nil {
 		t.Fatalf("expected nil err, got %v", err)
 	}
@@ -299,6 +291,24 @@ func TestExtractPluginNameFromExecutableFileName(t *testing.T) {
 	expectedErrorMsg = "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got my-plugin"
 	if err == nil || err.Error() != expectedErrorMsg {
 		t.Fatalf("expected %s, got %v", expectedErrorMsg, err)
+	}
+
+	if runtime.GOOS == "windows" {
+		pluginName, err = parsePluginName("notation-my-plugin.exe")
+		if err != nil {
+			t.Fatalf("expected nil err, got %v", err)
+		}
+		if pluginName != "my-plugin" {
+			t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
+		}
+	} else {
+		pluginName, err = parsePluginName("notation-com.example.plugin")
+		if err != nil {
+			t.Fatalf("expected nil err, got %v", err)
+		}
+		if pluginName != "com.example.plugin" {
+			t.Fatalf("expected plugin name com.example.plugin, but got %s", pluginName)
+		}
 	}
 }
 
