@@ -38,6 +38,7 @@ func isExecutableFile(filePath string) (bool, error) {
 	if !mode.IsRegular() {
 		return false, ErrNotRegularFile
 	}
+	fmt.Println(fi.Name(), mode.Perm())
 	return mode.Perm()&0100 != 0, nil
 }
 
