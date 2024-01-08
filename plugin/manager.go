@@ -270,6 +270,7 @@ func parsePluginFromDir(path string) (string, string, error) {
 		return "", "", err
 	}
 	if !foundPluginExecutableFile {
+		fmt.Println("no plugin executable file", filesWithValidNameFormat)
 		// if no executable file was found, but there's one and only one
 		// potential candidate, try install the candidate
 		if len(filesWithValidNameFormat) == 1 {
