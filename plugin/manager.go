@@ -246,7 +246,8 @@ func parsePluginFromDir(path string) (string, string, error) {
 		}
 		// only take regular files
 		if info.Mode().IsRegular() {
-			if pluginName, err = parsePluginName(d.Name()); err != nil {
+			pName, err := parsePluginName(d.Name())
+			if err != nil {
 				// file name does not follow the notation-{plugin-name} format,
 				// continue
 				return nil
@@ -264,13 +265,13 @@ func parsePluginFromDir(path string) (string, string, error) {
 			}
 			foundPluginExecutableFile = true
 			pluginExecutableFile = p
+			pluginName = pName
 		}
 		return nil
 	}); err != nil {
 		return "", "", err
 	}
 	if !foundPluginExecutableFile {
-		fmt.Println("no plugin executable file", filesWithValidNameFormat)
 		// if no executable file was found, but there's one and only one
 		// potential candidate, try install the candidate
 		if len(filesWithValidNameFormat) == 1 {
