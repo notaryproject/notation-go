@@ -465,7 +465,7 @@ func TestManager_Install(t *testing.T) {
 		}
 	})
 
-	t.Run("success to install from plugin dir with one and only one valid candidate and no executable file", func(t *testing.T) {
+	t.Run("success to install from plugin dir with no executable file and one valid candidate file", func(t *testing.T) {
 		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
 		newPluginFilePath := "testdata/foo/notation-foo"
 		newPluginLibPath := "testdata/foo/libfoo"
@@ -501,15 +501,19 @@ func TestManager_Install(t *testing.T) {
 		}
 	})
 
-	t.Run("fail to install from plugin dir due to no plugin executable file", func(t *testing.T) {
+	t.Run("fail to install from plugin dir due to more than one candidate plugin executable files", func(t *testing.T) {
 		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
-		newPluginFilePath := "testdata/foo/foo"
+		newPluginFilePath := "testdata/foo/notation-foo1"
+		newPluginFilePath2 := "testdata/foo/notation-foo2"
 		newPluginDir := filepath.Dir(newPluginFilePath)
 		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
-		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+		if err := createFileAndChmod(newPluginFilePath, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := createFileAndChmod(newPluginFilePath2, 0600); err != nil {
 			t.Fatal(err)
 		}
 		executor = testInstallCommander{
