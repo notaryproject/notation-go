@@ -53,5 +53,5 @@ func parsePluginName(fileName string) (string, error) {
 // setExecutable returns error on Windows. User needs to install the correct
 // plugin file.
 func setExecutable(filePath string) error {
-	return fmt.Errorf("on Windows, plugin executable file must have file extension '.exe', but got %s", filePath)
+	return fmt.Errorf("on Windows, plugin executable file must have file extension '.exe', but got %s", filepath.Base(filePath))
 }
