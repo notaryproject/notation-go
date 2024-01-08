@@ -50,9 +50,8 @@ func parsePluginName(fileName string) (string, error) {
 	return pluginName, nil
 }
 
-// setExecutable sets file to be executable by adding '.exe' file extension
+// setExecutable returns error on Windows. User needs to install the correct
+// plugin file.
 func setExecutable(filePath string) error {
-	fileDir := filepath.Dir(filePath)
-	fileName := filepath.Base(filePath)
-	return os.Rename(filePath, filepath.Join(fileDir, fileName+".exe"))
+	return fmt.Errorf("on Windows, plugin executable file must have file extension '.exe', but got %s", filePath)
 }
