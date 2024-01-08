@@ -432,7 +432,7 @@ func TestManager_Install(t *testing.T) {
 	t.Run("success to install from plugin dir", func(t *testing.T) {
 		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
 		newPluginFilePath := "testdata/foo/notation-foo"
-		newPluginLibPath := "testdata/foo/notation-libfoo"
+		newPluginLibPath := "testdata/foo/libfoo"
 		newPluginDir := filepath.Dir(newPluginFilePath)
 		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)

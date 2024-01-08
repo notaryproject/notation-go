@@ -107,6 +107,7 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	if err = validate(&metadata); err != nil {
 		return nil, fmt.Errorf("invalid metadata: %w", err)
 	}
+	fmt.Println(metadata.Name, p.name)
 	if metadata.Name != p.name {
 		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
 	}
