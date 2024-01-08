@@ -247,8 +247,7 @@ func parsePluginFromDir(ctx context.Context, path string) (string, string, error
 		}
 		// only take regular files
 		if info.Mode().IsRegular() {
-			candidatePluginName, err := parsePluginName(d.Name())
-			if err != nil {
+			if candidatePluginName, err = parsePluginName(d.Name()); err != nil {
 				// file name does not follow the notation-{plugin-name} format,
 				// continue
 				return nil
