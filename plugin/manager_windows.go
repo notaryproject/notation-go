@@ -49,3 +49,10 @@ func parsePluginName(fileName string) (string, error) {
 	}
 	return pluginName, nil
 }
+
+// setExecutable sets file to be executable by adding '.exe' file extension
+func setExecutable(filePath string) error {
+	fileDir := filepath.Dir(filePath)
+	fileName := filepath.Base(filePath)
+	return os.Rename(filePath, filepath.Join(fileDir, fileName+".exe"))
+}

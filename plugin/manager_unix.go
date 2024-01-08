@@ -50,3 +50,12 @@ func parsePluginName(fileName string) (string, error) {
 	}
 	return pluginName, nil
 }
+
+// setExecutable sets file to be user executable
+func setExecutable(filePath string) error {
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(filePath, fileInfo.Mode()|os.FileMode(0100))
+}

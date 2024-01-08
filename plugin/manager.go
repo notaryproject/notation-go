@@ -276,11 +276,7 @@ func parsePluginFromDir(ctx context.Context, path string) (string, string, error
 		// potential candidate, try install the candidate
 		if len(filesWithValidNameFormat) == 1 {
 			candidate := filesWithValidNameFormat[0]
-			candidateInfo, err := os.Stat(candidate)
-			if err != nil {
-				return "", "", fmt.Errorf("no plugin executable file was found: %w", err)
-			}
-			if err := os.Chmod(candidate, candidateInfo.Mode()|os.FileMode(0100)); err != nil {
+			if err := setExecutable(candidate); err != nil {
 				return "", "", fmt.Errorf("no plugin executable file was found: %w", err)
 			}
 			logger.Warnf("Found candidate plugin executable file %q without executable permission. Setting user executable bit and try install.", candidate)
