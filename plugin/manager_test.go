@@ -432,13 +432,49 @@ func TestManager_Install(t *testing.T) {
 	t.Run("success to install from plugin dir", func(t *testing.T) {
 		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
 		newPluginFilePath := "testdata/foo/notation-foo"
-		newPluginLibPath := "testdata/foo/libfoo"
+		newPluginLibPath := "testdata/foo/notation-libfoo"
 		newPluginDir := filepath.Dir(newPluginFilePath)
 		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
 			t.Fatalf("failed to create %s: %v", newPluginDir, err)
 		}
 		defer os.RemoveAll(newPluginDir)
 		if err := createFileAndChmod(newPluginFilePath, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := createFileAndChmod(newPluginLibPath, 0600); err != nil {
+			t.Fatal(err)
+		}
+		executor = testInstallCommander{
+			existedPluginFilePath: existedPluginFilePath,
+			newPluginFilePath:     newPluginFilePath,
+			existedPluginStdout:   metadataJSON(validMetadata),
+			newPluginStdout:       metadataJSON(validMetadataHigherVersion),
+		}
+		installOpts := CLIInstallOptions{
+			PluginPath: newPluginDir,
+		}
+		existingPluginMetadata, newPluginMetadata, err := mgr.Install(context.Background(), installOpts)
+		if err != nil {
+			t.Fatalf("expecting nil error, but got %v", err)
+		}
+		if existingPluginMetadata.Version != "1.0.0" {
+			t.Fatalf("expecting existing plugin metadata to be 1.0.0, but got %s", existingPluginMetadata.Version)
+		}
+		if newPluginMetadata.Version != "1.1.0" {
+			t.Fatalf("expecting new plugin metadata to be 1.1.0, but got %s", newPluginMetadata.Version)
+		}
+	})
+
+	t.Run("success to install from plugin dir with one and only one valid candidate and no executable file", func(t *testing.T) {
+		existedPluginFilePath := "testdata/plugins/foo/notation-foo"
+		newPluginFilePath := "testdata/foo/notation-foo"
+		newPluginLibPath := "testdata/foo/libfoo"
+		newPluginDir := filepath.Dir(newPluginFilePath)
+		if err := os.MkdirAll(newPluginDir, 0777); err != nil {
+			t.Fatalf("failed to create %s: %v", newPluginDir, err)
+		}
+		defer os.RemoveAll(newPluginDir)
+		if err := createFileAndChmod(newPluginFilePath, 0600); err != nil {
 			t.Fatal(err)
 		}
 		if err := createFileAndChmod(newPluginLibPath, 0600); err != nil {
