@@ -140,9 +140,6 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		}
 	}
 	// validate and get new plugin metadata
-	if err := validatePluginFileExtensionAgainstOS(filepath.Base(pluginExecutableFile)); err != nil {
-		return nil, nil, err
-	}
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginExecutableFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
@@ -215,8 +212,9 @@ func (m *CLIManager) Uninstall(ctx context.Context, name string) error {
 }
 
 // parsePluginFromDir checks if a dir is a valid plugin dir which contains
-// one and only one plugin executable file. The dir may contain extra lib files
-// and LICENSE files. Sub-directories are ignored.
+// one and only one plugin executable file candidate.
+// The dir may contain extra lib files and LICENSE files.
+// Sub-directories are ignored.
 //
 // On success, the plugin executable file path, plugin name and
 // nil error are returned.
@@ -232,6 +230,7 @@ func parsePluginFromDir(path string) (string, string, error) {
 	// walk the path
 	var pluginExecutableFile, pluginName string
 	var foundPluginExecutableFile bool
+	var filesWithValidNameFormat []string
 	if err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -251,6 +250,7 @@ func parsePluginFromDir(path string) (string, string, error) {
 				// continue
 				return nil
 			}
+			filesWithValidNameFormat = append(filesWithValidNameFormat, p)
 			isExec, err := isExecutableFile(p)
 			if err != nil {
 				return err
@@ -269,6 +269,19 @@ func parsePluginFromDir(path string) (string, string, error) {
 		return "", "", err
 	}
 	if !foundPluginExecutableFile {
+		// if no executable file was found, but there's one and only one
+		// potential candidate, try install the candidate
+		if len(filesWithValidNameFormat) == 1 {
+			candidate := filesWithValidNameFormat[0]
+			candidateInfo, err := os.Stat(candidate)
+			if err != nil {
+				return "", "", fmt.Errorf("no plugin executable file was found: %w", err)
+			}
+			if err := os.Chmod(candidate, candidateInfo.Mode()|os.FileMode(0100)); err != nil {
+				return "", "", fmt.Errorf("no plugin executable file was found: %w", err)
+			}
+			return candidate, pluginName, nil
+		}
 		return "", "", errors.New("no plugin executable file was found")
 	}
 	return pluginExecutableFile, pluginName, nil
