@@ -42,10 +42,10 @@ func isExecutableFile(filePath string) (bool, error) {
 // parsePluginName checks if fileName is a valid plugin file name
 // and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
 func parsePluginName(fileName string) (string, error) {
-	fname := fileName
-	if strings.EqualFold(filepath.Ext(fileName), ".exe") {
-		fname = file.TrimFileExtension(fileName)
+	if !strings.EqualFold(filepath.Ext(fileName), ".exe") {
+		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}.exe, but got %s", fileName)
 	}
+	fname := file.TrimFileExtension(fileName)
 	pluginName, found := strings.CutPrefix(fname, proto.Prefix)
 	if !found || pluginName == "" {
 		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}.exe, but got %s", fileName)

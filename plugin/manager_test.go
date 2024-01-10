@@ -593,16 +593,8 @@ func TestManager_Uninstall(t *testing.T) {
 }
 
 func TestParsePluginName(t *testing.T) {
-	pluginName, err := parsePluginName("notation-my-plugin")
-	if err != nil {
-		t.Fatalf("expected nil err, but got %v", err)
-	}
-	if pluginName != "my-plugin" {
-		t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
-	}
-
 	if runtime.GOOS == "windows" {
-		pluginName, err = parsePluginName("notation-my-plugin.exe")
+		pluginName, err := parsePluginName("notation-my-plugin.exe")
 		if err != nil {
 			t.Fatalf("expected nil err, but got %v", err)
 		}
@@ -610,15 +602,13 @@ func TestParsePluginName(t *testing.T) {
 			t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
 		}
 
-		pluginName, err = parsePluginName("notation-com.plugin")
-		if err != nil {
-			t.Fatalf("expected nil err, but got %v", err)
-		}
-		if pluginName != "com.plugin" {
-			t.Fatalf("expected plugin name com.plugin, but got %s", pluginName)
+		expectedErrorMsg := "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}.exe, but got notation-com.plugin"
+		_, err = parsePluginName("notation-com.plugin")
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expected %s, but got %v", expectedErrorMsg, err)
 		}
 
-		expectedErrorMsg := "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}.exe, but got my-plugin.exe"
+		expectedErrorMsg = "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}.exe, but got my-plugin.exe"
 		_, err = parsePluginName("my-plugin.exe")
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expected %s, but got %v", expectedErrorMsg, err)
@@ -636,6 +626,14 @@ func TestParsePluginName(t *testing.T) {
 			t.Fatalf("expected %s, but got %v", expectedErrorMsg, err)
 		}
 	} else {
+		pluginName, err := parsePluginName("notation-my-plugin")
+		if err != nil {
+			t.Fatalf("expected nil err, but got %v", err)
+		}
+		if pluginName != "my-plugin" {
+			t.Fatalf("expected plugin name my-plugin, but got %s", pluginName)
+		}
+
 		pluginName, err = parsePluginName("notation-com.example.plugin")
 		if err != nil {
 			t.Fatalf("expected nil err, but got %v", err)
