@@ -629,6 +629,12 @@ func TestParsePluginName(t *testing.T) {
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expected %s, but got %v", expectedErrorMsg, err)
 		}
+
+		expectedErrorMsg = "invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}.exe, but got my-plugin"
+		_, err = parsePluginName("my-plugin")
+		if err == nil || err.Error() != expectedErrorMsg {
+			t.Fatalf("expected %s, but got %v", expectedErrorMsg, err)
+		}
 	} else {
 		pluginName, err = parsePluginName("notation-com.example.plugin")
 		if err != nil {
