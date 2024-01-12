@@ -130,16 +130,17 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 		// input is not a dir, check if it's a single plugin executable file
 		installFromNonDir = true
 		pluginExecutableFile = installOpts.PluginPath
-		pluginName, err = parsePluginName(filepath.Base(pluginExecutableFile))
+		pluginExecutableFileName := filepath.Base(pluginExecutableFile)
+		pluginName, err = parsePluginName(pluginExecutableFileName)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to read plugin name from input file: %w", err)
+			return nil, nil, fmt.Errorf("failed to read plugin name from input file %s: %w", pluginExecutableFileName, err)
 		}
 		isExec, err := isExecutableFile(pluginExecutableFile)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to check if input file is executable: %w", err)
+			return nil, nil, fmt.Errorf("failed to check if input file %s is executable: %w", pluginExecutableFileName, err)
 		}
 		if !isExec {
-			return nil, nil, errors.New("input file is not executable")
+			return nil, nil, fmt.Errorf("input file %s is not executable", pluginExecutableFileName)
 		}
 	}
 	// validate and get new plugin metadata
