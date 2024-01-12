@@ -90,19 +90,19 @@ func (e PluginValidityError) Unwrap() error {
 	return e.InnerError
 }
 
-// PluginListError is used when there is an issue with listing plugins
+// PluginDirectoryError is used when there is an issue with plugins directory
 // and should suggest user to check the plugin directory.
-type PluginListError struct {
+type PluginDirectoryError struct {
 	Err error
 }
 
-func (e PluginListError) Error() string {
+func (e PluginDirectoryError) Error() string {
 	if e.Err != nil {
 		return e.Err.Error()
 	}
-	return "plugin list error"
+	return "plugin directory error"
 }
 
-func (e PluginListError) Unwrap() error {
+func (e PluginDirectoryError) Unwrap() error {
 	return errors.Unwrap(e.Err)
 }
