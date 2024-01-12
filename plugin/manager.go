@@ -115,10 +115,12 @@ type CLIInstallOptions struct {
 // plugin is malfunctioning, it will be overwritten.
 func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
 	// initialization
+	logger := log.GetLogger(ctx)
 	overwrite := installOpts.Overwrite
 	if installOpts.PluginPath == "" {
 		return nil, nil, errors.New("plugin source path cannot be empty")
 	}
+	logger.Debugf("Installing plugin from plugin path %s", installOpts.PluginPath)
 	var installFromNonDir bool
 	pluginExecutableFile, pluginName, err := parsePluginFromDir(ctx, installOpts.PluginPath)
 	if err != nil {
