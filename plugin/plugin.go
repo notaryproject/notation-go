@@ -81,11 +81,11 @@ func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	if err != nil {
 		// Ignore any file which we cannot Stat
 		// (e.g. due to permissions or anything else).
-		return nil, fmt.Errorf("the plugin executable file is not found or inaccessible: %w", err)
+		return nil, fmt.Errorf("failed to create new CLI plugin: the plugin executable file is not found or inaccessible: %w", err)
 	}
 	if !fi.Mode().IsRegular() {
 		// Ignore non-regular files.
-		return nil, fmt.Errorf("the plugin executable file %q is not a regular file", path)
+		return nil, fmt.Errorf("failed to create new CLI plugin: the plugin executable file %q is not a regular file", path)
 	}
 
 	// generate plugin
@@ -186,15 +186,20 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	if err != nil {
 		logger.Errorf("plugin %s execution status: %v", req.Command(), err)
 		logger.Errorf("Plugin %s returned error: %s", req.Command(), string(stderr))
-		var re proto.RequestError
-		jsonErr := json.Unmarshal(stderr, &re)
-		if jsonErr != nil {
-			return PluginProtocolError{
-				Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin, and the error response isn't compliant with Notation plugin protocol: %s", req.Command(), pluginName, string(stderr)),
-				InnerError: jsonErr,
+
+		if len(stderr) == 0 {
+			return fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, err)
+		} else {
+			var re proto.RequestError
+			jsonErr := json.Unmarshal(stderr, &re)
+			if jsonErr != nil {
+				return PluginProtocolError{
+					Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: the error response isn't compliant with Notation plugin protocol: %s", req.Command(), pluginName, string(stderr)),
+					InnerError: jsonErr,
+				}
 			}
+			return fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, re)
 		}
-		return fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, re)
 	}
 
 	logger.Debugf("Plugin %s response: %s", req.Command(), string(stdout))

@@ -146,11 +146,11 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	// validate and get new plugin metadata
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginExecutableFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
+		return nil, nil, err
 	}
 	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get metadata of new plugin: %w", err)
+		return nil, nil, err
 	}
 	// check plugin existence and get existing plugin metadata
 	var existingPluginMetadata *proto.GetMetadataResponse
@@ -163,7 +163,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	} else { // plugin already exists
 		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
 		if err != nil && !overwrite { // fail only if overwrite is not set
-			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
+			return nil, nil, err
 		}
 		// existing plugin is valid, and overwrite is not set, check version
 		if !overwrite {
