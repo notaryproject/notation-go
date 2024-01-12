@@ -48,67 +48,50 @@ func (e InstallEqualVersionError) Error() string {
 	return "installing plugin with version equal to the existing plugin version"
 }
 
-// PluginLibraryInternalError is used when there is an issue executing a plugin
-type PluginLibraryInternalError struct {
+// PluginUnknownError is used when there is an issue executing a plugin
+// and should be reported to Notation developers.
+type PluginUnknownError struct {
 	Msg        string
 	InnerError error
 }
 
-func (e PluginLibraryInternalError) Error() string {
+func (e PluginUnknownError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
 	if e.InnerError != nil {
 		return e.InnerError.Error()
 	}
-	return "plugin library internal error"
+	return "plugin unknown error"
 }
 
-func (e PluginLibraryInternalError) Unwrap() error {
+func (e PluginUnknownError) Unwrap() error {
 	return e.InnerError
 }
 
-// PluginMetadataValidationError is used when there is an issue with plugin metadata validation
-type PluginMetadataValidationError struct {
+// PluginValidityError is used when there is an issue with plugin validity and
+// should be fixed by plugin developers.
+type PluginValidityError struct {
 	Msg        string
 	InnerError error
 }
 
-func (e PluginMetadataValidationError) Error() string {
+func (e PluginValidityError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
 	if e.InnerError != nil {
 		return e.InnerError.Error()
 	}
-	return "metadata validation error"
+	return "plugin validity error"
 }
 
-func (e PluginMetadataValidationError) Unwrap() error {
-	return e.InnerError
-}
-
-// PluginProtocolError is used when there is an issue with JSON serialization/deserialization
-type PluginProtocolError struct {
-	Msg        string
-	InnerError error
-}
-
-func (e PluginProtocolError) Error() string {
-	if e.Msg != "" {
-		return e.Msg
-	}
-	if e.InnerError != nil {
-		return e.InnerError.Error()
-	}
-	return "plugin protocol error"
-}
-
-func (e PluginProtocolError) Unwrap() error {
+func (e PluginValidityError) Unwrap() error {
 	return e.InnerError
 }
 
 // PluginListError is used when there is an issue with listing plugins
+// and should suggest user to check the plugin directory.
 type PluginListError struct {
 	Err error
 }

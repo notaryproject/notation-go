@@ -105,7 +105,7 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	}
 	// validate metadata
 	if err = validate(&metadata); err != nil {
-		return nil, &PluginMetadataValidationError{
+		return nil, &PluginValidityError{
 			Msg:        fmt.Sprintf("validate metadata failed for %s plugin: %s", p.name, err),
 			InnerError: err,
 		}
@@ -175,7 +175,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	data, err := json.Marshal(req)
 	if err != nil {
 		logger.Errorf("failed to marshal request: %+v", req)
-		return PluginLibraryInternalError{
+		return PluginUnknownError{
 			Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin", req.Command(), pluginName),
 			InnerError: err}
 	}
@@ -193,7 +193,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 			var re proto.RequestError
 			jsonErr := json.Unmarshal(stderr, &re)
 			if jsonErr != nil {
-				return PluginProtocolError{
+				return &PluginValidityError{
 					Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: the error response isn't compliant with Notation plugin protocol: %s", req.Command(), pluginName, string(stderr)),
 					InnerError: jsonErr,
 				}
@@ -204,9 +204,8 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 
 	logger.Debugf("Plugin %s response: %s", req.Command(), string(stdout))
 	// deserialize response
-	err = json.Unmarshal(stdout, resp)
-	if err != nil {
-		return PluginProtocolError{
+	if err = json.Unmarshal(stdout, resp); err != nil {
+		return &PluginValidityError{
 			Msg:        fmt.Sprintf("%s plugin response for %s command isn't compliant with Notation plugin protocol: %s", pluginName, req.Command(), string(stdout)),
 			InnerError: err,
 		}

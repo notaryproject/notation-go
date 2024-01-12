@@ -62,9 +62,9 @@ func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 // List produces a list of the plugin names on the system.
 func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	var plugins []string
-	fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return &PluginListError{fmt.Errorf("failed to list plugin: %w", err)}
+			return err
 		}
 		if dir == "." {
 			// Ignore root dir.
@@ -79,7 +79,9 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		// add plugin name
 		plugins = append(plugins, d.Name())
 		return fs.SkipDir
-	})
+	}); err != nil {
+		return nil, &PluginListError{Err: fmt.Errorf("failed to list plugin: %w", err)}
+	}
 	return plugins, nil
 }
 
