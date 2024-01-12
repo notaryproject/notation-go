@@ -64,7 +64,7 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	var plugins []string
 	fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return &PluginListError{fmt.Errorf("failed to list plugin: %w", err)}
 		}
 		if dir == "." {
 			// Ignore root dir.

@@ -81,11 +81,11 @@ func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	if err != nil {
 		// Ignore any file which we cannot Stat
 		// (e.g. due to permissions or anything else).
-		return nil, err
+		return nil, fmt.Errorf("the plugin executable file is not found or inaccessible: %w", err)
 	}
 	if !fi.Mode().IsRegular() {
 		// Ignore non-regular files.
-		return nil, ErrNotRegularFile
+		return nil, fmt.Errorf("the plugin executable file %q is not a regular file", path)
 	}
 
 	// generate plugin
@@ -105,10 +105,13 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	}
 	// validate metadata
 	if err = validate(&metadata); err != nil {
-		return nil, fmt.Errorf("invalid metadata: %w", err)
+		return nil, &PluginMetadataValidationError{
+			Msg:        fmt.Sprintf("validate metadata failed for %s plugin: %s", p.name, err),
+			InnerError: err,
+		}
 	}
 	if metadata.Name != p.name {
-		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
+		return nil, fmt.Errorf("plugin executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
 	}
 	return &metadata, nil
 }
@@ -171,30 +174,37 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("%s: failed to marshal request object: %w", pluginName, err)
+		logger.Errorf("failed to marshal request: %+v", req)
+		return PluginLibraryInternalError{
+			Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin", req.Command(), pluginName),
+			InnerError: err}
 	}
 
 	logger.Debugf("Plugin %s request: %s", req.Command(), string(data))
 	// execute request
 	stdout, stderr, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
-		logger.Debugf("plugin %s execution status: %v", req.Command(), err)
-		logger.Debugf("Plugin %s returned error: %s", req.Command(), string(stderr))
+		logger.Errorf("plugin %s execution status: %v", req.Command(), err)
+		logger.Errorf("Plugin %s returned error: %s", req.Command(), string(stderr))
 		var re proto.RequestError
 		jsonErr := json.Unmarshal(stderr, &re)
 		if jsonErr != nil {
-			return proto.RequestError{
-				Code: proto.ErrorCodeGeneric,
-				Err:  fmt.Errorf("response is not in JSON format. error: %v, stderr: %s", err, string(stderr))}
+			return PluginProtocolError{
+				Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin, and the error response isn't compliant with Notation plugin protocol: %s", req.Command(), pluginName, string(stderr)),
+				InnerError: jsonErr,
+			}
 		}
-		return re
+		return fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, re)
 	}
 
 	logger.Debugf("Plugin %s response: %s", req.Command(), string(stdout))
 	// deserialize response
 	err = json.Unmarshal(stdout, resp)
 	if err != nil {
-		return fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
+		return PluginProtocolError{
+			Msg:        fmt.Sprintf("%s plugin response for %s command isn't compliant with Notation plugin protocol: %s", pluginName, req.Command(), string(stdout)),
+			InnerError: err,
+		}
 	}
 	return nil
 }
