@@ -34,7 +34,7 @@ func TestGetMetadataResponse_HasCapability(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.m.HasCapability(tt.args.capability); got != tt.want {
+			if got := HasCapability(tt.m, tt.args.capability); got != tt.want {
 				t.Errorf("GetMetadataResponse.HasCapability() = %v, want %v", got, tt.want)
 			}
 		})

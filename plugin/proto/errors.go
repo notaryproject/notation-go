@@ -17,38 +17,36 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
-type ErrorCode string
+type ErrorCode = plugin.ErrorCode
 
 const (
 	// Any of the required request fields was empty,
 	// or a value was malformed/invalid.
-	ErrorCodeValidation ErrorCode = "VALIDATION_ERROR"
+	ErrorCodeValidation = plugin.ErrorCodeValidation
 
 	// The contract version used in the request is unsupported.
-	ErrorCodeUnsupportedContractVersion ErrorCode = "UNSUPPORTED_CONTRACT_VERSION"
+	ErrorCodeUnsupportedContractVersion ErrorCode = plugin.ErrorCodeUnsupportedContractVersion
 
 	// Authentication/authorization error to use given key.
-	ErrorCodeAccessDenied ErrorCode = "ACCESS_DENIED"
+	ErrorCodeAccessDenied = plugin.ErrorCodeAccessDenied
 
 	// The operation to generate signature timed out
 	// and can be retried by Notation.
-	ErrorCodeTimeout ErrorCode = "TIMEOUT"
+	ErrorCodeTimeout = plugin.ErrorCodeTimeout
 
 	// The operation to generate signature was throttles
 	// and can be retried by Notation.
-	ErrorCodeThrottled ErrorCode = "THROTTLED"
+	ErrorCodeThrottled = plugin.ErrorCodeThrottled
 
 	// Any general error that does not fall into any categories.
-	ErrorCodeGeneric ErrorCode = "ERROR"
+	ErrorCodeGeneric = plugin.ErrorCodeGeneric
 )
 
-type jsonErr struct {
-	Code     ErrorCode         `json:"errorCode"`
-	Message  string            `json:"errorMessage,omitempty"`
-	Metadata map[string]string `json:"errorMetadata,omitempty"`
-}
+type jsonErr = plugin.Error
 
 // RequestError is the common error response for any request.
 type RequestError struct {
@@ -92,10 +90,10 @@ func (e *RequestError) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	if tmp.Code == "" && tmp.Message == "" && tmp.Metadata == nil {
+	if tmp.ErrCode == "" && tmp.Message == "" && tmp.Metadata == nil {
 		return errors.New("incomplete json")
 	}
-	*e = RequestError{Code: tmp.Code, Metadata: tmp.Metadata}
+	*e = RequestError{Code: tmp.ErrCode, Metadata: tmp.Metadata}
 	if tmp.Message != "" {
 		e.Err = errors.New(tmp.Message)
 	}

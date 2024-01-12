@@ -18,21 +18,22 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 // KeySpec is type of the signing algorithm, including algorithm and size.
-type KeySpec string
+type KeySpec = plugin.KeySpec
 
 // one of the following supported key spec names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
-	KeySpecRSA2048 KeySpec = "RSA-2048"
-	KeySpecRSA3072 KeySpec = "RSA-3072"
-	KeySpecRSA4096 KeySpec = "RSA-4096"
-	KeySpecEC256   KeySpec = "EC-256"
-	KeySpecEC384   KeySpec = "EC-384"
-	KeySpecEC521   KeySpec = "EC-521"
+	KeySpecRSA2048 = plugin.KeySpecRSA2048
+	KeySpecRSA3072 = plugin.KeySpecRSA3072
+	KeySpecRSA4096 = plugin.KeySpecRSA4096
+	KeySpecEC256   = plugin.KeySpecEC256
+	KeySpecEC384   = plugin.KeySpecEC384
+	KeySpecEC521   = plugin.KeySpecEC521
 )
 
 // EncodeKeySpec returns the name of a keySpec according to the spec.
@@ -89,15 +90,15 @@ func DecodeKeySpec(k KeySpec) (keySpec signature.KeySpec, err error) {
 }
 
 // HashAlgorithm is the type of a hash algorithm.
-type HashAlgorithm string
+type HashAlgorithm = plugin.HashAlgorithm
 
 // one of the following supported hash algorithm names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
-	HashAlgorithmSHA256 HashAlgorithm = "SHA-256"
-	HashAlgorithmSHA384 HashAlgorithm = "SHA-384"
-	HashAlgorithmSHA512 HashAlgorithm = "SHA-512"
+	HashAlgorithmSHA256 = plugin.HashAlgorithmSHA256
+	HashAlgorithmSHA384 = plugin.HashAlgorithmSHA384
+	HashAlgorithmSHA512 = plugin.HashAlgorithmSHA512
 )
 
 // HashAlgorithmFromKeySpec returns the name of hash function according to the spec.
@@ -126,18 +127,18 @@ func HashAlgorithmFromKeySpec(k signature.KeySpec) (HashAlgorithm, error) {
 }
 
 // SignatureAlgorithm is the type of signature algorithm
-type SignatureAlgorithm string
+type SignatureAlgorithm = plugin.SignatureAlgorithm
 
 // one of the following supported signing algorithm names.
 //
 // https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
-	SignatureAlgorithmECDSA_SHA256      SignatureAlgorithm = "ECDSA-SHA-256"
-	SignatureAlgorithmECDSA_SHA384      SignatureAlgorithm = "ECDSA-SHA-384"
-	SignatureAlgorithmECDSA_SHA512      SignatureAlgorithm = "ECDSA-SHA-512"
-	SignatureAlgorithmRSASSA_PSS_SHA256 SignatureAlgorithm = "RSASSA-PSS-SHA-256"
-	SignatureAlgorithmRSASSA_PSS_SHA384 SignatureAlgorithm = "RSASSA-PSS-SHA-384"
-	SignatureAlgorithmRSASSA_PSS_SHA512 SignatureAlgorithm = "RSASSA-PSS-SHA-512"
+	SignatureAlgorithmECDSA_SHA256      = plugin.SignatureAlgorithmECDSA_SHA256
+	SignatureAlgorithmECDSA_SHA384      = plugin.SignatureAlgorithmECDSA_SHA384
+	SignatureAlgorithmECDSA_SHA512      = plugin.SignatureAlgorithmECDSA_SHA512
+	SignatureAlgorithmRSASSA_PSS_SHA256 = plugin.SignatureAlgorithmRSASSA_PSS_SHA256
+	SignatureAlgorithmRSASSA_PSS_SHA384 = plugin.SignatureAlgorithmRSASSA_PSS_SHA384
+	SignatureAlgorithmRSASSA_PSS_SHA512 = plugin.SignatureAlgorithmRSASSA_PSS_SHA512
 )
 
 // EncodeSigningAlgorithm returns the signing algorithm name of an algorithm

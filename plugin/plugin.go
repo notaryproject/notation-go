@@ -29,44 +29,22 @@ import (
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 var executor commander = &execCommander{} // for unit test
 
 // GenericPlugin is the base requirement to be an plugin.
-type GenericPlugin interface {
-	// GetMetadata returns the metadata information of the plugin.
-	GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error)
-}
+type GenericPlugin = plugin.GenericPlugin
 
 // SignPlugin defines the required methods to be a SignPlugin.
-type SignPlugin interface {
-	GenericPlugin
-
-	// DescribeKey returns the KeySpec of a key.
-	DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error)
-
-	// GenerateSignature generates the raw signature based on the request.
-	GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error)
-
-	// GenerateEnvelope generates the Envelope with signature based on the
-	// request.
-	GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error)
-}
+type SignPlugin = plugin.SignPlugin
 
 // VerifyPlugin defines the required method to be a VerifyPlugin.
-type VerifyPlugin interface {
-	GenericPlugin
-
-	// VerifySignature validates the signature based on the request.
-	VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error)
-}
+type VerifyPlugin = plugin.VerifyPlugin
 
 // Plugin defines required methods to be an Plugin.
-type Plugin interface {
-	SignPlugin
-	VerifyPlugin
-}
+type Plugin = plugin.Plugin
 
 // CLIPlugin implements Plugin interface to CLI plugins.
 type CLIPlugin struct {

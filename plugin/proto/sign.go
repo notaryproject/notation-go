@@ -13,72 +13,24 @@
 
 package proto
 
-// DescribeKeyRequest contains the parameters passed in a describe-key request.
-type DescribeKeyRequest struct {
-	ContractVersion string            `json:"contractVersion"`
-	KeyID           string            `json:"keyId"`
-	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
-}
+import "github.com/notaryproject/notation-plugin-framework-go/plugin"
 
-func (DescribeKeyRequest) Command() Command {
-	return CommandDescribeKey
-}
+// DescribeKeyRequest contains the parameters passed in a describe-key request.
+type DescribeKeyRequest = plugin.DescribeKeyRequest
 
 // DescribeKeyResponse is the response of a describe-key request.
-type DescribeKeyResponse struct {
-	// The same key id as passed in the request.
-	KeyID string `json:"keyId"`
-
-	// One of following supported key types:
-	// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
-	KeySpec KeySpec `json:"keySpec"`
-}
+type DescribeKeyResponse = plugin.DescribeKeyResponse
 
 // GenerateSignatureRequest contains the parameters passed in a
 // generate-signature request.
-type GenerateSignatureRequest struct {
-	ContractVersion string            `json:"contractVersion"`
-	KeyID           string            `json:"keyId"`
-	KeySpec         KeySpec           `json:"keySpec"`
-	Hash            HashAlgorithm     `json:"hashAlgorithm"`
-	Payload         []byte            `json:"payload"`
-	PluginConfig    map[string]string `json:"pluginConfig,omitempty"`
-}
-
-func (GenerateSignatureRequest) Command() Command {
-	return CommandGenerateSignature
-}
+type GenerateSignatureRequest = plugin.GenerateSignatureRequest
 
 // GenerateSignatureResponse is the response of a generate-signature request.
-type GenerateSignatureResponse struct {
-	KeyID            string `json:"keyId"`
-	Signature        []byte `json:"signature"`
-	SigningAlgorithm string `json:"signingAlgorithm"`
-
-	// Ordered list of certificates starting with leaf certificate
-	// and ending with root certificate.
-	CertificateChain [][]byte `json:"certificateChain"`
-}
+type GenerateSignatureResponse = plugin.GenerateSignatureResponse
 
 // GenerateEnvelopeRequest contains the parameters passed in a generate-envelope
 // request.
-type GenerateEnvelopeRequest struct {
-	ContractVersion         string            `json:"contractVersion"`
-	KeyID                   string            `json:"keyId"`
-	PayloadType             string            `json:"payloadType"`
-	SignatureEnvelopeType   string            `json:"signatureEnvelopeType"`
-	Payload                 []byte            `json:"payload"`
-	ExpiryDurationInSeconds uint64            `json:"expiryDurationInSeconds,omitempty"`
-	PluginConfig            map[string]string `json:"pluginConfig,omitempty"`
-}
-
-func (GenerateEnvelopeRequest) Command() Command {
-	return CommandGenerateEnvelope
-}
+type GenerateEnvelopeRequest = plugin.GenerateEnvelopeRequest
 
 // GenerateEnvelopeResponse is the response of a generate-envelope request.
-type GenerateEnvelopeResponse struct {
-	SignatureEnvelope     []byte            `json:"signatureEnvelope"`
-	SignatureEnvelopeType string            `json:"signatureEnvelopeType"`
-	Annotations           map[string]string `json:"annotations,omitempty"`
-}
+type GenerateEnvelopeResponse = plugin.GenerateEnvelopeResponse
