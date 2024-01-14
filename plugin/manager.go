@@ -25,6 +25,7 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/semver"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
 )
 
@@ -114,35 +115,35 @@ type CLIInstallOptions struct {
 // plugin is malfunctioning, it will be overwritten.
 func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
 	// initialization
+	logger := log.GetLogger(ctx)
 	overwrite := installOpts.Overwrite
 	if installOpts.PluginPath == "" {
 		return nil, nil, errors.New("plugin source path cannot be empty")
 	}
+	logger.Debugf("Installing plugin from plugin path %s", installOpts.PluginPath)
 	var installFromNonDir bool
-	pluginExecutableFile, pluginName, err := parsePluginFromDir(installOpts.PluginPath)
+	pluginExecutableFile, pluginName, err := parsePluginFromDir(ctx, installOpts.PluginPath)
 	if err != nil {
 		if !errors.Is(err, file.ErrNotDirectory) {
-			return nil, nil, fmt.Errorf("failed to read plugin from directory %s: %w", installOpts.PluginPath, err)
+			return nil, nil, fmt.Errorf("failed to read plugin from input directory: %w", err)
 		}
 		// input is not a dir, check if it's a single plugin executable file
 		installFromNonDir = true
 		pluginExecutableFile = installOpts.PluginPath
-		pluginName, err = ParsePluginName(filepath.Base(pluginExecutableFile))
+		pluginExecutableFileName := filepath.Base(pluginExecutableFile)
+		pluginName, err = parsePluginName(pluginExecutableFileName)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to read plugin name from file path %s: %w", pluginExecutableFile, err)
+			return nil, nil, fmt.Errorf("failed to read plugin name from input file %s: %w", pluginExecutableFileName, err)
 		}
 		isExec, err := isExecutableFile(pluginExecutableFile)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to check if file %s is executable: %w", pluginExecutableFile, err)
+			return nil, nil, fmt.Errorf("failed to check if input file %s is executable: %w", pluginExecutableFileName, err)
 		}
 		if !isExec {
-			return nil, nil, fmt.Errorf("file %s is not executable", pluginExecutableFile)
+			return nil, nil, fmt.Errorf("input file %s is not executable", pluginExecutableFileName)
 		}
 	}
 	// validate and get new plugin metadata
-	if err := validatePluginFileExtensionAgainstOS(filepath.Base(pluginExecutableFile), pluginName); err != nil {
-		return nil, nil, err
-	}
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginExecutableFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
@@ -215,12 +216,13 @@ func (m *CLIManager) Uninstall(ctx context.Context, name string) error {
 }
 
 // parsePluginFromDir checks if a dir is a valid plugin dir which contains
-// one and only one plugin executable file. The dir may contain extra lib files
-// and LICENSE files. Sub-directories are ignored.
+// one and only one plugin executable file candidate.
+// The dir may contain extra lib files and LICENSE files.
+// Sub-directories are ignored.
 //
 // On success, the plugin executable file path, plugin name and
 // nil error are returned.
-func parsePluginFromDir(path string) (string, string, error) {
+func parsePluginFromDir(ctx context.Context, path string) (string, string, error) {
 	// sanity check
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -229,9 +231,11 @@ func parsePluginFromDir(path string) (string, string, error) {
 	if !fi.Mode().IsDir() {
 		return "", "", file.ErrNotDirectory
 	}
+	logger := log.GetLogger(ctx)
 	// walk the path
-	var pluginExecutableFile, pluginName string
+	var pluginExecutableFile, pluginName, candidatePluginName string
 	var foundPluginExecutableFile bool
+	var filesWithValidNameFormat []string
 	if err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -246,11 +250,12 @@ func parsePluginFromDir(path string) (string, string, error) {
 		}
 		// only take regular files
 		if info.Mode().IsRegular() {
-			if pluginName, err = ParsePluginName(d.Name()); err != nil {
+			if candidatePluginName, err = parsePluginName(d.Name()); err != nil {
 				// file name does not follow the notation-{plugin-name} format,
 				// continue
 				return nil
 			}
+			filesWithValidNameFormat = append(filesWithValidNameFormat, p)
 			isExec, err := isExecutableFile(p)
 			if err != nil {
 				return err
@@ -263,12 +268,23 @@ func parsePluginFromDir(path string) (string, string, error) {
 			}
 			foundPluginExecutableFile = true
 			pluginExecutableFile = p
+			pluginName = candidatePluginName
 		}
 		return nil
 	}); err != nil {
 		return "", "", err
 	}
 	if !foundPluginExecutableFile {
+		// if no executable file was found, but there's one and only one
+		// potential candidate, try install the candidate
+		if len(filesWithValidNameFormat) == 1 {
+			candidate := filesWithValidNameFormat[0]
+			if err := setExecutable(candidate); err != nil {
+				return "", "", fmt.Errorf("no plugin executable file was found: %w", err)
+			}
+			logger.Warnf("Found candidate plugin executable file %q without executable permission. Setting user executable bit and trying to install.", filepath.Base(candidate))
+			return candidate, candidatePluginName, nil
+		}
 		return "", "", errors.New("no plugin executable file was found")
 	}
 	return pluginExecutableFile, pluginName, nil
