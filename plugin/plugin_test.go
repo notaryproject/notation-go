@@ -30,7 +30,7 @@ func TestGetMetadata(t *testing.T) {
 	t.Run("plugin error is in invalid json format", func(t *testing.T) {
 		exitErr := errors.New("unknown error")
 		stderr := []byte("sad")
-		expectedErrMsg := "failed to execute the get-plugin-metadata command for test-plugin plugin: the error response isn't compliant with Notation plugin protocol: sad"
+		expectedErrMsg := "failed to execute the get-plugin-metadata command for test-plugin plugin: the error response isn't compliant with Notation plugin requirement: sad"
 		plugin := CLIPlugin{name: "test-plugin"}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})

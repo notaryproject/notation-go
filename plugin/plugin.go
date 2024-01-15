@@ -188,16 +188,17 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		logger.Errorf("Plugin %s returned error: %s", req.Command(), string(stderr))
 
 		if len(stderr) == 0 {
-			return &PluginMalformedError{
-				Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: %s", req.Command(), pluginName, err),
-				InnerError: err,
+			// if stderr is empty, it is possible that the plugin is not
+			// running properly.
+			return &PluginExectableFileError{
+				Err: fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, err),
 			}
 		} else {
 			var re proto.RequestError
 			jsonErr := json.Unmarshal(stderr, &re)
 			if jsonErr != nil {
 				return &PluginMalformedError{
-					Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: the error response isn't compliant with Notation plugin protocol: %s", req.Command(), pluginName, string(stderr)),
+					Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: the error response isn't compliant with Notation plugin requirement: %s", req.Command(), pluginName, string(stderr)),
 					InnerError: jsonErr,
 				}
 			}
@@ -209,7 +210,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// deserialize response
 	if err = json.Unmarshal(stdout, resp); err != nil {
 		return &PluginMalformedError{
-			Msg:        fmt.Sprintf("%s plugin response for %s command isn't compliant with Notation plugin protocol: %s", pluginName, req.Command(), string(stdout)),
+			Msg:        fmt.Sprintf("%s plugin response for %s command isn't compliant with Notation plugin requirement: %s", pluginName, req.Command(), string(stdout)),
 			InnerError: err,
 		}
 	}

@@ -28,6 +28,7 @@ type PluginDowngradeError struct {
 	Msg string
 }
 
+// Error returns the error message.
 func (e PluginDowngradeError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
@@ -41,6 +42,7 @@ type InstallEqualVersionError struct {
 	Msg string
 }
 
+// Error returns the error message.
 func (e InstallEqualVersionError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
@@ -55,6 +57,7 @@ type PluginUnknownError struct {
 	InnerError error
 }
 
+// Error returns the error message.
 func (e PluginUnknownError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
@@ -62,6 +65,7 @@ func (e PluginUnknownError) Error() string {
 	return e.InnerError.Error()
 }
 
+// Unwrap returns the inner error.
 func (e PluginUnknownError) Unwrap() error {
 	return e.InnerError
 }
@@ -73,6 +77,7 @@ type PluginMalformedError struct {
 	InnerError error
 }
 
+// Error returns the error message.
 func (e PluginMalformedError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
@@ -80,6 +85,7 @@ func (e PluginMalformedError) Error() string {
 	return e.InnerError.Error()
 }
 
+// Unwrap returns the inner error.
 func (e PluginMalformedError) Unwrap() error {
 	return e.InnerError
 }
@@ -90,10 +96,29 @@ type PluginDirectryWalkError struct {
 	Err error
 }
 
+// Error returns the error message.
 func (e PluginDirectryWalkError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap returns the inner error.
 func (e PluginDirectryWalkError) Unwrap() error {
+	return errors.Unwrap(e.Err)
+}
+
+// PluginExectableFileError is used when there is an issue with plugin
+// executable file and should suggest user to check the existence, permission
+// and platform/arch compatibility of plugin.
+type PluginExectableFileError struct {
+	Err error
+}
+
+// Error returns the error message.
+func (e PluginExectableFileError) Error() string {
+	return e.Err.Error()
+}
+
+// Unwrap returns the inner error.
+func (e PluginExectableFileError) Unwrap() error {
 	return errors.Unwrap(e.Err)
 }
