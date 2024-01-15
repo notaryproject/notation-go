@@ -23,16 +23,16 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-go/dir"
-	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
-var exampleMetadata = proto.GetMetadataResponse{
+var exampleMetadata = plugin.GetMetadataResponse{
 	Name:                      "foo",
 	Description:               "friendly",
 	Version:                   "1",
 	URL:                       "example.com",
 	SupportedContractVersions: []string{"1.0"},
-	Capabilities:              []proto.Capability{"cap"}}
+	Capabilities:              []plugin.Capability{"cap"}}
 
 func preparePlugin(t *testing.T) string {
 	root := t.TempDir()
@@ -87,11 +87,11 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// validate and create
-	plugin, err := mgr.Get(context.Background(), "foo")
+	pl, err := mgr.Get(context.Background(), "foo")
 	if err != nil {
 		t.Fatal(err)
 	}
-	metadata, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
+	metadata, err := pl.GetMetadata(context.Background(), &plugin.GetMetadataRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}

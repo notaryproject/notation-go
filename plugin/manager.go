@@ -26,12 +26,12 @@ import (
 	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/semver"
 	"github.com/notaryproject/notation-go/log"
-	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 // Manager manages plugins installed on the system.
 type Manager interface {
-	Get(ctx context.Context, name string) (Plugin, error)
+	Get(ctx context.Context, name string) (plugin.Plugin, error)
 	List(ctx context.Context) ([]string, error)
 }
 
@@ -48,7 +48,7 @@ func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
 // Get returns a plugin on the system by its name.
 //
 // If the plugin is not found, the error is of type os.ErrNotExist.
-func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
+func (m *CLIManager) Get(ctx context.Context, name string) (plugin.Plugin, error) {
 	pluginPath := path.Join(name, binName(name))
 	path, err := m.pluginFS.SysPath(pluginPath)
 	if err != nil {
@@ -113,7 +113,7 @@ type CLIInstallOptions struct {
 //
 // If overwrite is set, version check is skipped. If existing
 // plugin is malfunctioning, it will be overwritten.
-func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
+func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*plugin.GetMetadataResponse, *plugin.GetMetadataResponse, error) {
 	// initialization
 	logger := log.GetLogger(ctx)
 	overwrite := installOpts.Overwrite
@@ -148,12 +148,12 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
 	}
-	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get metadata of new plugin: %w", err)
 	}
 	// check plugin existence and get existing plugin metadata
-	var existingPluginMetadata *proto.GetMetadataResponse
+	var existingPluginMetadata *plugin.GetMetadataResponse
 	existingPlugin, err := m.Get(ctx, pluginName)
 	if err != nil {
 		// fail only if overwrite is not set
@@ -161,7 +161,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			return nil, nil, fmt.Errorf("failed to check plugin existence: %w", err)
 		}
 	} else { // plugin already exists
-		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if err != nil && !overwrite { // fail only if overwrite is not set
 			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
 		}

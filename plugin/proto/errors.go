@@ -21,6 +21,8 @@ import (
 	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
+// Deprecated: ErrorCode exists for historical compatibility and should not be used.
+// To access ErrorCode, use the notation-plugin-framework-go's plugin.ErrorCode type.
 type ErrorCode = plugin.ErrorCode
 
 const (
@@ -29,7 +31,7 @@ const (
 	ErrorCodeValidation = plugin.ErrorCodeValidation
 
 	// The contract version used in the request is unsupported.
-	ErrorCodeUnsupportedContractVersion ErrorCode = plugin.ErrorCodeUnsupportedContractVersion
+	ErrorCodeUnsupportedContractVersion = plugin.ErrorCodeUnsupportedContractVersion
 
 	// Authentication/authorization error to use given key.
 	ErrorCodeAccessDenied = plugin.ErrorCodeAccessDenied
@@ -46,11 +48,9 @@ const (
 	ErrorCodeGeneric = plugin.ErrorCodeGeneric
 )
 
-type jsonErr = plugin.Error
-
 // RequestError is the common error response for any request.
 type RequestError struct {
-	Code     ErrorCode
+	Code     plugin.ErrorCode
 	Err      error
 	Metadata map[string]string
 }
@@ -81,11 +81,11 @@ func (e RequestError) MarshalJSON() ([]byte, error) {
 	if e.Err != nil {
 		msg = e.Err.Error()
 	}
-	return json.Marshal(jsonErr{e.Code, msg, e.Metadata})
+	return json.Marshal(plugin.Error{ErrCode: e.Code, Message: msg, Metadata: e.Metadata})
 }
 
 func (e *RequestError) UnmarshalJSON(data []byte) error {
-	var tmp jsonErr
+	var tmp plugin.Error
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err

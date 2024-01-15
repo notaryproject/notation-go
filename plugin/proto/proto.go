@@ -27,6 +27,8 @@ const ContractVersion = "1.0"
 type Command = plugin.Command
 
 // Request defines a plugin request, which is always associated to a command.
+// Deprecated: Request exists for historical compatibility and should not be used.
+// To access Request, use the notation-plugin-framework-go's plugin.Request type.
 type Request = plugin.Request
 
 const (
@@ -57,6 +59,8 @@ const (
 )
 
 // Capability is a feature available in the plugin contract.
+// Deprecated: Capability exists for historical compatibility and should not be used.
+// To access Capability, use the notation-plugin-framework-go's plugin.Capability type.
 type Capability = plugin.Capability
 
 const (

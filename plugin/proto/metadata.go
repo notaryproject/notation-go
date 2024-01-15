@@ -15,24 +15,12 @@ package proto
 
 import "github.com/notaryproject/notation-plugin-framework-go/plugin"
 
-// GetMetadataRequest contains the parameters passed in a get-plugin-metadata
-// request.
+// GetMetadataRequest contains the parameters passed in a get-plugin-metadata request.
+// Deprecated: GetMetadataRequest exists for historical compatibility and should not be used.
+// To access GetMetadataRequest, use the notation-plugin-framework-go's plugin.GetMetadataRequest type.
 type GetMetadataRequest = plugin.GetMetadataRequest
 
 // GetMetadataResponse provided by the plugin.
+// Deprecated: GetMetadataResponse exists for historical compatibility and should not be used.
+// To access GetMetadataResponse, use the notation-plugin-framework-go's plugin.GetMetadataResponse type.
 type GetMetadataResponse = plugin.GetMetadataResponse
-
-// HasCapability return true if the metadata states that the
-// capability is supported.
-// Returns true if capability is empty.
-func HasCapability(resp *GetMetadataResponse, capability Capability) bool {
-	if capability == "" {
-		return true
-	}
-	for _, c := range resp.Capabilities {
-		if c == capability {
-			return true
-		}
-	}
-	return false
-}

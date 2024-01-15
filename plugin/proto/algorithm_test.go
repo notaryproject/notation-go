@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 func TestEncodeKeySpec(t *testing.T) {
@@ -96,7 +97,7 @@ func TestHashAlgorithmFromKeySpec(t *testing.T) {
 	tests := []struct {
 		name     string
 		keySpec  signature.KeySpec
-		expected HashAlgorithm
+		expected plugin.HashAlgorithm
 	}{
 		{
 			name: "EC 256",
@@ -228,7 +229,7 @@ func TestDecodeKeySpec(t *testing.T) {
 		},
 		{
 			name:      "Unsupported key spec",
-			raw:       "unsuppored",
+			raw:       "unsupported",
 			expected:  signature.KeySpec{},
 			expectErr: true,
 		},

@@ -22,6 +22,8 @@ import (
 )
 
 // KeySpec is type of the signing algorithm, including algorithm and size.
+// Deprecated: KeySpec exists for historical compatibility and should not be used.
+// To access KeySpec, use the notation-plugin-framework-go's plugin.KeySpec type.
 type KeySpec = plugin.KeySpec
 
 // one of the following supported key spec names.
@@ -37,7 +39,7 @@ const (
 )
 
 // EncodeKeySpec returns the name of a keySpec according to the spec.
-func EncodeKeySpec(k signature.KeySpec) (KeySpec, error) {
+func EncodeKeySpec(k signature.KeySpec) (plugin.KeySpec, error) {
 	switch k.Type {
 	case signature.KeyTypeEC:
 		switch k.Size {
@@ -62,7 +64,7 @@ func EncodeKeySpec(k signature.KeySpec) (KeySpec, error) {
 }
 
 // DecodeKeySpec parses keySpec name to a signature.keySpec type.
-func DecodeKeySpec(k KeySpec) (keySpec signature.KeySpec, err error) {
+func DecodeKeySpec(k plugin.KeySpec) (keySpec signature.KeySpec, err error) {
 	switch k {
 	case KeySpecRSA2048:
 		keySpec.Size = 2048
@@ -89,7 +91,9 @@ func DecodeKeySpec(k KeySpec) (keySpec signature.KeySpec, err error) {
 	return
 }
 
-// HashAlgorithm is the type of a hash algorithm.
+// HashAlgorithm is the type of hash algorithm.
+// Deprecated: HashAlgorithm exists for historical compatibility and should not be used.
+// To access HashAlgorithm, use the notation-plugin-framework-go's plugin.HashAlgorithm type.
 type HashAlgorithm = plugin.HashAlgorithm
 
 // one of the following supported hash algorithm names.
@@ -102,7 +106,7 @@ const (
 )
 
 // HashAlgorithmFromKeySpec returns the name of hash function according to the spec.
-func HashAlgorithmFromKeySpec(k signature.KeySpec) (HashAlgorithm, error) {
+func HashAlgorithmFromKeySpec(k signature.KeySpec) (plugin.HashAlgorithm, error) {
 	switch k.Type {
 	case signature.KeyTypeEC:
 		switch k.Size {
@@ -127,6 +131,8 @@ func HashAlgorithmFromKeySpec(k signature.KeySpec) (HashAlgorithm, error) {
 }
 
 // SignatureAlgorithm is the type of signature algorithm
+// Deprecated: SignatureAlgorithm exists for historical compatibility and should not be used.
+// To access SignatureAlgorithm, use the notation-plugin-framework-go's plugin.SignatureAlgorithm type.
 type SignatureAlgorithm = plugin.SignatureAlgorithm
 
 // one of the following supported signing algorithm names.
@@ -143,7 +149,7 @@ const (
 
 // EncodeSigningAlgorithm returns the signing algorithm name of an algorithm
 // according to the spec.
-func EncodeSigningAlgorithm(alg signature.Algorithm) (SignatureAlgorithm, error) {
+func EncodeSigningAlgorithm(alg signature.Algorithm) (plugin.SignatureAlgorithm, error) {
 	switch alg {
 	case signature.AlgorithmES256:
 		return SignatureAlgorithmECDSA_SHA256, nil
@@ -162,7 +168,7 @@ func EncodeSigningAlgorithm(alg signature.Algorithm) (SignatureAlgorithm, error)
 }
 
 // DecodeSigningAlgorithm parses the signing algorithm name from a given string.
-func DecodeSigningAlgorithm(raw SignatureAlgorithm) (signature.Algorithm, error) {
+func DecodeSigningAlgorithm(raw plugin.SignatureAlgorithm) (signature.Algorithm, error) {
 	switch raw {
 	case SignatureAlgorithmECDSA_SHA256:
 		return signature.AlgorithmES256, nil

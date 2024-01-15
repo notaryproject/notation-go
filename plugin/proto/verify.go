@@ -19,20 +19,32 @@ import (
 
 // VerifySignatureRequest contains the parameters passed in a verify-signature
 // request.
+// Deprecated: VerifySignatureRequest exists for historical compatibility and should not be used.
+// To access VerifySignatureRequest, use the notation-plugin-framework-go's plugin.VerifySignatureRequest type.
 type VerifySignatureRequest = plugin.VerifySignatureRequest
 
 // Signature represents a signature pulled from the envelope
+// Deprecated: Signature exists for historical compatibility and should not be used.
+// To access Signature, use the notation-plugin-framework-go's plugin.Signature type.
 type Signature = plugin.Signature
 
 // CriticalAttributes contains all Notary Project defined critical
 // attributes and their values in the signature envelope
+// Deprecated: CriticalAttributes exists for historical compatibility and should not be used.
+// To access CriticalAttributes, use the notation-plugin-framework-go's plugin.CriticalAttributes type.
 type CriticalAttributes = plugin.CriticalAttributes
 
 // TrustPolicy represents trusted identities that sign the artifacts
+// Deprecated: TrustPolicy exists for historical compatibility and should not be used.
+// To access TrustPolicy, use the notation-plugin-framework-go's plugin.TrustPolicy type.
 type TrustPolicy = plugin.TrustPolicy
 
 // VerifySignatureResponse is the response of a verify-signature request.
+// Deprecated: VerifySignatureResponse exists for historical compatibility and should not be used.
+// To access VerifySignatureResponse, use the notation-plugin-framework-go's plugin.VerifySignatureResponse type.
 type VerifySignatureResponse = plugin.VerifySignatureResponse
 
 // VerificationResult is the result of a verification performed by the plugin
+// Deprecated: VerificationResult exists for historical compatibility and should not be used.
+// To access VerificationResult, use the notation-plugin-framework-go's plugin.VerificationResult type.
 type VerificationResult = plugin.VerificationResult
