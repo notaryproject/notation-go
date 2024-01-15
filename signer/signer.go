@@ -124,6 +124,7 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger.Debugf("  Expiry:        %v", signReq.Expiry)
 	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
 	logger.Debugf("  SigningAgent:  %v", signReq.SigningAgent)
+	logger.Debugf("  TSAServerURL:  %v", signReq.TSAServerURL)
 
 	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)
