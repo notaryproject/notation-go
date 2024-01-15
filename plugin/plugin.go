@@ -81,11 +81,11 @@ func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	if err != nil {
 		// Ignore any file which we cannot Stat
 		// (e.g. due to permissions or anything else).
-		return nil, fmt.Errorf("failed to instantiate the plugin: the executable file is not found or inaccessible: %w", err)
+		return nil, fmt.Errorf("plugin instantiation failed because the executable file is either not found or inaccessible: %w", err)
 	}
 	if !fi.Mode().IsRegular() {
 		// Ignore non-regular files.
-		return nil, fmt.Errorf("failed to instantiate the plugin: the executable file %q is not a regular file", path)
+		return nil, fmt.Errorf("plugin instantiation failed because the executable file %s is not a regular file", path)
 	}
 
 	// generate plugin
@@ -105,8 +105,8 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	}
 	// validate metadata
 	if err = validate(&metadata); err != nil {
-		return nil, &PluginValidityError{
-			Msg:        fmt.Sprintf("validate metadata failed for %s plugin: %s", p.name, err),
+		return nil, &PluginMalformedError{
+			Msg:        fmt.Sprintf("metadata validation failed for %s plugin: %s", p.name, err),
 			InnerError: err,
 		}
 	}
@@ -193,7 +193,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 			var re proto.RequestError
 			jsonErr := json.Unmarshal(stderr, &re)
 			if jsonErr != nil {
-				return &PluginValidityError{
+				return &PluginMalformedError{
 					Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: the error response isn't compliant with Notation plugin protocol: %s", req.Command(), pluginName, string(stderr)),
 					InnerError: jsonErr,
 				}
@@ -205,7 +205,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	logger.Debugf("Plugin %s response: %s", req.Command(), string(stdout))
 	// deserialize response
 	if err = json.Unmarshal(stdout, resp); err != nil {
-		return &PluginValidityError{
+		return &PluginMalformedError{
 			Msg:        fmt.Sprintf("%s plugin response for %s command isn't compliant with Notation plugin protocol: %s", pluginName, req.Command(), string(stdout)),
 			InnerError: err,
 		}

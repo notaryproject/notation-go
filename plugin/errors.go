@@ -59,50 +59,41 @@ func (e PluginUnknownError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
-	if e.InnerError != nil {
-		return e.InnerError.Error()
-	}
-	return "plugin unknown error"
+	return e.InnerError.Error()
 }
 
 func (e PluginUnknownError) Unwrap() error {
 	return e.InnerError
 }
 
-// PluginValidityError is used when there is an issue with plugin validity and
+// PluginMalformedError is used when there is an issue with plugin and
 // should be fixed by plugin developers.
-type PluginValidityError struct {
+type PluginMalformedError struct {
 	Msg        string
 	InnerError error
 }
 
-func (e PluginValidityError) Error() string {
+func (e PluginMalformedError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
-	if e.InnerError != nil {
-		return e.InnerError.Error()
-	}
-	return "plugin validity error"
+	return e.InnerError.Error()
 }
 
-func (e PluginValidityError) Unwrap() error {
+func (e PluginMalformedError) Unwrap() error {
 	return e.InnerError
 }
 
-// PluginDirectoryError is used when there is an issue with plugins directory
-// and should suggest user to check the plugin directory.
-type PluginDirectoryError struct {
+// PluginDirectryWalkError is used when there is an issue with plugins directory
+// and should suggest user to check the permission of plugin directory.
+type PluginDirectryWalkError struct {
 	Err error
 }
 
-func (e PluginDirectoryError) Error() string {
-	if e.Err != nil {
-		return e.Err.Error()
-	}
-	return "plugin directory error"
+func (e PluginDirectryWalkError) Error() string {
+	return e.Err.Error()
 }
 
-func (e PluginDirectoryError) Unwrap() error {
+func (e PluginDirectryWalkError) Unwrap() error {
 	return errors.Unwrap(e.Err)
 }

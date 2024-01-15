@@ -194,7 +194,7 @@ func TestNewCLIPlugin_PathError(t *testing.T) {
 	})
 
 	t.Run("plugin is not a regular file", func(t *testing.T) {
-		expectedErrMsg := `failed to instantiate the plugin: the executable file "./testdata/plugins/badplugin/notation-badplugin" is not a regular file`
+		expectedErrMsg := `plugin instantiation failed because the executable file ./testdata/plugins/badplugin/notation-badplugin is not a regular file`
 		p, err := NewCLIPlugin(ctx, "badplugin", "./testdata/plugins/badplugin/notation-badplugin")
 		if err.Error() != expectedErrMsg {
 			t.Errorf("NewCLIPlugin() error = %v, want %v", err, expectedErrMsg)
@@ -214,7 +214,7 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 	t.Run("command no response", func(t *testing.T) {
 		executor = testCommander{}
 		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
-		if _, ok := err.(*PluginValidityError); !ok {
+		if _, ok := err.(*PluginMalformedError); !ok {
 			t.Fatal("should return plugin validity error")
 		}
 	})
@@ -222,7 +222,7 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 	t.Run("invalid json", func(t *testing.T) {
 		executor = testCommander{stdout: []byte("content")}
 		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
-		if _, ok := err.(*PluginValidityError); !ok {
+		if _, ok := err.(*PluginMalformedError); !ok {
 			t.Fatal("should return plugin validity error")
 		}
 	})
@@ -238,7 +238,7 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 	t.Run("invalid metadata content", func(t *testing.T) {
 		executor = testCommander{stdout: metadataJSON(proto.GetMetadataResponse{Name: "foo"})}
 		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
-		if _, ok := err.(*PluginValidityError); !ok {
+		if _, ok := err.(*PluginMalformedError); !ok {
 			t.Fatal("should be plugin validity error.")
 		}
 	})
