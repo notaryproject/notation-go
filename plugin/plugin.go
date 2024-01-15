@@ -189,7 +189,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 
 		if len(stderr) == 0 {
 			return &PluginMalformedError{
-				Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: %s", req.Command(), pluginName, string(stderr)),
+				Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: %s", req.Command(), pluginName, err),
 				InnerError: err,
 			}
 		} else {
