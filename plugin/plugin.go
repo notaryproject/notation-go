@@ -188,7 +188,10 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		logger.Errorf("Plugin %s returned error: %s", req.Command(), string(stderr))
 
 		if len(stderr) == 0 {
-			return fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, err)
+			return &PluginMalformedError{
+				Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: %s", req.Command(), pluginName, string(stderr)),
+				InnerError: err,
+			}
 		} else {
 			var re proto.RequestError
 			jsonErr := json.Unmarshal(stderr, &re)
