@@ -177,7 +177,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		logger.Errorf("failed to marshal request: %+v", req)
 		return PluginUnknownError{
 			Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin", req.Command(), pluginName),
-			InnerError: err}
+			InnerError: fmt.Errorf("failed to marshal request: %w", err)}
 	}
 
 	logger.Debugf("Plugin %s request: %s", req.Command(), string(data))
