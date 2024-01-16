@@ -388,7 +388,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "plugin executable name must be \"notation-foobar\" instead of \"notation-bar\""
+		expectedErrorMsg := "plugin executable file name must be \"notation-foobar\" instead of \"notation-bar\""
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)
@@ -405,7 +405,7 @@ func TestManager_Install(t *testing.T) {
 		installOpts := CLIInstallOptions{
 			PluginPath: newPluginFilePath,
 		}
-		expectedErrorMsg := "plugin executable name must be \"notation-bar\" instead of \"notation-foo\""
+		expectedErrorMsg := "plugin executable file name must be \"notation-bar\" instead of \"notation-foo\""
 		_, _, err := mgr.Install(context.Background(), installOpts)
 		if err == nil || err.Error() != expectedErrorMsg {
 			t.Fatalf("expecting error %s, but got %v", expectedErrorMsg, err)

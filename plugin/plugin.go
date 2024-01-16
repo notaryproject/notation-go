@@ -106,12 +106,12 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 	// validate metadata
 	if err = validate(&metadata); err != nil {
 		return nil, &PluginMalformedError{
-			Msg:        fmt.Sprintf("metadata validation failed for %s plugin: %s", p.name, err),
+			Msg:        fmt.Sprintf("metadata validation failed for plugin %s: %s", p.name, err),
 			InnerError: err,
 		}
 	}
 	if metadata.Name != p.name {
-		return nil, fmt.Errorf("plugin executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
+		return nil, fmt.Errorf("plugin executable file name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
 	}
 	return &metadata, nil
 }
@@ -174,9 +174,9 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
-		logger.Errorf("failed to marshal request: %+v", req)
+		logger.Errorf("Failed to marshal request: %+v", req)
 		return &PluginUnknownError{
-			Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin", req.Command(), pluginName),
+			Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s", req.Command(), pluginName),
 			InnerError: fmt.Errorf("failed to marshal request: %w", err)}
 	}
 
@@ -185,24 +185,21 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	stdout, stderr, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
 		logger.Errorf("plugin %s execution status: %v", req.Command(), err)
-		logger.Errorf("Plugin %s returned error: %s", req.Command(), string(stderr))
 
 		if len(stderr) == 0 {
 			// if stderr is empty, it is possible that the plugin is not
 			// running properly.
-			return &PluginExectableFileError{
-				Err: fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, err),
-			}
+			return PluginExecutableFileError(fmt.Errorf("failed to execute the %s command for plugin %s: %w", req.Command(), pluginName, err))
 		} else {
 			var re proto.RequestError
 			jsonErr := json.Unmarshal(stderr, &re)
 			if jsonErr != nil {
 				return &PluginMalformedError{
-					Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin: the error response isn't compliant with Notation plugin requirement: %s", req.Command(), pluginName, string(stderr)),
+					Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s: the plugin isn't compliant with Notation plugin requirement: %s", req.Command(), pluginName, string(stderr)),
 					InnerError: jsonErr,
 				}
 			}
-			return fmt.Errorf("failed to execute the %s command for %s plugin: %w", req.Command(), pluginName, re)
+			return fmt.Errorf("failed to execute the %s command for plugin %s: %w", req.Command(), pluginName, re)
 		}
 	}
 
@@ -210,7 +207,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// deserialize response
 	if err = json.Unmarshal(stdout, resp); err != nil {
 		return &PluginMalformedError{
-			Msg:        fmt.Sprintf("%s plugin response for %s command isn't compliant with Notation plugin requirement: %s", pluginName, req.Command(), string(stdout)),
+			Msg:        fmt.Sprintf("plugin %s response for %s command isn't compliant with Notation plugin requirement: %s", pluginName, req.Command(), string(stdout)),
 			InnerError: err,
 		}
 	}

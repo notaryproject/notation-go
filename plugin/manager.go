@@ -80,7 +80,7 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		plugins = append(plugins, d.Name())
 		return fs.SkipDir
 	}); err != nil {
-		return nil, &PluginDirectryWalkError{Err: fmt.Errorf("failed to list plugin: %w", err)}
+		return nil, PluginDirectryWalkError(fmt.Errorf("failed to list plugin: %w", err))
 	}
 	return plugins, nil
 }

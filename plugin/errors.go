@@ -92,33 +92,9 @@ func (e PluginMalformedError) Unwrap() error {
 
 // PluginDirectryWalkError is used when there is an issue with plugins directory
 // and should suggest user to check the permission of plugin directory.
-type PluginDirectryWalkError struct {
-	Err error
-}
+type PluginDirectryWalkError error
 
-// Error returns the error message.
-func (e PluginDirectryWalkError) Error() string {
-	return e.Err.Error()
-}
-
-// Unwrap returns the inner error.
-func (e PluginDirectryWalkError) Unwrap() error {
-	return e.Err
-}
-
-// PluginExectableFileError is used when there is an issue with plugin
+// PluginExecutableFileError is used when there is an issue with plugin
 // executable file and should suggest user to check the existence, permission
 // and platform/arch compatibility of plugin.
-type PluginExectableFileError struct {
-	Err error
-}
-
-// Error returns the error message.
-func (e PluginExectableFileError) Error() string {
-	return e.Err.Error()
-}
-
-// Unwrap returns the inner error.
-func (e PluginExectableFileError) Unwrap() error {
-	return e.Err
-}
+type PluginExecutableFileError error

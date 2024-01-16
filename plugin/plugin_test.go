@@ -30,7 +30,7 @@ func TestGetMetadata(t *testing.T) {
 	t.Run("plugin error is in invalid json format", func(t *testing.T) {
 		exitErr := errors.New("unknown error")
 		stderr := []byte("sad")
-		expectedErrMsg := "failed to execute the get-plugin-metadata command for test-plugin plugin: the error response isn't compliant with Notation plugin requirement: sad"
+		expectedErrMsg := "failed to execute the get-plugin-metadata command for plugin test-plugin: the plugin isn't compliant with Notation plugin requirement: sad"
 		plugin := CLIPlugin{name: "test-plugin"}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
@@ -55,7 +55,7 @@ func TestGetMetadata(t *testing.T) {
 	t.Run("plugin cause system error", func(t *testing.T) {
 		exitErr := errors.New("system error")
 		stderr := []byte("")
-		expectedErrMsg := "failed to execute the get-plugin-metadata command for test-plugin plugin: system error"
+		expectedErrMsg := "failed to execute the get-plugin-metadata command for plugin test-plugin: system error"
 		plugin := CLIPlugin{name: "test-plugin"}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
@@ -230,7 +230,7 @@ func TestNewCLIPlugin_ValidError(t *testing.T) {
 	t.Run("invalid metadata name", func(t *testing.T) {
 		executor = testCommander{stdout: metadataJSON(invalidMetadataName)}
 		_, err := p.GetMetadata(ctx, &proto.GetMetadataRequest{})
-		if !strings.Contains(err.Error(), "executable name must be") {
+		if !strings.Contains(err.Error(), "executable file name must be") {
 			t.Fatal("should fail the operation.")
 		}
 	})
