@@ -90,9 +90,9 @@ func (e PluginMalformedError) Unwrap() error {
 	return e.InnerError
 }
 
-// PluginDirectryWalkError is used when there is an issue with plugins directory
+// PluginDirectoryWalkError is used when there is an issue with plugins directory
 // and should suggest user to check the permission of plugin directory.
-type PluginDirectryWalkError error
+type PluginDirectoryWalkError error
 
 // PluginExecutableFileError is used when there is an issue with plugin
 // executable file and should suggest user to check the existence, permission

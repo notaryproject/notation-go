@@ -62,13 +62,11 @@ func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 // List produces a list of the plugin names on the system.
 func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	var plugins []string
-	// check plugin directory exsitence
-	if _, err := fs.Stat(m.pluginFS, "."); errors.Is(err, os.ErrNotExist) {
-		return plugins, nil
-	}
-
 	if err := fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		if dir == "." {
@@ -85,7 +83,7 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		plugins = append(plugins, d.Name())
 		return fs.SkipDir
 	}); err != nil {
-		return nil, PluginDirectryWalkError(fmt.Errorf("failed to list plugin: %w", err))
+		return nil, PluginDirectoryWalkError(fmt.Errorf("failed to list plugin: %w", err))
 	}
 	return plugins, nil
 }
@@ -157,7 +155,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	}
 	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get metadata of new plugin: %w", err)
 	}
 	// check plugin existence and get existing plugin metadata
 	var existingPluginMetadata *proto.GetMetadataResponse
@@ -170,7 +168,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	} else { // plugin already exists
 		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
 		if err != nil && !overwrite { // fail only if overwrite is not set
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
 		}
 		// existing plugin is valid, and overwrite is not set, check version
 		if !overwrite {
