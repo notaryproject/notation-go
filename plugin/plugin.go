@@ -85,7 +85,7 @@ func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	}
 	if !fi.Mode().IsRegular() {
 		// Ignore non-regular files.
-		return nil, fmt.Errorf("plugin instantiation failed because the executable file %s is not a regular file", path)
+		return nil, fmt.Errorf("plugin instantiation failed for the executable file %s: %w", path, ErrNotRegularFile)
 	}
 
 	// generate plugin
@@ -175,7 +175,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	data, err := json.Marshal(req)
 	if err != nil {
 		logger.Errorf("failed to marshal request: %+v", req)
-		return PluginUnknownError{
+		return &PluginUnknownError{
 			Msg:        fmt.Sprintf("failed to execute the %s command for %s plugin", req.Command(), pluginName),
 			InnerError: fmt.Errorf("failed to marshal request: %w", err)}
 	}

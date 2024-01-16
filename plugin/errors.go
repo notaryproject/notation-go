@@ -103,7 +103,7 @@ func (e PluginDirectryWalkError) Error() string {
 
 // Unwrap returns the inner error.
 func (e PluginDirectryWalkError) Unwrap() error {
-	return errors.Unwrap(e.Err)
+	return e.Err
 }
 
 // PluginExectableFileError is used when there is an issue with plugin
@@ -120,5 +120,5 @@ func (e PluginExectableFileError) Error() string {
 
 // Unwrap returns the inner error.
 func (e PluginExectableFileError) Unwrap() error {
-	return errors.Unwrap(e.Err)
+	return e.Err
 }
