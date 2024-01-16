@@ -62,6 +62,11 @@ func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 // List produces a list of the plugin names on the system.
 func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	var plugins []string
+	// check plugin directory exsitence
+	if _, err := fs.Stat(m.pluginFS, "."); errors.Is(err, os.ErrNotExist) {
+		return plugins, nil
+	}
+
 	if err := fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
