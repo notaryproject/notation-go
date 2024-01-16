@@ -194,7 +194,7 @@ func TestNewCLIPlugin_PathError(t *testing.T) {
 	})
 
 	t.Run("plugin is not a regular file", func(t *testing.T) {
-		expectedErrMsg := `plugin instantiation failed for the executable file ./testdata/plugins/badplugin/notation-badplugin: not regular file`
+		expectedErrMsg := "plugin executable file is not regular file"
 		p, err := NewCLIPlugin(ctx, "badplugin", "./testdata/plugins/badplugin/notation-badplugin")
 		if err.Error() != expectedErrMsg {
 			t.Errorf("NewCLIPlugin() error = %v, want %v", err, expectedErrMsg)

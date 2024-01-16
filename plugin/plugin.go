@@ -81,11 +81,11 @@ func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	if err != nil {
 		// Ignore any file which we cannot Stat
 		// (e.g. due to permissions or anything else).
-		return nil, fmt.Errorf("plugin instantiation failed because the executable file is either not found or inaccessible: %w", err)
+		return nil, fmt.Errorf("plugin executable file is either not found or inaccessible: %w", err)
 	}
 	if !fi.Mode().IsRegular() {
 		// Ignore non-regular files.
-		return nil, fmt.Errorf("plugin instantiation failed for the executable file %s: %w", path, ErrNotRegularFile)
+		return nil, ErrNotRegularFile
 	}
 
 	// generate plugin

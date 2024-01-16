@@ -20,7 +20,7 @@ import "errors"
 var ErrNotCompliant = errors.New("plugin not compliant")
 
 // ErrNotRegularFile is returned when the plugin file is not an regular file.
-var ErrNotRegularFile = errors.New("not regular file")
+var ErrNotRegularFile = errors.New("plugin executable file is not regular file")
 
 // PluginDowngradeError is returned when installing a plugin with version
 // lower than the exisiting plugin version.
