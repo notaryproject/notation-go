@@ -175,10 +175,8 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
-		logger.Errorf("Failed to marshal request: %+v", req)
-		return &PluginUnknownError{
-			Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s", req.Command(), pluginName),
-			InnerError: fmt.Errorf("failed to marshal request: %w", err)}
+		logger.Errorf("Failed to marshal request object: %+v", req)
+		return fmt.Errorf("failed to marshal request object: %w", err)
 	}
 
 	logger.Debugf("Plugin %s request: %s", req.Command(), string(data))

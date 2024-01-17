@@ -50,26 +50,6 @@ func (e InstallEqualVersionError) Error() string {
 	return "installing plugin with version equal to the existing plugin version"
 }
 
-// PluginUnknownError is used when there is an issue executing a plugin
-// and should be reported to Notation developers.
-type PluginUnknownError struct {
-	Msg        string
-	InnerError error
-}
-
-// Error returns the error message.
-func (e PluginUnknownError) Error() string {
-	if e.Msg != "" {
-		return e.Msg
-	}
-	return e.InnerError.Error()
-}
-
-// Unwrap returns the inner error.
-func (e PluginUnknownError) Unwrap() error {
-	return e.InnerError
-}
-
 // PluginMalformedError is used when there is an issue with plugin and
 // should be fixed by plugin developers.
 type PluginMalformedError struct {
