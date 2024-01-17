@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
@@ -195,7 +196,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 			jsonErr := json.Unmarshal(stderr, &re)
 			if jsonErr != nil {
 				return &PluginMalformedError{
-					Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s: the plugin isn't compliant with Notation plugin requirement: %s", req.Command(), pluginName, string(stderr)),
+					Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s: %s", req.Command(), pluginName, strings.TrimSuffix(string(stderr), "\n")),
 					InnerError: jsonErr,
 				}
 			}
