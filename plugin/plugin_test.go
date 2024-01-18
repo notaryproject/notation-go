@@ -55,7 +55,7 @@ func TestGetMetadata(t *testing.T) {
 	t.Run("plugin cause system error", func(t *testing.T) {
 		exitErr := errors.New("system error")
 		stderr := []byte("")
-		expectedErrMsg := "failed to execute the get-plugin-metadata command for plugin test-plugin: system error"
+		expectedErrMsg := "failed to execute the get-plugin-metadata command for plugin test-plugin"
 		plugin := CLIPlugin{name: "test-plugin"}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
