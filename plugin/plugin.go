@@ -209,7 +209,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// deserialize response
 	if err = json.Unmarshal(stdout, resp); err != nil {
 		return &PluginMalformedError{
-			Msg:        fmt.Sprintf("plugin %s response for %s command has format error", pluginName, req.Command()),
+			Msg:        fmt.Sprintf("failed to unmarshal the response of %s command for plugin %s: format error", req.Command(), pluginName),
 			InnerError: err,
 		}
 	}
