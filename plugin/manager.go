@@ -125,7 +125,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	if installOpts.PluginPath == "" {
 		return nil, nil, errors.New("plugin source path cannot be empty")
 	}
-	logger.Debugf("Installing plugin from plugin path %s", installOpts.PluginPath)
+	logger.Debugf("Installing plugin from path %s", installOpts.PluginPath)
 	var installFromNonDir bool
 	pluginExecutableFile, pluginName, err := parsePluginFromDir(ctx, installOpts.PluginPath)
 	if err != nil {
