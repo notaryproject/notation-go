@@ -188,7 +188,10 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 		if len(stderr) == 0 {
 			// if stderr is empty, it is possible that the plugin is not
 			// running properly.
-			return PluginExecutableFileError(fmt.Errorf("failed to execute the %s command for plugin %s: %w", req.Command(), pluginName, err))
+			return &PluginExecutableFileError{
+				Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s", req.Command(), pluginName),
+				InnerError: err,
+			}
 		} else {
 			var re proto.RequestError
 			jsonErr := json.Unmarshal(stderr, &re)
@@ -206,7 +209,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req proto.Re
 	// deserialize response
 	if err = json.Unmarshal(stdout, resp); err != nil {
 		return &PluginMalformedError{
-			Msg:        fmt.Sprintf("plugin %s response for %s command isn't compliant with Notation plugin requirement: %s", pluginName, req.Command(), string(stdout)),
+			Msg:        fmt.Sprintf("plugin %s response for %s command has format error", pluginName, req.Command()),
 			InnerError: err,
 		}
 	}

@@ -77,4 +77,20 @@ type PluginDirectoryWalkError error
 // PluginExecutableFileError is used when there is an issue with plugin
 // executable file and should suggest user to check the existence, permission
 // and platform/arch compatibility of plugin.
-type PluginExecutableFileError error
+type PluginExecutableFileError struct {
+	Msg        string
+	InnerError error
+}
+
+// Error returns the error message.
+func (e PluginExecutableFileError) Error() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+	return e.InnerError.Error()
+}
+
+// Unwrap returns the inner error.
+func (e PluginExecutableFileError) Unwrap() error {
+	return e.InnerError
+}
