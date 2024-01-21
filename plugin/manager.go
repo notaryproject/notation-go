@@ -62,8 +62,11 @@ func (m *CLIManager) Get(ctx context.Context, name string) (plugin.Plugin, error
 // List produces a list of the plugin names on the system.
 func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	var plugins []string
-	fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		if dir == "." {
@@ -79,7 +82,9 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		// add plugin name
 		plugins = append(plugins, d.Name())
 		return fs.SkipDir
-	})
+	}); err != nil {
+		return nil, PluginDirectoryWalkError(fmt.Errorf("failed to list plugin: %w", err))
+	}
 	return plugins, nil
 }
 
@@ -120,7 +125,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	if installOpts.PluginPath == "" {
 		return nil, nil, errors.New("plugin source path cannot be empty")
 	}
-	logger.Debugf("Installing plugin from plugin path %s", installOpts.PluginPath)
+	logger.Debugf("Installing plugin from path %s", installOpts.PluginPath)
 	var installFromNonDir bool
 	pluginExecutableFile, pluginName, err := parsePluginFromDir(ctx, installOpts.PluginPath)
 	if err != nil {
@@ -146,7 +151,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	// validate and get new plugin metadata
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginExecutableFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
+		return nil, nil, err
 	}
 	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 	if err != nil {
