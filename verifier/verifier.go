@@ -28,7 +28,6 @@ import (
 	"github.com/notaryproject/notation-core-go/revocation"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-core-go/timestamp"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
@@ -41,6 +40,7 @@ import (
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
+	"github.com/notaryproject/tspclient-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/mod/semver"
 	"oras.land/oras-go/v2/content"
@@ -544,7 +544,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 				}
 			}
-			signedToken, err := timestamp.ParseSignedToken(signerInfo.UnsignedAttributes.TimestampSignature)
+			signedToken, err := tspclient.ParseSignedToken(ctx, signerInfo.UnsignedAttributes.TimestampSignature)
 			if err != nil {
 				return &notation.ValidationResult{
 					Error:  err,
@@ -559,7 +559,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			opts := x509.VerifyOptions{
 				Roots: roots,
 			}
-			if _, err := signedToken.Verify(opts); err != nil {
+			if _, err := signedToken.Verify(ctx, opts); err != nil {
 				return &notation.ValidationResult{
 					Error:  err,
 					Type:   trustpolicy.TypeAuthenticTimestamp,

@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/notaryproject/notation-core-go v1.0.1
+	github.com/notaryproject/tspclient-go v0.0.0-20240122083733-a373599795a2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/veraison/go-cose v1.1.0
@@ -23,4 +24,6 @@ require (
 	golang.org/x/sync v0.4.0 // indirect
 )
 
-replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240115065858-01e426868efb
+replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240123043947-8ad3eab6de2e
+
+replace github.com/notaryproject/tspclient-go => github.com/Two-Hearts/tspclient-go v0.0.0-20240122092120-2bc44d93e3de
