@@ -157,6 +157,12 @@ func (p *CLIPlugin) VerifySignature(ctx context.Context, req *plugin.VerifySigna
 func run(ctx context.Context, pluginName string, pluginPath string, req plugin.Request, resp interface{}) error {
 	logger := log.GetLogger(ctx)
 
+	// validate request
+	if err := req.Validate(); err != nil {
+		logger.Errorf("validation failed for request object: %+v", req)
+		return fmt.Errorf("validation failed for request object: %w", err)
+	}
+
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
