@@ -13,7 +13,7 @@
 
 // Package signer provides notation signing functionality. It implements the
 // notation.Signer interface by providing builtinSigner for local signing and
-// pluginSigner for remote signing.
+// PluginSigner for remote signing.
 package signer
 
 import (
@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -145,4 +146,23 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 
 	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
 	return sig, &envContent.SignerInfo, nil
+}
+
+// SignBlob signs the artifact described by its descriptor and returns the
+// marshalled envelope.
+func (s *genericSigner) SignBlob(ctx context.Context, reader io.Reader, opts notation.SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
+	logger := log.GetLogger(ctx)
+	logger.Debugf("Generic blob signing for signature media type %v", opts.SignatureMediaType)
+
+	ks, err := s.KeySpec()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	desc, err := getDescriptor(reader, opts.ContentMediaType, ks)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return s.Sign(ctx, desc, opts.SignerSignOptions)
 }

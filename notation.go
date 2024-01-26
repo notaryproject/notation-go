@@ -22,8 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"strings"
 	"time"
+
+	orasRegistry "oras.land/oras-go/v2/registry"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go/internal/envelope"
@@ -32,7 +36,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	orasRegistry "oras.land/oras-go/v2/registry"
 )
 
 var errDoneVerification = errors.New("done verification")
@@ -65,6 +68,12 @@ type Signer interface {
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
+type BlobSigner interface {
+	// SignBlob signs the artifact described by its descriptor,
+	// and returns the signature and SignerInfo.
+	SignBlob(ctx context.Context, reader io.Reader, opts SignBlobOptions) ([]byte, *signature.SignerInfo, error)
+}
+
 // signerAnnotation facilitates return of manifest annotations by signers
 type signerAnnotation interface {
 	// PluginAnnotations returns signature manifest annotations returned from
@@ -85,21 +94,25 @@ type SignOptions struct {
 	UserMetadata map[string]string
 }
 
+type SignBlobOptions struct {
+	SignerSignOptions
+
+	ContentMediaType string
+
+	// UserMetadata contains key-value pairs that are added to the signature
+	// payload
+	UserMetadata map[string]string
+}
+
 // Sign signs the artifact and push the signature to the Repository.
-// The descriptor of the sign content is returned upon sucessful signing.
+// The descriptor of the sign content is returned upon successful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
-	// sanity check
-	if signer == nil {
-		return ocispec.Descriptor{}, errors.New("signer cannot be nil")
+	// sanity checks
+	if err := validate(signer, signOpts.SignerSignOptions); err != nil {
+		return ocispec.Descriptor{}, err
 	}
 	if repo == nil {
 		return ocispec.Descriptor{}, errors.New("repo cannot be nil")
-	}
-	if signOpts.ExpiryDuration < 0 {
-		return ocispec.Descriptor{}, fmt.Errorf("expiry duration cannot be a negative value")
-	}
-	if signOpts.ExpiryDuration%time.Second != 0 {
-		return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granularity of seconds")
 	}
 
 	logger := log.GetLogger(ctx)
@@ -150,6 +163,44 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	}
 
 	return targetDesc, nil
+}
+
+func SignBlob(ctx context.Context, signer BlobSigner, reader io.Reader, signOpts SignBlobOptions) ([]byte, error) {
+	// sanity checks
+	if err := validate(signer, signOpts.SignerSignOptions); err != nil {
+		return nil, err
+	}
+	if reader == nil {
+		return nil, errors.New("reader cannot be nil")
+	}
+	if signOpts.ContentMediaType != "" {
+		if _, _, err := mime.ParseMediaType(signOpts.ContentMediaType); err != nil {
+			return nil, fmt.Errorf("invalid content media-type '%s': %v", signOpts.ContentMediaType, err)
+		}
+	}
+
+	sig, _, err := signer.SignBlob(ctx, reader, signOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return sig, nil
+}
+
+func validate(signer any, signOpts SignerSignOptions) error {
+	if signer == nil {
+		return errors.New("signer cannot be nil")
+	}
+	if signOpts.ExpiryDuration < 0 {
+		return fmt.Errorf("expiry duration cannot be a negative value")
+	}
+	if signOpts.ExpiryDuration%time.Second != 0 {
+		return fmt.Errorf("expiry duration supports minimum granularity of seconds")
+	}
+	if _, _, err := mime.ParseMediaType(signOpts.SignatureMediaType); err != nil {
+		return fmt.Errorf("invalid signature media-type '%s': %v", signOpts.SignatureMediaType, err)
+	}
+	return nil
 }
 
 func addUserMetadataToDescriptor(ctx context.Context, desc ocispec.Descriptor, userMetadata map[string]string) (ocispec.Descriptor, error) {

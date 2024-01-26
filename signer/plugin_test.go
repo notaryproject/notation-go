@@ -136,7 +136,7 @@ func (p *mockPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateS
 
 // GenerateEnvelope generates the Envelope with signature based on the request.
 func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
-	internalPluginSigner := pluginSigner{
+	internalPluginSigner := PluginSigner{
 		plugin: newMockPlugin(p.key, p.certs, p.keySpec),
 	}
 
@@ -214,7 +214,7 @@ func TestNewFromPluginFailed(t *testing.T) {
 }
 
 func TestSigner_Sign_EnvelopeNotSupported(t *testing.T) {
-	signer := pluginSigner{
+	signer := PluginSigner{
 		plugin: newMockPlugin(nil, nil, signature.KeySpec{Type: signature.KeyTypeRSA, Size: 2048}),
 	}
 	opts := notation.SignerSignOptions{SignatureMediaType: "unsupported"}
@@ -225,7 +225,7 @@ func TestSigner_Sign_DescribeKeyIDMismatch(t *testing.T) {
 	respKeyId := ""
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		t.Run(fmt.Sprintf("envelopeType=%v", envelopeType), func(t *testing.T) {
-			signer := pluginSigner{
+			signer := PluginSigner{
 				plugin: newMockPlugin(nil, nil, signature.KeySpec{}),
 				keyID:  "1",
 			}
@@ -238,7 +238,7 @@ func TestSigner_Sign_ExpiryInValid(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		t.Run(fmt.Sprintf("envelopeType=%v", envelopeType), func(t *testing.T) {
 			ks, _ := signature.ExtractKeySpec(keyCertPairCollections[0].certs[0])
-			signer := pluginSigner{
+			signer := PluginSigner{
 				plugin: newMockPlugin(keyCertPairCollections[0].key, keyCertPairCollections[0].certs, ks),
 			}
 			_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, notation.SignerSignOptions{ExpiryDuration: -24 * time.Hour, SignatureMediaType: envelopeType})
@@ -255,7 +255,7 @@ func TestSigner_Sign_InvalidCertChain(t *testing.T) {
 		t.Run(fmt.Sprintf("envelopeType=%v", envelopeType), func(t *testing.T) {
 			mockPlugin := newMockPlugin(defaultKeyCert.key, defaultKeyCert.certs, defaultKeySpec)
 			mockPlugin.invalidCertChain = true
-			signer := pluginSigner{
+			signer := PluginSigner{
 				plugin: mockPlugin,
 			}
 			testSignerError(t, signer, "x509: malformed certificate", notation.SignerSignOptions{SignatureMediaType: envelopeType})
@@ -269,7 +269,7 @@ func TestSigner_Sign_InvalidDescriptor(t *testing.T) {
 			mockPlugin := newMockPlugin(defaultKeyCert.key, defaultKeyCert.certs, defaultKeySpec)
 			mockPlugin.wantEnvelope = true
 			mockPlugin.invalidDescriptor = true
-			signer := pluginSigner{
+			signer := PluginSigner{
 				plugin: mockPlugin,
 			}
 			testSignerError(t, signer, "during signing, following unknown attributes were added to subject descriptor: [\"additional_field\"]", notation.SignerSignOptions{SignatureMediaType: envelopeType})
@@ -282,7 +282,7 @@ func TestPluginSigner_Sign_SignatureVerifyError(t *testing.T) {
 		t.Run(fmt.Sprintf("envelopeType=%v", envelopeType), func(t *testing.T) {
 			mockPlugin := newMockPlugin(defaultKeyCert.key, defaultKeyCert.certs, defaultKeySpec)
 			mockPlugin.invalidSig = true
-			signer := pluginSigner{
+			signer := PluginSigner{
 				plugin: mockPlugin,
 			}
 			testSignerError(t, signer, "signature is invalid", notation.SignerSignOptions{SignatureMediaType: envelopeType})
@@ -295,7 +295,7 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
-				pluginSigner := pluginSigner{
+				pluginSigner := PluginSigner{
 					plugin: newMockPlugin(keyCert.key, keyCert.certs, keySpec),
 				}
 				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
@@ -311,7 +311,7 @@ func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
 				wantEnvelope: true,
 				failEnvelope: true,
 			}
-			signer := pluginSigner{
+			signer := PluginSigner{
 				plugin: p,
 			}
 			testSignerError(t, signer, "failed GenerateEnvelope", notation.SignerSignOptions{SignatureMediaType: envelopeType})
@@ -326,7 +326,7 @@ func TestPluginSigner_SignEnvelope_Valid(t *testing.T) {
 				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
 				mockPlugin := newMockPlugin(keyCert.key, keyCert.certs, keySpec)
 				mockPlugin.wantEnvelope = true
-				pluginSigner := pluginSigner{
+				pluginSigner := PluginSigner{
 					plugin: mockPlugin,
 				}
 				basicSignTest(t, &pluginSigner, envelopeType, &validMetadata)
@@ -341,7 +341,7 @@ func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
 			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
 				annts := map[string]string{"key": "value"}
-				pluginSigner := pluginSigner{
+				pluginSigner := PluginSigner{
 					plugin: &mockPlugin{
 						key:          keyCert.key,
 						certs:        keyCert.certs,
@@ -360,7 +360,7 @@ func TestPluginSigner_SignWithAnnotations_Valid(t *testing.T) {
 	}
 }
 
-func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts notation.SignerSignOptions) {
+func testSignerError(t *testing.T, signer PluginSigner, wantEr string, opts notation.SignerSignOptions) {
 	t.Helper()
 	_, _, err := signer.Sign(context.Background(), ocispec.Descriptor{}, opts)
 	if err == nil || !strings.Contains(err.Error(), wantEr) {
@@ -368,7 +368,7 @@ func testSignerError(t *testing.T, signer pluginSigner, wantEr string, opts nota
 	}
 }
 
-func basicSignTest(t *testing.T, pluginSigner *pluginSigner, envelopeType string, metadata *proto.GetMetadataResponse) {
+func basicSignTest(t *testing.T, pluginSigner *PluginSigner, envelopeType string, metadata *proto.GetMetadataResponse) {
 	validSignOpts.SignatureMediaType = envelopeType
 	data, signerInfo, err := pluginSigner.Sign(context.Background(), validSignDescriptor, validSignOpts)
 	if err != nil {
