@@ -43,7 +43,7 @@ type genericSigner struct {
 }
 
 // New returns a builtinSigner given key and cert chain
-func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
+func New(key crypto.PrivateKey, certChain []*x509.Certificate) (*genericSigner, error) {
 	localSigner, err := signature.NewLocalSigner(certChain, key)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer,
 }
 
 // NewFromFiles returns a builtinSigner given key and certChain paths.
-func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
+func NewFromFiles(keyPath, certChainPath string) (*genericSigner, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
 	}
