@@ -200,7 +200,7 @@ func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string
 	}
 	resp, err := s.plugin.DescribeKey(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("describe-key command failed: %w", err)
+		return nil, err
 	}
 
 	return resp, nil
@@ -301,7 +301,7 @@ func (s *pluginPrimitiveSigner) Sign(payload []byte) ([]byte, []*x509.Certificat
 
 	resp, err := s.plugin.GenerateSignature(s.ctx, req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generate-signature command failed: %w", err)
+		return nil, nil, err
 	}
 
 	// Check keyID is honored.
