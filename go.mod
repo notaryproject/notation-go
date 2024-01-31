@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/notaryproject/notation-core-go v1.0.2
-	github.com/notaryproject/notation-plugin-framework-go v0.0.0-20240123020259-4df400ed5b01
+	github.com/notaryproject/notation-plugin-framework-go v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/veraison/go-cose v1.1.0
