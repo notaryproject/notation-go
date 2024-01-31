@@ -18,10 +18,14 @@ package proto
 import "github.com/notaryproject/notation-plugin-framework-go/plugin"
 
 // Prefix is the prefix required on all plugin binary names.
-const Prefix = "notation-"
+// Deprecated: Prefix exists for historical compatibility and should not be used.
+// To access Prefix, use the notation-plugin-framework-go's plugin.BinaryPrefix type.
+const Prefix = plugin.BinaryPrefix
 
 // ContractVersion is the <major>.<minor> version of the plugin contract.
-const ContractVersion = "1.0"
+// Deprecated: ContractVersion exists for historical compatibility and should not be used.
+// To access ContractVersion, use the notation-plugin-framework-go's plugin.ContractVersion type.
+const ContractVersion = plugin.ContractVersion
 
 // Command is a CLI command available in the plugin contract.
 type Command = plugin.Command

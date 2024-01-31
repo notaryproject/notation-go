@@ -107,7 +107,7 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *plugin.GetMetadataRequ
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) DescribeKey(ctx context.Context, req *plugin.DescribeKeyRequest) (*plugin.DescribeKeyResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
 	var resp plugin.DescribeKeyResponse
@@ -120,7 +120,7 @@ func (p *CLIPlugin) DescribeKey(ctx context.Context, req *plugin.DescribeKeyRequ
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *plugin.GenerateSignatureRequest) (*plugin.GenerateSignatureResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
 	var resp plugin.GenerateSignatureResponse
@@ -133,7 +133,7 @@ func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *plugin.GenerateS
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *plugin.GenerateEnvelopeRequest) (*plugin.GenerateEnvelopeResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
 	var resp plugin.GenerateEnvelopeResponse
@@ -146,7 +146,7 @@ func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *plugin.GenerateEn
 // if ContractVersion is not set, it will be set by the function.
 func (p *CLIPlugin) VerifySignature(ctx context.Context, req *plugin.VerifySignatureRequest) (*plugin.VerifySignatureResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
 	var resp plugin.VerifySignatureResponse
@@ -207,13 +207,13 @@ type commander interface {
 	// Output runs the command, passing req to the stdin.
 	// It only returns an error if the binary can't be executed.
 	// Returns stdout if err is nil, stderr if err is not nil.
-	Output(ctx context.Context, path string, command proto.Command, req []byte) (stdout []byte, stderr []byte, err error)
+	Output(ctx context.Context, path string, command plugin.Command, req []byte) (stdout []byte, stderr []byte, err error)
 }
 
 // execCommander implements the commander interface using exec.Command().
 type execCommander struct{}
 
-func (c execCommander) Output(ctx context.Context, name string, command proto.Command, req []byte) ([]byte, []byte, error) {
+func (c execCommander) Output(ctx context.Context, name string, command plugin.Command, req []byte) ([]byte, []byte, error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
@@ -246,10 +246,10 @@ func validate(metadata *plugin.GetMetadataResponse) error {
 	if len(metadata.SupportedContractVersions) == 0 {
 		return errors.New("supported contract versions not specified")
 	}
-	if !slices.Contains(metadata.SupportedContractVersions, proto.ContractVersion) {
+	if !slices.Contains(metadata.SupportedContractVersions, plugin.ContractVersion) {
 		return fmt.Errorf(
 			"contract version %q is not in the list of the plugin supported versions %v",
-			proto.ContractVersion, metadata.SupportedContractVersions,
+			plugin.ContractVersion, metadata.SupportedContractVersions,
 		)
 	}
 	return nil

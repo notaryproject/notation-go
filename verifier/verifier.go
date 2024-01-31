@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package Verifier provides an implementation of notation.Verifier interface
+// Package verifier provides an implementation of notation.Verifier interface
 package verifier
 
 import (
@@ -40,7 +40,6 @@ import (
 	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
@@ -243,13 +242,13 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		for _, capability := range metadata.Capabilities {
-			if capability == proto.CapabilityRevocationCheckVerifier || capability == proto.CapabilityTrustedIdentityVerifier {
+			if capability == pluginframework.CapabilityRevocationCheckVerifier || capability == pluginframework.CapabilityTrustedIdentityVerifier {
 				pluginCapabilities = append(pluginCapabilities, capability)
 			}
 		}
 
 		if len(pluginCapabilities) == 0 {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, proto.CapabilityTrustedIdentityVerifier, proto.CapabilityRevocationCheckVerifier)}
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, pluginframework.CapabilityTrustedIdentityVerifier, pluginframework.CapabilityRevocationCheckVerifier)}
 		}
 	}
 
@@ -264,7 +263,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify x509 trusted identity based authenticity (only if notation needs
 	// to perform this verification rather than a plugin)
-	if !slices.Contains(pluginCapabilities, proto.CapabilityTrustedIdentityVerifier) {
+	if !slices.Contains(pluginCapabilities, pluginframework.CapabilityTrustedIdentityVerifier) {
 		logger.Debug("Validating trust identity")
 		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
 		if err != nil {
@@ -298,7 +297,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// check if we need to bypass the revocation check, since revocation can be
 	// skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
-		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
+		!slices.Contains(pluginCapabilities, pluginframework.CapabilityRevocationCheckVerifier) {
 
 		logger.Debug("Validating revocation")
 		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
@@ -315,7 +314,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured
 			// to skip it
-			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == proto.CapabilityRevocationCheckVerifier {
+			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == pluginframework.CapabilityRevocationCheckVerifier {
 				logger.Debugf("Skipping the %v validation", pc)
 				continue
 			}
@@ -355,7 +354,7 @@ func processPluginResponse(logger log.Logger, capabilitiesToVerify []pluginframe
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
 		}
 		switch capability {
-		case proto.CapabilityTrustedIdentityVerifier:
+		case pluginframework.CapabilityTrustedIdentityVerifier:
 			if !pluginResult.Success {
 				// find the Authenticity VerificationResult that we already
 				// created during x509 trust store verification
@@ -373,7 +372,7 @@ func processPluginResponse(logger log.Logger, capabilitiesToVerify []pluginframe
 					return authenticityResult.Error
 				}
 			}
-		case proto.CapabilityRevocationCheckVerifier:
+		case pluginframework.CapabilityRevocationCheckVerifier:
 			var revocationResult *notation.ValidationResult
 			if !pluginResult.Success {
 				revocationResult = &notation.ValidationResult{
