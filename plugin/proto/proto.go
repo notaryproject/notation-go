@@ -15,64 +15,72 @@
 // and notation external plugin.
 package proto
 
+import "github.com/notaryproject/notation-plugin-framework-go/plugin"
+
 // Prefix is the prefix required on all plugin binary names.
-const Prefix = "notation-"
+// Deprecated: Prefix exists for historical compatibility and should not be used.
+// To access Prefix, use the notation-plugin-framework-go's plugin.BinaryPrefix type.
+const Prefix = plugin.BinaryPrefix
 
 // ContractVersion is the <major>.<minor> version of the plugin contract.
-const ContractVersion = "1.0"
+// Deprecated: ContractVersion exists for historical compatibility and should not be used.
+// To access ContractVersion, use the notation-plugin-framework-go's plugin.ContractVersion type.
+const ContractVersion = plugin.ContractVersion
 
 // Command is a CLI command available in the plugin contract.
-type Command string
+type Command = plugin.Command
 
 // Request defines a plugin request, which is always associated to a command.
-type Request interface {
-	Command() Command
-}
+// Deprecated: Request exists for historical compatibility and should not be used.
+// To access Request, use the notation-plugin-framework-go's plugin.Request type.
+type Request = plugin.Request
 
 const (
 	// CommandGetMetadata is the name of the plugin command
 	// which must be supported by every plugin and returns the
 	// plugin metadata.
-	CommandGetMetadata Command = "get-plugin-metadata"
+	CommandGetMetadata = plugin.CommandGetMetadata
 
 	// CommandDescribeKey is the name of the plugin command
 	// which must be supported by every plugin that has the
 	// SIGNATURE_GENERATOR.RAW capability.
-	CommandDescribeKey Command = "describe-key"
+	CommandDescribeKey = plugin.CommandDescribeKey
 
 	// CommandGenerateSignature is the name of the plugin command
 	// which must be supported by every plugin that has the
 	// SIGNATURE_GENERATOR.RAW capability.
-	CommandGenerateSignature Command = "generate-signature"
+	CommandGenerateSignature = plugin.CommandGenerateSignature
 
 	// CommandGenerateEnvelope is the name of the plugin command
 	// which must be supported by every plugin that has the
 	// SIGNATURE_GENERATOR.ENVELOPE capability.
-	CommandGenerateEnvelope Command = "generate-envelope"
+	CommandGenerateEnvelope = plugin.CommandGenerateEnvelope
 
 	// CommandVerifySignature is the name of the plugin command
 	// which must be supported by every plugin that has
 	// any SIGNATURE_VERIFIER.* capability
-	CommandVerifySignature Command = "verify-signature"
+	CommandVerifySignature = plugin.CommandVerifySignature
 )
 
 // Capability is a feature available in the plugin contract.
-type Capability string
+// Deprecated: Capability exists for historical compatibility and should not be used.
+// To access Capability, use the notation-plugin-framework-go's plugin.Capability type.
+type Capability = plugin.Capability
 
 const (
 	// CapabilitySignatureGenerator is the name of the capability
 	// for a plugin to support generating raw signatures.
-	CapabilitySignatureGenerator Capability = "SIGNATURE_GENERATOR.RAW"
+	CapabilitySignatureGenerator = plugin.CapabilitySignatureGenerator
 
 	// CapabilityEnvelopeGenerator is the name of the capability
 	// for a plugin to support generating envelope signatures.
-	CapabilityEnvelopeGenerator Capability = "SIGNATURE_GENERATOR.ENVELOPE"
+	CapabilityEnvelopeGenerator = plugin.CapabilityEnvelopeGenerator
 
 	// CapabilityTrustedIdentityVerifier is the name of the
 	// capability for a plugin to support verifying trusted identities.
-	CapabilityTrustedIdentityVerifier Capability = "SIGNATURE_VERIFIER.TRUSTED_IDENTITY"
+	CapabilityTrustedIdentityVerifier = plugin.CapabilityTrustedIdentityVerifier
 
 	// CapabilityRevocationCheckVerifier is the name of the
 	// capability for a plugin to support verifying revocation checks.
-	CapabilityRevocationCheckVerifier Capability = "SIGNATURE_VERIFIER.REVOCATION_CHECK"
+	CapabilityRevocationCheckVerifier = plugin.CapabilityRevocationCheckVerifier
 )
