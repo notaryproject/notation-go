@@ -375,17 +375,17 @@ func TestPushSignature(t *testing.T) {
 		expectManifest ocispec.Descriptor
 		expectErr      bool
 	}{
-		// {
-		// 	name:      "failed to upload signature",
-		// 	expectErr: true,
-		// 	args: args{
-		// 		reference:          referenceWithInvalidHost,
-		// 		signatureMediaType: joseTag,
-		// 		signature:          signature,
-		// 		ctx:                context.Background(),
-		// 		remoteClient:       mockRemoteClient{},
-		// 	},
-		// },
+		{
+			name:      "failed to upload signature",
+			expectErr: true,
+			args: args{
+				reference:          referenceWithInvalidHost,
+				signatureMediaType: joseTag,
+				signature:          signature,
+				ctx:                context.Background(),
+				remoteClient:       mockRemoteClient{},
+			},
+		},
 		{
 			name:      "successfully uploaded signature manifest",
 			expectErr: false,
