@@ -62,7 +62,7 @@ const (
 	{
 		"Manifests": [
 			{	
-				"MediaType": "application/vnd.oci.artifact.manifest.v1+json",
+				"MediaType": "application/vnd.oci.image.manifest.v1+json",
 				"Digest": "sha256:cf2a0974295fc17b8351ef52abae2f40212e20e0359ea980ec5597bb0315347b",
 				"Size": 620,
 				"ArtifactType": "application/vnd.cncf.notary.signature"
@@ -165,16 +165,34 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 	case "/v2/test/referrers/":
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(bytes.NewReader([]byte(validPage))),
+			Header: http.Header{
+				"Content-Type": []string{ocispec.MediaTypeImageIndex},
+			},
+			Body: io.NopCloser(bytes.NewReader([]byte(validPage))),
 			Request: &http.Request{
 				Method: "GET",
 				URL:    &url.URL{Path: "/v2/test/referrers/"},
 			},
 		}, nil
+	case "/v2/test/referrers/" + validDigestWithAlgo:
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header: http.Header{
+				"Content-Type": []string{ocispec.MediaTypeImageIndex},
+			},
+			Body: io.NopCloser(bytes.NewReader([]byte(validPage))),
+			Request: &http.Request{
+				Method: "GET",
+				URL:    &url.URL{Path: "/v2/test/referrers/" + validDigestWithAlgo},
+			},
+		}, nil
 	case "/v2/test/referrers/" + zeroDigest:
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(bytes.NewReader([]byte(validPageImage))),
+			Header: http.Header{
+				"Content-Type": []string{ocispec.MediaTypeImageIndex},
+			},
+			Body: io.NopCloser(bytes.NewReader([]byte(validPageImage))),
 			Request: &http.Request{
 				Method: "GET",
 				URL:    &url.URL{Path: "/v2/test/referrers/" + zeroDigest},
@@ -188,13 +206,15 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 	default:
 		_, digest, found := strings.Cut(req.URL.Path, "/v2/test/manifests/")
 		if found && !slices.Contains(validDigestWithAlgoSlice, digest) {
-			return &http.Response{
+			resp := &http.Response{
 				StatusCode: http.StatusCreated,
 				Body:       io.NopCloser(bytes.NewReader([]byte(msg))),
-				Header: map[string][]string{
-					"Content-Type": {joseTag},
+				Header: http.Header{
+					"Content-Type": []string{joseTag},
+					"Oci-Subject":  []string{validDigestWithAlgo},
 				},
-			}, nil
+			}
+			return resp, nil
 		}
 		return &http.Response{}, fmt.Errorf(errMsg)
 	}
@@ -307,16 +327,24 @@ func TestListSignatures(t *testing.T) {
 				reference:    validReference,
 				remoteClient: mockRemoteClient{},
 				plainHttp:    false,
+				artifactManifestDesc: ocispec.Descriptor{
+					MediaType: "application/vnd.oci.image.manifest.v1+json",
+					Digest:    validDigestWithAlgo,
+					Size:      481,
+				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			args := tt.args
-			ref, _ := registry.ParseReference(args.reference)
+			ref, err := registry.ParseReference(args.reference)
+			if err != nil {
+				t.Fatal(err)
+			}
 			client := newRepositoryClient(args.remoteClient, ref, args.plainHttp)
 
-			err := client.ListSignatures(args.ctx, args.artifactManifestDesc, func(signatureManifests []ocispec.Descriptor) error {
+			err = client.ListSignatures(args.ctx, args.artifactManifestDesc, func(signatureManifests []ocispec.Descriptor) error {
 				if len(signatureManifests) != 1 {
 					return fmt.Errorf("length of signatureManifests expected 1, got %d", len(signatureManifests))
 				}
@@ -367,6 +395,11 @@ func TestPushSignature(t *testing.T) {
 				signature:          signature,
 				ctx:                context.Background(),
 				remoteClient:       mockRemoteClient{},
+				subjectManifest: ocispec.Descriptor{
+					MediaType: "application/vnd.oci.image.manifest.v1+json",
+					Digest:    validDigestWithAlgo,
+					Size:      481,
+				},
 				annotations: map[string]string{
 					envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
 				},

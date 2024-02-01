@@ -150,7 +150,7 @@ func TestVerifyTagReferenceFailed(t *testing.T) {
 	repo := mock.NewRepository()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
-	errorMessage := "invalid reference: invalid repository"
+	errorMessage := "invalid reference: invalid repository \"UPPERCASE/test\""
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
 	// mock the repository
