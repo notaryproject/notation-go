@@ -15,6 +15,7 @@ package signer
 
 import (
 	"context"
+	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -41,6 +42,12 @@ type PluginSigner struct {
 	keyID               string
 	pluginConfig        map[string]string
 	manifestAnnotations map[string]string
+}
+
+var algorithms = map[crypto.Hash]digest.Algorithm{
+	crypto.SHA256: digest.SHA256,
+	crypto.SHA384: digest.SHA384,
+	crypto.SHA512: digest.SHA512,
 }
 
 // NewFromPlugin creates a notation.Signer that signs artifacts and generates
@@ -246,7 +253,7 @@ func getDescriptor(reader io.Reader, mediaType string, ks signature.KeySpec) (oc
 
 	return ocispec.Descriptor{
 		MediaType: mediaType,
-		Digest:    digest.FromBytes(hash),
+		Digest:    digest.NewDigestFromBytes(algorithms[hashAlgo], hash),
 		Size:      bytes,
 	}, nil
 }
