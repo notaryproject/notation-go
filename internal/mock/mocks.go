@@ -18,8 +18,7 @@ import (
 	_ "embed"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -168,36 +167,36 @@ func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []
 }
 
 type PluginMock struct {
-	Metadata        proto.GetMetadataResponse
+	Metadata        plugin.GetMetadataResponse
 	ExecuteResponse interface{}
 	ExecuteError    error
 }
 
-func (p *PluginMock) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
+func (p *PluginMock) GetMetadata(ctx context.Context, req *plugin.GetMetadataRequest) (*plugin.GetMetadataResponse, error) {
 	return &p.Metadata, nil
 }
 
-func (p *PluginMock) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
-	if resp, ok := p.ExecuteResponse.(*proto.VerifySignatureResponse); ok {
+func (p *PluginMock) VerifySignature(ctx context.Context, req *plugin.VerifySignatureRequest) (*plugin.VerifySignatureResponse, error) {
+	if resp, ok := p.ExecuteResponse.(*plugin.VerifySignatureResponse); ok {
 		return resp, nil
 	}
 	return nil, p.ExecuteError
 }
 
-func (p *PluginMock) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
+func (p *PluginMock) DescribeKey(ctx context.Context, req *plugin.DescribeKeyRequest) (*plugin.DescribeKeyResponse, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (p *PluginMock) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
+func (p *PluginMock) GenerateSignature(ctx context.Context, req *plugin.GenerateSignatureRequest) (*plugin.GenerateSignatureResponse, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (p *PluginMock) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
+func (p *PluginMock) GenerateEnvelope(ctx context.Context, req *plugin.GenerateEnvelopeRequest) (*plugin.GenerateEnvelopeResponse, error) {
 	panic("not implemented") // TODO: Implement
 }
 
 type PluginManager struct {
-	PluginCapabilities          []proto.Capability
+	PluginCapabilities          []plugin.Capability
 	GetPluginError              error
 	PluginRunnerLoadError       error
 	PluginRunnerExecuteResponse interface{}
@@ -206,7 +205,7 @@ type PluginManager struct {
 
 func (pm PluginManager) Get(ctx context.Context, name string) (plugin.Plugin, error) {
 	return &PluginMock{
-		Metadata: proto.GetMetadataResponse{
+		Metadata: plugin.GetMetadataResponse{
 			Name:                      "plugin-name",
 			Description:               "for mocking in unit tests",
 			Version:                   "1.0.0",

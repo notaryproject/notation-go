@@ -21,14 +21,15 @@ import (
 	"fmt"
 	"time"
 
+	"oras.land/oras-go/v2/content"
+
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/log"
-	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"oras.land/oras-go/v2/content"
 )
 
 // pluginSigner signs artifacts and generates signatures.
@@ -68,7 +69,7 @@ func (s *pluginSigner) PluginAnnotations() map[string]string {
 func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Invoking plugin's get-plugin-metadata command")
-	req := &proto.GetMetadataRequest{
+	req := &plugin.GetMetadataRequest{
 		PluginConfig: s.mergeConfig(opts.PluginConfig),
 	}
 	metadata, err := s.plugin.GetMetadata(ctx, req)
@@ -77,15 +78,15 @@ func (s *pluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	}
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign artifact %v in signature media type %v", metadata.Name, metadata.Capabilities, desc.Digest, opts.SignatureMediaType)
-	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
+	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts, metadata)
-	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
+	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions, metadata *proto.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
+func (s *pluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions, metadata *plugin.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature by plugin")
 	config := s.mergeConfig(opts.PluginConfig)
@@ -127,7 +128,7 @@ func (s *pluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
 	// Execute plugin sign command.
-	req := &proto.GenerateEnvelopeRequest{
+	req := &plugin.GenerateEnvelopeRequest{
 		KeyID:                   s.keyID,
 		Payload:                 payloadBytes,
 		SignatureEnvelopeType:   opts.SignatureMediaType,
@@ -193,14 +194,14 @@ func (s *pluginSigner) mergeConfig(config map[string]string) map[string]string {
 	return c
 }
 
-func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string) (*proto.DescribeKeyResponse, error) {
-	req := &proto.DescribeKeyRequest{
+func (s *pluginSigner) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
+	req := &plugin.DescribeKeyRequest{
 		KeyID:        s.keyID,
 		PluginConfig: config,
 	}
 	resp, err := s.plugin.DescribeKey(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("describe-key command failed: %w", err)
+		return nil, err
 	}
 
 	return resp, nil
@@ -291,7 +292,7 @@ func (s *pluginPrimitiveSigner) Sign(payload []byte) ([]byte, []*x509.Certificat
 		return nil, nil, err
 	}
 
-	req := &proto.GenerateSignatureRequest{
+	req := &plugin.GenerateSignatureRequest{
 		KeyID:        s.keyID,
 		KeySpec:      keySpec,
 		Hash:         keySpecHash,
@@ -301,7 +302,7 @@ func (s *pluginPrimitiveSigner) Sign(payload []byte) ([]byte, []*x509.Certificat
 
 	resp, err := s.plugin.GenerateSignature(s.ctx, req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generate-signature command failed: %w", err)
+		return nil, nil, err
 	}
 
 	// Check keyID is honored.

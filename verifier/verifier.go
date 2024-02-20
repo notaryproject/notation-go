@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package Verifier provides an implementation of notation.Verifier interface
+// Package verifier provides an implementation of notation.Verifier interface
 package verifier
 
 import (
@@ -25,6 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/mod/semver"
+	"oras.land/oras-go/v2/content"
+
 	"github.com/notaryproject/notation-core-go/revocation"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
@@ -32,16 +35,15 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/pkix"
+	notationsemver "github.com/notaryproject/notation-go/internal/semver"
 	"github.com/notaryproject/notation-go/internal/slices"
 	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
+	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"golang.org/x/mod/semver"
-	"oras.land/oras-go/v2/content"
 )
 
 // verifier implements notation.Verifier and notation.verifySkipper
@@ -198,14 +200,14 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	}
 
 	// check if we need to verify using a plugin
-	var pluginCapabilities []proto.Capability
+	var pluginCapabilities []pluginframework.Capability
 	verificationPluginName, err := getVerificationPlugin(&outcome.EnvelopeContent.SignerInfo)
 	// use plugin, but getPluginName returns an error
 	if err != nil && err != errExtendedAttributeNotExist {
 		return err
 	}
 
-	var installedPlugin plugin.VerifyPlugin
+	var installedPlugin pluginframework.VerifyPlugin
 	if verificationPluginName != "" {
 		logger.Debugf("Finding verification plugin %s", verificationPluginName)
 		verificationPluginMinVersion, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
@@ -223,7 +225,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 		// filter the "verification" capabilities supported by the installed
 		// plugin
-		metadata, err := installedPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{PluginConfig: pluginConfig})
+		metadata, err := installedPlugin.GetMetadata(ctx, &pluginframework.GetMetadataRequest{PluginConfig: pluginConfig})
 		if err != nil {
 			return err
 		}
@@ -231,7 +233,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		pluginVersion := metadata.Version
 
 		//checking if the plugin version is in valid semver format
-		if !isVersionSemverValid(pluginVersion) {
+		if !notationsemver.IsValid(pluginVersion) {
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
 		}
 
@@ -240,13 +242,13 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		for _, capability := range metadata.Capabilities {
-			if capability == proto.CapabilityRevocationCheckVerifier || capability == proto.CapabilityTrustedIdentityVerifier {
+			if capability == pluginframework.CapabilityRevocationCheckVerifier || capability == pluginframework.CapabilityTrustedIdentityVerifier {
 				pluginCapabilities = append(pluginCapabilities, capability)
 			}
 		}
 
 		if len(pluginCapabilities) == 0 {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, proto.CapabilityTrustedIdentityVerifier, proto.CapabilityRevocationCheckVerifier)}
+			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, pluginframework.CapabilityTrustedIdentityVerifier, pluginframework.CapabilityRevocationCheckVerifier)}
 		}
 	}
 
@@ -261,7 +263,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify x509 trusted identity based authenticity (only if notation needs
 	// to perform this verification rather than a plugin)
-	if !slices.Contains(pluginCapabilities, proto.CapabilityTrustedIdentityVerifier) {
+	if !slices.Contains(pluginCapabilities, pluginframework.CapabilityTrustedIdentityVerifier) {
 		logger.Debug("Validating trust identity")
 		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
 		if err != nil {
@@ -295,7 +297,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// check if we need to bypass the revocation check, since revocation can be
 	// skipped using a trust policy or a plugin may override the check
 	if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] != trustpolicy.ActionSkip &&
-		!slices.Contains(pluginCapabilities, proto.CapabilityRevocationCheckVerifier) {
+		!slices.Contains(pluginCapabilities, pluginframework.CapabilityRevocationCheckVerifier) {
 
 		logger.Debug("Validating revocation")
 		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
@@ -308,11 +310,11 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// perform extended verification using verification plugin if present
 	if installedPlugin != nil {
-		var capabilitiesToVerify []proto.Capability
+		var capabilitiesToVerify []pluginframework.Capability
 		for _, pc := range pluginCapabilities {
 			// skip the revocation capability if the trust policy is configured
 			// to skip it
-			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == proto.CapabilityRevocationCheckVerifier {
+			if outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation] == trustpolicy.ActionSkip && pc == pluginframework.CapabilityRevocationCheckVerifier {
 				logger.Debugf("Skipping the %v validation", pc)
 				continue
 			}
@@ -332,7 +334,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	return nil
 }
 
-func processPluginResponse(logger log.Logger, capabilitiesToVerify []proto.Capability, response *proto.VerifySignatureResponse, outcome *notation.VerificationOutcome) error {
+func processPluginResponse(logger log.Logger, capabilitiesToVerify []pluginframework.Capability, response *pluginframework.VerifySignatureResponse, outcome *notation.VerificationOutcome) error {
 	verificationPluginName, err := getVerificationPlugin(&outcome.EnvelopeContent.SignerInfo)
 	if err != nil {
 		return err
@@ -352,7 +354,7 @@ func processPluginResponse(logger log.Logger, capabilitiesToVerify []proto.Capab
 			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
 		}
 		switch capability {
-		case proto.CapabilityTrustedIdentityVerifier:
+		case pluginframework.CapabilityTrustedIdentityVerifier:
 			if !pluginResult.Success {
 				// find the Authenticity VerificationResult that we already
 				// created during x509 trust store verification
@@ -370,7 +372,7 @@ func processPluginResponse(logger log.Logger, capabilitiesToVerify []proto.Capab
 					return authenticityResult.Error
 				}
 			}
-		case proto.CapabilityRevocationCheckVerifier:
+		case pluginframework.CapabilityRevocationCheckVerifier:
 			var revocationResult *notation.ValidationResult
 			if !pluginResult.Success {
 				revocationResult = &notation.ValidationResult{
@@ -633,7 +635,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	return result
 }
 
-func executePlugin(ctx context.Context, installedPlugin plugin.VerifyPlugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []proto.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*proto.VerifySignatureResponse, error) {
+func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPlugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []pluginframework.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*pluginframework.VerifySignatureResponse, error) {
 	logger := log.GetLogger(ctx)
 	// sanity check
 	if installedPlugin == nil {
@@ -661,8 +663,8 @@ func executePlugin(ctx context.Context, installedPlugin plugin.VerifyPlugin, tru
 		// https://github.com/notaryproject/notation-core-go/issues/38
 	}
 
-	signature := proto.Signature{
-		CriticalAttributes: proto.CriticalAttributes{
+	signature := pluginframework.Signature{
+		CriticalAttributes: pluginframework.CriticalAttributes{
 			ContentType:          payloadInfo.ContentType,
 			SigningScheme:        string(signerInfo.SignedAttributes.SigningScheme),
 			Expiry:               &signerInfo.SignedAttributes.Expiry,
@@ -673,12 +675,12 @@ func executePlugin(ctx context.Context, installedPlugin plugin.VerifyPlugin, tru
 		CertificateChain:      certChain,
 	}
 
-	policy := proto.TrustPolicy{
+	policy := pluginframework.TrustPolicy{
 		TrustedIdentities:     trustPolicy.TrustedIdentities,
 		SignatureVerification: capabilitiesToVerify,
 	}
 
-	req := &proto.VerifySignatureRequest{
+	req := &pluginframework.VerifySignatureRequest{
 		Signature:    signature,
 		TrustPolicy:  policy,
 		PluginConfig: pluginConfig,

@@ -115,7 +115,7 @@ func (p *mockPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateS
 		return &proto.GenerateSignatureResponse{
 			KeyID:            req.KeyID,
 			Signature:        invalidSignatureEnvelope,
-			SigningAlgorithm: string(sigAlg),
+			SigningAlgorithm: sigAlg,
 			CertificateChain: certChain,
 		}, err
 	}

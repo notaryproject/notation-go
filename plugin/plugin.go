@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plugin provides the toolings to use the notation plugin.
+// Package plugin provides the tooling to use the notation plugin.
 //
 // includes a CLIManager and a CLIPlugin implementation.
 package plugin
@@ -25,48 +25,35 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 var executor commander = &execCommander{} // for unit test
 
-// GenericPlugin is the base requirement to be an plugin.
-type GenericPlugin interface {
-	// GetMetadata returns the metadata information of the plugin.
-	GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error)
-}
+// GenericPlugin is the base requirement to be a plugin.
+// Deprecated: GenericPlugin exists for historical compatibility and should not be used.
+// To access GenericPlugin, use the notation-plugin-framework-go's plugin.GenericPlugin type.
+type GenericPlugin = plugin.GenericPlugin
 
 // SignPlugin defines the required methods to be a SignPlugin.
-type SignPlugin interface {
-	GenericPlugin
-
-	// DescribeKey returns the KeySpec of a key.
-	DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error)
-
-	// GenerateSignature generates the raw signature based on the request.
-	GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error)
-
-	// GenerateEnvelope generates the Envelope with signature based on the
-	// request.
-	GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error)
-}
+// Deprecated: SignPlugin exists for historical compatibility and should not be used.
+// To access SignPlugin, use the notation-plugin-framework-go's plugin.SignPlugin type.
+type SignPlugin = plugin.SignPlugin
 
 // VerifyPlugin defines the required method to be a VerifyPlugin.
-type VerifyPlugin interface {
-	GenericPlugin
+// Deprecated: VerifyPlugin exists for historical compatibility and should not be used.
+// To access VerifyPlugin, use the notation-plugin-framework-go's plugin.VerifyPlugin type.
+type VerifyPlugin = plugin.VerifyPlugin
 
-	// VerifySignature validates the signature based on the request.
-	VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error)
-}
-
-// Plugin defines required methods to be an Plugin.
-type Plugin interface {
-	SignPlugin
-	VerifyPlugin
-}
+// Plugin defines required methods to be a Plugin.
+// Deprecated: Plugin exists for historical compatibility and should not be used.
+// To access Plugin, use the notation-plugin-framework-go's plugin.Plugin type.
+type Plugin = plugin.Plugin
 
 // CLIPlugin implements Plugin interface to CLI plugins.
 type CLIPlugin struct {
@@ -74,14 +61,14 @@ type CLIPlugin struct {
 	path string
 }
 
-// NewCLIPlugin validate the metadata of the plugin and return a *CLIPlugin.
+// NewCLIPlugin returns a *CLIPlugin.
 func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	// validate file existence
 	fi, err := os.Stat(path)
 	if err != nil {
 		// Ignore any file which we cannot Stat
 		// (e.g. due to permissions or anything else).
-		return nil, err
+		return nil, fmt.Errorf("plugin executable file is either not found or inaccessible: %w", err)
 	}
 	if !fi.Mode().IsRegular() {
 		// Ignore non-regular files.
@@ -89,26 +76,28 @@ func NewCLIPlugin(ctx context.Context, name, path string) (*CLIPlugin, error) {
 	}
 
 	// generate plugin
-	plugin := CLIPlugin{
+	return &CLIPlugin{
 		name: name,
 		path: path,
-	}
-	return &plugin, nil
+	}, nil
 }
 
 // GetMetadata returns the metadata information of the plugin.
-func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataRequest) (*proto.GetMetadataResponse, error) {
-	var metadata proto.GetMetadataResponse
+func (p *CLIPlugin) GetMetadata(ctx context.Context, req *plugin.GetMetadataRequest) (*plugin.GetMetadataResponse, error) {
+	var metadata plugin.GetMetadataResponse
 	err := run(ctx, p.name, p.path, req, &metadata)
 	if err != nil {
 		return nil, err
 	}
 	// validate metadata
 	if err = validate(&metadata); err != nil {
-		return nil, fmt.Errorf("invalid metadata: %w", err)
+		return nil, &PluginMalformedError{
+			Msg:        fmt.Sprintf("metadata validation failed for plugin %s: %s", p.name, err),
+			InnerError: err,
+		}
 	}
 	if metadata.Name != p.name {
-		return nil, fmt.Errorf("executable name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
+		return nil, fmt.Errorf("plugin executable file name must be %q instead of %q", binName(metadata.Name), filepath.Base(p.path))
 	}
 	return &metadata, nil
 }
@@ -116,12 +105,12 @@ func (p *CLIPlugin) GetMetadata(ctx context.Context, req *proto.GetMetadataReque
 // DescribeKey returns the KeySpec of a key.
 //
 // if ContractVersion is not set, it will be set by the function.
-func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyRequest) (*proto.DescribeKeyResponse, error) {
+func (p *CLIPlugin) DescribeKey(ctx context.Context, req *plugin.DescribeKeyRequest) (*plugin.DescribeKeyResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
-	var resp proto.DescribeKeyResponse
+	var resp plugin.DescribeKeyResponse
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -129,12 +118,12 @@ func (p *CLIPlugin) DescribeKey(ctx context.Context, req *proto.DescribeKeyReque
 // GenerateSignature generates the raw signature based on the request.
 //
 // if ContractVersion is not set, it will be set by the function.
-func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSignatureRequest) (*proto.GenerateSignatureResponse, error) {
+func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *plugin.GenerateSignatureRequest) (*plugin.GenerateSignatureResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
-	var resp proto.GenerateSignatureResponse
+	var resp plugin.GenerateSignatureResponse
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -142,12 +131,12 @@ func (p *CLIPlugin) GenerateSignature(ctx context.Context, req *proto.GenerateSi
 // GenerateEnvelope generates the Envelope with signature based on the request.
 //
 // if ContractVersion is not set, it will be set by the function.
-func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnvelopeRequest) (*proto.GenerateEnvelopeResponse, error) {
+func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *plugin.GenerateEnvelopeRequest) (*plugin.GenerateEnvelopeResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
-	var resp proto.GenerateEnvelopeResponse
+	var resp plugin.GenerateEnvelopeResponse
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
@@ -155,62 +144,76 @@ func (p *CLIPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEnv
 // VerifySignature validates the signature based on the request.
 //
 // if ContractVersion is not set, it will be set by the function.
-func (p *CLIPlugin) VerifySignature(ctx context.Context, req *proto.VerifySignatureRequest) (*proto.VerifySignatureResponse, error) {
+func (p *CLIPlugin) VerifySignature(ctx context.Context, req *plugin.VerifySignatureRequest) (*plugin.VerifySignatureResponse, error) {
 	if req.ContractVersion == "" {
-		req.ContractVersion = proto.ContractVersion
+		req.ContractVersion = plugin.ContractVersion
 	}
 
-	var resp proto.VerifySignatureResponse
+	var resp plugin.VerifySignatureResponse
 	err := run(ctx, p.name, p.path, req, &resp)
 	return &resp, err
 }
 
-func run(ctx context.Context, pluginName string, pluginPath string, req proto.Request, resp interface{}) error {
+func run(ctx context.Context, pluginName string, pluginPath string, req plugin.Request, resp interface{}) error {
 	logger := log.GetLogger(ctx)
 
 	// serialize request
 	data, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("%s: failed to marshal request object: %w", pluginName, err)
+		logger.Errorf("Failed to marshal request object: %+v", req)
+		return fmt.Errorf("failed to marshal request object: %w", err)
 	}
 
 	logger.Debugf("Plugin %s request: %s", req.Command(), string(data))
 	// execute request
 	stdout, stderr, err := executor.Output(ctx, pluginPath, req.Command(), data)
 	if err != nil {
-		logger.Debugf("plugin %s execution status: %v", req.Command(), err)
-		logger.Debugf("Plugin %s returned error: %s", req.Command(), string(stderr))
-		var re proto.RequestError
-		jsonErr := json.Unmarshal(stderr, &re)
-		if jsonErr != nil {
-			return proto.RequestError{
-				Code: proto.ErrorCodeGeneric,
-				Err:  fmt.Errorf("response is not in JSON format. error: %v, stderr: %s", err, string(stderr))}
+		logger.Errorf("plugin %s execution status: %v", req.Command(), err)
+
+		if len(stderr) == 0 {
+			// if stderr is empty, it is possible that the plugin is not
+			// running properly.
+			return &PluginExecutableFileError{
+				Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s", req.Command(), pluginName),
+				InnerError: err,
+			}
+		} else {
+			var re proto.RequestError
+			jsonErr := json.Unmarshal(stderr, &re)
+			if jsonErr != nil {
+				return &PluginMalformedError{
+					Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s: %s", req.Command(), pluginName, strings.TrimSuffix(string(stderr), "\n")),
+					InnerError: jsonErr,
+				}
+			}
+			return fmt.Errorf("failed to execute the %s command for plugin %s: %w", req.Command(), pluginName, re)
 		}
-		return re
 	}
 
 	logger.Debugf("Plugin %s response: %s", req.Command(), string(stdout))
 	// deserialize response
-	err = json.Unmarshal(stdout, resp)
-	if err != nil {
-		return fmt.Errorf("failed to decode json response: %w", ErrNotCompliant)
+	if err = json.Unmarshal(stdout, resp); err != nil {
+		logger.Errorf("failed to unmarshal plugin %s response: %w", req.Command(), err)
+		return &PluginMalformedError{
+			Msg:        fmt.Sprintf("failed to unmarshal the response of %s command for plugin %s", req.Command(), pluginName),
+			InnerError: err,
+		}
 	}
 	return nil
 }
 
 // commander is defined for mocking purposes.
 type commander interface {
-	// Output runs the command, passing req to the its stdin.
+	// Output runs the command, passing req to the stdin.
 	// It only returns an error if the binary can't be executed.
 	// Returns stdout if err is nil, stderr if err is not nil.
-	Output(ctx context.Context, path string, command proto.Command, req []byte) (stdout []byte, stderr []byte, err error)
+	Output(ctx context.Context, path string, command plugin.Command, req []byte) (stdout []byte, stderr []byte, err error)
 }
 
 // execCommander implements the commander interface using exec.Command().
 type execCommander struct{}
 
-func (c execCommander) Output(ctx context.Context, name string, command proto.Command, req []byte) ([]byte, []byte, error) {
+func (c execCommander) Output(ctx context.Context, name string, command plugin.Command, req []byte) ([]byte, []byte, error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
@@ -224,7 +227,7 @@ func (c execCommander) Output(ctx context.Context, name string, command proto.Co
 }
 
 // validate checks if the metadata is correctly populated.
-func validate(metadata *proto.GetMetadataResponse) error {
+func validate(metadata *plugin.GetMetadataResponse) error {
 	if metadata.Name == "" {
 		return errors.New("empty name")
 	}
@@ -243,10 +246,10 @@ func validate(metadata *proto.GetMetadataResponse) error {
 	if len(metadata.SupportedContractVersions) == 0 {
 		return errors.New("supported contract versions not specified")
 	}
-	if !slices.Contains(metadata.SupportedContractVersions, proto.ContractVersion) {
+	if !slices.Contains(metadata.SupportedContractVersions, plugin.ContractVersion) {
 		return fmt.Errorf(
 			"contract version %q is not in the list of the plugin supported versions %v",
-			proto.ContractVersion, metadata.SupportedContractVersions,
+			plugin.ContractVersion, metadata.SupportedContractVersions,
 		)
 	}
 	return nil
