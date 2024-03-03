@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -169,25 +168,47 @@ func TestNewFromFiles(t *testing.T) {
 	}
 }
 
+func TestNewFromFilesError(t *testing.T) {
+	tests := map[string]struct {
+		keyPath  string
+		certPath string
+		errMsg   string
+	}{
+		"empty key path": {
+			keyPath:  "",
+			certPath: "someCert",
+			errMsg:   "key path not specified",
+		},
+		"empty cert path": {
+			keyPath:  "someKeyId",
+			certPath: "",
+			errMsg:   "certificate path not specified",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewFromFiles(tc.keyPath, tc.certPath)
+			if err == nil || err.Error() != tc.errMsg {
+				t.Fatalf("TestNewFromPluginFailed expects error %q, got %q", tc.errMsg, err.Error())
+			}
+		})
+	}
+}
+
+func TestNewError(t *testing.T) {
+	wantErr := "\"certs\" param is invalid. Error: empty certs"
+	_, err := New(nil, nil)
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("TestNewFromPluginFailed expects error %q, got %q", wantErr, err.Error())
+	}
+}
+
 func TestSignWithCertChain(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := New(keyCert.key, keyCert.certs)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
-
-				desc, sOpts := generateSigningContent()
-				sOpts.SignatureMediaType = envelopeType
-				sig, _, err := s.Sign(context.Background(), desc, sOpts)
-				if err != nil {
-					t.Fatalf("Sign() error = %v", err)
-				}
-
-				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
+				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs)
 			})
 		}
 	}
@@ -203,12 +224,10 @@ func TestSignBlobWithCertChain(t *testing.T) {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
 
-				sOpts := notation.SignBlobOptions{
-					SignerSignOptions: notation.SignerSignOptions{
-						SignatureMediaType: envelopeType,
-					},
+				sOpts := notation.SignerSignOptions{
+					SignatureMediaType: envelopeType,
 				}
-				sig, _, err := s.SignBlob(context.Background(), strings.NewReader("some content"), sOpts)
+				sig, _, err := s.SignBlob(context.Background(), getDescriptorFunc(false), sOpts)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
 				}
@@ -333,4 +352,22 @@ func verifySigningAgent(t *testing.T, signingAgentId string, metadata *proto.Get
 	} else if results["agent"] != signingAgent || results["name"] != metadata.Name || results["version"] != metadata.Version {
 		t.Fatalf("Expected signingAgent of %s %s/%s but signature contained %s instead", signingAgent, metadata.Name, metadata.Version, signingAgentId)
 	}
+}
+
+func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate) {
+	s, err := New(key, certs)
+	if err != nil {
+		t.Fatalf("NewSigner() error = %v", err)
+	}
+
+	ctx := context.Background()
+	desc, sOpts := generateSigningContent()
+	sOpts.SignatureMediaType = envelopeType
+	sig, _, err := s.Sign(ctx, desc, sOpts)
+	if err != nil {
+		t.Fatalf("Sign() error = %v", err)
+	}
+
+	// basic verification
+	basicVerification(t, sig, envelopeType, certs[len(certs)-1], nil)
 }

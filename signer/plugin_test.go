@@ -32,6 +32,7 @@ import (
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -68,6 +69,16 @@ type mockPlugin struct {
 	key               crypto.PrivateKey
 	certs             []*x509.Certificate
 	keySpec           signature.KeySpec
+}
+
+func getDescriptorFunc(throwError bool) func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
+	return func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
+		if throwError {
+			return ocispec.Descriptor{}, errors.New("")
+		}
+		return validSignDescriptor, nil
+	}
+
 }
 
 func newMockPlugin(key crypto.PrivateKey, certs []*x509.Certificate, keySpec signature.KeySpec) *mockPlugin {
@@ -206,10 +217,29 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 }
 
 func TestNewFromPluginFailed(t *testing.T) {
-	wantErr := "keyID not specified"
-	_, err := NewFromPlugin(&plugin.CLIPlugin{}, "", make(map[string]string))
-	if err == nil || err.Error() != wantErr {
-		t.Fatalf("TestNewFromPluginFailed expects error %q, got %q", wantErr, err.Error())
+	tests := map[string]struct {
+		pl     plugin.SignPlugin
+		keyID  string
+		errMsg string
+	}{
+		"Invalid KeyID": {
+			pl:     &plugin.CLIPlugin{},
+			keyID:  "",
+			errMsg: "keyID not specified",
+		},
+		"nilPlugin": {
+			pl:     nil,
+			keyID:  "someKeyId",
+			errMsg: "nil plugin",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewFromPlugin(tc.pl, tc.keyID, make(map[string]string))
+			if err == nil || err.Error() != tc.errMsg {
+				t.Fatalf("TestNewFromPluginFailed expects error %q, got %q", tc.errMsg, err.Error())
+			}
+		})
 	}
 }
 
@@ -314,13 +344,8 @@ func TestPluginSigner_SignBlob_Valid(t *testing.T) {
 				pluginSigner := PluginSigner{
 					plugin: newMockPlugin(keyCert.key, keyCert.certs, keySpec),
 				}
-				sOpts := notation.SignBlobOptions{
-					SignerSignOptions: notation.SignerSignOptions{
-						SignatureMediaType: envelopeType,
-					},
-				}
-
-				data, signerInfo, err := pluginSigner.SignBlob(context.Background(), strings.NewReader("some content"), sOpts)
+				validSignOpts.SignatureMediaType = envelopeType
+				data, signerInfo, err := pluginSigner.SignBlob(context.Background(), getDescriptorFunc(false), validSignOpts)
 				basicSignTest(t, &pluginSigner, envelopeType, data, signerInfo, err)
 			})
 		}

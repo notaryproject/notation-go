@@ -30,6 +30,8 @@ import (
 	orasRegistry "oras.land/oras-go/v2/registry"
 
 	"github.com/notaryproject/notation-core-go/signature"
+	"github.com/notaryproject/notation-core-go/signature/cose"
+	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
@@ -44,7 +46,7 @@ var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 // SignerSignOptions contains parameters for Signer.Sign.
 type SignerSignOptions struct {
 	// SignatureMediaType is the envelope type of the signature.
-	// Currently both `application/jose+json` and `application/cose` are
+	// Currently, both `application/jose+json` and `application/cose` are
 	// supported.
 	SignatureMediaType string
 
@@ -59,19 +61,34 @@ type SignerSignOptions struct {
 	SigningAgent string
 }
 
-// Signer is a generic interface for signing an artifact.
+// Signer is a generic interface for signing an OCI artifact.
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
 type Signer interface {
-	// Sign signs the artifact described by its descriptor,
+	// Sign signs the OCI artifact described by its descriptor,
 	// and returns the signature and SignerInfo.
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
+// SignBlobOptions contains parameters for notation.SignBlob.
+type SignBlobOptions struct {
+	SignerSignOptions
+
+	ContentMediaType string
+	// UserMetadata contains key-value pairs that are added to the signature
+	// payload
+	UserMetadata map[string]string
+}
+
+type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
+
+// BlobSigner is a generic interface for signing arbitrary data.
+// The interface allows signing with local or remote keys,
+// and packing in various signature formats.
 type BlobSigner interface {
-	// SignBlob signs the artifact described by its descriptor,
-	// and returns the signature and SignerInfo.
-	SignBlob(ctx context.Context, reader io.Reader, opts SignBlobOptions) ([]byte, *signature.SignerInfo, error)
+	// SignBlob signs the descriptor returned by genDesc ,
+	// and returns the signature and SignerInfo
+	SignBlob(ctx context.Context, genDesc BlobDescriptorGenerator, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
 // signerAnnotation facilitates return of manifest annotations by signers
@@ -94,20 +111,10 @@ type SignOptions struct {
 	UserMetadata map[string]string
 }
 
-type SignBlobOptions struct {
-	SignerSignOptions
-
-	ContentMediaType string
-
-	// UserMetadata contains key-value pairs that are added to the signature
-	// payload
-	UserMetadata map[string]string
-}
-
-// Sign signs the artifact and push the signature to the Repository.
+// Sign signs the OCI artifact and push the signature to the Repository.
 // The descriptor of the sign content is returned upon successful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
-	// sanity checks
+	// sanity check
 	if err := validate(signer, signOpts.SignerSignOptions); err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -165,26 +172,41 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	return targetDesc, nil
 }
 
-func SignBlob(ctx context.Context, signer BlobSigner, reader io.Reader, signOpts SignBlobOptions) ([]byte, error) {
+// SignBlob signs the arbitrary data and returns the signature
+func SignBlob(ctx context.Context, signer BlobSigner, reader io.Reader, signBlobOpts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
 	// sanity checks
-	if err := validate(signer, signOpts.SignerSignOptions); err != nil {
-		return nil, err
+	if err := validate(signer, signBlobOpts.SignerSignOptions); err != nil {
+		return nil, nil, err
 	}
+
 	if reader == nil {
-		return nil, errors.New("reader cannot be nil")
+		return nil, nil, errors.New("reader cannot be nil")
 	}
-	if signOpts.ContentMediaType != "" {
-		if _, _, err := mime.ParseMediaType(signOpts.ContentMediaType); err != nil {
-			return nil, fmt.Errorf("invalid content media-type '%s': %v", signOpts.ContentMediaType, err)
+
+	if signBlobOpts.ContentMediaType == "" {
+		return nil, nil, errors.New("content media-type cannot be empty")
+	}
+
+	if _, _, err := mime.ParseMediaType(signBlobOpts.ContentMediaType); err != nil {
+		return nil, nil, fmt.Errorf("invalid content media-type '%s': %v", signBlobOpts.ContentMediaType, err)
+	}
+
+	getDescFun := func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
+		h := hashAlgo.Hash()
+		bytes, err := io.Copy(hashAlgo.Hash(), reader)
+		if err != nil {
+			return ocispec.Descriptor{}, err
 		}
+
+		targetDesc := ocispec.Descriptor{
+			MediaType: signBlobOpts.ContentMediaType,
+			Digest:    digest.NewDigest(hashAlgo, h),
+			Size:      bytes,
+		}
+		return addUserMetadataToDescriptor(ctx, targetDesc, signBlobOpts.UserMetadata)
 	}
 
-	sig, _, err := signer.SignBlob(ctx, reader, signOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	return sig, nil
+	return signer.SignBlob(ctx, getDescFun, signBlobOpts.SignerSignOptions)
 }
 
 func validate(signer any, signOpts SignerSignOptions) error {
@@ -192,14 +214,19 @@ func validate(signer any, signOpts SignerSignOptions) error {
 		return errors.New("signer cannot be nil")
 	}
 	if signOpts.ExpiryDuration < 0 {
-		return fmt.Errorf("expiry duration cannot be a negative value")
+		return errors.New("expiry duration cannot be a negative value")
 	}
 	if signOpts.ExpiryDuration%time.Second != 0 {
-		return fmt.Errorf("expiry duration supports minimum granularity of seconds")
+		return errors.New("expiry duration supports minimum granularity of seconds")
 	}
-	if _, _, err := mime.ParseMediaType(signOpts.SignatureMediaType); err != nil {
-		return fmt.Errorf("invalid signature media-type '%s': %v", signOpts.SignatureMediaType, err)
+	if signOpts.SignatureMediaType == "" {
+		return errors.New("signature media-type cannot be empty")
 	}
+
+	if !(signOpts.SignatureMediaType == jws.MediaTypeEnvelope || signOpts.SignatureMediaType == cose.MediaTypeEnvelope) {
+		return fmt.Errorf("invalid signature media-type '%s'", signOpts.SignatureMediaType)
+	}
+
 	return nil
 }
 

@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/notaryproject/notation-core-go/signature"
@@ -37,24 +36,24 @@ import (
 // signingAgent is the unprotected header field used by signature.
 const signingAgent = "Notation/1.0.0"
 
-// genericSigner implements notation.Signer and embeds signature.Signer
-type genericSigner struct {
+// GenericSigner implements notation.Signer and embeds signature.Signer
+type GenericSigner struct {
 	signature.Signer
 }
 
 // New returns a builtinSigner given key and cert chain
-func New(key crypto.PrivateKey, certChain []*x509.Certificate) (*genericSigner, error) {
+func New(key crypto.PrivateKey, certChain []*x509.Certificate) (*GenericSigner, error) {
 	localSigner, err := signature.NewLocalSigner(certChain, key)
 	if err != nil {
 		return nil, err
 	}
-	return &genericSigner{
+	return &GenericSigner{
 		Signer: localSigner,
 	}, nil
 }
 
 // NewFromFiles returns a builtinSigner given key and certChain paths.
-func NewFromFiles(keyPath, certChainPath string) (*genericSigner, error) {
+func NewFromFiles(keyPath, certChainPath string) (*GenericSigner, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
 	}
@@ -86,7 +85,7 @@ func NewFromFiles(keyPath, certChainPath string) (*genericSigner, error) {
 
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
-func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic signing for %v in signature media type %v", desc.Digest, opts.SignatureMediaType)
 	// Generate payload to be signed.
@@ -148,9 +147,8 @@ func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	return sig, &envContent.SignerInfo, nil
 }
 
-// SignBlob signs the artifact described by its descriptor and returns the
-// marshalled envelope.
-func (s *genericSigner) SignBlob(ctx context.Context, reader io.Reader, opts notation.SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
+// SignBlob signs the descriptor returned by blobGen and returns the marshalled envelope
+func (s *GenericSigner) SignBlob(ctx context.Context, blobGen notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic blob signing for signature media type %v", opts.SignatureMediaType)
 
@@ -159,10 +157,15 @@ func (s *genericSigner) SignBlob(ctx context.Context, reader io.Reader, opts not
 		return nil, nil, err
 	}
 
-	desc, err := getDescriptor(reader, opts.ContentMediaType, ks)
+	digestAlg, ok := algorithms[ks.SignatureAlgorithm().Hash()]
+	if !ok {
+		return nil, nil, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm().Hash())
+	}
+
+	desc, err := blobGen(digestAlg)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return s.Sign(ctx, desc, opts.SignerSignOptions)
+	return s.Sign(ctx, desc, opts)
 }

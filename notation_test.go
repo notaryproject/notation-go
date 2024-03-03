@@ -32,6 +32,7 @@ import (
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -75,9 +76,7 @@ func TestSignBlobSuccess(t *testing.T) {
 		{"expiryInHours", 24 * time.Hour, "video/mp4", "", nil, nil},
 		{"oneSecondExpiry", 1 * time.Second, "video/mp4", "", nil, nil},
 		{"zeroExpiry", 0, "video/mp4", "", nil, nil},
-		//{"invalidContentMediaType", 1 * time.Second, "zap/zop/sop", nil, nil},
 		{"validContentType", 1 * time.Second, "video/mp4", "", nil, nil},
-		{"emptyContentType", 1 * time.Second, "", "", nil, nil},
 		{"emptyContentType", 1 * time.Second, "video/mp4", "someDummyAgent", map[string]string{"hi": "hello"}, map[string]string{"bye": "tata"}},
 	}
 	for _, tc := range testCases {
@@ -93,7 +92,7 @@ func TestSignBlobSuccess(t *testing.T) {
 				ContentMediaType: tc.mtype,
 			}
 
-			_, err := SignBlob(context.Background(), &dummySigner{}, reader, opts)
+			_, _, err := SignBlob(context.Background(), &dummySigner{}, reader, opts)
 			if err != nil {
 				b.Fatalf("Sign failed with error: %v", err)
 			}
@@ -101,36 +100,43 @@ func TestSignBlobSuccess(t *testing.T) {
 	}
 }
 
-func TestSignError(t *testing.T) {
+func TestSignBlobError(t *testing.T) {
 	reader := strings.NewReader("some content")
 	testCases := []struct {
-		name   string
-		signer BlobSigner
-		dur    time.Duration
-		rdr    io.Reader
-		mtype  string
+		name     string
+		signer   BlobSigner
+		dur      time.Duration
+		rdr      io.Reader
+		sigMType string
+		ctMType  string
+		errMsg   string
 	}{
-		{"negativeExpiry", &dummySigner{}, -1 * time.Second, nil, "video/mp4"},
-		{"milliSecExpiry", &dummySigner{}, 1 * time.Millisecond, nil, "video/mp4"},
-		{"invalidContentMediaType", &dummySigner{}, 1 * time.Second, reader, "video/mp4/zoping"},
-		{"nilReader", &dummySigner{}, 1 * time.Second, nil, "video/mp4"},
-		{"nilSigner", nil, 1 * time.Second, reader, "video/mp4"},
-		{"signerError", &dummySigner{fail: true}, 1 * time.Second, reader, "video/mp4"},
+		{"negativeExpiry", &dummySigner{}, -1 * time.Second, nil, "video/mp4", jws.MediaTypeEnvelope, "expiry duration cannot be a negative value"},
+		{"milliSecExpiry", &dummySigner{}, 1 * time.Millisecond, nil, "video/mp4", jws.MediaTypeEnvelope, "expiry duration supports minimum granularity of seconds"},
+		{"invalidContentMediaType", &dummySigner{}, 1 * time.Second, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type 'video/mp4/zoping': mime: unexpected content after media subtype"},
+		{"emptyContentMediaType", &dummySigner{}, 1 * time.Second, reader, "", jws.MediaTypeEnvelope, "content media-type cannot be empty"},
+		{"invalidSignatureMediaType", &dummySigner{}, 1 * time.Second, reader, "", "", "content media-type cannot be empty"},
+		{"nilReader", &dummySigner{}, 1 * time.Second, nil, "video/mp4", jws.MediaTypeEnvelope, "reader cannot be nil"},
+		{"nilSigner", nil, 1 * time.Second, reader, "video/mp4", jws.MediaTypeEnvelope, "signer cannot be nil"},
+		{"signerError", &dummySigner{fail: true}, 1 * time.Second, reader, "video/mp4", jws.MediaTypeEnvelope, "expected SignBlob failure"},
 	}
 	for _, tc := range testCases {
-		t.Run(tc.name, func(b *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			opts := SignBlobOptions{
 				SignerSignOptions: SignerSignOptions{
 					SignatureMediaType: jws.MediaTypeEnvelope,
 					ExpiryDuration:     tc.dur,
 					PluginConfig:       nil,
 				},
-				ContentMediaType: tc.mtype,
+				ContentMediaType: tc.sigMType,
 			}
 
-			_, err := SignBlob(context.Background(), tc.signer, tc.rdr, opts)
+			_, _, err := SignBlob(context.Background(), tc.signer, tc.rdr, opts)
 			if err == nil {
-				b.Error("expected error but didnt found")
+				t.Fatalf("expected error but didnt found")
+			}
+			if err.Error() != tc.errMsg {
+				t.Fatalf("expected err message to be '%s' but found '%s'", tc.errMsg, err.Error())
 			}
 		})
 	}
@@ -414,9 +420,14 @@ func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts Si
 	}, nil
 }
 
-func (s *dummySigner) SignBlob(ctx context.Context, reader io.Reader, opts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *dummySigner) SignBlob(_ context.Context, descGenFunc BlobDescriptorGenerator, _ SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	if s.fail {
 		return nil, nil, errors.New("expected SignBlob failure")
+	}
+
+	_, err := descGenFunc(digest.SHA384)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return []byte("ABC"), &signature.SignerInfo{
