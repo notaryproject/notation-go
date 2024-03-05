@@ -86,12 +86,11 @@ func (s *PluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign oci artifact %v in signature media type %v", metadata.Name, metadata.Capabilities, desc.Digest, opts.SignatureMediaType)
 	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
-		logger.Debug("Invoking plugin's describe-key command")
 		ks, err := s.getKeySpec(ctx, mergedConfig)
 		if err != nil {
 			return nil, nil, err
 		}
-		return s.generateSignature(ctx, desc, opts, ks, metadata)
+		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
@@ -128,7 +127,7 @@ func (s *PluginSigner) SignBlob(ctx context.Context, blobGenFunc notation.BlobDe
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign blob using descriptor %+v", metadata.Name, metadata.Capabilities, desc)
 	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
-		return s.generateSignature(ctx, desc, opts, ks, metadata)
+		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
 	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
@@ -136,6 +135,8 @@ func (s *PluginSigner) SignBlob(ctx context.Context, blobGenFunc notation.BlobDe
 }
 
 func (s *PluginSigner) getKeySpec(ctx context.Context, config map[string]string) (signature.KeySpec, error) {
+	logger := log.GetLogger(ctx)
+	logger.Debug("Invoking plugin's describe-key command")
 	descKeyResp, err := s.describeKey(ctx, config)
 	if err != nil {
 		return signature.KeySpec{}, err
@@ -148,7 +149,7 @@ func (s *PluginSigner) getKeySpec(ctx context.Context, config map[string]string)
 	return proto.DecodeKeySpec(descKeyResp.KeySpec)
 }
 
-func (s *PluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions, ks signature.KeySpec, metadata *plugin.GetMetadataResponse) ([]byte, *signature.SignerInfo, error) {
+func (s *PluginSigner) generateSignature(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions, ks signature.KeySpec, metadata *plugin.GetMetadataResponse, pluginConfig map[string]string) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature by plugin")
 	genericSigner := GenericSigner{
@@ -156,7 +157,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 			ctx:          ctx,
 			plugin:       s.plugin,
 			keyID:        s.keyID,
-			pluginConfig: s.mergeConfig(opts.PluginConfig),
+			pluginConfig: pluginConfig,
 			keySpec:      ks,
 		},
 	}
@@ -209,9 +210,9 @@ func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		return nil, nil, err
 	}
 
-	cnt := envContent.Payload.Content
+	content := envContent.Payload.Content
 	var signedPayload envelope.Payload
-	if err = json.Unmarshal(cnt, &signedPayload); err != nil {
+	if err = json.Unmarshal(content, &signedPayload); err != nil {
 		return nil, nil, fmt.Errorf("signed envelope payload can't be unmarshalled: %w", err)
 	}
 
@@ -219,7 +220,7 @@ func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 		return nil, nil, fmt.Errorf("during signing descriptor subject has changed from %+v to %+v", desc, signedPayload.TargetArtifact)
 	}
 
-	if unknownAttributes := areUnknownAttributesAdded(cnt); len(unknownAttributes) != 0 {
+	if unknownAttributes := areUnknownAttributesAdded(content); len(unknownAttributes) != 0 {
 		return nil, nil, fmt.Errorf("during signing, following unknown attributes were added to subject descriptor: %+q", unknownAttributes)
 	}
 
