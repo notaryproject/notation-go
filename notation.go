@@ -306,9 +306,29 @@ type VerifierVerifyOptions struct {
 	ArtifactReference string
 
 	// SignatureMediaType is the envelope type of the signature.
-	// Currently both `application/jose+json` and `application/cose` are
+	// Currently only `application/jose+json` and `application/cose` are
 	// supported.
 	SignatureMediaType string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+
+	// UserMetadata contains key-value pairs that must be present in the
+	// signature.
+	UserMetadata map[string]string
+}
+
+type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
+
+// BlobVerifierVerifyOptions contains parameters for Verifier.Verify.
+type BlobVerifierVerifyOptions struct {
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently only `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaType string
+
+	// ContentMediaType is the media-type type of the content being verified.
+	ContentMediaType string
 
 	// PluginConfig is a map of plugin configs.
 	PluginConfig map[string]string
@@ -326,6 +346,16 @@ type Verifier interface {
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifierVerifyOptions) (*VerificationOutcome, error)
+}
+
+// BlobVerifier is a generic interface for verifying an artifact.
+type BlobVerifier interface {
+	// Verify verifies the signature blob `signature` against the target OCI
+	// artifact with manifest descriptor `desc`, and returns the outcome upon
+	// successful verification.
+	// If nil signature is present and the verification level is not 'skip',
+	// an error will be returned.
+	Verify(ctx context.Context, descGenFunc BlobDescriptorGenerator, signature []byte, opts BlobVerifierVerifyOptions) (*VerificationOutcome, error)
 }
 
 type verifySkipper interface {
@@ -350,6 +380,36 @@ type VerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature
 	UserMetadata map[string]string
+}
+
+func VerifyBlob(ctx context.Context, verifier Verifier, blobReader io.Reader, signatures [][]byte, verifyBlobOpts BlobVerifierVerifyOptions) (ocispec.Descriptor, []*VerificationOutcome, error) {
+	logger := log.GetLogger(ctx)
+	if verifier == nil {
+		return ocispec.Descriptor{}, nil, errors.New("verifier cannot be nil")
+	}
+
+	if blobReader == nil {
+		return nil, nil, errors.New("blobReader cannot be nil")
+	}
+
+	getDescriptor(ctx, blobReader, verifyBlobOpts.ContentMediaType, map)
+
+}
+
+func getDescriptor(ctx context.Context, reader io.Reader, contentMediaType string, userMetadata map[string]string) BlobDescriptorGenerator {
+	return func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
+		h := hashAlgo.Hash()
+		bytes, err := io.Copy(hashAlgo.Hash(), reader)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+		targetDesc := ocispec.Descriptor{
+			MediaType: contentMediaType,
+			Digest:    digest.NewDigest(hashAlgo, h),
+			Size:      bytes,
+		}
+		return addUserMetadataToDescriptor(ctx, targetDesc, userMetadata)
+	}
 }
 
 // Verify performs signature verification on each of the notation supported

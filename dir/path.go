@@ -57,8 +57,13 @@ const (
 	PathConfigFile = "config.json"
 	// PathSigningKeys is the signingkeys file relative path.
 	PathSigningKeys = "signingkeys.json"
-	// PathTrustPolicy is the trust policy file relative path.
-	PathTrustPolicy = "trustpolicy.json"
+	// PathTrustPolicy is the OCI trust policy file relative path.
+	// Deprecated
+	PathTrustPolicy = PathOCITrustPolicy
+	// PathOCITrustPolicy is the OCI trust policy file relative path.
+	PathOCITrustPolicy = "trustpolicy.json"
+	// PathBlobTrustPolicy is the Blob trust policy file relative path.
+	PathBlobTrustPolicy = "trustpolicy.json"
 	// PathPlugins is the plugins directory relative path.
 	PathPlugins = "plugins"
 	// LocalKeysDir is the directory name for local key relative path.

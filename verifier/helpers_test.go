@@ -83,11 +83,11 @@ func TestLoadX509TrustStore(t *testing.T) {
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
 	dir.UserConfigDir = "testdata"
 	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
-	caCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, &dummyPolicy, x509truststore)
+	caCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
-	saCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, &dummyPolicy, x509truststore)
+	saCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
