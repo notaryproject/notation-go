@@ -73,13 +73,14 @@ type Signer interface {
 // SignBlobOptions contains parameters for notation.SignBlob.
 type SignBlobOptions struct {
 	SignerSignOptions
-
+	// ContentMediaType is the media-type of the blob being signed.
 	ContentMediaType string
 	// UserMetadata contains key-value pairs that are added to the signature
 	// payload
 	UserMetadata map[string]string
 }
 
+// BlobDescriptorGenerator creates descriptor using the digest Algorithm.
 type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
 
 // BlobSigner is a generic interface for signing arbitrary data.
@@ -115,7 +116,7 @@ type SignOptions struct {
 // The descriptor of the sign content is returned upon successful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
 	// sanity check
-	if err := validate(signer, signOpts.SignerSignOptions); err != nil {
+	if err := validateSignArguments(signer, signOpts.SignerSignOptions); err != nil {
 		return ocispec.Descriptor{}, err
 	}
 	if repo == nil {
@@ -175,7 +176,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 // SignBlob signs the arbitrary data and returns the signature
 func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, signBlobOpts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
 	// sanity checks
-	if err := validate(signer, signBlobOpts.SignerSignOptions); err != nil {
+	if err := validateSignArguments(signer, signBlobOpts.SignerSignOptions); err != nil {
 		return nil, nil, err
 	}
 
@@ -191,7 +192,7 @@ func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, sign
 		return nil, nil, fmt.Errorf("invalid content media-type '%s': %v", signBlobOpts.ContentMediaType, err)
 	}
 
-	getDescFun := func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
+	getDescFunc := func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
 		h := hashAlgo.Hash()
 		bytes, err := io.Copy(hashAlgo.Hash(), blobReader)
 		if err != nil {
@@ -206,10 +207,10 @@ func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, sign
 		return addUserMetadataToDescriptor(ctx, targetDesc, signBlobOpts.UserMetadata)
 	}
 
-	return signer.SignBlob(ctx, getDescFun, signBlobOpts.SignerSignOptions)
+	return signer.SignBlob(ctx, getDescFunc, signBlobOpts.SignerSignOptions)
 }
 
-func validate(signer any, signOpts SignerSignOptions) error {
+func validateSignArguments(signer any, signOpts SignerSignOptions) error {
 	if signer == nil {
 		return errors.New("signer cannot be nil")
 	}
