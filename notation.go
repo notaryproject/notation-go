@@ -173,14 +173,14 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 }
 
 // SignBlob signs the arbitrary data and returns the signature
-func SignBlob(ctx context.Context, signer BlobSigner, reader io.Reader, signBlobOpts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
+func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, signBlobOpts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
 	// sanity checks
 	if err := validate(signer, signBlobOpts.SignerSignOptions); err != nil {
 		return nil, nil, err
 	}
 
-	if reader == nil {
-		return nil, nil, errors.New("reader cannot be nil")
+	if blobReader == nil {
+		return nil, nil, errors.New("blobReader cannot be nil")
 	}
 
 	if signBlobOpts.ContentMediaType == "" {
@@ -193,7 +193,7 @@ func SignBlob(ctx context.Context, signer BlobSigner, reader io.Reader, signBlob
 
 	getDescFun := func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
 		h := hashAlgo.Hash()
-		bytes, err := io.Copy(hashAlgo.Hash(), reader)
+		bytes, err := io.Copy(hashAlgo.Hash(), blobReader)
 		if err != nil {
 			return ocispec.Descriptor{}, err
 		}
