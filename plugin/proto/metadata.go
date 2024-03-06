@@ -16,11 +16,13 @@ package proto
 import "github.com/notaryproject/notation-plugin-framework-go/plugin"
 
 // GetMetadataRequest contains the parameters passed in a get-plugin-metadata request.
+//
 // Deprecated: GetMetadataRequest exists for historical compatibility and should not be used.
-// To access GetMetadataRequest, use the notation-plugin-framework-go's plugin.GetMetadataRequest type.
+// To access GetMetadataRequest, use the notation-plugin-framework-go's [plugin.GetMetadataRequest] type.
 type GetMetadataRequest = plugin.GetMetadataRequest
 
 // GetMetadataResponse provided by the plugin.
+//
 // Deprecated: GetMetadataResponse exists for historical compatibility and should not be used.
-// To access GetMetadataResponse, use the notation-plugin-framework-go's plugin.GetMetadataResponse type.
+// To access GetMetadataResponse, use the notation-plugin-framework-go's [plugin.GetMetadataResponse] type.
 type GetMetadataResponse = plugin.GetMetadataResponse

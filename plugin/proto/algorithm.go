@@ -22,13 +22,17 @@ import (
 )
 
 // KeySpec is type of the signing algorithm, including algorithm and size.
+//
 // Deprecated: KeySpec exists for historical compatibility and should not be used.
-// To access KeySpec, use the notation-plugin-framework-go's plugin.KeySpec type.
+// To access KeySpec, use the notation-plugin-framework-go's [plugin.KeySpec] type.
 type KeySpec = plugin.KeySpec
 
 // one of the following supported key spec names.
 //
-// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
+// Deprecated: KeySpec exists for historical compatibility and should not be used.
+// To access KeySpec, use the notation-plugin-framework-go's [plugin.KeySpec].
+//
+// [keys spec]: https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
 	KeySpecRSA2048 = plugin.KeySpecRSA2048
 	KeySpecRSA3072 = plugin.KeySpecRSA3072
@@ -44,20 +48,20 @@ func EncodeKeySpec(k signature.KeySpec) (plugin.KeySpec, error) {
 	case signature.KeyTypeEC:
 		switch k.Size {
 		case 256:
-			return KeySpecEC256, nil
+			return plugin.KeySpecEC256, nil
 		case 384:
-			return KeySpecEC384, nil
+			return plugin.KeySpecEC384, nil
 		case 521:
-			return KeySpecEC521, nil
+			return plugin.KeySpecEC521, nil
 		}
 	case signature.KeyTypeRSA:
 		switch k.Size {
 		case 2048:
-			return KeySpecRSA2048, nil
+			return plugin.KeySpecRSA2048, nil
 		case 3072:
-			return KeySpecRSA3072, nil
+			return plugin.KeySpecRSA3072, nil
 		case 4096:
-			return KeySpecRSA4096, nil
+			return plugin.KeySpecRSA4096, nil
 		}
 	}
 	return "", fmt.Errorf("invalid KeySpec %q", k)
@@ -66,22 +70,22 @@ func EncodeKeySpec(k signature.KeySpec) (plugin.KeySpec, error) {
 // DecodeKeySpec parses keySpec name to a signature.keySpec type.
 func DecodeKeySpec(k plugin.KeySpec) (keySpec signature.KeySpec, err error) {
 	switch k {
-	case KeySpecRSA2048:
+	case plugin.KeySpecRSA2048:
 		keySpec.Size = 2048
 		keySpec.Type = signature.KeyTypeRSA
-	case KeySpecRSA3072:
+	case plugin.KeySpecRSA3072:
 		keySpec.Size = 3072
 		keySpec.Type = signature.KeyTypeRSA
-	case KeySpecRSA4096:
+	case plugin.KeySpecRSA4096:
 		keySpec.Size = 4096
 		keySpec.Type = signature.KeyTypeRSA
-	case KeySpecEC256:
+	case plugin.KeySpecEC256:
 		keySpec.Size = 256
 		keySpec.Type = signature.KeyTypeEC
-	case KeySpecEC384:
+	case plugin.KeySpecEC384:
 		keySpec.Size = 384
 		keySpec.Type = signature.KeyTypeEC
-	case KeySpecEC521:
+	case plugin.KeySpecEC521:
 		keySpec.Size = 521
 		keySpec.Type = signature.KeyTypeEC
 	default:
@@ -92,13 +96,17 @@ func DecodeKeySpec(k plugin.KeySpec) (keySpec signature.KeySpec, err error) {
 }
 
 // HashAlgorithm is the type of hash algorithm.
+//
 // Deprecated: HashAlgorithm exists for historical compatibility and should not be used.
-// To access HashAlgorithm, use the notation-plugin-framework-go's plugin.HashAlgorithm type.
+// To access HashAlgorithm, use the notation-plugin-framework-go's [plugin.HashAlgorithm] type.
 type HashAlgorithm = plugin.HashAlgorithm
 
 // one of the following supported hash algorithm names.
 //
-// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
+// Deprecated: HashAlgorithm exists for historical compatibility and should not be used.
+// To access HashAlgorithm, use the notation-plugin-framework-go's [plugin.HashAlgorithm] type.
+//
+// [hash algorithm]: https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
 	HashAlgorithmSHA256 = plugin.HashAlgorithmSHA256
 	HashAlgorithmSHA384 = plugin.HashAlgorithmSHA384
@@ -111,33 +119,37 @@ func HashAlgorithmFromKeySpec(k signature.KeySpec) (plugin.HashAlgorithm, error)
 	case signature.KeyTypeEC:
 		switch k.Size {
 		case 256:
-			return HashAlgorithmSHA256, nil
+			return plugin.HashAlgorithmSHA256, nil
 		case 384:
-			return HashAlgorithmSHA384, nil
+			return plugin.HashAlgorithmSHA384, nil
 		case 521:
-			return HashAlgorithmSHA512, nil
+			return plugin.HashAlgorithmSHA512, nil
 		}
 	case signature.KeyTypeRSA:
 		switch k.Size {
 		case 2048:
-			return HashAlgorithmSHA256, nil
+			return plugin.HashAlgorithmSHA256, nil
 		case 3072:
-			return HashAlgorithmSHA384, nil
+			return plugin.HashAlgorithmSHA384, nil
 		case 4096:
-			return HashAlgorithmSHA512, nil
+			return plugin.HashAlgorithmSHA512, nil
 		}
 	}
 	return "", fmt.Errorf("invalid KeySpec %q", k)
 }
 
 // SignatureAlgorithm is the type of signature algorithm
+//
 // Deprecated: SignatureAlgorithm exists for historical compatibility and should not be used.
-// To access SignatureAlgorithm, use the notation-plugin-framework-go's plugin.SignatureAlgorithm type.
+// To access SignatureAlgorithm, use the notation-plugin-framework-go's [plugin.SignatureAlgorithm] type.
 type SignatureAlgorithm = plugin.SignatureAlgorithm
 
-// one of the following supported signing algorithm names.
+// one of the following supported [signing algorithm] names.
 //
-// https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
+// Deprecated: SignatureAlgorithm exists for historical compatibility and should not be used.
+// To access SignatureAlgorithm, use the notation-plugin-framework-go's [plugin.SignatureAlgorithm] type.
+//
+// [signing algorithm]: https://github.com/notaryproject/notaryproject/blob/main/specs/signature-specification.md#algorithm-selection
 const (
 	SignatureAlgorithmECDSA_SHA256      = plugin.SignatureAlgorithmECDSA_SHA256
 	SignatureAlgorithmECDSA_SHA384      = plugin.SignatureAlgorithmECDSA_SHA384
@@ -152,17 +164,17 @@ const (
 func EncodeSigningAlgorithm(alg signature.Algorithm) (plugin.SignatureAlgorithm, error) {
 	switch alg {
 	case signature.AlgorithmES256:
-		return SignatureAlgorithmECDSA_SHA256, nil
+		return plugin.SignatureAlgorithmECDSA_SHA256, nil
 	case signature.AlgorithmES384:
-		return SignatureAlgorithmECDSA_SHA384, nil
+		return plugin.SignatureAlgorithmECDSA_SHA384, nil
 	case signature.AlgorithmES512:
-		return SignatureAlgorithmECDSA_SHA512, nil
+		return plugin.SignatureAlgorithmECDSA_SHA512, nil
 	case signature.AlgorithmPS256:
-		return SignatureAlgorithmRSASSA_PSS_SHA256, nil
+		return plugin.SignatureAlgorithmRSASSA_PSS_SHA256, nil
 	case signature.AlgorithmPS384:
-		return SignatureAlgorithmRSASSA_PSS_SHA384, nil
+		return plugin.SignatureAlgorithmRSASSA_PSS_SHA384, nil
 	case signature.AlgorithmPS512:
-		return SignatureAlgorithmRSASSA_PSS_SHA512, nil
+		return plugin.SignatureAlgorithmRSASSA_PSS_SHA512, nil
 	}
 	return "", fmt.Errorf("invalid algorithm %q", alg)
 }
@@ -170,17 +182,17 @@ func EncodeSigningAlgorithm(alg signature.Algorithm) (plugin.SignatureAlgorithm,
 // DecodeSigningAlgorithm parses the signing algorithm name from a given string.
 func DecodeSigningAlgorithm(raw plugin.SignatureAlgorithm) (signature.Algorithm, error) {
 	switch raw {
-	case SignatureAlgorithmECDSA_SHA256:
+	case plugin.SignatureAlgorithmECDSA_SHA256:
 		return signature.AlgorithmES256, nil
-	case SignatureAlgorithmECDSA_SHA384:
+	case plugin.SignatureAlgorithmECDSA_SHA384:
 		return signature.AlgorithmES384, nil
-	case SignatureAlgorithmECDSA_SHA512:
+	case plugin.SignatureAlgorithmECDSA_SHA512:
 		return signature.AlgorithmES512, nil
-	case SignatureAlgorithmRSASSA_PSS_SHA256:
+	case plugin.SignatureAlgorithmRSASSA_PSS_SHA256:
 		return signature.AlgorithmPS256, nil
-	case SignatureAlgorithmRSASSA_PSS_SHA384:
+	case plugin.SignatureAlgorithmRSASSA_PSS_SHA384:
 		return signature.AlgorithmPS384, nil
-	case SignatureAlgorithmRSASSA_PSS_SHA512:
+	case plugin.SignatureAlgorithmRSASSA_PSS_SHA512:
 		return signature.AlgorithmPS512, nil
 	}
 	return 0, errors.New("unknown signing algorithm")
