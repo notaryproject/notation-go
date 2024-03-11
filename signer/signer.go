@@ -42,7 +42,12 @@ type GenericSigner struct {
 }
 
 // New returns a builtinSigner given key and cert chain
-func New(key crypto.PrivateKey, certChain []*x509.Certificate) (*GenericSigner, error) {
+func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
+	return NewGenericSigner(key, certChain)
+}
+
+// NewGenericSigner returns a builtinSigner given key and cert chain
+func NewGenericSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*GenericSigner, error) {
 	localSigner, err := signature.NewLocalSigner(certChain, key)
 	if err != nil {
 		return nil, err
@@ -53,7 +58,12 @@ func New(key crypto.PrivateKey, certChain []*x509.Certificate) (*GenericSigner, 
 }
 
 // NewFromFiles returns a builtinSigner given key and certChain paths.
-func NewFromFiles(keyPath, certChainPath string) (*GenericSigner, error) {
+func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
+	return NewGenericSignerFromFiles(keyPath, certChainPath)
+}
+
+// NewGenericSignerFromFiles returns a builtinSigner given key and certChain paths.
+func NewGenericSignerFromFiles(keyPath, certChainPath string) (*GenericSigner, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
 	}
@@ -80,7 +90,7 @@ func NewFromFiles(keyPath, certChainPath string) (*GenericSigner, error) {
 	}
 
 	// create signer
-	return New(cert.PrivateKey, certs)
+	return NewGenericSigner(cert.PrivateKey, certs)
 }
 
 // Sign signs the artifact described by its descriptor and returns the

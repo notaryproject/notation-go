@@ -192,21 +192,7 @@ func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, sign
 		return nil, nil, fmt.Errorf("invalid content media-type '%s': %v", signBlobOpts.ContentMediaType, err)
 	}
 
-	getDescFunc := func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
-		h := hashAlgo.Hash()
-		bytes, err := io.Copy(hashAlgo.Hash(), blobReader)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-
-		targetDesc := ocispec.Descriptor{
-			MediaType: signBlobOpts.ContentMediaType,
-			Digest:    digest.NewDigest(hashAlgo, h),
-			Size:      bytes,
-		}
-		return addUserMetadataToDescriptor(ctx, targetDesc, signBlobOpts.UserMetadata)
-	}
-
+	getDescFunc := getDescriptorFunc(ctx, blobReader, signBlobOpts.ContentMediaType, signBlobOpts.UserMetadata)
 	return signer.SignBlob(ctx, getDescFunc, signBlobOpts.SignerSignOptions)
 }
 
@@ -315,7 +301,7 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 
 // VerifierVerifyOptions contains parameters for Verifier.Verify.
 type VerifierVerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is been
+	// ArtifactReference is the reference of the artifact that is being
 	// verified against to. It must be a full reference.
 	ArtifactReference string
 
@@ -349,7 +335,7 @@ type verifySkipper interface {
 
 // VerifyOptions contains parameters for notation.Verify.
 type VerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is been
+	// ArtifactReference is the reference of the artifact that is being
 	// verified against to.
 	ArtifactReference string
 
@@ -527,4 +513,20 @@ func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[strin
 	}
 	annotations[ocispec.AnnotationCreated] = signingTime.Format(time.RFC3339)
 	return annotations, nil
+}
+
+func getDescriptorFunc(ctx context.Context, reader io.Reader, contentMediaType string, userMetadata map[string]string) BlobDescriptorGenerator {
+	return func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
+		h := hashAlgo.Hash()
+		bytes, err := io.Copy(hashAlgo.Hash(), reader)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+		targetDesc := ocispec.Descriptor{
+			MediaType: contentMediaType,
+			Digest:    digest.NewDigest(hashAlgo, h),
+			Size:      bytes,
+		}
+		return addUserMetadataToDescriptor(ctx, targetDesc, userMetadata)
+	}
 }

@@ -219,7 +219,7 @@ func TestSignBlobWithCertChain(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := New(keyCert.key, keyCert.certs)
+				s, err := NewGenericSigner(keyCert.key, keyCert.certs)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}

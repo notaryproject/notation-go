@@ -52,7 +52,14 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 // NewFromPlugin creates a notation.Signer that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
-func NewFromPlugin(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (*PluginSigner, error) {
+func NewFromPlugin(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
+	return NewPluginSigner(plugin, keyID, pluginConfig)
+}
+
+// NewPluginSigner creates a notation.Signer that signs artifacts and generates
+// signatures by delegating the one or more operations to the named plugin,
+// as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
+func NewPluginSigner(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (*PluginSigner, error) {
 	if plugin == nil {
 		return nil, errors.New("nil plugin")
 	}
