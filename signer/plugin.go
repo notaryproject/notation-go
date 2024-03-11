@@ -121,13 +121,8 @@ func (s *PluginSigner) SignBlob(ctx context.Context, blobGenFunc notation.BlobDe
 		return nil, nil, err
 	}
 
-	digestAlg, ok := algorithms[ks.SignatureAlgorithm().Hash()]
-	if !ok {
-		return nil, nil, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm())
-	}
-
 	// get descriptor to sign
-	desc, err := blobGenFunc(digestAlg)
+	desc, err := getDescriptor(ks, blobGenFunc)
 	if err != nil {
 		return nil, nil, err
 	}

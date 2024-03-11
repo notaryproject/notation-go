@@ -158,7 +158,7 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 }
 
 // SignBlob signs the descriptor returned by blobGen and returns the marshalled envelope
-func (s *GenericSigner) SignBlob(ctx context.Context, blobGen notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *GenericSigner) SignBlob(ctx context.Context, blobGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic blob signing for signature media type %v", opts.SignatureMediaType)
 
@@ -167,15 +167,19 @@ func (s *GenericSigner) SignBlob(ctx context.Context, blobGen notation.BlobDescr
 		return nil, nil, err
 	}
 
-	digestAlg, ok := algorithms[ks.SignatureAlgorithm().Hash()]
-	if !ok {
-		return nil, nil, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm().Hash())
-	}
-
-	desc, err := blobGen(digestAlg)
+	desc, err := getDescriptor(ks, blobGenFunc)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return s.Sign(ctx, desc, opts)
+}
+
+func getDescriptor(ks signature.KeySpec, blobGenFunc notation.BlobDescriptorGenerator) (ocispec.Descriptor, error) {
+	digestAlg, ok := algorithms[ks.SignatureAlgorithm().Hash()]
+	if !ok {
+		return ocispec.Descriptor{}, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm().Hash())
+	}
+
+	return blobGenFunc(digestAlg)
 }
