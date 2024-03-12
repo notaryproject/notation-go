@@ -105,7 +105,7 @@ func (s *PluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 }
 
 // SignBlob signs the arbitrary data and returns the marshalled envelope.
-func (s *PluginSigner) SignBlob(ctx context.Context, blobGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	mergedConfig := s.mergeConfig(opts.PluginConfig)
 
@@ -122,7 +122,7 @@ func (s *PluginSigner) SignBlob(ctx context.Context, blobGenFunc notation.BlobDe
 	}
 
 	// get descriptor to sign
-	desc, err := getDescriptor(ks, blobGenFunc)
+	desc, err := getDescriptor(ks, descGenFunc)
 	if err != nil {
 		return nil, nil, err
 	}
