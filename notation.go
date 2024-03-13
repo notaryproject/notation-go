@@ -517,14 +517,14 @@ func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[strin
 
 func getDescriptorFunc(ctx context.Context, reader io.Reader, contentMediaType string, userMetadata map[string]string) BlobDescriptorGenerator {
 	return func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
-		h := hashAlgo.Hash()
-		bytes, err := io.Copy(hashAlgo.Hash(), reader)
+		digester := hashAlgo.Digester()
+		bytes, err := io.Copy(digester.Hash(), reader)
 		if err != nil {
 			return ocispec.Descriptor{}, err
 		}
 		targetDesc := ocispec.Descriptor{
 			MediaType: contentMediaType,
-			Digest:    digest.NewDigest(hashAlgo, h),
+			Digest:    digester.Digest(),
 			Size:      bytes,
 		}
 		return addUserMetadataToDescriptor(ctx, targetDesc, userMetadata)
