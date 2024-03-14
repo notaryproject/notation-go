@@ -18,12 +18,13 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	"oras.land/oras-go/v2/registry/remote"
+
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/signer"
-	"oras.land/oras-go/v2/registry/remote"
 )
 
 // Both COSE ("application/cose") and JWS ("application/jose+json")
@@ -45,8 +46,8 @@ func Example_remoteSign() {
 	// Users should replace `exampleCertTuple.PrivateKey` with their own private
 	// key and replace `exampleCerts` with the corresponding full certificate
 	// chain, following the Notary certificate requirements:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements
-	exampleSigner, err := signer.New(exampleCertTuple.PrivateKey, exampleCerts)
+	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
+	exampleSigner, err := signer.NewGenericSigner(exampleCertTuple.PrivateKey, exampleCerts)
 	if err != nil {
 		panic(err) // Handle error
 	}
