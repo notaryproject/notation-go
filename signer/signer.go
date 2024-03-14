@@ -38,10 +38,12 @@ const signingAgent = "Notation/1.0.0"
 
 // GenericSigner implements notation.Signer and embeds signature.Signer
 type GenericSigner struct {
-	signature.Signer
+	signer signature.Signer
 }
 
 // New returns a builtinSigner given key and cert chain
+// Deprecated: New function exists for historical compatibility and should not be used.
+// To create GenericSigner, use NewGenericSigner() function.
 func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
 	return NewGenericSigner(key, certChain)
 }
@@ -53,7 +55,7 @@ func NewGenericSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Ge
 		return nil, err
 	}
 	return &GenericSigner{
-		Signer: localSigner,
+		signer: localSigner,
 	}, nil
 }
 
@@ -116,7 +118,7 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 			ContentType: envelope.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:        s.Signer,
+		Signer:        s.signer,
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
 		SigningAgent:  signingAgentId,
@@ -162,7 +164,7 @@ func (s *GenericSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobD
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic blob signing for signature media type %v", opts.SignatureMediaType)
 
-	ks, err := s.KeySpec()
+	ks, err := s.signer.KeySpec()
 	if err != nil {
 		return nil, nil, err
 	}

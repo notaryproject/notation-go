@@ -52,6 +52,8 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 // NewFromPlugin creates a notation.Signer that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
+// Deprecated: NewFromPlugin function exists for historical compatibility and should not be used.
+// To create PluginSigner, use NewPluginSigner() function.
 func NewFromPlugin(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
 	return NewPluginSigner(plugin, keyID, pluginConfig)
 }
@@ -92,13 +94,13 @@ func (s *PluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	}
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign oci artifact %v in signature media type %v", metadata.Name, metadata.Capabilities, desc.Digest, opts.SignatureMediaType)
-	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
+	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		ks, err := s.getKeySpec(ctx, mergedConfig)
 		if err != nil {
 			return nil, nil, err
 		}
 		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
-	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
+	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
@@ -128,9 +130,9 @@ func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDe
 	}
 
 	logger.Debugf("Using plugin %v with capabilities %v to sign blob using descriptor %+v", metadata.Name, metadata.Capabilities, desc)
-	if metadata.HasCapability(proto.CapabilitySignatureGenerator) {
+	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
-	} else if metadata.HasCapability(proto.CapabilityEnvelopeGenerator) {
+	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
 		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
@@ -155,7 +157,7 @@ func (s *PluginSigner) generateSignature(ctx context.Context, desc ocispec.Descr
 	logger := log.GetLogger(ctx)
 	logger.Debug("Generating signature by plugin")
 	genericSigner := GenericSigner{
-		Signer: &pluginPrimitiveSigner{
+		signer: &pluginPrimitiveSigner{
 			ctx:          ctx,
 			plugin:       s.plugin,
 			keyID:        s.keyID,
