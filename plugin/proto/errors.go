@@ -26,25 +26,41 @@ import (
 type ErrorCode = plugin.ErrorCode
 
 const (
-	// Any of the required request fields was empty,
-	// or a value was malformed/invalid.
+	// ErrorCodeValidation is used when any of the required request fields is empty ormalformed/invalid.
+	//
+	// Deprecated: ErrorCodeValidation exists for historical compatibility and should not be used.
+	// To access ErrorCodeValidation, use the notation-plugin-framework-go's [plugin.ErrorCodeValidation].
 	ErrorCodeValidation = plugin.ErrorCodeValidation
 
-	// The contract version used in the request is unsupported.
+	// ErrorCodeUnsupportedContractVersion is used when when the contract version used in the request is unsupported.
+	//
+	// Deprecated: ErrorCodeUnsupportedContractVersion exists for historical compatibility and should not be used.
+	// To access ErrorCodeUnsupportedContractVersion, use the notation-plugin-framework-go's [plugin.ErrorCodeUnsupportedContractVersion].
 	ErrorCodeUnsupportedContractVersion = plugin.ErrorCodeUnsupportedContractVersion
 
-	// Authentication/authorization error to use given key.
+	// ErrorCodeAccessDenied is used when user doesn't have required permission to access the key.
+	//
+	// Deprecated: ErrorCodeAccessDenied exists for historical compatibility and should not be used.
+	// To access ErrorCodeAccessDenied, use the notation-plugin-framework-go's [plugin.ErrorCodeAccessDenied].
 	ErrorCodeAccessDenied = plugin.ErrorCodeAccessDenied
 
-	// The operation to generate signature timed out
-	// and can be retried by Notation.
+	// ErrorCodeTimeout is used when an operation to generate signature timed out and can be retried by Notation.
+	//
+	// Deprecated: ErrorCodeTimeout exists for historical compatibility and should not be used.
+	// To access ErrorCodeTimeout, use the notation-plugin-framework-go's [plugin.ErrorCodeTimeout].
 	ErrorCodeTimeout = plugin.ErrorCodeTimeout
 
-	// The operation to generate signature was throttles
+	// ErrorCodeThrottled is used when an operation to generate signature was throttles
 	// and can be retried by Notation.
+	//
+	// Deprecated: ErrorCodeThrottled exists for historical compatibility and should not be used.
+	// To access ErrorCodeThrottled, use the notation-plugin-framework-go's [plugin.ErrorCodeThrottled].
 	ErrorCodeThrottled = plugin.ErrorCodeThrottled
 
-	// Any general error that does not fall into any categories.
+	// ErrorCodeGeneric  is used when an general error occurred that does not fall into any categories.
+	//
+	// Deprecated: ErrorCodeGeneric exists for historical compatibility and should not be used.
+	// To access ErrorCodeGeneric, use the notation-plugin-framework-go's [plugin.ErrorCodeGeneric].
 	ErrorCodeGeneric = plugin.ErrorCodeGeneric
 )
 
