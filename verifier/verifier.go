@@ -681,9 +681,10 @@ func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPl
 	}
 
 	req := &pluginframework.VerifySignatureRequest{
-		Signature:    signature,
-		TrustPolicy:  policy,
-		PluginConfig: pluginConfig,
+		ContractVersion: pluginframework.ContractVersion,
+		Signature:       signature,
+		TrustPolicy:     policy,
+		PluginConfig:    pluginConfig,
 	}
 	return installedPlugin.VerifySignature(ctx, req)
 }
