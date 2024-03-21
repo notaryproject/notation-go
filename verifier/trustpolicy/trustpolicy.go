@@ -32,13 +32,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
-type Type int
-
-const (
-	TypeBlob Type = iota + 1
-	TypeOCI
-)
-
 // trustPolicyLink is a tutorial link for creating Notation's trust policy.
 const trustPolicyLink = "https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"
 
@@ -148,12 +141,19 @@ type SignatureVerification struct {
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
 }
 
+type Type int
+
+const (
+	TypeBlob Type = iota
+	TypeOCI
+)
+
 func Get(p Type) (interface{}, error) {
 	switch p {
 	case TypeBlob:
-		return loadBlobDocument()
+		return LoadBlobDocument()
 	case TypeOCI:
-		return loadBlobDocument()
+		return LoadBlobDocument()
 	}
 	return 0, fmt.Errorf("invalid policy type:L %v", p)
 }

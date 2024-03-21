@@ -21,6 +21,15 @@ import (
 	"github.com/notaryproject/notation-go/internal/slices"
 )
 
+// BlobDocument represents a trustpolicy.blob.json document
+type BlobDocument struct {
+	// Version of the policy document
+	Version string `json:"version"`
+
+	// BlobTrustPolicies include each policy statement
+	BlobTrustPolicies []BlobTrustPolicy `json:"trustPolicies"`
+}
+
 type BlobTrustPolicy struct {
 	// Name of the policy statement
 	Name string `json:"name"`
@@ -36,15 +45,6 @@ type BlobTrustPolicy struct {
 
 	// GlobalPolicy defines if policy statement is global or not
 	GlobalPolicy *bool `json:"globalPolicy,omitempty"`
-}
-
-// BlobDocument represents a trustpolicy.blob.json document
-type BlobDocument struct {
-	// Version of the policy document
-	Version string `json:"version"`
-
-	// BlobTrustPolicies include each policy statement
-	BlobTrustPolicies []BlobTrustPolicy `json:"trustPolicies"`
 }
 
 // LoadBlobDocument loads a trust policy document from a local file system

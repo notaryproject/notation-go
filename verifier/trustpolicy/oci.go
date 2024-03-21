@@ -61,10 +61,10 @@ type TrustPolicy = OCITrustPolicy
 
 // LoadDocument loads a trust policy document from a local file system
 // Deprecated
-var LoadDocument = loadOCIDocument
+var LoadDocument = LoadOCIDocument
 
 // LoadOCIDocument loads a trust policy document from a local file system
-func loadOCIDocument() (*OCIDocument, error) {
+func LoadOCIDocument() (*OCIDocument, error) {
 	var doc OCIDocument
 	err := getDocument(dir.PathOCITrustPolicy, &doc)
 	return &doc, err
