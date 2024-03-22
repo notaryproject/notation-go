@@ -516,111 +516,118 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 }
 
 func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
-	invalidTimestamp := false
-	var err error
-
 	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
-		var timeStampLowerLimit time.Time
-		var timeStampUpperLimit time.Time
-		// TODO verify RFC3161 TSA signature if present (not in RC1)
-		// https://github.com/notaryproject/notation-go/issues/78
-		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
-			// if there is no TSA signature, then every certificate should be
-			// valid at the time of verification
-			timeStampLowerLimit = time.Now()
-			timeStampUpperLimit = timeStampLowerLimit
-		} else {
-			trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
-			if err != nil {
-				return &notation.ValidationResult{
-					Error:  err,
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			if len(trustTSACerts) < 1 {
-				return &notation.ValidationResult{
-					Error:  notation.ErrorVerificationInconclusive{Msg: "no trusted TSA certificate was found to verify authentic timestamp"},
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			signedToken, err := tspclient.ParseSignedToken(ctx, signerInfo.UnsignedAttributes.TimestampSignature)
-			if err != nil {
-				return &notation.ValidationResult{
-					Error:  err,
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			roots := x509.NewCertPool()
-			for _, cert := range trustTSACerts {
-				roots.AddCert(cert)
-			}
-			opts := x509.VerifyOptions{
-				Roots: roots,
-			}
-			if _, err := signedToken.Verify(ctx, opts); err != nil {
-				return &notation.ValidationResult{
-					Error:  err,
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			info, err := signedToken.Info()
-			if err != nil {
-				return &notation.ValidationResult{
-					Error:  err,
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			if err := info.VerifyContent(signerInfo.Signature); err != nil {
-				return &notation.ValidationResult{
-					Error:  err,
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			ts, accuracy := info.Timestamp()
-			timeStampLowerLimit = ts.Add(-accuracy)
-			timeStampUpperLimit = ts.Add(accuracy)
-			fmt.Printf("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
-		}
+		var needTimestamp bool
 		for _, cert := range signerInfo.CertificateChain {
-			fmt.Printf("cert validiy time range: [%v, %v]\n", cert.NotBefore, cert.NotAfter)
-			if timeStampLowerLimit.Before(cert.NotBefore) {
-				invalidTimestamp = true
-				err = fmt.Errorf("certificate %q is not valid yet, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
+			if time.Now().Before(cert.NotBefore) || time.Now().After(cert.NotAfter) {
+				// found at least one cert that current time is not in its
+				// validity period; need timestamp to continue this step
+				needTimestamp = true
 				break
+			}
+		}
+		if !needTimestamp { // this step is a success
+			return &notation.ValidationResult{
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
+			// if there is no timestamp token, fail this step
+			return &notation.ValidationResult{
+				Error:  errors.New("current time is not in certificate chain validity period and no timestamp token was found in the signature envelope"),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		if len(trustTSACerts) < 1 {
+			return &notation.ValidationResult{
+				Error:  errors.New("no trusted TSA root certificate was found in the trust store"),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		signedToken, err := tspclient.ParseSignedToken(ctx, signerInfo.UnsignedAttributes.TimestampSignature)
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		roots := x509.NewCertPool()
+		for _, cert := range trustTSACerts {
+			roots.AddCert(cert)
+		}
+		opts := x509.VerifyOptions{
+			Roots: roots,
+		}
+		// TODO: check revocation of cert chain
+		if _, err := signedToken.Verify(ctx, opts); err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		info, err := signedToken.Info()
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		if err := info.VerifyContent(signerInfo.Signature); err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		// consume the timestamp
+		ts, accuracy := info.Timestamp()
+		timeStampLowerLimit := ts.Add(-accuracy)
+		timeStampUpperLimit := ts.Add(accuracy)
+		fmt.Printf("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
+		for _, cert := range signerInfo.CertificateChain {
+			if timeStampLowerLimit.Before(cert.NotBefore) {
+				return &notation.ValidationResult{
+					Error:  fmt.Errorf("timestamp lower limit %q is before certificate %q validity period , it will be valid from %q", timeStampLowerLimit.Format(time.RFC1123Z), cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
+					Type:   trustpolicy.TypeAuthenticTimestamp,
+					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+				}
 			}
 			if timeStampUpperLimit.After(cert.NotAfter) {
-				invalidTimestamp = true
-				err = fmt.Errorf("certificate %q is not valid anymore, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
-				break
+				return &notation.ValidationResult{
+					Error:  fmt.Errorf("timestamp upper limit %q is after certificate %q validity period, it was expired at %q", timeStampUpperLimit.Format(time.RFC1123Z), cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
+					Type:   trustpolicy.TypeAuthenticTimestamp,
+					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+				}
 			}
 		}
 	} else if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
 		authenticSigningTime := signerInfo.SignedAttributes.SigningTime
-		// TODO use authenticSigningTime from signerInfo
-		// https://github.com/notaryproject/notation-core-go/issues/38
 		for _, cert := range signerInfo.CertificateChain {
 			if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
-				invalidTimestamp = true
-				err = fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z))
-				break
+				return &notation.ValidationResult{
+					Error:  fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z)),
+					Type:   trustpolicy.TypeAuthenticTimestamp,
+					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+				}
 			}
 		}
 	}
 
-	if invalidTimestamp {
-		return &notation.ValidationResult{
-			Error:  err,
-			Type:   trustpolicy.TypeAuthenticTimestamp,
-			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-		}
-	}
-
+	// this step is a success
 	return &notation.ValidationResult{
 		Type:   trustpolicy.TypeAuthenticTimestamp,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],

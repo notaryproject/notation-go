@@ -1,7 +1,7 @@
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 h1:mFRzDkZVAjdal+s7s0MwaRv9igoPqLRdzOLzw/8Xvq8=
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
-github.com/Two-Hearts/notation-core-go v0.0.0-20240322064059-bf4ea64638b0 h1:CRM7IOv+86vhe82iD8EAGRbi/V+BhTXIEFwGegCP9uE=
-github.com/Two-Hearts/notation-core-go v0.0.0-20240322064059-bf4ea64638b0/go.mod h1:cYwg3vrJsiuSC3ID7bG4/q6spGYbBTIr2mqG3ePwrqQ=
+github.com/Two-Hearts/notation-core-go v0.0.0-20240322074029-e6537801a769 h1:IjW5HyuNFL1rW29o/dCFoO4J5kXGCrEMOwNTwPyd6fs=
+github.com/Two-Hearts/notation-core-go v0.0.0-20240322074029-e6537801a769/go.mod h1:cYwg3vrJsiuSC3ID7bG4/q6spGYbBTIr2mqG3ePwrqQ=
 github.com/Two-Hearts/tspclient-go v0.0.0-20240322031047-c33159600668 h1:DwEjNM07LP9yYT17LMWEgv4g0UnjmORuyX2aqUgnURE=
 github.com/Two-Hearts/tspclient-go v0.0.0-20240322031047-c33159600668/go.mod h1:Pgt9nPf69t08eVXdxjcfxZalElbQocRuP1DGSKZDpMs=
 github.com/alexbrainman/sspi v0.0.0-20210105120005-909beea2cc74 h1:Kk6a4nehpJ3UuJRqlA3JxYxBZEqCeOmATOvrbT4p9RA=
