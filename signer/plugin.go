@@ -180,6 +180,7 @@ func (s *PluginSigner) generateSignatureEnvelope(ctx context.Context, desc ocisp
 	}
 	// Execute plugin sign command.
 	req := &plugin.GenerateEnvelopeRequest{
+		ContractVersion:         plugin.ContractVersion,
 		KeyID:                   s.keyID,
 		Payload:                 payloadBytes,
 		SignatureEnvelopeType:   opts.SignatureMediaType,
@@ -247,8 +248,9 @@ func (s *PluginSigner) mergeConfig(config map[string]string) map[string]string {
 
 func (s *PluginSigner) describeKey(ctx context.Context, config map[string]string) (*plugin.DescribeKeyResponse, error) {
 	req := &plugin.DescribeKeyRequest{
-		KeyID:        s.keyID,
-		PluginConfig: config,
+		ContractVersion: plugin.ContractVersion,
+		KeyID:           s.keyID,
+		PluginConfig:    config,
 	}
 	resp, err := s.plugin.DescribeKey(ctx, req)
 	if err != nil {
@@ -344,11 +346,12 @@ func (s *pluginPrimitiveSigner) Sign(payload []byte) ([]byte, []*x509.Certificat
 	}
 
 	req := &plugin.GenerateSignatureRequest{
-		KeyID:        s.keyID,
-		KeySpec:      keySpec,
-		Hash:         keySpecHash,
-		Payload:      payload,
-		PluginConfig: s.pluginConfig,
+		ContractVersion: plugin.ContractVersion,
+		KeyID:           s.keyID,
+		KeySpec:         keySpec,
+		Hash:            keySpecHash,
+		Payload:         payload,
+		PluginConfig:    s.pluginConfig,
 	}
 
 	resp, err := s.plugin.GenerateSignature(s.ctx, req)
