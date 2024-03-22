@@ -144,9 +144,14 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		return nil, nil, err
 	}
 
+	var timestampErr *signature.TimestampError
 	sig, err := sigEnv.Sign(signReq)
 	if err != nil {
-		return nil, nil, err
+		if !errors.As(err, &timestampErr) {
+			return nil, nil, err
+		}
+		// warn on timestamping error, but do not fail the signing process
+		logger.Warnf("Failed to timestamp the signature. Error: %v", timestampErr)
 	}
 
 	envContent, err := sigEnv.Verify()
@@ -156,8 +161,6 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, nil, err
 	}
-
-	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
 	return sig, &envContent.SignerInfo, nil
 }
 
