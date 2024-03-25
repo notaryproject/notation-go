@@ -1,6 +1,6 @@
 module github.com/notaryproject/notation-go
 
-go 1.20
+go 1.21
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.6
@@ -11,7 +11,7 @@ require (
 	github.com/veraison/go-cose v1.1.0
 	golang.org/x/crypto v0.21.0
 	golang.org/x/mod v0.16.0
-	oras.land/oras-go/v2 v2.4.0
+	oras.land/oras-go/v2 v2.5.0
 )
 
 require (
