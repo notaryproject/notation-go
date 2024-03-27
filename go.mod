@@ -1,6 +1,8 @@
 module github.com/notaryproject/notation-go
 
-go 1.20
+go 1.21
+
+toolchain go1.21.4
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.6
@@ -25,6 +27,6 @@ require (
 	golang.org/x/sync v0.6.0 // indirect
 )
 
-replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240322074029-e6537801a769
+replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240327082239-e085696162b1
 
-replace github.com/notaryproject/tspclient-go => github.com/Two-Hearts/tspclient-go v0.0.0-20240322031047-c33159600668
+replace github.com/notaryproject/tspclient-go => github.com/Two-Hearts/tspclient-go v0.0.0-20240327080830-9d2a35b7f3f0

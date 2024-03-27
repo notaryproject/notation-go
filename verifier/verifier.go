@@ -570,7 +570,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		opts := x509.VerifyOptions{
 			Roots: roots,
 		}
-		// TODO: check revocation of cert chain
+		// TODO: validate and check revocation of cert chain
 		if _, err := signedToken.Verify(ctx, opts); err != nil {
 			return &notation.ValidationResult{
 				Error:  err,
@@ -586,15 +586,15 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		if err := info.VerifyContent(signerInfo.Signature); err != nil {
+		// validate and consume the timestamp
+		ts, accuracy, err := info.Timestamp(signerInfo.Signature)
+		if err != nil {
 			return &notation.ValidationResult{
 				Error:  err,
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// consume the timestamp
-		ts, accuracy := info.Timestamp()
 		timeStampLowerLimit := ts.Add(-accuracy)
 		timeStampUpperLimit := ts.Add(accuracy)
 		fmt.Printf("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
