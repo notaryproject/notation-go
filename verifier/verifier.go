@@ -31,6 +31,7 @@ import (
 	"github.com/notaryproject/notation-core-go/revocation"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
+	nx509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
@@ -570,14 +571,24 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		opts := x509.VerifyOptions{
 			Roots: roots,
 		}
-		// TODO: validate and check revocation of cert chain
-		if _, err := signedToken.Verify(ctx, opts); err != nil {
+		// TODO: check revocation of cert chain
+		tsaCertChain, err := signedToken.Verify(ctx, opts)
+		if err != nil {
 			return &notation.ValidationResult{
 				Error:  err,
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
+		// validate TSA cert chain
+		if err := nx509.ValidateTimeStampingCertChain(tsaCertChain, nil); err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		// get the timestamp token info
 		info, err := signedToken.Info()
 		if err != nil {
 			return &notation.ValidationResult{
@@ -586,7 +597,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// validate and consume the timestamp
+		// validate the info and consume timestamp
 		ts, accuracy, err := info.Timestamp(signerInfo.Signature)
 		if err != nil {
 			return &notation.ValidationResult{
