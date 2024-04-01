@@ -168,12 +168,72 @@ func TestNewFromFiles(t *testing.T) {
 	}
 }
 
+func TestNewFromFilesError(t *testing.T) {
+	tests := map[string]struct {
+		keyPath  string
+		certPath string
+		errMsg   string
+	}{
+		"empty key path": {
+			keyPath:  "",
+			certPath: "someCert",
+			errMsg:   "key path not specified",
+		},
+		"empty cert path": {
+			keyPath:  "someKeyId",
+			certPath: "",
+			errMsg:   "certificate path not specified",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewFromFiles(tc.keyPath, tc.certPath)
+			if err == nil || err.Error() != tc.errMsg {
+				t.Fatalf("TestNewFromPluginFailed expects error %q, got %q", tc.errMsg, err.Error())
+			}
+		})
+	}
+}
+
+func TestNewError(t *testing.T) {
+	wantErr := "\"certs\" param is invalid. Error: empty certs"
+	_, err := New(nil, nil)
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("TestNewFromPluginFailed expects error %q, got %q", wantErr, err.Error())
+	}
+}
+
 func TestSignWithCertChain(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
 				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs)
+			})
+		}
+	}
+}
+
+func TestSignBlobWithCertChain(t *testing.T) {
+	// sign with key
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				s, err := NewGenericSigner(keyCert.key, keyCert.certs)
+				if err != nil {
+					t.Fatalf("NewSigner() error = %v", err)
+				}
+
+				sOpts := notation.SignerSignOptions{
+					SignatureMediaType: envelopeType,
+				}
+				sig, _, err := s.SignBlob(context.Background(), getDescriptorFunc(false), sOpts)
+				if err != nil {
+					t.Fatalf("Sign() error = %v", err)
+				}
+
+				// basic verification
+				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 			})
 		}
 	}

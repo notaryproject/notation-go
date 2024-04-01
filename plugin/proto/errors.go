@@ -17,42 +17,56 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
-type ErrorCode string
+// Deprecated: ErrorCode exists for historical compatibility and should not be used.
+// To access ErrorCode, use the notation-plugin-framework-go's plugin.ErrorCode type.
+type ErrorCode = plugin.ErrorCode
 
 const (
-	// Any of the required request fields was empty,
-	// or a value was malformed/invalid.
-	ErrorCodeValidation ErrorCode = "VALIDATION_ERROR"
+	// ErrorCodeValidation is used when any of the required request fields is empty ormalformed/invalid.
+	//
+	// Deprecated: ErrorCodeValidation exists for historical compatibility and should not be used.
+	// To access ErrorCodeValidation, use the notation-plugin-framework-go's [plugin.ErrorCodeValidation].
+	ErrorCodeValidation = plugin.ErrorCodeValidation
 
-	// The contract version used in the request is unsupported.
-	ErrorCodeUnsupportedContractVersion ErrorCode = "UNSUPPORTED_CONTRACT_VERSION"
+	// ErrorCodeUnsupportedContractVersion is used when when the contract version used in the request is unsupported.
+	//
+	// Deprecated: ErrorCodeUnsupportedContractVersion exists for historical compatibility and should not be used.
+	// To access ErrorCodeUnsupportedContractVersion, use the notation-plugin-framework-go's [plugin.ErrorCodeUnsupportedContractVersion].
+	ErrorCodeUnsupportedContractVersion = plugin.ErrorCodeUnsupportedContractVersion
 
-	// Authentication/authorization error to use given key.
-	ErrorCodeAccessDenied ErrorCode = "ACCESS_DENIED"
+	// ErrorCodeAccessDenied is used when user doesn't have required permission to access the key.
+	//
+	// Deprecated: ErrorCodeAccessDenied exists for historical compatibility and should not be used.
+	// To access ErrorCodeAccessDenied, use the notation-plugin-framework-go's [plugin.ErrorCodeAccessDenied].
+	ErrorCodeAccessDenied = plugin.ErrorCodeAccessDenied
 
-	// The operation to generate signature timed out
+	// ErrorCodeTimeout is used when an operation to generate signature timed out and can be retried by Notation.
+	//
+	// Deprecated: ErrorCodeTimeout exists for historical compatibility and should not be used.
+	// To access ErrorCodeTimeout, use the notation-plugin-framework-go's [plugin.ErrorCodeTimeout].
+	ErrorCodeTimeout = plugin.ErrorCodeTimeout
+
+	// ErrorCodeThrottled is used when an operation to generate signature was throttles
 	// and can be retried by Notation.
-	ErrorCodeTimeout ErrorCode = "TIMEOUT"
+	//
+	// Deprecated: ErrorCodeThrottled exists for historical compatibility and should not be used.
+	// To access ErrorCodeThrottled, use the notation-plugin-framework-go's [plugin.ErrorCodeThrottled].
+	ErrorCodeThrottled = plugin.ErrorCodeThrottled
 
-	// The operation to generate signature was throttles
-	// and can be retried by Notation.
-	ErrorCodeThrottled ErrorCode = "THROTTLED"
-
-	// Any general error that does not fall into any categories.
-	ErrorCodeGeneric ErrorCode = "ERROR"
+	// ErrorCodeGeneric  is used when an general error occurred that does not fall into any categories.
+	//
+	// Deprecated: ErrorCodeGeneric exists for historical compatibility and should not be used.
+	// To access ErrorCodeGeneric, use the notation-plugin-framework-go's [plugin.ErrorCodeGeneric].
+	ErrorCodeGeneric = plugin.ErrorCodeGeneric
 )
-
-type jsonErr struct {
-	Code     ErrorCode         `json:"errorCode"`
-	Message  string            `json:"errorMessage,omitempty"`
-	Metadata map[string]string `json:"errorMetadata,omitempty"`
-}
 
 // RequestError is the common error response for any request.
 type RequestError struct {
-	Code     ErrorCode
+	Code     plugin.ErrorCode
 	Err      error
 	Metadata map[string]string
 }
@@ -83,19 +97,19 @@ func (e RequestError) MarshalJSON() ([]byte, error) {
 	if e.Err != nil {
 		msg = e.Err.Error()
 	}
-	return json.Marshal(jsonErr{e.Code, msg, e.Metadata})
+	return json.Marshal(plugin.Error{ErrCode: e.Code, Message: msg, Metadata: e.Metadata})
 }
 
 func (e *RequestError) UnmarshalJSON(data []byte) error {
-	var tmp jsonErr
+	var tmp plugin.Error
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
 	}
-	if tmp.Code == "" && tmp.Message == "" && tmp.Metadata == nil {
+	if tmp.ErrCode == "" && tmp.Message == "" && tmp.Metadata == nil {
 		return errors.New("incomplete json")
 	}
-	*e = RequestError{Code: tmp.Code, Metadata: tmp.Metadata}
+	*e = RequestError{Code: tmp.ErrCode, Metadata: tmp.Metadata}
 	if tmp.Message != "" {
 		e.Err = errors.New(tmp.Message)
 	}

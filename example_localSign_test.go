@@ -47,8 +47,8 @@ func Example_localSign() {
 	// Users should replace `exampleCertTuple.PrivateKey` with their own private
 	// key and replace `exampleCerts` with the corresponding full certificate
 	// chain, following the Notary certificate requirements:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements
-	exampleSigner, err := signer.New(exampleCertTuple.PrivateKey, exampleCerts)
+	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
+	exampleSigner, err := signer.NewGenericSigner(exampleCertTuple.PrivateKey, exampleCerts)
 	if err != nil {
 		panic(err) // Handle error
 	}

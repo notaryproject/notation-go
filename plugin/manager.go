@@ -26,12 +26,12 @@ import (
 	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/internal/semver"
 	"github.com/notaryproject/notation-go/log"
-	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 // Manager manages plugins installed on the system.
 type Manager interface {
-	Get(ctx context.Context, name string) (Plugin, error)
+	Get(ctx context.Context, name string) (plugin.Plugin, error)
 	List(ctx context.Context) ([]string, error)
 }
 
@@ -48,7 +48,7 @@ func NewCLIManager(pluginFS dir.SysFS) *CLIManager {
 // Get returns a plugin on the system by its name.
 //
 // If the plugin is not found, the error is of type os.ErrNotExist.
-func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
+func (m *CLIManager) Get(ctx context.Context, name string) (plugin.Plugin, error) {
 	pluginPath := path.Join(name, binName(name))
 	path, err := m.pluginFS.SysPath(pluginPath)
 	if err != nil {
@@ -62,8 +62,11 @@ func (m *CLIManager) Get(ctx context.Context, name string) (Plugin, error) {
 // List produces a list of the plugin names on the system.
 func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 	var plugins []string
-	fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(m.pluginFS, ".", func(dir string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		if dir == "." {
@@ -79,7 +82,9 @@ func (m *CLIManager) List(ctx context.Context) ([]string, error) {
 		// add plugin name
 		plugins = append(plugins, d.Name())
 		return fs.SkipDir
-	})
+	}); err != nil {
+		return nil, PluginDirectoryWalkError(fmt.Errorf("failed to list plugin: %w", err))
+	}
 	return plugins, nil
 }
 
@@ -113,14 +118,14 @@ type CLIInstallOptions struct {
 //
 // If overwrite is set, version check is skipped. If existing
 // plugin is malfunctioning, it will be overwritten.
-func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*proto.GetMetadataResponse, *proto.GetMetadataResponse, error) {
+func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions) (*plugin.GetMetadataResponse, *plugin.GetMetadataResponse, error) {
 	// initialization
 	logger := log.GetLogger(ctx)
 	overwrite := installOpts.Overwrite
 	if installOpts.PluginPath == "" {
 		return nil, nil, errors.New("plugin source path cannot be empty")
 	}
-	logger.Debugf("Installing plugin from plugin path %s", installOpts.PluginPath)
+	logger.Debugf("Installing plugin from path %s", installOpts.PluginPath)
 	var installFromNonDir bool
 	pluginExecutableFile, pluginName, err := parsePluginFromDir(ctx, installOpts.PluginPath)
 	if err != nil {
@@ -146,14 +151,14 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 	// validate and get new plugin metadata
 	newPlugin, err := NewCLIPlugin(ctx, pluginName, pluginExecutableFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create new CLI plugin: %w", err)
+		return nil, nil, err
 	}
-	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+	newPluginMetadata, err := newPlugin.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get metadata of new plugin: %w", err)
 	}
 	// check plugin existence and get existing plugin metadata
-	var existingPluginMetadata *proto.GetMetadataResponse
+	var existingPluginMetadata *plugin.GetMetadataResponse
 	existingPlugin, err := m.Get(ctx, pluginName)
 	if err != nil {
 		// fail only if overwrite is not set
@@ -161,7 +166,7 @@ func (m *CLIManager) Install(ctx context.Context, installOpts CLIInstallOptions)
 			return nil, nil, fmt.Errorf("failed to check plugin existence: %w", err)
 		}
 	} else { // plugin already exists
-		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &proto.GetMetadataRequest{})
+		existingPluginMetadata, err = existingPlugin.GetMetadata(ctx, &plugin.GetMetadataRequest{})
 		if err != nil && !overwrite { // fail only if overwrite is not set
 			return nil, nil, fmt.Errorf("failed to get metadata of existing plugin: %w", err)
 		}

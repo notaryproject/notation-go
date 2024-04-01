@@ -21,11 +21,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
 func binName(name string) string {
-	return proto.Prefix + name
+	return plugin.BinaryPrefix + name
 }
 
 // isExecutableFile checks if a file at filePath is user executable
@@ -44,7 +44,7 @@ func isExecutableFile(filePath string) (bool, error) {
 // parsePluginName checks if fileName is a valid plugin file name
 // and gets plugin name from it based on spec: https://github.com/notaryproject/specifications/blob/main/specs/plugin-extensibility.md#installation
 func parsePluginName(fileName string) (string, error) {
-	pluginName, found := strings.CutPrefix(fileName, proto.Prefix)
+	pluginName, found := strings.CutPrefix(fileName, plugin.BinaryPrefix)
 	if !found || pluginName == "" {
 		return "", fmt.Errorf("invalid plugin executable file name. Plugin file name requires format notation-{plugin-name}, but got %s", fileName)
 	}

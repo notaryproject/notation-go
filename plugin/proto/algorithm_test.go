@@ -228,7 +228,7 @@ func TestDecodeKeySpec(t *testing.T) {
 		},
 		{
 			name:      "Unsupported key spec",
-			raw:       "unsuppored",
+			raw:       "unsupported",
 			expected:  signature.KeySpec{},
 			expectErr: true,
 		},
