@@ -1035,8 +1035,8 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 func TestVerifyX509TrustedIdentities(t *testing.T) {
 
-	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/Verifier/signing-cert.pem"))        // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
-	unsupportedCerts, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/Verifier/bad-cert.pem")) // cert's subject is "CN=bad=#CN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
+	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/signing-cert.pem"))        // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
+	unsupportedCerts, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/bad-cert.pem")) // cert's subject is "CN=bad=#CN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
 
 	tests := []struct {
 		certs          []*x509.Certificate
