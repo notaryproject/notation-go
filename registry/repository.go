@@ -215,7 +215,7 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 		ConfigDescriptor:    &configDesc,
 	}
 
-	return oras.PackManifest(ctx, c.GraphTarget, oras.PackManifestVersion1_1_RC4, "", opts)
+	return oras.PackManifest(ctx, c.GraphTarget, oras.PackManifestVersion1_1, "", opts)
 }
 
 // pushNotationManifestConfig pushes an empty notation manifest config, if it
