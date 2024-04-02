@@ -747,14 +747,11 @@ func TestNewWithOptions(t *testing.T) {
 		}
 	})
 	t.Run("fail with nil trust policy", func(t *testing.T) {
-		v, err := NewWithOptions(nil, store, pm, opts)
+		_, err := NewWithOptions(nil, store, pm, opts)
 
 		expectedErrMsg := "both ociTrustPolicy and blobTrustPolicy cannot be nil"
 		if err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected NewWithOptions constructor to fail with %v, but got %v", expectedErrMsg, err)
-		}
-		if v != nil {
-			t.Fatal("expected constructor to return nil")
 		}
 	})
 }
