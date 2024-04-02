@@ -620,7 +620,7 @@ func TestLoadDocument(t *testing.T) {
 		_, err := LoadDocument()
 		if err == nil || err.Error() != expectedErrMsg {
 			t.Errorf("TestLoadPolicyDocument should throw error for a policy file with bad permissions. "+
-				"Expected error: \n%v \nbut found \n%v", expectedErrMsg, err.Error())
+				"Expected error: '%v'qq but found '%v'", expectedErrMsg, err.Error())
 		}
 	})
 
