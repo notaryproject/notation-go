@@ -399,7 +399,7 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 	}
 
 	if signature == nil || len(signature) == 0 {
-		return ocispec.Descriptor{}, nil, errors.New("blobReader cannot be nil or empty")
+		return ocispec.Descriptor{}, nil, errors.New("signature cannot be nil or empty")
 	}
 
 	if err := validateContentType(verifyBlobOpts.ContentMediaType); err != nil {
