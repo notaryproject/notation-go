@@ -80,7 +80,7 @@ func TestNewVerifier_Error(t *testing.T) {
 
 func TestInvalidArtifactUriValidations(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
-	verifier := verifier{
+	verifier := Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		pluginManager:     mock.PluginManager{},
 	}
@@ -112,7 +112,7 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 
 func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
-	verifier := verifier{
+	verifier := Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		pluginManager:     mock.PluginManager{},
 	}
@@ -326,7 +326,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 			if err != nil {
 				t.Fatalf("unexpected error while creating revocation object: %v", err)
 			}
-			verifier := verifier{
+			verifier := Verifier{
 				ociTrustPolicyDoc: &tt.policyDocument,
 				trustStore:        truststore.NewX509TrustStore(dir.ConfigFS()),
 				pluginManager:     pluginManager,
@@ -393,7 +393,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 
 		dir.UserConfigDir = "testdata"
 
-		verifier := verifier{
+		verifier := Verifier{
 			ociTrustPolicyDoc: &policyDoc,
 			trustStore:        truststore.NewX509TrustStore(dir.ConfigFS()),
 			pluginManager:     pluginManager,
@@ -422,7 +422,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 
 		dir.UserConfigDir = "testdata"
 
-		verifier := verifier{
+		verifier := Verifier{
 			ociTrustPolicyDoc: &policyDoc,
 			trustStore:        truststore.NewX509TrustStore(dir.ConfigFS()),
 			pluginManager:     pluginManager,
@@ -446,7 +446,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 
 		dir.UserConfigDir = "testdata"
 
-		verifier := verifier{
+		verifier := Verifier{
 			ociTrustPolicyDoc: &policyDoc,
 			trustStore:        truststore.NewX509TrustStore(dir.ConfigFS()),
 			pluginManager:     pluginManager,
@@ -689,9 +689,9 @@ func TestNewWithOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected New constructor to succeed with default client, but got %v", err)
 		}
-		verifierV, ok := v.(*verifier)
+		verifierV, ok := v.(*Verifier)
 		if !ok {
-			t.Fatal("expected constructor to return a verifier object")
+			t.Fatal("expected constructor to return a Verifier object")
 		}
 		if !(verifierV.ociTrustPolicyDoc == &policy) {
 			t.Fatalf("expected ociTrustPolicyDoc %v, but got %v", &policy, verifierV.ociTrustPolicyDoc)
@@ -712,9 +712,9 @@ func TestNewWithOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected NewWithOptions constructor to succeed with empty options, but got %v", err)
 		}
-		verifierV, ok := v.(*verifier)
+		verifierV, ok := v.(*Verifier)
 		if !ok {
-			t.Fatal("expected constructor to return a verifier object")
+			t.Fatal("expected constructor to return a Verifier object")
 		}
 		if !(verifierV.ociTrustPolicyDoc == &policy) {
 			t.Fatalf("expected ociTrustPolicyDoc %v, but got %v", &policy, verifierV.ociTrustPolicyDoc)
@@ -736,7 +736,7 @@ func TestNewWithOptions(t *testing.T) {
 			t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 		}
 
-		expectedV := &verifier{
+		expectedV := &Verifier{
 			ociTrustPolicyDoc: &policy,
 			trustStore:        store,
 			pluginManager:     pm,
@@ -784,7 +784,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	v := verifier{
+	v := Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -800,7 +800,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager = mock.PluginManager{}
 	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilitySignatureGenerator}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -824,7 +824,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -849,7 +849,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -873,7 +873,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -898,7 +898,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -925,7 +925,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -943,7 +943,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityRevocationCheckVerifier}
 	pluginManager.PluginRunnerExecuteError = errors.New("revocation plugin should not be invoked when the trust policy skips revocation check")
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -970,7 +970,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	pluginManager.PluginRunnerExecuteResponse = "invalid plugin response"
 	pluginManager.PluginRunnerExecuteError = errors.New("invalid plugin response")
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -1003,7 +1003,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		ProcessedAttributes: []interface{}{}, // exclude the critical attribute
 	}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -1023,7 +1023,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
-	v = verifier{
+	v = Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,
@@ -1038,8 +1038,8 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 func TestVerifyX509TrustedIdentities(t *testing.T) {
 
-	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/signing-cert.pem"))        // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
-	unsupportedCerts, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/bad-cert.pem")) // cert's subject is "CN=bad=#CN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
+	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/Verifier/signing-cert.pem"))        // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
+	unsupportedCerts, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/Verifier/bad-cert.pem")) // cert's subject is "CN=bad=#CN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
 
 	tests := []struct {
 		certs          []*x509.Certificate
@@ -1086,7 +1086,7 @@ func TestVerifyUserMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	verifier := verifier{
+	verifier := Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        truststore.NewX509TrustStore(dir.ConfigFS()),
 		pluginManager:     pluginManager,
@@ -1155,7 +1155,7 @@ func TestPluginVersionCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	v := verifier{
+	v := Verifier{
 		ociTrustPolicyDoc: &policyDocument,
 		trustStore:        x509TrustStore,
 		pluginManager:     pluginManager,

@@ -44,7 +44,7 @@ type BlobTrustPolicy struct {
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 
 	// GlobalPolicy defines if policy statement is global or not
-	GlobalPolicy *bool `json:"globalPolicy,omitempty"`
+	GlobalPolicy bool `json:"globalPolicy,omitempty"`
 }
 
 // LoadBlobDocument loads a trust policy document from a local file system
@@ -83,7 +83,7 @@ func (policyDoc *BlobDocument) Validate() error {
 			return err
 		}
 
-		if statement.GlobalPolicy != nil && *statement.GlobalPolicy {
+		if statement.GlobalPolicy {
 			if foundGlobalPolicy {
 				return errors.New("multiple trust policy statements have globalPolicy set to true. Only statement should be marked as global policy")
 			}
@@ -106,6 +106,7 @@ func (policyDoc *BlobDocument) Validate() error {
 // statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
 // see https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.2/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
+// TODO optimize
 func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*BlobTrustPolicy, error) {
 	exactPolicyMatch := true
 	if policyName == "" {
@@ -120,7 +121,7 @@ func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*Blo
 				break
 			}
 		} else {
-			if policyStatement.GlobalPolicy != nil && *policyStatement.GlobalPolicy {
+			if policyStatement.GlobalPolicy {
 				applicablePolicy = (&policyStatement).clone()
 				break
 			}

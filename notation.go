@@ -340,6 +340,12 @@ type BlobVerifierVerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature.
 	UserMetadata map[string]string
+
+	// TrustPolicyName is the name of trust policy picked by caller.
+	// If empty, the global trust policy will be used.
+	// This is mainly for non-CLI notation-go users, who do not have a UI to
+	// specify trust policy name directly.
+	TrustPolicyName string
 }
 
 // BlobVerifier is a generic interface for verifying an artifact.
@@ -404,7 +410,7 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 		return ocispec.Descriptor{}, nil, err
 	}
 
-	getDescFunc := getDescriptor(ctx, blobReader, verifyBlobOpts.ContentMediaType, verifyBlobOpts.UserMetadata)
+	getDescFunc := getDescriptorFunc(ctx, blobReader, verifyBlobOpts.ContentMediaType, verifyBlobOpts.UserMetadata)
 	vo, err := blobVerifier.VerifyBlob(ctx, getDescFunc, signature, verifyBlobOpts.BlobVerifierVerifyOptions)
 	if err != nil {
 		return ocispec.Descriptor{}, nil, err
@@ -416,22 +422,6 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 	}
 
 	return desc, vo, nil
-}
-
-func getDescriptor(ctx context.Context, reader io.Reader, contentMediaType string, userMetadata map[string]string) BlobDescriptorGenerator {
-	return func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
-		h := hashAlgo.Hash()
-		bytes, err := io.Copy(hashAlgo.Hash(), reader)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-		targetDesc := ocispec.Descriptor{
-			MediaType: contentMediaType,
-			Digest:    digest.NewDigest(hashAlgo, h),
-			Size:      bytes,
-		}
-		return addUserMetadataToDescriptor(ctx, targetDesc, userMetadata)
-	}
 }
 
 // Verify performs signature verification on each of the notation supported
