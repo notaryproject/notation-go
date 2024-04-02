@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/notaryproject/notation-go/dir"
@@ -164,7 +163,7 @@ func getDocument(path string, v any) error {
 	jsonFile, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrPermission) {
-			return fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", filepath.Join(dir.UserConfigDir, path))
+			return fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", path)
 		}
 		return err
 	}

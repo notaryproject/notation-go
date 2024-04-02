@@ -72,7 +72,7 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 func TestNewVerifier_Error(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	_, err := New(&policyDocument, nil, nil)
-	expectedErr := errors.New("trustPolicy or trustStore cannot be nil")
+	expectedErr := errors.New("trustStore cannot be nil")
 	if err == nil || err.Error() != expectedErr.Error() {
 		t.Fatalf("TestNewVerifier_Error expected error %v, got %v", expectedErr, err)
 	}
@@ -749,7 +749,7 @@ func TestNewWithOptions(t *testing.T) {
 	t.Run("fail with nil trust policy", func(t *testing.T) {
 		v, err := NewWithOptions(nil, store, pm, opts)
 
-		expectedErrMsg := "trustPolicy or trustStore cannot be nil"
+		expectedErrMsg := "both ociTrustPolicy and blobTrustPolicy cannot be nil"
 		if err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected NewWithOptions constructor to fail with %v, but got %v", expectedErrMsg, err)
 		}

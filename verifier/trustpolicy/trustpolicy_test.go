@@ -616,9 +616,11 @@ func TestLoadDocument(t *testing.T) {
 		if err := os.WriteFile(path, policyJson, 0000); err != nil {
 			t.Fatalf("TestLoadPolicyDocument write policy file failed. Error: %v", err)
 		}
+		expectedErrMsg := fmt.Sprintf("unable to read trust policy due to file permissions, please verify the permissions of %s", path)
 		_, err := LoadDocument()
-		if err == nil || err.Error() != fmt.Sprintf("unable to read trust policy due to file permissions, please verify the permissions of %s/trustpolicy.json", tempRoot) {
-			t.Fatalf("TestLoadPolicyDocument should throw error for a policy file with bad permissions. Error: %v", err)
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Errorf("TestLoadPolicyDocument should throw error for a policy file with bad permissions. "+
+				"Expected error: \n%v \nbut found \n%v", expectedErrMsg, err.Error())
 		}
 	})
 
