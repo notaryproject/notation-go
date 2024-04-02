@@ -42,25 +42,28 @@ type OCITrustPolicy struct {
 	SignatureVerification SignatureVerification `json:"signatureVerification"`
 
 	// TrustStores this policy statement uses
-	TrustStores []string `json:"trustStores,omitempty"`
+	TrustStores []string `json:"trustStores"`
 
 	// TrustedIdentities this policy statement pins
-	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
+	TrustedIdentities []string `json:"trustedIdentities"`
 
 	// RegistryScopes that this policy statement affects
 	RegistryScopes []string `json:"registryScopes"`
 }
 
 // Document represents a trustPolicy.json document
-// Deprecated
+// Deprecated: Document exists for historical compatibility and should not be used.
+// To create OCI Document, use OCIDocument.
 type Document = OCIDocument
 
 // TrustPolicy represents a policy statement in the policy document
-// Deprecated
+// Deprecated: TrustPolicy exists for historical compatibility and should not be used.
+// To create OCI TrustPolicy, use OCITrustPolicy.
 type TrustPolicy = OCITrustPolicy
 
 // LoadDocument loads a trust policy document from a local file system
-// Deprecated
+// Deprecated: LoadDocument function exists for historical compatibility and should not be used.
+// To load OCI Document, use LoadOCIDocument function.
 var LoadDocument = LoadOCIDocument
 
 // LoadOCIDocument loads a trust policy document from a local file system
@@ -80,7 +83,7 @@ func (policyDoc *OCIDocument) Validate() error {
 
 	// Validate Version
 	if policyDoc.Version == "" {
-		return errors.New("trust policy document is missing or has empty version, it must be specified")
+		return errors.New("trust policy document has empty version, version must be specified")
 	}
 	if !slices.Contains(supportedPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
@@ -93,7 +96,7 @@ func (policyDoc *OCIDocument) Validate() error {
 
 	policyStatementNameCount := make(map[string]int)
 	for _, statement := range policyDoc.TrustPolicies {
-		if err := validateCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
+		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return err
 		}
 		policyStatementNameCount[statement.Name]++
@@ -111,7 +114,6 @@ func (policyDoc *OCIDocument) Validate() error {
 		}
 	}
 
-	// No errors
 	return nil
 }
 

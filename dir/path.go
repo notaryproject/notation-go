@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package dir implements Notation directory structure.
+// Package dir implements Notation directory structure.
 // [directory spec]: https://github.com/notaryproject/notation/blob/main/specs/directory.md
 //
 // Example:
@@ -58,7 +58,8 @@ const (
 	// PathSigningKeys is the signingkeys file relative path.
 	PathSigningKeys = "signingkeys.json"
 	// PathTrustPolicy is the OCI trust policy file relative path.
-	// Deprecated
+	// Deprecated: PathTrustPolicy exists for historical compatibility and should not be used.
+	// To get OCI trust policy path, use PathOCITrustPolicy.
 	PathTrustPolicy = PathOCITrustPolicy
 	// PathOCITrustPolicy is the OCI trust policy file relative path.
 	PathOCITrustPolicy = "trustpolicy.json"

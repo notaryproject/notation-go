@@ -38,10 +38,10 @@ type BlobTrustPolicy struct {
 	SignatureVerification SignatureVerification `json:"signatureVerification"`
 
 	// TrustStores this policy statement uses
-	TrustStores []string `json:"trustStores,omitempty"`
+	TrustStores []string `json:"trustStores"`
 
 	// TrustedIdentities this policy statement pins
-	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
+	TrustedIdentities []string `json:"trustedIdentities"`
 
 	// GlobalPolicy defines if policy statement is global or not
 	GlobalPolicy bool `json:"globalPolicy,omitempty"`
@@ -64,7 +64,7 @@ func (policyDoc *BlobDocument) Validate() error {
 
 	// Validate Version
 	if policyDoc.Version == "" {
-		return errors.New("trust policy document is missing or has empty version, it must be specified")
+		return errors.New("trust policy has empty version, version must be specified")
 	}
 	if !slices.Contains(supportedPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
@@ -79,7 +79,7 @@ func (policyDoc *BlobDocument) Validate() error {
 	foundGlobalPolicy := false
 	for _, statement := range policyDoc.BlobTrustPolicies {
 		policyStatementNameCount[statement.Name]++
-		if err := validateCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
+		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return err
 		}
 
@@ -98,7 +98,6 @@ func (policyDoc *BlobDocument) Validate() error {
 		}
 	}
 
-	// No errors
 	return nil
 }
 
@@ -106,33 +105,22 @@ func (policyDoc *BlobDocument) Validate() error {
 // statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
 // see https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.2/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
-// TODO optimize
 func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*BlobTrustPolicy, error) {
-	exactPolicyMatch := true
-	if policyName == "" {
-		exactPolicyMatch = false
-	}
-
-	var applicablePolicy *BlobTrustPolicy
 	for _, policyStatement := range policyDoc.BlobTrustPolicies {
-		if exactPolicyMatch {
-			if policyStatement.Name == policyName {
-				applicablePolicy = (&policyStatement).clone()
-				break
+		if policyName == "" {
+			// global policy
+			if policyStatement.GlobalPolicy {
+				return (&policyStatement).clone(), nil
 			}
 		} else {
-			if policyStatement.GlobalPolicy {
-				applicablePolicy = (&policyStatement).clone()
-				break
+			// exact match
+			if policyStatement.Name == policyName {
+				return (&policyStatement).clone(), nil
 			}
 		}
 	}
 
-	if applicablePolicy != nil {
-		return applicablePolicy, nil
-	}
-
-	return nil, fmt.Errorf("no applicable blob trust policy. Applicability for a given blob artifact is determined by policy name")
+	return nil, fmt.Errorf("no applicable blob trust policy. Applicability for a given blob is determined by policy name")
 }
 
 // clone returns a pointer to the deeply copied TrustPolicy

@@ -141,23 +141,6 @@ type SignatureVerification struct {
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
 }
 
-type Type int
-
-const (
-	TypeBlob Type = iota
-	TypeOCI
-)
-
-func Get(p Type) (interface{}, error) {
-	switch p {
-	case TypeBlob:
-		return LoadBlobDocument()
-	case TypeOCI:
-		return LoadBlobDocument()
-	}
-	return 0, fmt.Errorf("invalid policy type:L %v", p)
-}
-
 func getDocument(path string, v any) error {
 	path, err := dir.ConfigFS().SysPath(path)
 	if err != nil {
@@ -192,7 +175,6 @@ func getDocument(path string, v any) error {
 		return fmt.Errorf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink)
 	}
 	return nil
-
 }
 
 // GetVerificationLevel returns VerificationLevel struct for the given
@@ -267,7 +249,7 @@ func (signatureVerification *SignatureVerification) GetVerificationLevel() (*Ver
 	return customVerificationLevel, nil
 }
 
-func validateCore(name string, signatureVerification SignatureVerification, trustStores, trustedIdentities []string) error {
+func validatePolicyCore(name string, signatureVerification SignatureVerification, trustStores, trustedIdentities []string) error {
 	// Verify statement name is valid
 	if name == "" {
 		return errors.New("a trust policy statement is missing a name, every statement requires a name")
@@ -391,7 +373,7 @@ func isValidTrustStoreType(s string) bool {
 	return false
 }
 
-// Internal type to hold raw and parsed Distinguished Names
+// parsedDN holds raw and parsed Distinguished Names
 type parsedDN struct {
 	RawString string
 	ParsedMap map[string]string
