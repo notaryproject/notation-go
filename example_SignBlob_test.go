@@ -25,7 +25,7 @@ import (
 )
 
 // ExampleBlobSign demonstrates how to use signer.BlobSign to sign arbitrary data.
-func Example_BlobSign() {
+func Example_signBlob() {
 	//exampleSigner implements notation.Signer and notation.BlobSigner. Given key and X509 certificate chain,
 	// it provides method to sign OCI artifacts or Blobs.
 	// Users should replace `exampleCertTuple.PrivateKey` with their own private
