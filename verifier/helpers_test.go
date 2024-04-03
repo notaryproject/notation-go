@@ -28,25 +28,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
-func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
-	policyStatement = trustpolicy.TrustPolicy{
-		Name:                  "test-statement-name",
-		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-		SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
-		TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
-		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
-	}
-	return
-}
-
-func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
-	policyDoc = trustpolicy.Document{
-		Version:       "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{dummyPolicyStatement()},
-	}
-	return
-}
-
 func TestGetArtifactDigestFromUri(t *testing.T) {
 
 	tests := []struct {
@@ -79,7 +60,7 @@ func TestLoadX509TrustStore(t *testing.T) {
 	// load "ca" and "signingAuthority" trust store
 	caStore := "ca:valid-trust-store"
 	signingAuthorityStore := "signingAuthority:valid-trust-store"
-	dummyPolicy := dummyPolicyStatement()
+	dummyPolicy := dummyOCIPolicyDocument().TrustPolicies[0]
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
 	dir.UserConfigDir = "testdata"
 	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
@@ -130,4 +111,33 @@ func getArtifactDigestFromReference(artifactReference string) (string, error) {
 	}
 
 	return artifactReference[i+1:], nil
+}
+
+func dummyOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
+	return trustpolicy.OCIDocument{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.OCITrustPolicy{
+			{
+				Name:                  "test-statement-name",
+				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
+				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
+			},
+		},
+	}
+}
+
+func dummyBlobPolicyDocument() (policyDoc trustpolicy.BlobDocument) {
+	return trustpolicy.BlobDocument{
+		Version: "1.0",
+		BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
+			{
+				Name:                  "blob-test-statement-name",
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
+				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
+			},
+		},
+	}
 }
