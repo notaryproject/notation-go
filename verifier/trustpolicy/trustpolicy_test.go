@@ -61,15 +61,25 @@ func TestValidatePolicyCore(t *testing.T) {
 	sigVerification := SignatureVerification{VerificationLevel: "strict"}
 	// valid policy
 	if err := validatePolicyCore(policyName, sigVerification, []string{"ca:valid-ts"}, []string{"*"}); err != nil {
-		t.Errorf("validatePolicyCore returned error: '%v", err)
+		t.Errorf("validatePolicyCore returned error: '%v'", err)
 	}
-	// check skip SignatureVerification
+
+	// check valid skip SignatureVerification
 	if err := validatePolicyCore(policyName, SignatureVerification{VerificationLevel: "skip"}, []string{}, []string{}); err != nil {
-		t.Errorf("validatePolicyCore returned error: '%v", err)
+		t.Errorf("validatePolicyCore returned error: '%v'", err)
+	}
+
+	// check skip SignatureVerification doesn't has trust store and trusted identity
+	expectedErr := "trust policy statement \"test-statement-name\" is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped"
+	if err := validatePolicyCore(policyName, SignatureVerification{VerificationLevel: "skip"}, []string{"ca:valid-ts"}, []string{}); err == nil || err.Error() != expectedErr {
+		t.Errorf("expected error '%s' but not found", expectedErr)
+	}
+	if err := validatePolicyCore(policyName, SignatureVerification{VerificationLevel: "skip"}, []string{}, []string{"x509:zoop"}); err == nil || err.Error() != expectedErr {
+		t.Errorf("expected error '%s' but not found", expectedErr)
 	}
 
 	// empty policy name
-	expectedErr := "a trust policy statement is missing a name, every statement requires a name"
+	expectedErr = "a trust policy statement is missing a name, every statement requires a name"
 	if err := validatePolicyCore("", sigVerification, []string{"ca:valid-ts"}, []string{"*"}); err == nil || err.Error() != expectedErr {
 		t.Errorf("expected error '%s' but not found", expectedErr)
 	}
@@ -80,15 +90,22 @@ func TestValidatePolicyCore(t *testing.T) {
 		t.Errorf("expected error '%s' but not found", expectedErr)
 	}
 
-	// invalid trust-store
+	// invalid trust-store or trust-policy
 	expectedErr = "trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified"
 	if err := validatePolicyCore(policyName, sigVerification, []string{}, []string{}); err == nil || err.Error() != expectedErr {
 		t.Errorf("expected error '%s' but not found", expectedErr)
 	}
-
-	// invalid trust-policy
 	if err := validatePolicyCore(policyName, sigVerification, []string{"ca:valid-ts"}, []string{}); err == nil || err.Error() != expectedErr {
-		fmt.Println(err.Error())
+		t.Errorf("expected error '%s' but not found", expectedErr)
+	}
+
+	expectedErr = "trust policy statement \"test-statement-name\" uses an unsupported trust store type \"hola\" in trust store value \"hola:valid-ts\""
+	if err := validatePolicyCore(policyName, sigVerification, []string{"hola:valid-ts"}, []string{"hola"}); err == nil || err.Error() != expectedErr {
+		t.Errorf("expected error '%s' but not found", expectedErr)
+	}
+
+	expectedErr = "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator"
+	if err := validatePolicyCore(policyName, sigVerification, []string{"ca:valid-ts"}, []string{"x509.subject"}); err == nil || err.Error() != expectedErr {
 		t.Errorf("expected error '%s' but not found", expectedErr)
 	}
 }
@@ -121,8 +138,21 @@ func TestValidateTrustStore(t *testing.T) {
 
 // TestValidateTrustedIdentities tests only valid x509.subjects are accepted
 func TestValidateTrustedIdentities(t *testing.T) {
+	// wildcard present with specific trusted identity throws error.
+	err := validateTrustedIdentities("test-statement-name", []string{"*", "C=US, ST=WA, O=wabbit-network.io"})
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values" {
+		t.Fatalf("trusted identities with wildcard and specific identityshould return error")
+	}
+
+	// If empty trust policy throws error.
+	err = validateTrustedIdentities("test-statement-name", []string{""})
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has an empty trusted identity" {
+		fmt.Println(err.Error())
+		t.Fatalf("empty trusted identity should return error")
+	}
+
 	// No trusted identity prefix throws error
-	err := validateTrustedIdentities("test-statement-name", []string{"C=US, ST=WA, O=wabbit-network.io, OU=org1"})
+	err = validateTrustedIdentities("test-statement-name", []string{"C=US, ST=WA, O=wabbit-network.io, OU=org1"})
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"C=US, ST=WA, O=wabbit-network.io, OU=org1\" missing separator" {
 		t.Fatalf("trusted identity without separator should return error")
 	}
@@ -138,6 +168,12 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	err = validateTrustedIdentities("test-statement-name", []string{invalidDN})
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:,,,\" with invalid identity value: parsing distinguished name (DN) \",,,\" failed with err: incomplete type, value pair. A valid DN must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard" {
 		t.Fatalf("invalid x509.subject identity should return error. Error : %q", err)
+	}
+
+	// Validate x509.subject with no value
+	err = validateTrustedIdentities("test-statement-name", []string{"x509.subject:"})
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value" {
+		t.Fatalf("x509.subject identity without value should return error. Error : %q", err)
 	}
 
 	// Validate duplicate RDNs
