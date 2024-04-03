@@ -85,7 +85,7 @@ func (policyDoc *BlobDocument) Validate() error {
 
 		if statement.GlobalPolicy {
 			if foundGlobalPolicy {
-				return errors.New("multiple trust policy statements have globalPolicy set to true. Only statement should be marked as global policy")
+				return errors.New("multiple trust policy statements have globalPolicy set to true. Only one policy statement should be marked as global policy")
 			}
 			foundGlobalPolicy = true
 		}

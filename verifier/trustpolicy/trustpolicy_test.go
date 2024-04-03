@@ -329,7 +329,7 @@ func TestGetDocument(t *testing.T) {
 			path := filepath.Join(tempRoot, "trustpolicy.json")
 			policyJson, _ := json.Marshal(tt.expectedDocument)
 			if err := os.WriteFile(path, policyJson, 0600); err != nil {
-				t.Fatalf("TestLoadPolicyDocument write policy file failed. Error: %v", err)
+				t.Fatalf("TestGetDocument write policy file failed. Error: %v", err)
 			}
 			t.Cleanup(func() { os.RemoveAll(tempRoot) })
 
