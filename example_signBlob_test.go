@@ -49,6 +49,7 @@ func Example_signBlob() {
 			SigningAgent:       "example signing agent",
 		},
 		ContentMediaType: exampleContentMediaType,
+		UserMetadata:     map[string]string{"buildId": "101"},
 	}
 
 	// exampleReader reads the data that needs to be signed. This data can be in a file or in memory.
@@ -79,6 +80,6 @@ func Example_signBlob() {
 	// Output:
 	// Successfully signed
 	// signature Payload ContentType: application/vnd.cncf.notary.payload.v1+json
-	// signature Payload Content: {"targetArtifact":{"digest":"sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a61","mediaType":"video/mp4","size":12}}
+	// signature Payload Content: {"targetArtifact":{"annotations":{"buildId":"101"},"digest":"sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a61","mediaType":"video/mp4","size":12}}
 	// signerInfo SigningAgent: example signing agent
 }

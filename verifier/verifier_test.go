@@ -16,6 +16,7 @@ package verifier
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -29,6 +30,9 @@ import (
 
 	"github.com/notaryproject/notation-core-go/revocation"
 	"github.com/notaryproject/notation-core-go/signature"
+	_ "github.com/notaryproject/notation-core-go/signature/cose"
+	"github.com/notaryproject/notation-core-go/signature/jws"
+	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
@@ -40,11 +44,42 @@ import (
 	"github.com/notaryproject/notation-go/signer"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-
-	_ "github.com/notaryproject/notation-core-go/signature/cose"
-	_ "github.com/notaryproject/notation-core-go/signature/jws"
 )
+
+var testSig = `{"payload":"eyJ0YXJnZXRBcnRpZmFjdCI6eyJhbm5vdGF0aW9ucyI6eyJidWlsZElkIjoiMTAxIn0sImRpZ2VzdCI6InNoYTM4NDpiOGFiMjRkYWZiYTVjZjdlNGM4OWM1NjJmODExY2YxMDQ5M2Q0MjAzZGE5ODJkM2IxMzQ1ZjM2NmNhODYzZDljMmVkMzIzZGJkMGZiN2ZmODNhODAzMDJjZWZmYTVhNjEiLCJtZWRpYVR5cGUiOiJ2aWRlby9tcDQiLCJzaXplIjoxMn19","protected":"eyJhbGciOiJQUzM4NCIsImNyaXQiOlsiaW8uY25jZi5ub3Rhcnkuc2lnbmluZ1NjaGVtZSJdLCJjdHkiOiJhcHBsaWNhdGlvbi92bmQuY25jZi5ub3RhcnkucGF5bG9hZC52MStqc29uIiwiaW8uY25jZi5ub3Rhcnkuc2lnbmluZ1NjaGVtZSI6Im5vdGFyeS54NTA5IiwiaW8uY25jZi5ub3Rhcnkuc2lnbmluZ1RpbWUiOiIyMDI0LTA0LTA0VDE1OjAzOjA2LTA3OjAwIn0","header":{"x5c":["MIIEbTCCAtWgAwIBAgICAK0wDQYJKoZIhvcNAQELBQAwZDELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAldBMRAwDgYDVQQHEwdTZWF0dGxlMQ8wDQYDVQQKEwZOb3RhcnkxJTAjBgNVBAMTHE5vdGF0aW9uIEV4YW1wbGUgc2VsZi1zaWduZWQwIBcNMjQwNDA0MjIwMzA1WhgPMjEyNDA0MDQyMjAzMDVaMGQxCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJXQTEQMA4GA1UEBxMHU2VhdHRsZTEPMA0GA1UEChMGTm90YXJ5MSUwIwYDVQQDExxOb3RhdGlvbiBFeGFtcGxlIHNlbGYtc2lnbmVkMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA0dXD9UqzZcGlBlvPHO2uf+Sel/xwf/eOMS6Q30GV6JPeu9czLmyR0YMfC6P0N4zDzVYYZtQLkS5lalTMGX9A3yj9aXtXvtoYtLx2mF1CfdQJMcrT63wVVTWiPPe2JT8KHkkiACzVY6LTwc4s+DIAw9Gv21Uu6bFy4WWlGMp8UwTucR0JqaFoXzB6vxVRTkK8RRLM9Pj0hM5NwobpuZ+pc+ZS/7PhdvQHVzHeLLV9S7fHxw3n1c0ti8VUjSPSqCIEqOL3Eu/0pWMXB2A1xzn3RBfnzZMD3Tw3ksFgLMVzblhv41c6gr4cgjaS4wWwUvq9Xndd7Io8QNvxyiRDX5cHwQSEOmDfmegTIaLR0dKfvjY4ZJq8Y1DnaXU4RD6XeihtZykMlx7nTUyZZXpQ1akjh3VMzPykJ4mIknHh02zGRT9ZE8E1kYzRWhU/0MAzVrTTFHpric6jO459ouTnQXFjKwAcoD5+bNY6TuhC18iar7+l4BPPI1mFuqETnMfkkJQZAgMBAAGjJzAlMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzANBgkqhkiG9w0BAQsFAAOCAYEAe5wyQPo+h1Yk2PkaA5aJKuU8azF2pTLfhQwAn/1XqPcmhNQuomOP0waoBsh+6sexfIDZaNuJ+zZUxqYHke/23+768SMiJCpuJfion3ak3Ka/IVNz48G0V+V+Vog+elkZzpdUQd30njLVcoQsihp0I/Gs3pnG2SeHmsdvYVuzycdYWTt5BFu4N8VWg4x4pfRMgDG7HGxRAacz2vTdqAx6rpWjO4xc0ZO8iUKjAeKHc7RuSx2dhUaRP9P8G8NBNtG6xNnbXIEjH6kP05srFRZ2jxm1an7sjsOpbBdIDztc0J+cb5yjBx7zo1OzWcmDUqMEXDR/WoygPzwhhHvWWvTqwVSEUvYnSaI6wxyHGxPFuX3+vCEZxU8NEGIuJtfYXWeo9cev5+PqjDgVu0uCWF53ZFsXNWbpff1qpG/CgrpFh3vN6uquMK9H5zaJBKr0GZFUsNRB1S8cUBgcjIZlWv3wrJQaOIFzF4RFO9dsYcG/b7ubdqSNGe4qfbsyuWf+1xsx"],"io.cncf.notary.signingAgent":"example signing agent"},"signature":"WMtF0u9GnQxJCpgrcxKZtNKNf3fvu2vnvOjd_2vQvjB4I9YKRYDQdr1q0AC0rU9b5aAGqP6Uh3jTbPkHHmOzGhXhRtidunfzOAeC6dPinR_RlnVMnVUY4cimZZG6Tg2tlgqGazgdzphnuZQpxUnK5mSInnWztXz_1-l_UJdPII49loJVE23hvWKDp8xOvMLftFXFlCYF9wE1ecTsYEAdrgB_XurFqbhhfeNcYie02aSMXfN0-ip9MHlIPhGrrOKLVm0w_S3nNBnuHHZ5lARgTm7tHtiNC0XxGCCk8qqteRZ4Vm2VM_UFMVOpdfh5KE_iTzmPCiHfNOJfgmvg5nysL1XUwGJ_KzCkPfY1Hq_4k73lia6RS6NSl1bSQ_s3uMBm3nx74WCmjK89RAihMIQ6s0PmUKQoWsIZ_5lWZ6uFW6LreoYyBFwvVVsSGSUx54-Gh76bwrt75va2VHpolSEXdhjcTK0KgscKLjU-LYDA_JD6AUaCi3WzMnpMSnO-9u_G"}`
+var trustedCert = `-----BEGIN CERTIFICATE-----
+MIIEbTCCAtWgAwIBAgICAK0wDQYJKoZIhvcNAQELBQAwZDELMAkGA1UEBhMCVVMx
+CzAJBgNVBAgTAldBMRAwDgYDVQQHEwdTZWF0dGxlMQ8wDQYDVQQKEwZOb3Rhcnkx
+JTAjBgNVBAMTHE5vdGF0aW9uIEV4YW1wbGUgc2VsZi1zaWduZWQwIBcNMjQwNDA0
+MjIwMzA1WhgPMjEyNDA0MDQyMjAzMDVaMGQxCzAJBgNVBAYTAlVTMQswCQYDVQQI
+EwJXQTEQMA4GA1UEBxMHU2VhdHRsZTEPMA0GA1UEChMGTm90YXJ5MSUwIwYDVQQD
+ExxOb3RhdGlvbiBFeGFtcGxlIHNlbGYtc2lnbmVkMIIBojANBgkqhkiG9w0BAQEF
+AAOCAY8AMIIBigKCAYEA0dXD9UqzZcGlBlvPHO2uf+Sel/xwf/eOMS6Q30GV6JPe
+u9czLmyR0YMfC6P0N4zDzVYYZtQLkS5lalTMGX9A3yj9aXtXvtoYtLx2mF1CfdQJ
+McrT63wVVTWiPPe2JT8KHkkiACzVY6LTwc4s+DIAw9Gv21Uu6bFy4WWlGMp8UwTu
+cR0JqaFoXzB6vxVRTkK8RRLM9Pj0hM5NwobpuZ+pc+ZS/7PhdvQHVzHeLLV9S7fH
+xw3n1c0ti8VUjSPSqCIEqOL3Eu/0pWMXB2A1xzn3RBfnzZMD3Tw3ksFgLMVzblhv
+41c6gr4cgjaS4wWwUvq9Xndd7Io8QNvxyiRDX5cHwQSEOmDfmegTIaLR0dKfvjY4
+ZJq8Y1DnaXU4RD6XeihtZykMlx7nTUyZZXpQ1akjh3VMzPykJ4mIknHh02zGRT9Z
+E8E1kYzRWhU/0MAzVrTTFHpric6jO459ouTnQXFjKwAcoD5+bNY6TuhC18iar7+l
+4BPPI1mFuqETnMfkkJQZAgMBAAGjJzAlMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUE
+DDAKBggrBgEFBQcDAzANBgkqhkiG9w0BAQsFAAOCAYEAe5wyQPo+h1Yk2PkaA5aJ
+KuU8azF2pTLfhQwAn/1XqPcmhNQuomOP0waoBsh+6sexfIDZaNuJ+zZUxqYHke/2
+3+768SMiJCpuJfion3ak3Ka/IVNz48G0V+V+Vog+elkZzpdUQd30njLVcoQsihp0
+I/Gs3pnG2SeHmsdvYVuzycdYWTt5BFu4N8VWg4x4pfRMgDG7HGxRAacz2vTdqAx6
+rpWjO4xc0ZO8iUKjAeKHc7RuSx2dhUaRP9P8G8NBNtG6xNnbXIEjH6kP05srFRZ2
+jxm1an7sjsOpbBdIDztc0J+cb5yjBx7zo1OzWcmDUqMEXDR/WoygPzwhhHvWWvTq
+wVSEUvYnSaI6wxyHGxPFuX3+vCEZxU8NEGIuJtfYXWeo9cev5+PqjDgVu0uCWF53
+ZFsXNWbpff1qpG/CgrpFh3vN6uquMK9H5zaJBKr0GZFUsNRB1S8cUBgcjIZlWv3w
+rJQaOIFzF4RFO9dsYcG/b7ubdqSNGe4qfbsyuWf+1xsx
+-----END CERTIFICATE-----`
+
+var ociPolicy = dummyOCIPolicyDocument()
+var blobPolicy = dummyBlobPolicyDocument()
+var store = truststore.NewX509TrustStore(dir.ConfigFS())
+var pm = mock.PluginManager{}
 
 func TestNewVerifier_Error(t *testing.T) {
 	policyDocument := dummyOCIPolicyDocument()
@@ -56,9 +91,8 @@ func TestNewVerifier_Error(t *testing.T) {
 }
 
 func TestInvalidArtifactUriValidations(t *testing.T) {
-	policyDocument := dummyOCIPolicyDocument()
 	verifier := Verifier{
-		ociTrustPolicyDoc: &policyDocument,
+		ociTrustPolicyDoc: &ociPolicy,
 		pluginManager:     mock.PluginManager{},
 	}
 
@@ -88,9 +122,8 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 }
 
 func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
-	policyDocument := dummyOCIPolicyDocument()
 	verifier := Verifier{
-		ociTrustPolicyDoc: &policyDocument,
+		ociTrustPolicyDoc: &ociPolicy,
 		pluginManager:     mock.PluginManager{},
 	}
 	opts := notation.VerifierVerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
@@ -650,90 +683,157 @@ func TestVerifyRevocation(t *testing.T) {
 	})
 }
 
+func TestNew(t *testing.T) {
+	if _, err := New(&ociPolicy, store, pm); err != nil {
+		t.Fatalf("expected New constructor to succeed, but got %v", err)
+	}
+}
+
 func TestNewWithOptions(t *testing.T) {
+	if _, err := NewWithOptions(&ociPolicy, store, pm, VerifierOptions{}); err != nil {
+		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
+	}
 }
 
 func TestNewVerifierWithOptions(t *testing.T) {
-	policy := dummyOCIPolicyDocument()
-	store := truststore.NewX509TrustStore(dir.ConfigFS())
-	pm := mock.PluginManager{}
-	client := &http.Client{Timeout: 2 * time.Second}
-	r, err := revocation.New(client)
+	r, err := revocation.New(&http.Client{})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
 	opts := VerifierOptions{RevocationClient: r}
-	t.Run("successful call from New (default value)", func(t *testing.T) {
-		v, err := New(&policy, store, pm)
 
-		if err != nil {
-			t.Fatalf("expected New constructor to succeed with default client, but got %v", err)
-		}
-		verifierV, ok := v.(*Verifier)
-		if !ok {
-			t.Fatal("expected constructor to return a Verifier object")
-		}
-		if !(verifierV.ociTrustPolicyDoc == &policy) {
-			t.Fatalf("expected ociTrustPolicyDoc %v, but got %v", &policy, verifierV.ociTrustPolicyDoc)
-		}
-		if !(verifierV.trustStore == store) {
-			t.Fatalf("expected trustStore %v, but got %v", store, verifierV.trustStore)
-		}
-		if !reflect.DeepEqual(verifierV.pluginManager, pm) {
-			t.Fatalf("expected pluginManager %v, but got %v", pm, verifierV.pluginManager)
-		}
-		if verifierV.revocationClient == nil {
-			t.Fatal("expected nonnil revocationClient")
-		}
-	})
-	t.Run("successful with empty options", func(t *testing.T) {
-		v, err := NewWithOptions(&policy, store, pm, VerifierOptions{})
+	v, err := NewVerifierWithOptions(&ociPolicy, &blobPolicy, store, pm, opts)
+	if err != nil {
+		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
+	}
+	if !(v.ociTrustPolicyDoc == &ociPolicy) {
+		t.Fatalf("expected ociTrustPolicyDoc %v, but got %v", v, v.ociTrustPolicyDoc)
+	}
+	if !(v.trustStore == store) {
+		t.Fatalf("expected trustStore %v, but got %v", store, v.trustStore)
+	}
+	if !reflect.DeepEqual(v.pluginManager, pm) {
+		t.Fatalf("expected pluginManager %v, but got %v", pm, v.pluginManager)
+	}
+	if v.revocationClient == nil {
+		t.Fatal("expected nonnil revocationClient")
+	}
 
-		if err != nil {
-			t.Fatalf("expected NewWithOptions constructor to succeed with empty options, but got %v", err)
-		}
-		verifierV, ok := v.(*Verifier)
-		if !ok {
-			t.Fatal("expected constructor to return a Verifier object")
-		}
-		if !(verifierV.ociTrustPolicyDoc == &policy) {
-			t.Fatalf("expected ociTrustPolicyDoc %v, but got %v", &policy, verifierV.ociTrustPolicyDoc)
-		}
-		if !(verifierV.trustStore == store) {
-			t.Fatalf("expected trustStore %v, but got %v", store, verifierV.trustStore)
-		}
-		if !reflect.DeepEqual(verifierV.pluginManager, pm) {
-			t.Fatalf("expected pluginManager %v, but got %v", pm, verifierV.pluginManager)
-		}
-		if verifierV.revocationClient == nil {
-			t.Fatal("expected nonnil revocationClient")
-		}
-	})
-	t.Run("successful with client", func(t *testing.T) {
-		v, err := NewWithOptions(&policy, store, pm, opts)
+	_, err = NewVerifierWithOptions(nil, &blobPolicy, store, pm, opts)
+	if err != nil {
+		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
+	}
 
-		if err != nil {
-			t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
-		}
+	_, err = NewVerifierWithOptions(&ociPolicy, nil, store, pm, opts)
+	if err != nil {
+		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
+	}
 
-		expectedV := &Verifier{
-			ociTrustPolicyDoc: &policy,
-			trustStore:        store,
-			pluginManager:     pm,
-			revocationClient:  r,
-		}
-		if !reflect.DeepEqual(expectedV, v) {
-			t.Fatalf("expected %v to be created, but got %v", expectedV, v)
-		}
-	})
-	t.Run("fail with nil trust policy", func(t *testing.T) {
-		_, err := NewWithOptions(nil, store, pm, opts)
+	opts.RevocationClient = nil
+	_, err = NewVerifierWithOptions(&ociPolicy, nil, store, pm, opts)
+	if err != nil {
+		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
+	}
+}
 
-		expectedErrMsg := "both ociTrustPolicy and blobTrustPolicy cannot be nil"
-		if err == nil || err.Error() != expectedErrMsg {
-			t.Fatalf("expected NewWithOptions constructor to fail with %v, but got %v", expectedErrMsg, err)
-		}
-	})
+func TestNewVerifierWithOptionsError(t *testing.T) {
+	r, err := revocation.New(&http.Client{})
+	if err != nil {
+		t.Fatalf("unexpected error while creating revocation object: %v", err)
+	}
+	opts := VerifierOptions{RevocationClient: r}
+
+	_, err = NewVerifierWithOptions(nil, nil, store, pm, opts)
+	if err == nil || err.Error() != "both ociTrustPolicy and blobTrustPolicy cannot be nil" {
+		t.Errorf("expected err but not found.")
+	}
+
+	_, err = NewVerifierWithOptions(&ociPolicy, &blobPolicy, nil, pm, opts)
+	if err == nil || err.Error() != "trustStore cannot be nil" {
+		t.Errorf("expected err but not found.")
+	}
+}
+
+func TestVerifyBlob(t *testing.T) {
+	policy := &trustpolicy.BlobDocument{
+		Version: "1.0",
+		BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
+			{
+				Name:                  "blob-test-policy",
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"ca:dummy-ts"},
+				TrustedIdentities:     []string{"*"},
+			},
+		},
+	}
+	v, err := NewVerifier(nil, policy, &testTrustStore{}, pm)
+	if err != nil {
+		t.Fatalf("unexpected error while creating Verifier: %v", err)
+	}
+
+	descGenFunc := func(digest.Algorithm) (ocispec.Descriptor, error) {
+		return ocispec.Descriptor{
+			MediaType: "video/mp4",
+			Digest:    "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a61",
+			Size:      12,
+		}, nil
+	}
+	opts := notation.BlobVerifierVerifyOptions{
+		SignatureMediaType: jws.MediaTypeEnvelope,
+		TrustPolicyName:    "blob-test-policy",
+	}
+
+	// verify with without user defined metadata
+	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
+		t.Fatalf("VerifyBlob() returned unexpected error: %v", err)
+	}
+
+	// verify with user defined metadata
+	opts.UserMetadata = map[string]string{"buildId": "101"}
+	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
+		t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
+	}
+}
+
+func TestVerifyBlob_Error(t *testing.T) {
+	policy := &trustpolicy.BlobDocument{
+		Version: "1.0",
+		BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
+			{
+				Name:                  "blob-test-policy",
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"ca:dummy-ts"},
+				TrustedIdentities:     []string{"*"},
+			},
+		},
+	}
+	v, err := NewVerifier(nil, policy, &testTrustStore{}, pm)
+	if err != nil {
+		t.Fatalf("unexpected error while creating Verifier: %v", err)
+	}
+
+	descGenFunc := func(digest.Algorithm) (ocispec.Descriptor, error) {
+		return ocispec.Descriptor{
+			MediaType: "video/mp4",
+			Digest:    "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a61",
+			Size:      12,
+		}, nil
+	}
+	opts := notation.BlobVerifierVerifyOptions{
+		SignatureMediaType: jws.MediaTypeEnvelope,
+		TrustPolicyName:    "blob-test-policy",
+	}
+
+	// verify with without user defined metadata
+	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
+		t.Fatalf("VerifyBlob() returned unexpected error: %v", err)
+	}
+
+	// verify with user defined metadata
+	opts.UserMetadata = map[string]string{"buildId": "101"}
+	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
+		t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
+	}
 }
 
 func TestVerificationPluginInteractions(t *testing.T) {
@@ -1014,7 +1114,6 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 }
 
 func TestVerifyX509TrustedIdentities(t *testing.T) {
-
 	certs, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/signing-cert.pem"))        // cert's subject is "CN=SomeCN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
 	unsupportedCerts, _ := corex509.ReadCertificateFile(filepath.FromSlash("testdata/verifier/bad-cert.pem")) // cert's subject is "CN=bad=#CN,OU=SomeOU,O=SomeOrg,L=Seattle,ST=WA,C=US"
 
@@ -1209,4 +1308,15 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 	if expectedResult.Action == trustpolicy.ActionEnforce && expectedErr != nil && outcome.Error.Error() != expectedErr.Error() {
 		t.Fatalf("assertion failed. expected : %v got : %v", expectedErr, outcome.Error)
 	}
+}
+
+// testTrustStore implements truststore.X509TrustStore and returns the trusted certificates for a given trust-store.
+type testTrustStore struct {
+	certs []*x509.Certificate
+}
+
+func (ts *testTrustStore) GetCertificates(_ context.Context, _ truststore.Type, _ string) ([]*x509.Certificate, error) {
+	block, _ := pem.Decode([]byte(trustedCert))
+	cert, _ := x509.ParseCertificate(block.Bytes)
+	return []*x509.Certificate{cert}, nil
 }

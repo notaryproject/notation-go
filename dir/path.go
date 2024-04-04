@@ -60,11 +60,11 @@ const (
 	// PathTrustPolicy is the OCI trust policy file relative path.
 	// Deprecated: PathTrustPolicy exists for historical compatibility and should not be used.
 	// To get OCI trust policy path, use PathOCITrustPolicy.
-	PathTrustPolicy = PathOCITrustPolicy
+	PathTrustPolicy = "trustpolicy.json"
 	// PathOCITrustPolicy is the OCI trust policy file relative path.
-	PathOCITrustPolicy = "trustpolicy.json"
+	PathOCITrustPolicy = "trustpolicy.oci.json"
 	// PathBlobTrustPolicy is the Blob trust policy file relative path.
-	PathBlobTrustPolicy = "trustpolicy.json"
+	PathBlobTrustPolicy = "trustpolicy.blob.json"
 	// PathPlugins is the plugins directory relative path.
 	PathPlugins = "plugins"
 	// LocalKeysDir is the directory name for local key relative path.
