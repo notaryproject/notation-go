@@ -26,7 +26,7 @@ import (
 func TestLoadBlobDocument(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
-	path := filepath.Join(tempRoot, "trustpolicy.json")
+	path := filepath.Join(tempRoot, "trustpolicy.blob.json")
 	policyJson, _ := json.Marshal(dummyBlobPolicyDocument())
 	if err := os.WriteFile(path, policyJson, 0600); err != nil {
 		t.Fatalf("TestLoadBlobDocument write policy file failed. Error: %v", err)

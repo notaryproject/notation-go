@@ -23,7 +23,7 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-func TestLoadOCIDocument(t *testing.T) {
+func TestLoadOCIDocumentFromOldFileLocation(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	path := filepath.Join(tempRoot, "trustpolicy.json")
@@ -35,6 +35,29 @@ func TestLoadOCIDocument(t *testing.T) {
 
 	if _, err := LoadOCIDocument(); err != nil {
 		t.Fatalf("LoadOCIDocument() should not throw error for an existing policy file. Error: %v", err)
+	}
+}
+
+func TestLoadOCIDocumentFromNewFileLocation(t *testing.T) {
+	tempRoot := t.TempDir()
+	dir.UserConfigDir = tempRoot
+	path := filepath.Join(tempRoot, "trustpolicy.oci.json")
+	policyJson, _ := json.Marshal(dummyOCIPolicyDocument())
+	if err := os.WriteFile(path, policyJson, 0600); err != nil {
+		t.Fatalf("TestLoadOCIDocument write policy file failed. Error: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tempRoot) })
+
+	if _, err := LoadOCIDocument(); err != nil {
+		t.Fatalf("LoadOCIDocument() should not throw error for an existing policy file. Error: %v", err)
+	}
+}
+
+func TestLoadOCIDocumentError(t *testing.T) {
+	tempRoot := t.TempDir()
+	dir.UserConfigDir = tempRoot
+	if _, err := LoadOCIDocument(); err == nil {
+		t.Fatalf("LoadOCIDocument() should throw error if OCI trust policy is not found")
 	}
 }
 

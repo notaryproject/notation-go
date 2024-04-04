@@ -140,6 +140,12 @@ type SignatureVerification struct {
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
 }
 
+type errPolicyNotExist struct{}
+
+func (e errPolicyNotExist) Error() string {
+	return fmt.Sprintf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink)
+}
+
 func getDocument(path string, v any) error {
 	path, err := dir.ConfigFS().SysPath(path)
 	if err != nil {
@@ -150,7 +156,7 @@ func getDocument(path string, v any) error {
 	fileInfo, err := os.Lstat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink)
+			return errPolicyNotExist{}
 		}
 		return err
 	}

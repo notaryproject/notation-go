@@ -67,10 +67,24 @@ type TrustPolicy = OCITrustPolicy
 var LoadDocument = LoadOCIDocument
 
 // LoadOCIDocument loads a trust policy document from a local file system
+// first it tries to read from dir.PathOCITrustPolicy and if not found it tries reads from dir.PathTrustPolicy.
 func LoadOCIDocument() (*OCIDocument, error) {
+
 	var doc OCIDocument
-	err := getDocument(dir.PathOCITrustPolicy, &doc)
-	return &doc, err
+	// attempt to load the document from dir.PathOCITrustPolicy
+	if err := getDocument(dir.PathOCITrustPolicy, &doc); err != nil {
+		// if the document is not found at the first path, try the second path
+		if errors.As(err, &errPolicyNotExist{}) {
+			if err := getDocument(dir.PathTrustPolicy, &doc); err != nil {
+				return &doc, err
+			}
+			return &doc, nil
+		}
+		// if an error occurred other than the document not found, return it
+		return nil, err
+	}
+
+	return &doc, nil
 }
 
 // Validate validates a policy document according to its version's rule set.
