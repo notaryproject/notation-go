@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/notation-go/dir"
+	set "github.com/notaryproject/notation-go/internal/container"
 	"github.com/notaryproject/notation-go/internal/slices"
 )
 
@@ -75,10 +76,15 @@ func (policyDoc *BlobDocument) Validate() error {
 		return errors.New("blob trust policy document can not have zero trust policy statements")
 	}
 
-	policyStatementNameCount := make(map[string]int)
+	policyNames := set.New[string]()
 	foundGlobalPolicy := false
 	for _, statement := range policyDoc.BlobTrustPolicies {
-		policyStatementNameCount[statement.Name]++
+		// Verify unique policy statement names across the policy document
+		if policyNames.Contains(statement.Name) {
+			return fmt.Errorf("multiple blob trust policy statements use the same name %q, statement names must be unique", statement.Name)
+		}
+		policyNames.Add(statement.Name)
+
 		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return err
 		}
@@ -88,13 +94,6 @@ func (policyDoc *BlobDocument) Validate() error {
 				return errors.New("multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement should be marked as global policy")
 			}
 			foundGlobalPolicy = true
-		}
-	}
-
-	// Verify unique policy statement names across the policy document
-	for key := range policyStatementNameCount {
-		if policyStatementNameCount[key] > 1 {
-			return fmt.Errorf("multiple blob trust policy statements use the same name %q, statement names must be unique", key)
 		}
 	}
 

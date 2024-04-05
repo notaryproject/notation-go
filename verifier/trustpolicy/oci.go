@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/notaryproject/notation-go/dir"
+	set "github.com/notaryproject/notation-go/internal/container"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/internal/trustpolicy"
 )
@@ -108,24 +109,22 @@ func (policyDoc *OCIDocument) Validate() error {
 		return errors.New("oci trust policy document can not have zero trust policy statements")
 	}
 
-	policyStatementNameCount := make(map[string]int)
+	policyNames := set.New[string]()
 	for _, statement := range policyDoc.TrustPolicies {
+		// Verify unique policy statement names across the policy document
+		if policyNames.Contains(statement.Name) {
+			return fmt.Errorf("multiple oci trust policy statements use the same name %q, statement names must be unique", statement.Name)
+		}
+		policyNames.Add(statement.Name)
+
 		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return err
 		}
-		policyStatementNameCount[statement.Name]++
 	}
 
 	// Verify registry scopes are valid
 	if err := validateRegistryScopes(policyDoc); err != nil {
 		return err
-	}
-
-	// Verify unique policy statement names across the policy document
-	for key := range policyStatementNameCount {
-		if policyStatementNameCount[key] > 1 {
-			return fmt.Errorf("multiple oci trust policy statements use the same name %q, statement names must be unique", key)
-		}
 	}
 
 	return nil

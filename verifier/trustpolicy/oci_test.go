@@ -273,6 +273,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "multiple oci trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
+		fmt.Println(err)
 		t.Fatalf("policy statements with same name should return error")
 	}
 }
