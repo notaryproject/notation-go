@@ -133,7 +133,7 @@ func (policyDoc *OCIDocument) Validate() error {
 // GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
 // statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.2/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
+// see https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
 func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string) (*OCITrustPolicy, error) {
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {

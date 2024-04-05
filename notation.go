@@ -343,18 +343,13 @@ type BlobVerifierVerifyOptions struct {
 
 	// TrustPolicyName is the name of trust policy picked by caller.
 	// If empty, the global trust policy will be used.
-	// This is mainly for non-CLI notation-go users, who do not have a UI to
-	// specify trust policy name directly.
 	TrustPolicyName string
 }
 
 // BlobVerifier is a generic interface for verifying an artifact.
 type BlobVerifier interface {
-	// VerifyBlob verifies the signature blob `signature` against the target OCI
-	// artifact with manifest descriptor `desc`, and returns the outcome upon
-	// successful verification.
-	// If nil signature is present and the verification level is not 'skip',
-	// an error will be returned.
+	// VerifyBlob verifies the `signature` against the target artifact and
+	// returns the outcome upon  successful verification.
 	VerifyBlob(ctx context.Context, descGenFunc BlobDescriptorGenerator, signature []byte, opts BlobVerifierVerifyOptions) (*VerificationOutcome, error)
 }
 

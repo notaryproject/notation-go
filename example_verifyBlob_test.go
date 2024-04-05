@@ -29,7 +29,7 @@ import (
 
 // examplePolicyDocument is an example of a valid trust policy document.
 // trust policy document should follow this spec:
-// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-policy
+// https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#trust-policy
 var exampleBlobPolicyDocument = trustpolicy.BlobDocument{
 	Version: "1.0",
 	BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
@@ -42,9 +42,8 @@ var exampleBlobPolicyDocument = trustpolicy.BlobDocument{
 	},
 }
 
-// ExampleLocalVerify demonstrates how to use verifier.Verify to verify a
-// signature of the target artifact at local (without using a
-// registry.Repository).
+// ExampleVerifyBlob demonstrates how to use verifier.Verify to verify a
+// signature of the blob.
 func Example_verifyBlob() {
 	// Both COSE ("application/cose") and JWS ("application/jose+json")
 	// signature mediaTypes are supported.

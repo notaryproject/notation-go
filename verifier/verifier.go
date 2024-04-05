@@ -46,7 +46,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// Verifier implements notation.Verifier and notation.verifySkipper
+// Verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
 type Verifier struct {
 	ociTrustPolicyDoc  *trustpolicy.OCIDocument
 	blobTrustPolicyDoc *trustpolicy.BlobDocument
@@ -56,7 +56,7 @@ type Verifier struct {
 }
 
 // VerifierOptions specifies additional parameters that can be set when using
-// the NewWithOptions constructor
+// the NewVerifierWithOptions constructor
 type VerifierOptions struct {
 	// RevocationClient is an implementation of revocation.Revocation to use for
 	// verifying revocation
@@ -89,21 +89,23 @@ func NewBlobVerifierFromConfig() (*Verifier, error) {
 	return NewVerifier(nil, policyDocument, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
 }
 
-// NewWithOptions creates a new Verifier given trustPolicy, trustStore,
+// NewWithOptions creates a new Verifier given ociTrustPolicy, trustStore,
 // pluginManager, and VerifierOptions
 // Deprecated: NewWithOptions function exists for historical compatibility and should not be used.
 // To create Verifier, use NewVerifierWithOptions function.
-func NewWithOptions(trustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
-	return NewVerifierWithOptions(trustPolicy, nil, trustStore, pluginManager, opts)
+func NewWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
+	return NewVerifierWithOptions(ociTrustPolicy, nil, trustStore, pluginManager, opts)
 }
 
-// NewVerifier creates a new Verifier given trustPolicies, trustStore and pluginManager
+// NewVerifier creates a new Verifier given ociTrustPolicy, trustStore and pluginManager
 func NewVerifier(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (*Verifier, error) {
 	return NewVerifierWithOptions(ociTrustPolicy, blobTrustPolicy, trustStore, pluginManager, VerifierOptions{})
 }
 
-func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (*Verifier, error) {
-	revocationClient := opts.RevocationClient
+// NewVerifierWithOptions creates a new Verifier given ociTrustPolicy, blobTrustPolicy,
+// trustStore, pluginManager, and verifierOptions
+func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (*Verifier, error) {
+	revocationClient := verifierOptions.RevocationClient
 	if revocationClient == nil {
 		var err error
 		revocationClient, err = revocation.New(&http.Client{Timeout: 2 * time.Second})
@@ -142,18 +144,18 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 
 }
 
-// NewFromConfig returns a Verifier based on local file system
+// NewFromConfig returns a OCI Verifier based on local file system
 // Deprecated: NewFromConfig function exists for historical compatibility and should not be used.
 // To create an OCI Verifier, use NewOCIVerifierFromConfig function.
 func NewFromConfig() (notation.Verifier, error) {
 	return NewOCIVerifierFromConfig()
 }
 
-// New creates a new Verifier given trustPolicy, trustStore and pluginManager
+// New creates a new Verifier given ociTrustPolicy, trustStore and pluginManager
 // Deprecated: New function exists for historical compatibility and should not be used.
 // To create Verifier, use NewVerifier function.
-func New(trustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
-	return NewVerifier(trustPolicy, nil, trustStore, pluginManager)
+func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
+	return NewVerifier(ociTrustPolicy, nil, trustStore, pluginManager)
 }
 
 // SkipVerify validates whether the verification level is skip.
@@ -178,6 +180,8 @@ func (v *Verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	return false, verificationLevel, nil
 }
 
+// VerifyBlob verifies the signature of given blob , and returns the outcome upon
+// successful verification.
 func (v *Verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, signature []byte, opts notation.BlobVerifierVerifyOptions) (*notation.VerificationOutcome, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Verify signature %v of media type %v", opts.SignatureMediaType)
@@ -239,7 +243,7 @@ func (v *Verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 	return outcome, outcome.Error
 }
 
-// Verify verifies the signature blob `signature` against the target OCI
+// Verify verifies the signature associated the target OCI
 // artifact with manifest descriptor `desc`, and returns the outcome upon
 // successful verification.
 // If nil signature is present and the verification level is not 'skip',

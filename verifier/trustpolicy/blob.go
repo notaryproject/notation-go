@@ -31,6 +31,7 @@ type BlobDocument struct {
 	BlobTrustPolicies []BlobTrustPolicy `json:"trustPolicies"`
 }
 
+// BlobTrustPolicy represents a policy statement in the blob policy document
 type BlobTrustPolicy struct {
 	// Name of the policy statement
 	Name string `json:"name"`
@@ -101,9 +102,7 @@ func (policyDoc *BlobDocument) Validate() error {
 }
 
 // GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
-// statement that applies to the given registry scope. If no applicable trust
-// policy is found, returns an error
-// see https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.2/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
+// see https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#blob-trust-policy
 func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*BlobTrustPolicy, error) {
 	for _, policyStatement := range policyDoc.BlobTrustPolicies {
 		if policyName == "" {

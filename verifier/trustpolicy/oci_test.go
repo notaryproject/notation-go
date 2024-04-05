@@ -78,13 +78,13 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	// existing Registry Scope
 	policy, err := (&policyDoc).GetApplicableTrustPolicy(registryUri)
 	if policy.Name != policyStatement.Name || err != nil {
-		t.Fatalf("getApplicableTrustPolicy should return %q for registry scope %q", policyStatement.Name, registryScope)
+		t.Fatalf("GetApplicableTrustPolicy() should return %q for registry scope %q", policyStatement.Name, registryScope)
 	}
 
 	// non-existing Registry Scope
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
 	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
-		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
+		t.Fatalf("GetApplicableTrustPolicy() should return nil for non existing registry scope")
 	}
 
 	// wildcard registry scope
@@ -102,7 +102,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	}
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("some.registry.that/has.no.policy@sha256:hash")
 	if policy.Name != wildcardStatement.Name || err != nil {
-		t.Fatalf("getApplicableTrustPolicy should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
+		t.Fatalf("GetApplicableTrustPolicy() should return wildcard policy for registry scope \"some.registry.that/has.no.policy\"")
 	}
 }
 

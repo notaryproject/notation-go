@@ -146,42 +146,6 @@ func (e errPolicyNotExist) Error() string {
 	return fmt.Sprintf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink)
 }
 
-func getDocument(path string, v any) error {
-	path, err := dir.ConfigFS().SysPath(path)
-	if err != nil {
-		return err
-	}
-
-	// throw error if path is a directory or a symlink or does not exist.
-	fileInfo, err := os.Lstat(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return errPolicyNotExist{}
-		}
-		return err
-	}
-
-	mode := fileInfo.Mode()
-	if mode.IsDir() || mode&fs.ModeSymlink != 0 {
-		return fmt.Errorf("trust policy is not a regular file (symlinks are not supported). To create a trust policy, see: %s", trustPolicyLink)
-	}
-
-	jsonFile, err := os.Open(path)
-	if err != nil {
-		if errors.Is(err, os.ErrPermission) {
-			return fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", path)
-		}
-		return err
-	}
-	defer jsonFile.Close()
-
-	err = json.NewDecoder(jsonFile).Decode(v)
-	if err != nil {
-		return fmt.Errorf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink)
-	}
-	return nil
-}
-
 // GetVerificationLevel returns VerificationLevel struct for the given
 // SignatureVerification struct throws error if SignatureVerification is invalid
 func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
@@ -252,6 +216,42 @@ func (signatureVerification *SignatureVerification) GetVerificationLevel() (*Ver
 		customVerificationLevel.Enforcement[validationType] = validationAction
 	}
 	return customVerificationLevel, nil
+}
+
+func getDocument(path string, v any) error {
+	path, err := dir.ConfigFS().SysPath(path)
+	if err != nil {
+		return err
+	}
+
+	// throw error if path is a directory or a symlink or does not exist.
+	fileInfo, err := os.Lstat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return errPolicyNotExist{}
+		}
+		return err
+	}
+
+	mode := fileInfo.Mode()
+	if mode.IsDir() || mode&fs.ModeSymlink != 0 {
+		return fmt.Errorf("trust policy is not a regular file (symlinks are not supported). To create a trust policy, see: %s", trustPolicyLink)
+	}
+
+	jsonFile, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("unable to read trust policy due to file permissions, please verify the permissions of %s", path)
+		}
+		return err
+	}
+	defer jsonFile.Close()
+
+	err = json.NewDecoder(jsonFile).Decode(v)
+	if err != nil {
+		return fmt.Errorf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink)
+	}
+	return nil
 }
 
 func validatePolicyCore(name string, signatureVerification SignatureVerification, trustStores, trustedIdentities []string) error {
