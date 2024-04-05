@@ -776,16 +776,28 @@ func TestVerifyBlob(t *testing.T) {
 		TrustPolicyName:    "blob-test-policy",
 	}
 	descGenFunc := getTestDescGenFunc(false, "")
-	// verify with without user defined metadata
-	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
-		t.Fatalf("VerifyBlob() returned unexpected error: %v", err)
-	}
 
-	// verify with user defined metadata
-	opts.UserMetadata = map[string]string{"buildId": "101"}
-	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
-		t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
-	}
+	t.Run("without user defined metadata", func(t *testing.T) {
+		// verify with
+		if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
+			t.Fatalf("VerifyBlob() returned unexpected error: %v", err)
+		}
+	})
+
+	t.Run("with user defined metadata", func(t *testing.T) {
+		opts.UserMetadata = map[string]string{"buildId": "101"}
+		if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
+			t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
+		}
+	})
+
+	t.Run("trust policy set to skip", func(t *testing.T) {
+		policy.BlobTrustPolicies[0].SignatureVerification = trustpolicy.SignatureVerification{VerificationLevel: "skip"}
+		opts.UserMetadata = map[string]string{"buildId": "101"}
+		if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
+			t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
+		}
+	})
 }
 
 func TestVerifyBlob_Error(t *testing.T) {
@@ -810,20 +822,38 @@ func TestVerifyBlob_Error(t *testing.T) {
 		TrustPolicyName:    "blob-test-policy",
 	}
 
-	// BlobDescriptorGenerator returned error
-	descGenFunc := getTestDescGenFunc(true, "")
-	_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
-	if err == nil || err.Error() != "failed to generate descriptor for given artifact. Error: intentional test desc generation error" {
-		t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
-	}
+	t.Run("BlobDescriptorGenerator returns error", func(t *testing.T) {
+		descGenFunc := getTestDescGenFunc(true, "")
+		_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
+		if err == nil || err.Error() != "failed to generate descriptor for given artifact. Error: intentional test desc generation error" {
+			t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
+		}
+	})
 
-	// descriptor mismatch
-	descGenFunc = getTestDescGenFunc(false, "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a62")
-	_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
-	if err == nil || err.Error() != "signature integrity check failed" {
-		t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
-	}
+	t.Run("descriptor mismatch returns error", func(t *testing.T) {
+		descGenFunc := getTestDescGenFunc(false, "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a62")
+		_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
+		if err == nil || err.Error() != "signature integrity check failed" {
+			t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
+		}
+	})
 
+	t.Run("signature malformed returns error", func(t *testing.T) {
+		descGenFunc := getTestDescGenFunc(false, "")
+		_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(""), opts)
+		if err == nil || err.Error() != "unable to parse the digital signature, error : unexpected end of JSON input" {
+			t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
+		}
+	})
+
+	t.Run("user defined metadata mismatch returns error", func(t *testing.T) {
+		descGenFunc := getTestDescGenFunc(false, "")
+		opts.UserMetadata = map[string]string{"buildId": "zzz"}
+		_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
+		if err == nil || err.Error() != "unable to find specified metadata in the signature" {
+			t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
+		}
+	})
 }
 
 func TestVerificationPluginInteractions(t *testing.T) {
