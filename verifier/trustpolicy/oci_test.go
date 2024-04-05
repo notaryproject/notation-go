@@ -83,7 +83,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 
 	// non-existing Registry Scope
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
-	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
 		t.Fatalf("getApplicableTrustPolicy should return nil for non existing registry scope")
 	}
 
@@ -112,7 +112,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// Sanity check
 	var nilPolicyDoc *OCIDocument
 	err := nilPolicyDoc.Validate()
-	if err == nil || err.Error() != "trust policy document cannot be nil" {
+	if err == nil || err.Error() != "oci trust policy document cannot be nil" {
 		t.Fatalf("nil policyDoc should return error")
 	}
 
@@ -120,7 +120,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc := dummyOCIPolicyDocument()
 	policyDoc.Version = "invalid"
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy document uses unsupported version \"invalid\"" {
+	if err == nil || err.Error() != "oci trust policy document uses unsupported version \"invalid\"" {
 		t.Fatalf("invalid version should return error")
 	}
 
@@ -128,7 +128,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies = nil
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy document can not have zero trust policy statements" {
+	if err == nil || err.Error() != "oci trust policy document can not have zero trust policy statements" {
 		t.Fatalf("zero policy statements should return error")
 	}
 
@@ -144,7 +144,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].RegistryScopes = nil
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has zero registry scopes, it must specify registry scopes with at least one value" {
+	if err == nil || err.Error() != "oci trust policy statement \"test-statement-name\" has zero registry scopes, it must specify registry scopes with at least one value" {
 		t.Fatalf("policy statement with registry scopes should return error")
 	}
 
@@ -155,7 +155,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement2.Name = "test-statement-name-2"
 	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "registry scope \"registry.acme-rockets.io/software/net-monitor\" is present in multiple trust policy statements, one registry scope value can only be associated with one statement" {
+	if err == nil || err.Error() != "registry scope \"registry.acme-rockets.io/software/net-monitor\" is present in multiple oci trust policy statements, one registry scope value can only be associated with one statement" {
 		t.Fatalf("Policy statements with same registry scope should return error %q", err)
 	}
 
@@ -163,7 +163,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].RegistryScopes = []string{"*", "registry.acme-rockets.io/software/net-monitor"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values" {
+	if err == nil || err.Error() != "oci trust policy statement \"test-statement-name\" uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values" {
 		t.Fatalf("policy statement with more than a wildcard registry scope should return error")
 	}
 
@@ -272,7 +272,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement2.RegistryScopes = []string{"registry.acme-rockets.io/software/legacy/metrics"}
 	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "multiple trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
+	if err == nil || err.Error() != "multiple oci trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
 		t.Fatalf("policy statements with same name should return error")
 	}
 }

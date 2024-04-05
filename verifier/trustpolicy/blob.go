@@ -59,20 +59,20 @@ func LoadBlobDocument() (*BlobDocument, error) {
 func (policyDoc *BlobDocument) Validate() error {
 	// sanity check
 	if policyDoc == nil {
-		return errors.New("trust policy document cannot be nil")
+		return errors.New("blob trust policy document cannot be nil")
 	}
 
 	// Validate Version
 	if policyDoc.Version == "" {
-		return errors.New("trust policy has empty version, version must be specified")
+		return errors.New("blob trust policy has empty version, version must be specified")
 	}
 	if !slices.Contains(supportedPolicyVersions, policyDoc.Version) {
-		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
+		return fmt.Errorf("blob trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
 	// Validate the policy according to 1.0 rules
 	if len(policyDoc.BlobTrustPolicies) == 0 {
-		return errors.New("trust policy document can not have zero trust policy statements")
+		return errors.New("blob trust policy document can not have zero trust policy statements")
 	}
 
 	policyStatementNameCount := make(map[string]int)
@@ -85,7 +85,7 @@ func (policyDoc *BlobDocument) Validate() error {
 
 		if statement.GlobalPolicy {
 			if foundGlobalPolicy {
-				return errors.New("multiple trust policy statements have globalPolicy set to true. Only one policy statement should be marked as global policy")
+				return errors.New("multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement should be marked as global policy")
 			}
 			foundGlobalPolicy = true
 		}
@@ -94,7 +94,7 @@ func (policyDoc *BlobDocument) Validate() error {
 	// Verify unique policy statement names across the policy document
 	for key := range policyStatementNameCount {
 		if policyStatementNameCount[key] > 1 {
-			return fmt.Errorf("multiple trust policy statements use the same name %q, statement names must be unique", key)
+			return fmt.Errorf("multiple blob trust policy statements use the same name %q, statement names must be unique", key)
 		}
 	}
 

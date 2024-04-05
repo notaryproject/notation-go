@@ -49,7 +49,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	// Sanity check
 	var nilPolicyDoc *BlobDocument
 	err := nilPolicyDoc.Validate()
-	if err == nil || err.Error() != "trust policy document cannot be nil" {
+	if err == nil || err.Error() != "blob trust policy document cannot be nil" {
 		t.Fatalf("nil policyDoc should return error")
 	}
 
@@ -57,7 +57,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyDoc := dummyBlobPolicyDocument()
 	policyDoc.Version = ""
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy has empty version, version must be specified" {
+	if err == nil || err.Error() != "blob trust policy has empty version, version must be specified" {
 		t.Fatalf("invalid version should return error")
 	}
 
@@ -65,7 +65,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyDoc = dummyBlobPolicyDocument()
 	policyDoc.Version = "invalid"
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy document uses unsupported version \"invalid\"" {
+	if err == nil || err.Error() != "blob trust policy document uses unsupported version \"invalid\"" {
 		t.Fatalf("invalid version should return error")
 	}
 
@@ -73,7 +73,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyDoc = dummyBlobPolicyDocument()
 	policyDoc.BlobTrustPolicies = nil
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy document can not have zero trust policy statements" {
+	if err == nil || err.Error() != "blob trust policy document can not have zero trust policy statements" {
 		t.Fatalf("zero policy statements should return error")
 	}
 
@@ -94,7 +94,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyStatement2.GlobalPolicy = true
 	policyDoc.BlobTrustPolicies = []BlobTrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "multiple trust policy statements have globalPolicy set to true. Only one policy statement should be marked as global policy" {
+	if err == nil || err.Error() != "multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement should be marked as global policy" {
 		t.Fatalf("policy statement with no name should return an error")
 	}
 
@@ -104,7 +104,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyStatement2 = policyDoc.BlobTrustPolicies[0].clone()
 	policyDoc.BlobTrustPolicies = []BlobTrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "multiple trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
+	if err == nil || err.Error() != "multiple blob trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
 		t.Fatalf("policy statements with same name should return error")
 	}
 }

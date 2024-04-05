@@ -92,20 +92,20 @@ func LoadOCIDocument() (*OCIDocument, error) {
 func (policyDoc *OCIDocument) Validate() error {
 	// sanity check
 	if policyDoc == nil {
-		return errors.New("trust policy document cannot be nil")
+		return errors.New("oci trust policy document cannot be nil")
 	}
 
 	// Validate Version
 	if policyDoc.Version == "" {
-		return errors.New("trust policy document has empty version, version must be specified")
+		return errors.New("oci trust policy document has empty version, version must be specified")
 	}
 	if !slices.Contains(supportedPolicyVersions, policyDoc.Version) {
-		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
+		return fmt.Errorf("oci trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
 	// Validate the policy according to 1.0 rules
 	if len(policyDoc.TrustPolicies) == 0 {
-		return errors.New("trust policy document can not have zero trust policy statements")
+		return errors.New("oci trust policy document can not have zero trust policy statements")
 	}
 
 	policyStatementNameCount := make(map[string]int)
@@ -124,7 +124,7 @@ func (policyDoc *OCIDocument) Validate() error {
 	// Verify unique policy statement names across the policy document
 	for key := range policyStatementNameCount {
 		if policyStatementNameCount[key] > 1 {
-			return fmt.Errorf("multiple trust policy statements use the same name %q, statement names must be unique", key)
+			return fmt.Errorf("multiple oci trust policy statements use the same name %q, statement names must be unique", key)
 		}
 	}
 
@@ -160,7 +160,7 @@ func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string)
 	} else if wildcardPolicy != nil {
 		return wildcardPolicy, nil
 	} else {
-		return nil, fmt.Errorf("artifact %q has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: %s", artifactReference, trustPolicyLink)
+		return nil, fmt.Errorf("artifact %q has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: %s", artifactReference, trustPolicyLink)
 	}
 }
 
@@ -182,10 +182,10 @@ func validateRegistryScopes(policyDoc *OCIDocument) error {
 	for _, statement := range policyDoc.TrustPolicies {
 		// Verify registry scopes are valid
 		if len(statement.RegistryScopes) == 0 {
-			return fmt.Errorf("trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
+			return fmt.Errorf("oci trust policy statement %q has zero registry scopes, it must specify registry scopes with at least one value", statement.Name)
 		}
 		if len(statement.RegistryScopes) > 1 && slices.Contains(statement.RegistryScopes, trustpolicy.Wildcard) {
-			return fmt.Errorf("trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
+			return fmt.Errorf("oci trust policy statement %q uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values", statement.Name)
 		}
 		for _, scope := range statement.RegistryScopes {
 			if scope != trustpolicy.Wildcard {
@@ -200,7 +200,7 @@ func validateRegistryScopes(policyDoc *OCIDocument) error {
 	// Verify one policy statement per registry scope
 	for key := range registryScopeCount {
 		if registryScopeCount[key] > 1 {
-			return fmt.Errorf("registry scope %q is present in multiple trust policy statements, one registry scope value can only be associated with one statement", key)
+			return fmt.Errorf("registry scope %q is present in multiple oci trust policy statements, one registry scope value can only be associated with one statement", key)
 		}
 	}
 
@@ -213,7 +213,7 @@ func getArtifactPathFromReference(artifactReference string) (string, error) {
 	// "domain.com/repository:tag"
 	i := strings.LastIndex(artifactReference, "@")
 	if i < 0 {
-		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
+		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified oci artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
 	}
 
 	artifactPath := artifactReference[:i]

@@ -179,9 +179,8 @@ func (v *Verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 }
 
 func (v *Verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, signature []byte, opts notation.BlobVerifierVerifyOptions) (*notation.VerificationOutcome, error) {
-	envelopeMediaType := opts.SignatureMediaType
 	logger := log.GetLogger(ctx)
-	logger.Debugf("Verify blob signature %v of media type %v", envelopeMediaType)
+	logger.Debugf("Verify signature %v of media type %v", opts.SignatureMediaType)
 
 	trustPolicy, err := v.blobTrustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyName)
 	if err != nil {
@@ -200,7 +199,7 @@ func (v *Verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, opts.PluginConfig, outcome)
+	err = v.processSignature(ctx, signature, opts.SignatureMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, opts.PluginConfig, outcome)
 	if err != nil {
 		outcome.Error = err
 		return outcome, err
@@ -216,16 +215,18 @@ func (v *Verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 
 	desc, err := descGenFunc(payload.TargetArtifact.Digest.Algorithm())
 	if err != nil {
-		logger.Error("Failed generate descriptor for given blob. Error: %v", err)
-		outcome.Error = err
-		return outcome, err
+		errMsg := fmt.Sprintf("failed to generate descriptor for given artifact. Error: %s", err)
+		logger.Error(errMsg)
+		descErr := errors.New(errMsg)
+		outcome.Error = descErr
+		return outcome, descErr
 	}
 
 	if desc.Digest != payload.TargetArtifact.Digest || desc.Size != payload.TargetArtifact.Size ||
 		(desc.MediaType != "" && desc.MediaType != payload.TargetArtifact.MediaType) {
 		logger.Infof("payload.TargetArtifact in signature: %+v", payload.TargetArtifact)
 		logger.Infof("Target blob that want to be verify: %+v", desc)
-		outcome.Error = errors.New("content descriptor mismatch")
+		outcome.Error = errors.New("signature integrity check failed")
 	}
 
 	if len(opts.UserMetadata) > 0 {

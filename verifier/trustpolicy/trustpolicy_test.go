@@ -147,7 +147,6 @@ func TestValidateTrustedIdentities(t *testing.T) {
 	// If empty trust policy throws error.
 	err = validateTrustedIdentities("test-statement-name", []string{""})
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has an empty trusted identity" {
-		fmt.Println(err.Error())
 		t.Fatalf("empty trusted identity should return error")
 	}
 

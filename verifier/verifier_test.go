@@ -128,7 +128,7 @@ func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 	}
 	opts := notation.VerifierVerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
 	_, err := verifier.Verify(context.Background(), ocispec.Descriptor{}, []byte{}, opts)
-	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable trust policy. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
+	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
 		t.Fatalf("no applicable trust policy must throw error")
 	}
 }
@@ -771,18 +771,11 @@ func TestVerifyBlob(t *testing.T) {
 		t.Fatalf("unexpected error while creating Verifier: %v", err)
 	}
 
-	descGenFunc := func(digest.Algorithm) (ocispec.Descriptor, error) {
-		return ocispec.Descriptor{
-			MediaType: "video/mp4",
-			Digest:    "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a61",
-			Size:      12,
-		}, nil
-	}
 	opts := notation.BlobVerifierVerifyOptions{
 		SignatureMediaType: jws.MediaTypeEnvelope,
 		TrustPolicyName:    "blob-test-policy",
 	}
-
+	descGenFunc := getTestDescGenFunc(false, "")
 	// verify with without user defined metadata
 	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
 		t.Fatalf("VerifyBlob() returned unexpected error: %v", err)
@@ -812,28 +805,25 @@ func TestVerifyBlob_Error(t *testing.T) {
 		t.Fatalf("unexpected error while creating Verifier: %v", err)
 	}
 
-	descGenFunc := func(digest.Algorithm) (ocispec.Descriptor, error) {
-		return ocispec.Descriptor{
-			MediaType: "video/mp4",
-			Digest:    "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a61",
-			Size:      12,
-		}, nil
-	}
 	opts := notation.BlobVerifierVerifyOptions{
 		SignatureMediaType: jws.MediaTypeEnvelope,
 		TrustPolicyName:    "blob-test-policy",
 	}
 
-	// verify with without user defined metadata
-	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
-		t.Fatalf("VerifyBlob() returned unexpected error: %v", err)
+	// BlobDescriptorGenerator returned error
+	descGenFunc := getTestDescGenFunc(true, "")
+	_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
+	if err == nil || err.Error() != "failed to generate descriptor for given artifact. Error: intentional test desc generation error" {
+		t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
 	}
 
-	// verify with user defined metadata
-	opts.UserMetadata = map[string]string{"buildId": "101"}
-	if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
-		t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
+	// descriptor mismatch
+	descGenFunc = getTestDescGenFunc(false, "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a62")
+	_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
+	if err == nil || err.Error() != "signature integrity check failed" {
+		t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
 	}
+
 }
 
 func TestVerificationPluginInteractions(t *testing.T) {
@@ -1319,4 +1309,24 @@ func (ts *testTrustStore) GetCertificates(_ context.Context, _ truststore.Type, 
 	block, _ := pem.Decode([]byte(trustedCert))
 	cert, _ := x509.ParseCertificate(block.Bytes)
 	return []*x509.Certificate{cert}, nil
+}
+
+func getTestDescGenFunc(returnErr bool, customDigest digest.Digest) notation.BlobDescriptorGenerator {
+	return func(digest.Algorithm) (ocispec.Descriptor, error) {
+		var err error = nil
+		if returnErr {
+			err = errors.New("intentional test desc generation error")
+		}
+
+		var expDigest digest.Digest = "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a61"
+		if customDigest != "" {
+			expDigest = customDigest
+		}
+
+		return ocispec.Descriptor{
+			MediaType: "video/mp4",
+			Digest:    expDigest,
+			Size:      12,
+		}, err
+	}
 }
