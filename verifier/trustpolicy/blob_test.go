@@ -81,7 +81,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyDoc = dummyBlobPolicyDocument()
 	policyDoc.BlobTrustPolicies[0].Name = ""
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "a trust policy statement is missing a name, every statement requires a name" {
+	if err == nil || err.Error() != "blob trust policy: a trust policy statement is missing a name, every statement requires a name" {
 		t.Fatalf("policy statement with no name should return an error")
 	}
 

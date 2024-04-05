@@ -136,7 +136,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].Name = ""
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "a trust policy statement is missing a name, every statement requires a name" {
+	if err == nil || err.Error() != "oci trust policy: a trust policy statement is missing a name, every statement requires a name" {
 		t.Fatalf("policy statement with no name should return an error")
 	}
 
@@ -171,7 +171,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].SignatureVerification = SignatureVerification{VerificationLevel: "invalid"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has invalid signatureVerification: invalid signature verification level \"invalid\"" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has invalid signatureVerification: invalid signature verification level \"invalid\"" {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
@@ -179,7 +179,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
 		t.Fatalf("strict SignatureVerification should have a trust store")
 	}
 
@@ -187,7 +187,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
 		t.Fatalf("strict SignatureVerification should have trusted identities")
 	}
 
@@ -195,7 +195,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped" {
 		t.Fatalf("strict SignatureVerification should have trusted identities")
 	}
 
@@ -203,7 +203,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{""}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has an empty trusted identity" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has an empty trusted identity" {
 		t.Fatalf("policy statement with empty trusted identity should return error")
 	}
 
@@ -211,7 +211,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{"x509.subject"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator" {
 		t.Fatalf("policy statement with trusted identity missing separator should return error")
 	}
 
@@ -219,7 +219,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{"x509.subject:"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value" {
 		t.Fatalf("policy statement with trusted identity missing identity value should return error")
 	}
 
@@ -237,7 +237,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{"ca"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". The required format is <TrustStoreType>:<TrustStoreName>" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". The required format is <TrustStoreType>:<TrustStoreName>" {
 		t.Fatalf("policy statement with trust store missing separator should return error")
 	}
 
@@ -245,7 +245,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{"invalid:test-trust-store"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses an unsupported trust store type \"invalid\" in trust store value \"invalid:test-trust-store\"" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" uses an unsupported trust store type \"invalid\" in trust store value \"invalid:test-trust-store\"" {
 		t.Fatalf("policy statement with invalid trust store type should return error")
 	}
 
@@ -253,7 +253,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{"ca:"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses an unsupported trust store name \"\" in trust store value \"ca:\". Named store name needs to follow [a-zA-Z0-9_.-]+ format" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" uses an unsupported trust store name \"\" in trust store value \"ca:\". Named store name needs to follow [a-zA-Z0-9_.-]+ format" {
 		t.Fatalf("policy statement with trust store missing named store should return error")
 	}
 
@@ -261,7 +261,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{"*", "test-identity"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values" {
 		t.Fatalf("policy statement with more than a wildcard trusted identity should return error")
 	}
 
@@ -273,7 +273,6 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "multiple oci trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
-		fmt.Println(err)
 		t.Fatalf("policy statements with same name should return error")
 	}
 }

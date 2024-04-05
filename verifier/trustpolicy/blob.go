@@ -87,7 +87,7 @@ func (policyDoc *BlobDocument) Validate() error {
 		policyNames.Add(statement.Name)
 
 		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
-			return err
+			return fmt.Errorf("blob trust policy: %w", err)
 		}
 
 		if statement.GlobalPolicy {
