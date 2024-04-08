@@ -517,6 +517,9 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 }
 
 func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+	logger := log.GetLogger(ctx)
+
+	// under signing scheme notary.x509
 	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
 		var needTimestamp bool
 		for _, cert := range signerInfo.CertificateChain {
@@ -571,7 +574,6 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		opts := x509.VerifyOptions{
 			Roots: roots,
 		}
-		// TODO: check revocation of cert chain
 		tsaCertChain, err := signedToken.Verify(ctx, opts)
 		if err != nil {
 			return &notation.ValidationResult{
@@ -609,6 +611,43 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		timeStampLowerLimit := ts.Add(-accuracy)
 		timeStampUpperLimit := ts.Add(accuracy)
 		fmt.Printf("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
+		// TSA certificate chain revocation check
+		revocationClient, err := revocation.New(&http.Client{Timeout: 2 * time.Second})
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		certResults, err := revocationClient.Validate(tsaCertChain, timeStampUpperLimit)
+		if err != nil {
+			logger.Debug("error while checking revocation status, err: %s", err.Error())
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		finalResult, problematicCertSubject := revocationFinalResult(certResults, tsaCertChain, logger)
+		switch finalResult {
+		case revocationresult.ResultOK:
+			logger.Debug("no verification impacting errors encountered while checking TSA certificate chain revocation, status is OK")
+		case revocationresult.ResultRevoked:
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("TSA certificate with subject %q is revoked", problematicCertSubject),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		default:
+			// revocationresult.ResultUnknown
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("TSA certificate with subject %q revocation status is unknown", problematicCertSubject),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		// timestamp core process
 		for _, cert := range signerInfo.CertificateChain {
 			if timeStampLowerLimit.Before(cert.NotBefore) {
 				return &notation.ValidationResult{
@@ -626,6 +665,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			}
 		}
 	} else if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
+		// under signing scheme notary.x509.signingAuthority
 		authenticSigningTime := signerInfo.SignedAttributes.SigningTime
 		for _, cert := range signerInfo.CertificateChain {
 			if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
@@ -673,6 +713,23 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		Type:   trustpolicy.TypeRevocation,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
+	finalResult, problematicCertSubject := revocationFinalResult(certResults, outcome.EnvelopeContent.SignerInfo.CertificateChain, logger)
+	switch finalResult {
+	case revocationresult.ResultOK:
+		logger.Debug("no verification impacting errors encountered while checking revocation, status is OK")
+	case revocationresult.ResultRevoked:
+		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
+	default:
+		// revocationresult.ResultUnknown
+		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
+	}
+
+	return result
+}
+
+// revocationFinalResult returns the final revocation result and problematic
+// certificate subject if the final result is not ResultOK
+func revocationFinalResult(certResults []*revocationresult.CertRevocationResult, certChain []*x509.Certificate, logger log.Logger) (revocationresult.Result, string) {
 	finalResult := revocationresult.ResultUnknown
 	numOKResults := 0
 	var problematicCertSubject string
@@ -680,14 +737,14 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	var revokedCertSubject string
 	for i := len(certResults) - 1; i >= 0; i-- {
 		if len(certResults[i].ServerResults) > 0 && certResults[i].ServerResults[0].Error != nil {
-			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
+			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), certChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
 		}
 
 		if certResults[i].Result == revocationresult.ResultOK || certResults[i].Result == revocationresult.ResultNonRevokable {
 			numOKResults++
 		} else {
 			finalResult = certResults[i].Result
-			problematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
+			problematicCertSubject = certChain[i].Subject.String()
 			if certResults[i].Result == revocationresult.ResultRevoked {
 				revokedFound = true
 				revokedCertSubject = problematicCertSubject
@@ -701,18 +758,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	if numOKResults == len(certResults) {
 		finalResult = revocationresult.ResultOK
 	}
-
-	switch finalResult {
-	case revocationresult.ResultOK:
-		logger.Debug("no verification impacting errors encountered while checking revocation, status is OK")
-	case revocationresult.ResultRevoked:
-		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
-	default:
-		// revocationresult.ResultUnknown
-		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
-	}
-
-	return result
+	return finalResult, problematicCertSubject
 }
 
 func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPlugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []pluginframework.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*pluginframework.VerifySignatureResponse, error) {
