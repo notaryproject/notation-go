@@ -612,15 +612,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		timeStampUpperLimit := ts.Add(accuracy)
 		fmt.Printf("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
 		// TSA certificate chain revocation check
-		revocationClient, err := revocation.New(&http.Client{Timeout: 2 * time.Second})
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  err,
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		certResults, err := revocationClient.Validate(tsaCertChain, timeStampUpperLimit)
+		certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit)
 		if err != nil {
 			logger.Debug("error while checking revocation status, err: %s", err.Error())
 			return &notation.ValidationResult{
