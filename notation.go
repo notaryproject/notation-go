@@ -319,6 +319,12 @@ type VerifierVerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature.
 	UserMetadata map[string]string
+
+	// SkipTimestampCertificateExpirationCheck skips timestamp certificate
+	// expiration check during timestamp countersignature verification. The
+	// time point been stamped still MUST be within timestamp certificate chain's
+	// validity period, and this check is always enforced.
+	SkipTimestampCertificateExpirationCheck bool
 }
 
 // Verifier is a generic interface for verifying an artifact.
@@ -353,6 +359,12 @@ type VerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature
 	UserMetadata map[string]string
+
+	// SkipTimestampCertificateExpirationCheck skips timestamp certificate
+	// expiration check during timestamp countersignature verification. The
+	// time point been stamped still MUST be within timestamp certificate chain's
+	// validity period, and this check is always enforced.
+	SkipTimestampCertificateExpirationCheck bool
 }
 
 // Verify performs signature verification on each of the notation supported
@@ -376,9 +388,10 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 
 	// opts to be passed in verifier.Verify()
 	opts := VerifierVerifyOptions{
-		ArtifactReference: verifyOpts.ArtifactReference,
-		PluginConfig:      verifyOpts.PluginConfig,
-		UserMetadata:      verifyOpts.UserMetadata,
+		ArtifactReference:                       verifyOpts.ArtifactReference,
+		PluginConfig:                            verifyOpts.PluginConfig,
+		UserMetadata:                            verifyOpts.UserMetadata,
+		SkipTimestampCertificateExpirationCheck: verifyOpts.SkipTimestampCertificateExpirationCheck,
 	}
 
 	if skipChecker, ok := verifier.(verifySkipper); ok {

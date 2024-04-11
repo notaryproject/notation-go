@@ -157,7 +157,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, opts.SkipTimestampCertificateExpirationCheck, pluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err
@@ -188,7 +188,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, skipTimestampCertExpirationCheck bool, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter
@@ -288,7 +288,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, trustPolicy, v.trustStore, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, trustPolicy, v.trustStore, skipTimestampCertExpirationCheck, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -516,7 +516,7 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, skipTimestampCertExpirationCheck bool, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	// under signing scheme notary.x509
@@ -571,24 +571,8 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		for _, cert := range trustTSACerts {
 			roots.AddCert(cert)
 		}
-		opts := x509.VerifyOptions{
+		timestampVerifyOpts := x509.VerifyOptions{
 			Roots: roots,
-		}
-		tsaCertChain, err := signedToken.Verify(ctx, opts)
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  err,
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		// validate TSA cert chain
-		if err := nx509.ValidateTimeStampingCertChain(tsaCertChain, nil); err != nil {
-			return &notation.ValidationResult{
-				Error:  err,
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
 		}
 		// get the timestamp token info
 		info, err := signedToken.Info()
@@ -599,7 +583,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// validate the info and consume timestamp
+		// validate the info
 		ts, accuracy, err := info.Timestamp(signerInfo.Signature)
 		if err != nil {
 			return &notation.ValidationResult{
@@ -608,9 +592,30 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
+		if skipTimestampCertExpirationCheck {
+			timestampVerifyOpts.CurrentTime = ts
+		}
+		// verify the timestamp countersignature
+		tsaCertChain, err := signedToken.Verify(ctx, timestampVerifyOpts)
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		// validate timestamp certificate chain
+		if err := nx509.ValidateTimeStampingCertChain(tsaCertChain, nil); err != nil {
+			return &notation.ValidationResult{
+				Error:  err,
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		// get the timestamp token time range
 		timeStampLowerLimit := ts.Add(-accuracy)
 		timeStampUpperLimit := ts.Add(accuracy)
-		fmt.Printf("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
+		logger.Info("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
 		// TSA certificate chain revocation check
 		certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit)
 		if err != nil {
