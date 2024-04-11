@@ -157,7 +157,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, opts.SkipTimestampCertificateExpirationCheck, pluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, opts.VerifyAtTimestampedTime, pluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err
@@ -188,7 +188,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, skipTimestampCertExpirationCheck bool, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, verifyAtTimestampedTime bool, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter
@@ -288,7 +288,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, trustPolicy, v.trustStore, skipTimestampCertExpirationCheck, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, trustPolicy, v.trustStore, verifyAtTimestampedTime, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -516,7 +516,7 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, skipTimestampCertExpirationCheck bool, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, verifyAtTimestampedTime bool, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	// under signing scheme notary.x509
@@ -592,7 +592,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		if skipTimestampCertExpirationCheck {
+		if verifyAtTimestampedTime {
 			timestampVerifyOpts.CurrentTime = ts
 		}
 		// verify the timestamp countersignature
