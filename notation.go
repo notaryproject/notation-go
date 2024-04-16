@@ -377,6 +377,7 @@ type VerifyOptions struct {
 	UserMetadata map[string]string
 }
 
+// VerifyBlobOptions contains parameters for notation.VerifyBlob.
 type VerifyBlobOptions struct {
 	BlobVerifierVerifyOptions
 
@@ -384,6 +385,11 @@ type VerifyBlobOptions struct {
 	ContentMediaType string
 }
 
+// VerifyBlob performs signature verification for a blob using notation supported
+// verification types (like integrity, authenticity, etc.) and return the
+// successful signature verification outcome.
+// For more details on signature verification, see
+// https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Reader, signature []byte, verifyBlobOpts VerifyBlobOptions) (ocispec.Descriptor, *VerificationOutcome, error) {
 	if blobVerifier == nil {
 		return ocispec.Descriptor{}, nil, errors.New("blobVerifier cannot be nil")

@@ -744,7 +744,7 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 	opts := VerifierOptions{RevocationClient: r}
 
 	_, err = NewVerifierWithOptions(nil, nil, store, pm, opts)
-	if err == nil || err.Error() != "both ociTrustPolicy and blobTrustPolicy cannot be nil" {
+	if err == nil || err.Error() != "ociTrustPolicy and blobTrustPolicy both cannot be nil" {
 		t.Errorf("expected err but not found.")
 	}
 

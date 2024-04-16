@@ -16,6 +16,7 @@ package verifier
 
 import (
 	"context"
+	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -43,8 +44,15 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+var algorithms = map[crypto.Hash]digest.Algorithm{
+	crypto.SHA256: digest.SHA256,
+	crypto.SHA384: digest.SHA384,
+	crypto.SHA512: digest.SHA512,
+}
 
 // Verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
 type Verifier struct {
@@ -119,7 +127,7 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 	}
 
 	if ociTrustPolicy == nil && blobTrustPolicy == nil {
-		return nil, errors.New("both ociTrustPolicy and blobTrustPolicy cannot be nil")
+		return nil, errors.New("ociTrustPolicy and blobTrustPolicy both cannot be nil")
 	}
 
 	if ociTrustPolicy != nil {
@@ -217,7 +225,16 @@ func (v *Verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 		return outcome, err
 	}
 
-	desc, err := descGenFunc(payload.TargetArtifact.Digest.Algorithm())
+	cryptoHash := outcome.EnvelopeContent.SignerInfo.SignatureAlgorithm.Hash()
+	digestAlgo, ok := algorithms[cryptoHash]
+	if !ok {
+		logger.Error("Unsupported hashing algorithm: %v", cryptoHash)
+		err := fmt.Errorf("unsupported hashing algorithm: %v", cryptoHash)
+		outcome.Error = err
+		return outcome, err
+	}
+
+	desc, err := descGenFunc(digestAlgo)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to generate descriptor for given artifact. Error: %s", err)
 		logger.Error(errMsg)
