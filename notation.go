@@ -319,11 +319,6 @@ type VerifierVerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature.
 	UserMetadata map[string]string
-
-	// VerifyAtTimestampedTime verifies the timestamp countersignature at the
-	// time point been stamped. This time point MUST be within timestamp
-	// certificate chain's validity period.
-	VerifyAtTimestampedTime bool
 }
 
 // Verifier is a generic interface for verifying an artifact.
@@ -358,11 +353,6 @@ type VerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature
 	UserMetadata map[string]string
-
-	// VerifyAtTimestampedTime verifies the timestamp countersignature at the
-	// time point been stamped. This time point MUST be within timestamp
-	// certificate chain's validity period.
-	VerifyAtTimestampedTime bool
 }
 
 // Verify performs signature verification on each of the notation supported
@@ -386,10 +376,9 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 
 	// opts to be passed in verifier.Verify()
 	opts := VerifierVerifyOptions{
-		ArtifactReference:       verifyOpts.ArtifactReference,
-		PluginConfig:            verifyOpts.PluginConfig,
-		UserMetadata:            verifyOpts.UserMetadata,
-		VerifyAtTimestampedTime: verifyOpts.VerifyAtTimestampedTime,
+		ArtifactReference: verifyOpts.ArtifactReference,
+		PluginConfig:      verifyOpts.PluginConfig,
+		UserMetadata:      verifyOpts.UserMetadata,
 	}
 
 	if skipChecker, ok := verifier.(verifySkipper); ok {

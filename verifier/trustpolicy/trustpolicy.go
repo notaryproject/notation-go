@@ -134,7 +134,7 @@ var (
 	}
 )
 
-var supportedPolicyVersions = []string{"1.0"}
+var supportedPolicyVersions = []string{"1.0", "1.1"}
 
 // Document represents a trustPolicy.json document
 type Document struct {
@@ -156,6 +156,9 @@ type TrustPolicy struct {
 	// SignatureVerification setting for this policy statement
 	SignatureVerification SignatureVerification `json:"signatureVerification"`
 
+	// TimestampVerification setting for this policy statement
+	TimestampVerification *TimestampVerification `json:"timestampVerification,omitempty"`
+
 	// TrustStores this policy statement uses
 	TrustStores []string `json:"trustStores,omitempty"`
 
@@ -167,6 +170,12 @@ type TrustPolicy struct {
 type SignatureVerification struct {
 	VerificationLevel string                              `json:"level"`
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
+}
+
+// TimestampVerification represents timestamp countersignature verification
+// configuration in a trust policy
+type TimestampVerification struct {
+	AtTimestampedTime bool `json:"atTimestampedTime"`
 }
 
 // Validate validates a policy document according to its version's rule set.
@@ -185,7 +194,6 @@ func (policyDoc *Document) Validate() error {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
-	// Validate the policy according to 1.0 rules
 	if len(policyDoc.TrustPolicies) == 0 {
 		return errors.New("trust policy document can not have zero trust policy statements")
 	}
@@ -204,6 +212,11 @@ func (policyDoc *Document) Validate() error {
 		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
 			return fmt.Errorf("trust policy statement %q has invalid signatureVerification: %w", statement.Name, err)
+		}
+
+		// Verify timestamp verification is valid
+		if statement.TimestampVerification != nil && policyDoc.Version != "1.1" {
+			return fmt.Errorf("trust policy document version must be 1.1 to support timestamp verification, but got %q", policyDoc.Version)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and
