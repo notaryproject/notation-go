@@ -166,6 +166,14 @@ type TrustPolicy struct {
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 }
 
+func (t *TrustPolicy) String() string {
+	policyJson, err := json.Marshal(t)
+	if err != nil {
+		return ""
+	}
+	return string(policyJson)
+}
+
 // SignatureVerification represents verification configuration in a trust policy
 type SignatureVerification struct {
 	VerificationLevel string                              `json:"level"`

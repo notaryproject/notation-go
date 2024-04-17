@@ -144,7 +144,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Infof("Trust policy configuration: %+v", trustPolicy)
+	logger.Infof("Trust policy configuration: %q", trustPolicy.String())
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
@@ -623,7 +623,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		// get the timestamp token time range
 		timeStampLowerLimit := ts.Add(-accuracy)
 		timeStampUpperLimit := ts.Add(accuracy)
-		logger.Info("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
+		logger.Infof("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
 		// TSA certificate chain revocation check
 		certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit)
 		if err != nil {
@@ -656,7 +656,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		for _, cert := range signerInfo.CertificateChain {
 			if timeStampLowerLimit.Before(cert.NotBefore) {
 				return &notation.ValidationResult{
-					Error:  fmt.Errorf("timestamp lower limit %q is before certificate %q validity period , it will be valid from %q", timeStampLowerLimit.Format(time.RFC1123Z), cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
+					Error:  fmt.Errorf("timestamp lower limit %q is before certificate %q validity period, it will be valid from %q", timeStampLowerLimit.Format(time.RFC1123Z), cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
 					Type:   trustpolicy.TypeAuthenticTimestamp,
 					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 				}
