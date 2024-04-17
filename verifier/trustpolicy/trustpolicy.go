@@ -166,12 +166,9 @@ type TrustPolicy struct {
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 }
 
+// String returns print out of TrustPolicy as a string
 func (t *TrustPolicy) String() string {
-	policyJson, err := json.Marshal(t)
-	if err != nil {
-		return ""
-	}
-	return string(policyJson)
+	return fmt.Sprintf("Name: %s, RegistryScopes: %v, SignatureVerification: %+v, TimestampVerification: %+v, TrustStores: %v, TrustedIdentities: %v", t.Name, t.RegistryScopes, t.SignatureVerification, t.TimestampVerification, t.TrustStores, t.TrustedIdentities)
 }
 
 // SignatureVerification represents verification configuration in a trust policy

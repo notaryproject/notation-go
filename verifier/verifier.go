@@ -144,7 +144,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
-	logger.Infof("Trust policy configuration: %q", trustPolicy.String())
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
 
@@ -623,7 +623,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		// get the timestamp token time range
 		timeStampLowerLimit := ts.Add(-accuracy)
 		timeStampUpperLimit := ts.Add(accuracy)
-		logger.Infof("timestamp token time range: [%v, %v]\n", timeStampLowerLimit, timeStampUpperLimit)
+		logger.Infof("timestamp token time range: [%v, %v]", timeStampLowerLimit, timeStampUpperLimit)
 		// TSA certificate chain revocation check
 		certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit)
 		if err != nil {
