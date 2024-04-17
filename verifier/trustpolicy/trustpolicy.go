@@ -407,6 +407,7 @@ func (t *TrustPolicy) clone() *TrustPolicy {
 	return &TrustPolicy{
 		Name:                  t.Name,
 		SignatureVerification: t.SignatureVerification,
+		TimestampVerification: t.TimestampVerification,
 		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
 		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
 		TrustStores:           append([]string(nil), t.TrustStores...),
