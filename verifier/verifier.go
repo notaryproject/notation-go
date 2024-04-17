@@ -521,16 +521,16 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 
 	// under signing scheme notary.x509
 	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
-		var needTimestamp bool
+		var requireTimestampVerification bool
 		for _, cert := range signerInfo.CertificateChain {
 			if time.Now().Before(cert.NotBefore) || time.Now().After(cert.NotAfter) {
 				// found at least one cert that current time is not in its
-				// validity period; need timestamp to continue this step
-				needTimestamp = true
+				// validity period; require timestamp to continue this step
+				requireTimestampVerification = true
 				break
 			}
 		}
-		if !needTimestamp { // this step is a success
+		if !requireTimestampVerification { // this step is a success
 			return &notation.ValidationResult{
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
@@ -544,10 +544,10 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		if trustPolicy.TimestampVerification == nil {
-			// if there is no timestamp verification configuration in trust policy
+		if trustPolicy.TimestampVerification == nil || !trustPolicy.TimestampVerification.Enable {
+			// if timestamp verification is disabled in trust policy
 			return &notation.ValidationResult{
-				Error:  errors.New("current time is not in certificate chain validity period and no timestamp verification configuration was found in trust policy"),
+				Error:  errors.New("current time is not in certificate chain validity period and timestamp verification is disabled in trust policy"),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
@@ -600,7 +600,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		if trustPolicy.TimestampVerification.AtTimestampedTime {
+		if trustPolicy.TimestampVerification.ExpiryRelaxed {
 			timestampVerifyOpts.CurrentTime = ts
 		}
 		// verify the timestamp countersignature

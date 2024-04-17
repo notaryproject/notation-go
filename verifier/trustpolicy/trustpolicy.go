@@ -180,7 +180,8 @@ type SignatureVerification struct {
 // TimestampVerification represents timestamp countersignature verification
 // configuration in a trust policy
 type TimestampVerification struct {
-	AtTimestampedTime bool `json:"atTimestampedTime"`
+	Enable        bool `json:"enable,omitempty"`
+	ExpiryRelaxed bool `json:"expiryRelaxed,omitempty"`
 }
 
 // Validate validates a policy document according to its version's rule set.
