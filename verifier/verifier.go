@@ -545,7 +545,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			}
 		}
 		if trustPolicy.TimestampVerification == nil || !trustPolicy.TimestampVerification.Enable {
-			// if timestamp verification is disabled in trust policy
+			// if timestamp verification is disabled by trust policy
 			return &notation.ValidationResult{
 				Error:  errors.New("current time is not in certificate chain validity period and timestamp verification is disabled in trust policy"),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
@@ -652,7 +652,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// timestamp core process
+		// timestamp validation core process
 		for _, cert := range signerInfo.CertificateChain {
 			if timeStampLowerLimit.Before(cert.NotBefore) {
 				return &notation.ValidationResult{
