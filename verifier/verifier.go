@@ -522,11 +522,13 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 	// under signing scheme notary.x509
 	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
 		var requireTimestampVerification bool
+		var invalidCertificate *x509.Certificate
 		for _, cert := range signerInfo.CertificateChain {
 			if time.Now().Before(cert.NotBefore) || time.Now().After(cert.NotAfter) {
 				// found at least one cert that current time is not in its
 				// validity period; require timestamp to continue this step
 				requireTimestampVerification = true
+				invalidCertificate = cert
 				break
 			}
 		}
@@ -539,7 +541,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
 			// if there is no timestamp token, fail this step
 			return &notation.ValidationResult{
-				Error:  errors.New("current time is not in certificate chain validity period and no timestamp token was found in the signature envelope"),
+				Error:  fmt.Errorf("current time is not in certificate %q validity period [%q, %q] and no timestamp token was found in the signature envelope", invalidCertificate.Subject, invalidCertificate.NotBefore.Format(time.RFC1123Z), invalidCertificate.NotAfter.Format(time.RFC1123Z)),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
@@ -547,7 +549,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		if trustPolicy.TimestampVerification == nil || !trustPolicy.TimestampVerification.Enable {
 			// if timestamp verification is disabled by trust policy
 			return &notation.ValidationResult{
-				Error:  errors.New("current time is not in certificate chain validity period and timestamp verification is disabled in trust policy"),
+				Error:  fmt.Errorf("current time is not in certificate %q validity period [%q, %q] and timestamp verification is disabled by trust policy", invalidCertificate.Subject, invalidCertificate.NotBefore.Format(time.RFC1123Z), invalidCertificate.NotAfter.Format(time.RFC1123Z)),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
