@@ -419,7 +419,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement.TrustStores = []string{"ca:"}
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses an unsupported trust store name \"\" in trust store value \"ca:\". Named store name needs to follow [a-zA-Z0-9_.-]+ format" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses an unsupported trust store name \"\". Named store name needs to follow [a-zA-Z0-9_.-]+ format" {
 		t.Fatalf("policy statement with trust store missing named store should return error")
 	}
 
