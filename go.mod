@@ -3,7 +3,7 @@ module github.com/notaryproject/notation-go
 go 1.21
 
 require (
-	github.com/go-ldap/ldap/v3 v3.4.7
+	github.com/go-ldap/ldap/v3 v3.4.8
 	github.com/notaryproject/notation-core-go v1.0.3-0.20240325061945-807a3386734e
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
