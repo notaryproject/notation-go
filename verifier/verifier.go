@@ -48,7 +48,7 @@ import (
 
 // verifier implements notation.Verifier and notation.verifySkipper
 type verifier struct {
-	trustPolicyDoc   *trustpolicy.Document
+	trustPolicyDoc   *trustpolicyInternal.Document
 	trustStore       truststore.X509TrustStore
 	pluginManager    plugin.Manager
 	revocationClient revocation.Revocation
@@ -97,6 +97,35 @@ func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X50
 	if err := trustPolicy.Validate(); err != nil {
 		return nil, err
 	}
+
+	commonDocument, err := trustPolicy.ToTrustPolicyDocument()
+	if err != nil {
+		return nil, err
+	}
+
+	return &verifier{
+		trustPolicyDoc:   commonDocument,
+		trustStore:       trustStore,
+		pluginManager:    pluginManager,
+		revocationClient: revocationClient,
+	}, nil
+}
+
+func NewWithOptionsV2(trustPolicy *trustpolicyInternal.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
+	revocationClient := opts.RevocationClient
+	if revocationClient == nil {
+		var err error
+		revocationClient, err = revocation.New(&http.Client{Timeout: 2 * time.Second})
+		if err != nil {
+			return nil, err
+		}
+	}
+	if trustPolicy == nil || trustStore == nil {
+		return nil, errors.New("trustPolicy or trustStore cannot be nil")
+	}
+	if err := trustPolicy.Validate(); err != nil {
+		return nil, err
+	}
 	return &verifier{
 		trustPolicyDoc:   trustPolicy,
 		trustStore:       trustStore,
@@ -106,7 +135,7 @@ func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X50
 }
 
 // SkipVerify validates whether the verification level is skip.
-func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyOptions) (bool, *trustpolicy.VerificationLevel, error) {
+func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyOptions) (bool, *trustpolicyInternal.VerificationLevel, error) {
 	logger := log.GetLogger(ctx)
 
 	logger.Debugf("Check verification level against artifact %v", opts.ArtifactReference)
@@ -121,7 +150,7 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	// verificationLevel is skip
 	if reflect.DeepEqual(verificationLevel, trustpolicy.LevelSkip) {
 		logger.Debug("Skipping signature verification")
-		return true, trustpolicy.LevelSkip, nil
+		return true, trustpolicyInternal.LevelSkip, nil
 	}
 	return false, verificationLevel, nil
 }
@@ -186,7 +215,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicyInternal.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter
@@ -265,7 +294,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// to perform this verification rather than a plugin)
 	if !slices.Contains(pluginCapabilities, pluginframework.CapabilityTrustedIdentityVerifier) {
 		logger.Debug("Validating trust identity")
-		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
+		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme)
 		if err != nil {
 			authenticityResult.Error = err
 			logVerificationResult(logger, authenticityResult)
@@ -442,7 +471,7 @@ func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation
 	}
 }
 
-func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicyInternal.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	// verify authenticity
 	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
 
@@ -635,7 +664,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	return result
 }
 
-func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPlugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []pluginframework.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*pluginframework.VerifySignatureResponse, error) {
+func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPlugin, trustPolicy *trustpolicyInternal.TrustPolicy, capabilitiesToVerify []pluginframework.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*pluginframework.VerifySignatureResponse, error) {
 	logger := log.GetLogger(ctx)
 	// sanity check
 	if installedPlugin == nil {
@@ -676,7 +705,7 @@ func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPl
 	}
 
 	policy := pluginframework.TrustPolicy{
-		TrustedIdentities:     trustPolicy.TrustedIdentities,
+		TrustedIdentities:     trustPolicy.TrustedIdentities.CA,
 		SignatureVerification: capabilitiesToVerify,
 	}
 
@@ -689,13 +718,23 @@ func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPl
 	return installedPlugin.VerifySignature(ctx, req)
 }
 
-func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
-	if slices.Contains(trustPolicy.TrustedIdentities, trustpolicyInternal.Wildcard) {
+func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicyInternal.TrustPolicy, scheme signature.SigningScheme) error {
+	var trustIdentities []string
+	switch scheme {
+	case signature.SigningSchemeX509:
+		trustIdentities = trustPolicy.TrustedIdentities.CA
+	case signature.SigningSchemeX509SigningAuthority:
+		trustIdentities = trustPolicy.TrustedIdentities.SigningAuthority
+	default:
+		return fmt.Errorf("unsupported signing scheme %q", scheme)
+	}
+
+	if slices.Contains(trustIdentities, trustpolicyInternal.Wildcard) {
 		return nil
 	}
 
 	var trustedX509Identities []map[string]string
-	for _, identity := range trustPolicy.TrustedIdentities {
+	for _, identity := range trustIdentities {
 		identityPrefix, identityValue, found := strings.Cut(identity, ":")
 		if !found {
 			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", trustPolicy.Name, identity)

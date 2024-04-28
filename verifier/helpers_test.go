@@ -24,6 +24,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
+	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
@@ -43,6 +44,31 @@ func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
 	policyDoc = trustpolicy.Document{
 		Version:       "1.0",
 		TrustPolicies: []trustpolicy.TrustPolicy{dummyPolicyStatement()},
+	}
+	return
+}
+
+func dummyPolicyStatementV2() (policyStatement trustpolicyInternal.TrustPolicy) {
+	policyStatement = trustpolicyInternal.TrustPolicy{
+		Name:                  "test-statement-name",
+		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
+		SignatureVerification: trustpolicyInternal.SignatureVerification{VerificationLevel: "strict"},
+		TrustStores: trustpolicyInternal.TrustStores{
+			CA:               []string{"valid-trust-store"},
+			SigningAuthority: []string{"valid-trust-store"},
+		},
+		TrustedIdentities: trustpolicyInternal.TrustIdentities{
+			CA:               []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
+			SigningAuthority: []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
+		},
+	}
+	return
+}
+
+func dummyPolicyDocumentV2() (policyDoc trustpolicyInternal.Document) {
+	policyDoc = trustpolicyInternal.Document{
+		Version:       "1.0",
+		TrustPolicies: []trustpolicyInternal.TrustPolicy{dummyPolicyStatementV2()},
 	}
 	return
 }
@@ -77,10 +103,13 @@ func TestGetArtifactDigestFromUri(t *testing.T) {
 
 func TestLoadX509TrustStore(t *testing.T) {
 	// load "ca" and "signingAuthority" trust store
-	caStore := "ca:valid-trust-store"
-	signingAuthorityStore := "signingAuthority:valid-trust-store"
-	dummyPolicy := dummyPolicyStatement()
-	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
+	caStore := "valid-trust-store"
+	signingAuthorityStore := "valid-trust-store"
+	dummyPolicy := dummyPolicyStatementV2()
+	dummyPolicy.TrustStores = trustpolicyInternal.TrustStores{
+		CA:               []string{caStore},
+		SigningAuthority: []string{signingAuthorityStore},
+	}
 	dir.UserConfigDir = "testdata"
 	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
 	caCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, &dummyPolicy, x509truststore)

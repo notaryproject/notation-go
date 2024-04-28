@@ -25,6 +25,7 @@ import (
 	set "github.com/notaryproject/notation-go/internal/container"
 	notationsemver "github.com/notaryproject/notation-go/internal/semver"
 	"github.com/notaryproject/notation-go/internal/slices"
+	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
@@ -47,30 +48,25 @@ var VerificationPluginHeaders = []string{
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
-func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
+func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicyInternal.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
 	var typeToLoad truststore.Type
+	var trustStores []string
 	switch scheme {
 	case signature.SigningSchemeX509:
 		typeToLoad = truststore.TypeCA
+		trustStores = policy.TrustStores.CA
 	case signature.SigningSchemeX509SigningAuthority:
 		typeToLoad = truststore.TypeSigningAuthority
+		trustStores = policy.TrustStores.SigningAuthority
 	default:
 		return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the trust store, unrecognized signing scheme %q", scheme)}
 	}
 
 	processedStoreSet := set.New[string]()
 	var certificates []*x509.Certificate
-	for _, trustStore := range policy.TrustStores {
-		if processedStoreSet.Contains(trustStore) {
+	for _, name := range trustStores {
+		if processedStoreSet.Contains(name) {
 			// we loaded this trust store already
-			continue
-		}
-
-		storeType, name, found := strings.Cut(trustStore, ":")
-		if !found {
-			return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the trust store, trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)}
-		}
-		if typeToLoad != truststore.Type(storeType) {
 			continue
 		}
 
@@ -79,7 +75,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 			return nil, err
 		}
 		certificates = append(certificates, certs...)
-		processedStoreSet.Add(trustStore)
+		processedStoreSet.Add(name)
 	}
 	return certificates, nil
 }

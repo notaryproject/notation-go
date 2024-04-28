@@ -33,6 +33,7 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
+	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/signer"
@@ -63,10 +64,39 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 		t.Fatalf("assertion failed. expected : %+v got : %+v", expectedResult, actualResult)
 	}
 
-	if expectedResult.Action == trustpolicy.ActionEnforce && expectedErr != nil && outcome.Error.Error() != expectedErr.Error() {
+	if expectedResult.Action == trustpolicyInternal.ActionEnforce && expectedErr != nil && outcome.Error.Error() != expectedErr.Error() {
 		t.Fatalf("assertion failed. expected : %v got : %v", expectedErr, outcome.Error)
 	}
 }
+
+// func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation.ValidationResult, expectedErr error, t *testing.T) {
+// 	if outcome == nil {
+// 		t.Fatal("outcome is nil")
+// 	}
+
+// 	var actualResult *notation.ValidationResult
+// 	for _, r := range outcome.VerificationResults {
+// 		if r.Type == expectedResult.Type {
+// 			if actualResult == nil {
+// 				actualResult = r
+// 			} else {
+// 				t.Fatalf("expected only one VerificationResult for %q but found more. First: %+v, Second: %+v", r.Type, actualResult, r)
+// 			}
+// 		}
+// 	}
+
+// 	if actualResult == nil ||
+// 		(expectedResult.Error != nil && (actualResult.Error == nil || expectedResult.Error.Error() != actualResult.Error.Error())) ||
+// 		expectedResult.Action != actualResult.Action {
+// 		t.Fatalf("assertion failed. Expected: %+v, Got: %+v", expectedResult, actualResult)
+// 	}
+
+// 	if expectedResult.Action == trustpolicyInternal.ActionEnforce && expectedErr != nil {
+// 		if outcome.Error == nil || outcome.Error.Error() != expectedErr.Error() {
+// 			t.Fatalf("assertion failed. Expected error: %v, Got error: %v", expectedErr, outcome.Error)
+// 		}
+// 	}
+// }
 
 func TestNewVerifier_Error(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
@@ -78,7 +108,7 @@ func TestNewVerifier_Error(t *testing.T) {
 }
 
 func TestInvalidArtifactUriValidations(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
+	policyDocument := dummyPolicyDocumentV2()
 	verifier := verifier{
 		trustPolicyDoc: &policyDocument,
 		pluginManager:  mock.PluginManager{},
@@ -110,7 +140,7 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 }
 
 func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
+	policyDocument := dummyPolicyDocumentV2()
 	verifier := verifier{
 		trustPolicyDoc: &policyDocument,
 		pluginManager:  mock.PluginManager{},
@@ -144,22 +174,22 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	type testCase struct {
 		signatureBlob     []byte
-		verificationType  trustpolicy.ValidationType
-		verificationLevel *trustpolicy.VerificationLevel
-		policyDocument    trustpolicy.Document
+		verificationType  trustpolicyInternal.ValidationType
+		verificationLevel *trustpolicyInternal.VerificationLevel
+		policyDocument    trustpolicyInternal.Document
 		opts              notation.VerifierVerifyOptions
 		expectedErr       error
 	}
 
 	var testCases []testCase
-	verificationLevels := []*trustpolicy.VerificationLevel{trustpolicy.LevelStrict, trustpolicy.LevelPermissive, trustpolicy.LevelAudit}
+	verificationLevels := []*trustpolicyInternal.VerificationLevel{trustpolicyInternal.LevelStrict, trustpolicyInternal.LevelPermissive, trustpolicyInternal.LevelAudit}
 
 	// Unsupported Signature Envelope
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
+		policyDocument := dummyPolicyDocumentV2()
 		expectedErr := fmt.Errorf("unable to parse the digital signature, error : signature envelope format with media type \"application/unsupported+json\" is not supported")
 		testCases = append(testCases, testCase{
-			verificationType:  trustpolicy.TypeIntegrity,
+			verificationType:  trustpolicyInternal.TypeIntegrity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/unsupported+json"},
@@ -169,10 +199,10 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// Integrity Success
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
+		policyDocument := dummyPolicyDocumentV2()
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeIntegrity,
+			verificationType:  trustpolicyInternal.TypeIntegrity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -181,11 +211,11 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// Integrity Failure
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
+		policyDocument := dummyPolicyDocumentV2()
 		expectedErr := fmt.Errorf("signature is invalid. Error: illegal base64 data at input byte 242")
 		testCases = append(testCases, testCase{
 			signatureBlob:     invalidSigEnv,
-			verificationType:  trustpolicy.TypeIntegrity,
+			verificationType:  trustpolicyInternal.TypeIntegrity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -195,10 +225,10 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// Authenticity Success
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument() // trust store is configured with the root certificate of the signature by default
+		policyDocument := dummyPolicyDocumentV2() // trust store is configured with the root certificate of the signature by default
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationType:  trustpolicyInternal.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -207,27 +237,15 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// Authenticity Failure
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
-		policyDocument.TrustPolicies[0].TrustStores = []string{"ca:valid-trust-store-2", "signingAuthority:valid-trust-store-2"} // trust store is not configured with the root certificate of the signature
+		policyDocument := dummyPolicyDocumentV2()
+		policyDocument.TrustPolicies[0].TrustStores = trustpolicyInternal.TrustStores{
+			CA:               []string{"valid-trust-store-2"},
+			SigningAuthority: []string{"valid-trust-store-2"},
+		}
 		expectedErr := fmt.Errorf("signature is not produced by a trusted signer")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeAuthenticity,
-			verificationLevel: level,
-			policyDocument:    policyDocument,
-			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
-			expectedErr:       expectedErr,
-		})
-	}
-
-	// Authenticity Failure with trust store missing separator
-	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
-		policyDocument.TrustPolicies[0].TrustStores = []string{"ca:valid-trust-store-2", "signingAuthority"}
-		expectedErr := fmt.Errorf("error while loading the trust store, trust policy statement \"test-statement-name\" is missing separator in trust store value \"signingAuthority\". The required format is <TrustStoreType>:<TrustStoreName>")
-		testCases = append(testCases, testCase{
-			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationType:  trustpolicyInternal.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -237,12 +255,16 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// TrustedIdentity Failure
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
-		policyDocument.TrustPolicies[0].TrustedIdentities = []string{"x509.subject:CN=LOL,O=DummyOrg,L=Hyderabad,ST=TG,C=IN"} // configure policy to not trust "CN=Notation Test Leaf Cert,O=Notary,L=Seattle,ST=WA,C=US" which is the subject of the signature's signing certificate
+		policyDocument := dummyPolicyDocumentV2()
+		// configure policy to not trust "CN=Notation Test Leaf Cert,O=Notary,L=Seattle,ST=WA,C=US" which is the subject of the signature's signing certificate
+		policyDocument.TrustPolicies[0].TrustedIdentities = trustpolicyInternal.TrustIdentities{
+			CA:               []string{"x509.subject:CN=LOL,O=DummyOrg,L=Hyderabad,ST=TG,C=IN"},
+			SigningAuthority: []string{"x509.subject:CN=LOL,O=DummyOrg,L=Hyderabad,ST=TG,C=IN"},
+		}
 		expectedErr := fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities [map[\"C\":\"IN\" \"CN\":\"LOL\" \"L\":\"Hyderabad\" \"O\":\"DummyOrg\" \"ST\":\"TG\"]] defined in the trust policy \"test-statement-name\"")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationType:  trustpolicyInternal.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -252,12 +274,15 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// TrustedIdentity Failure without separator
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
-		policyDocument.TrustPolicies[0].TrustedIdentities = []string{"x509.subject"}
+		policyDocument := dummyPolicyDocumentV2()
+		policyDocument.TrustPolicies[0].TrustedIdentities = trustpolicyInternal.TrustIdentities{
+			CA:               []string{"x509.subject"},
+			SigningAuthority: []string{"x509.subject"},
+		}
 		expectedErr := fmt.Errorf("trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationType:  trustpolicyInternal.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -267,12 +292,15 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// TrustedIdentity Failure with empty value
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
-		policyDocument.TrustPolicies[0].TrustedIdentities = []string{"x509.subject:"}
+		policyDocument := dummyPolicyDocumentV2()
+		policyDocument.TrustPolicies[0].TrustedIdentities = trustpolicyInternal.TrustIdentities{
+			CA:               []string{"x509.subject:"},
+			SigningAuthority: []string{"x509.subject:"},
+		}
 		expectedErr := fmt.Errorf("trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeAuthenticity,
+			verificationType:  trustpolicyInternal.TypeAuthenticity,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -282,10 +310,10 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// Expiry Success
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
+		policyDocument := dummyPolicyDocumentV2()
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
-			verificationType:  trustpolicy.TypeExpiry,
+			verificationType:  trustpolicyInternal.TypeExpiry,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -294,11 +322,11 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 
 	// Expiry Failure
 	for _, level := range verificationLevels {
-		policyDocument := dummyPolicyDocument()
+		policyDocument := dummyPolicyDocumentV2()
 		expectedErr := fmt.Errorf("digital signature has expired on \"Fri, 29 Jul 2022 23:59:00 +0000\"")
 		testCases = append(testCases, testCase{
 			signatureBlob:     expiredSigEnv,
-			verificationType:  trustpolicy.TypeExpiry,
+			verificationType:  trustpolicyInternal.TypeExpiry,
 			verificationLevel: level,
 			policyDocument:    policyDocument,
 			opts:              notation.VerifierVerifyOptions{ArtifactReference: mock.SampleArtifactUri, SignatureMediaType: "application/jose+json"},
@@ -377,7 +405,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 
 	t.Run("enforced revoked cert", func(t *testing.T) {
 		testedLevel := trustpolicy.LevelStrict
-		policyDoc := dummyPolicyDocument()
+		policyDoc := dummyPolicyDocumentV2()
 		policyDoc.TrustPolicies[0].SignatureVerification.VerificationLevel = testedLevel.Name
 		policyDoc.TrustPolicies[0].SignatureVerification.Override = map[trustpolicy.ValidationType]trustpolicy.ValidationAction{
 			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
@@ -406,7 +434,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 	})
 	t.Run("log revoked cert", func(t *testing.T) {
 		testedLevel := trustpolicy.LevelStrict
-		policyDoc := dummyPolicyDocument()
+		policyDoc := dummyPolicyDocumentV2()
 		policyDoc.TrustPolicies[0].SignatureVerification.VerificationLevel = testedLevel.Name
 		policyDoc.TrustPolicies[0].SignatureVerification.Override = map[trustpolicy.ValidationType]trustpolicy.ValidationAction{
 			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
@@ -436,7 +464,7 @@ func TestVerifyRevocationEnvelope(t *testing.T) {
 	})
 	t.Run("skip revoked cert", func(t *testing.T) {
 		testedLevel := trustpolicy.LevelStrict
-		policyDoc := dummyPolicyDocument()
+		policyDoc := dummyPolicyDocumentV2()
 		policyDoc.TrustPolicies[0].SignatureVerification.VerificationLevel = testedLevel.Name
 		policyDoc.TrustPolicies[0].SignatureVerification.Override = map[trustpolicy.ValidationType]trustpolicy.ValidationAction{
 			trustpolicy.TypeAuthenticity: trustpolicy.ActionLog,
@@ -674,6 +702,7 @@ func TestVerifyRevocation(t *testing.T) {
 
 func TestNewWithOptions(t *testing.T) {
 	policy := dummyPolicyDocument()
+	policyV2 := dummyPolicyDocumentV2()
 	store := truststore.NewX509TrustStore(dir.ConfigFS())
 	pm := mock.PluginManager{}
 	client := &http.Client{Timeout: 2 * time.Second}
@@ -692,8 +721,8 @@ func TestNewWithOptions(t *testing.T) {
 		if !ok {
 			t.Fatal("expected constructor to return a verifier object")
 		}
-		if !(verifierV.trustPolicyDoc == &policy) {
-			t.Fatalf("expected trustPolicyDoc %v, but got %v", &policy, verifierV.trustPolicyDoc)
+		if !reflect.DeepEqual(verifierV.trustPolicyDoc, &policyV2) {
+			t.Fatalf("expected trustPolicyDoc %v, but got %v", &policyV2, verifierV.trustPolicyDoc)
 		}
 		if !(verifierV.trustStore == store) {
 			t.Fatalf("expected trustStore %v, but got %v", store, verifierV.trustStore)
@@ -715,8 +744,8 @@ func TestNewWithOptions(t *testing.T) {
 		if !ok {
 			t.Fatal("expected constructor to return a verifier object")
 		}
-		if !(verifierV.trustPolicyDoc == &policy) {
-			t.Fatalf("expected trustPolicyDoc %v, but got %v", &policy, verifierV.trustPolicyDoc)
+		if !reflect.DeepEqual(verifierV.trustPolicyDoc, &policyV2) {
+			t.Fatalf("expected trustPolicyDoc %v, but got %v", &policyV2, verifierV.trustPolicyDoc)
 		}
 		if !(verifierV.trustStore == store) {
 			t.Fatalf("expected trustStore %v, but got %v", store, verifierV.trustStore)
@@ -736,7 +765,7 @@ func TestNewWithOptions(t *testing.T) {
 		}
 
 		expectedV := &verifier{
-			trustPolicyDoc:   &policy,
+			trustPolicyDoc:   &policyV2,
 			trustStore:       store,
 			pluginManager:    pm,
 			revocationClient: r,
@@ -771,7 +800,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		pluginSigEnv = mock.MockSaPluginSigEnv
 	}
 
-	policyDocument := dummyPolicyDocument()
+	policyDocument := dummyPolicyDocumentV2()
 	dir.UserConfigDir = "testdata"
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
@@ -1058,14 +1087,19 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			trustPolicy := trustpolicy.TrustPolicy{
+			trustPolicy := trustpolicyInternal.TrustPolicy{
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
-				TrustStores:           []string{"ca:test-store"},
-				TrustedIdentities:     tt.x509Identities,
+				SignatureVerification: trustpolicyInternal.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores: trustpolicyInternal.TrustStores{
+					CA: []string{"test-store"},
+				},
+				TrustedIdentities: trustpolicyInternal.TrustIdentities{
+					CA:               tt.x509Identities,
+					SigningAuthority: tt.x509Identities,
+				},
 			}
-			err := verifyX509TrustedIdentities(tt.certs, &trustPolicy)
+			err := verifyX509TrustedIdentities(tt.certs, &trustPolicy, signature.SigningSchemeX509)
 
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("TestVerifyX509TrustedIdentities Error: %q WantErr: %v", err, tt.wantErr)
@@ -1075,7 +1109,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 }
 
 func TestVerifyUserMetadata(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
+	policyDocument := dummyPolicyDocumentV2()
 	policyDocument.TrustPolicies[0].SignatureVerification.VerificationLevel = trustpolicy.LevelAudit.Name
 
 	pluginManager := mock.PluginManager{}
@@ -1126,15 +1160,20 @@ func TestVerifyUserMetadata(t *testing.T) {
 func TestPluginVersionCompatibility(t *testing.T) {
 
 	errTemplate := "found plugin io.cncf.notary.plugin.unittest.mock with version 1.0.0 but signature verification needs plugin version greater than or equal to "
-	var policyDocument = trustpolicy.Document{
+	var policyDocument = trustpolicyInternal.Document{
 		Version: "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{
+		TrustPolicies: []trustpolicyInternal.TrustPolicy{
 			{
 				Name:                  "wabbit-networks-images",
 				RegistryScopes:        []string{"localhost:5000/net-monitor"},
-				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
-				TrustStores:           []string{"ca:valid-trust-store"},
-				TrustedIdentities:     []string{"x509.subject: CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US"},
+				SignatureVerification: trustpolicyInternal.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
+				TrustStores: trustpolicyInternal.TrustStores{
+					CA: []string{"valid-trust-store"},
+				},
+				TrustedIdentities: trustpolicyInternal.TrustIdentities{
+					CA:               []string{"x509.subject: CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US"},
+					SigningAuthority: []string{"x509.subject: CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US"},
+				},
 			},
 		},
 	}

@@ -31,18 +31,15 @@ const trustPolicyLink = "https://notaryproject.dev/docs/quickstart/#create-a-tru
 
 // ValidationType is an enum for signature verification types such as Integrity,
 // Authenticity, etc.
-type ValidationType string
+type ValidationType = trustpolicy.ValidationType
 
 // ValidationAction is an enum for signature verification actions such as
 // Enforced, Logged, Skipped.
-type ValidationAction string
+type ValidationAction = trustpolicy.ValidationAction
 
 // VerificationLevel encapsulates the signature verification preset and its
 // actions for each verification type
-type VerificationLevel struct {
-	Name        string
-	Enforcement map[ValidationType]ValidationAction
-}
+type VerificationLevel = trustpolicy.VerificationLevel
 
 const (
 	TypeIntegrity          ValidationType = "integrity"
@@ -297,9 +294,12 @@ func (trustpolicyDoc *Document) ToTrustPolicyDocument() (*trustpolicy.Document, 
 		// convert the signature verification
 		var signatureVerification trustpolicy.SignatureVerification
 		signatureVerification.VerificationLevel = policy.SignatureVerification.VerificationLevel
-		signatureVerification.Override = make(map[trustpolicy.ValidationType]trustpolicy.ValidationAction)
-		for k, v := range policy.SignatureVerification.Override {
-			signatureVerification.Override[trustpolicy.ValidationType(k)] = trustpolicy.ValidationAction(v)
+
+		if policy.SignatureVerification.Override != nil {
+			signatureVerification.Override = make(map[trustpolicy.ValidationType]trustpolicy.ValidationAction)
+			for k, v := range policy.SignatureVerification.Override {
+				signatureVerification.Override[trustpolicy.ValidationType(k)] = trustpolicy.ValidationAction(v)
+			}
 		}
 
 		// convert the trust store
