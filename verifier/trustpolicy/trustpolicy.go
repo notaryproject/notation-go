@@ -134,7 +134,7 @@ var (
 	}
 )
 
-var supportedPolicyVersions = []string{"1.0", "1.1"}
+var supportedPolicyVersions = []string{"1.0"}
 
 // Document represents a trustPolicy.json document
 type Document struct {
@@ -156,9 +156,6 @@ type TrustPolicy struct {
 	// SignatureVerification setting for this policy statement
 	SignatureVerification SignatureVerification `json:"signatureVerification"`
 
-	// TimestampVerification setting for this policy statement
-	TimestampVerification *TimestampVerification `json:"timestampVerification,omitempty"`
-
 	// TrustStores this policy statement uses
 	TrustStores []string `json:"trustStores,omitempty"`
 
@@ -166,22 +163,10 @@ type TrustPolicy struct {
 	TrustedIdentities []string `json:"trustedIdentities,omitempty"`
 }
 
-// String returns print out of TrustPolicy as a string
-func (t *TrustPolicy) String() string {
-	return fmt.Sprintf("Name: %s, RegistryScopes: %v, SignatureVerification: %+v, TimestampVerification: %+v, TrustStores: %v, TrustedIdentities: %v", t.Name, t.RegistryScopes, t.SignatureVerification, t.TimestampVerification, t.TrustStores, t.TrustedIdentities)
-}
-
 // SignatureVerification represents verification configuration in a trust policy
 type SignatureVerification struct {
 	VerificationLevel string                              `json:"level"`
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
-}
-
-// TimestampVerification represents timestamp countersignature verification
-// configuration in a trust policy
-type TimestampVerification struct {
-	Enable        bool `json:"enable,omitempty"`
-	ExpiryRelaxed bool `json:"expiryRelaxed,omitempty"`
 }
 
 // Validate validates a policy document according to its version's rule set.
@@ -218,11 +203,6 @@ func (policyDoc *Document) Validate() error {
 		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
 			return fmt.Errorf("trust policy statement %q has invalid signatureVerification: %w", statement.Name, err)
-		}
-
-		// Verify timestamp verification is valid
-		if statement.TimestampVerification != nil && policyDoc.Version != "1.1" {
-			return fmt.Errorf("trust policy document version must be 1.1 to support timestamp verification, but got %q", policyDoc.Version)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and
@@ -413,7 +393,6 @@ func (t *TrustPolicy) clone() *TrustPolicy {
 	return &TrustPolicy{
 		Name:                  t.Name,
 		SignatureVerification: t.SignatureVerification,
-		TimestampVerification: t.TimestampVerification,
 		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
 		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
 		TrustStores:           append([]string(nil), t.TrustStores...),

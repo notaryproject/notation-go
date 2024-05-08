@@ -10,7 +10,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/veraison/go-cose v1.1.0
-	golang.org/x/crypto v0.21.0
+	golang.org/x/crypto v0.22.0
 	golang.org/x/mod v0.17.0
 	oras.land/oras-go/v2 v2.5.0
 )
@@ -25,6 +25,6 @@ require (
 	golang.org/x/sync v0.6.0 // indirect
 )
 
-replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240418044922-14d05519328b
+replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240508074737-fc1cb3d28098
 
-replace github.com/notaryproject/tspclient-go => github.com/Two-Hearts/tspclient-go v0.0.0-20240410033505-94c3b3def019
+replace github.com/notaryproject/tspclient-go => github.com/Two-Hearts/tspclient-go v0.0.0-20240508074024-ec1725d6dc9b
