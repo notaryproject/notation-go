@@ -185,6 +185,7 @@ func (policyDoc *Document) Validate() error {
 		return fmt.Errorf("trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
+	// Validate the policy according to 1.0 rules
 	if len(policyDoc.TrustPolicies) == 0 {
 		return errors.New("trust policy document can not have zero trust policy statements")
 	}
