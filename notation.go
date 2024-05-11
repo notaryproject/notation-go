@@ -41,6 +41,9 @@ import (
 )
 
 var errDoneVerification = errors.New("done verification")
+
+const errReferrersTagSchemaDelete = "failed to delete dangling referrers index"
+
 var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
 // SignerSignOptions contains parameters for Signer.Sign.
@@ -166,7 +169,11 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, signOpts.SignatureMediaType)
 	_, _, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
-		logger.Error("Failed to push the signature")
+		if strings.Contains(err.Error(), errReferrersTagSchemaDelete) {
+			logger.Warn("The signature has been attached to the artifact, but it failed to delete the dangling referrers index.")
+		} else {
+			logger.Error("Failed to push the signature")
+		}
 		return ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
 
