@@ -155,6 +155,19 @@ func TestSignSuccessWithUserMetadata(t *testing.T) {
 	}
 }
 
+func TestSignWithDanglingReferrersIndex(t *testing.T) {
+	repo := mock.NewRepository()
+	repo.PushSignatureError = errors.New("failed to delete dangling referrers index")
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("no error occurred, expected error: failed to delete dangling referrers index")
+	}
+}
+
 func TestSignWithInvalidExpiry(t *testing.T) {
 	repo := mock.NewRepository()
 	testCases := []struct {
