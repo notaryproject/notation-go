@@ -168,6 +168,55 @@ func TestSignWithDanglingReferrersIndex(t *testing.T) {
 
 	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
 	if err == nil {
+		t.Fatalf("no error occurred, expected error")
+	}
+}
+
+func TestSignWithNilRepo(t *testing.T) {
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, nil, opts)
+	if err == nil {
+		t.Fatalf("no error occurred, expected error: repo cannot be nil")
+	}
+}
+
+func TestSignResolveFailed(t *testing.T) {
+	repo := mock.NewRepository()
+	repo.ResolveError = errors.New("resolve error")
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("no error occurred, expected resolve error")
+	}
+}
+
+func TestSignArtifactRefIsTag(t *testing.T) {
+	repo := mock.NewRepository()
+	opts := SignOptions{}
+	opts.ArtifactReference = "registry.acme-rockets.io/software/net-monitor:v1"
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err != nil {
+		t.Fatalf("expect no error, got %s", err)
+	}
+}
+
+func TestSignWithPushSignatureError(t *testing.T) {
+	repo := mock.NewRepository()
+	repo.PushSignatureError = errors.New("error")
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
 		t.Fatalf("no error occurred, expected error: failed to delete dangling referrers index")
 	}
 }
@@ -205,7 +254,14 @@ func TestSignWithInvalidUserMetadata(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{UserMetadata: tc.metadata})
+			opts := SignOptions{
+				UserMetadata: tc.metadata,
+				SignerSignOptions: SignerSignOptions{
+					SignatureMediaType: jws.MediaTypeEnvelope,
+				},
+			}
+
+			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
 			if err == nil {
 				b.Fatalf("Expected error but not found")
 			}
