@@ -15,6 +15,7 @@ package notation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +29,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/registry"
@@ -601,4 +603,71 @@ func TestVerifyLocalContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to verify local content: %v", err)
 	}
+}
+
+func TestUserMetadata(t *testing.T) {
+	t.Run("EnvelopeContent is nil", func(t *testing.T) {
+		outcome := &VerificationOutcome{}
+		_, err := outcome.UserMetadata()
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+		if err.Error() != "unable to find envelope content for verification outcome" {
+			t.Fatalf("expected error message 'unable to find envelope content for verification outcome', got '%s'", err.Error())
+		}
+	})
+
+	t.Run("EnvelopeContent is valid", func(t *testing.T) {
+		payload := envelope.Payload{
+			TargetArtifact: ocispec.Descriptor{
+				Annotations: map[string]string{
+					"key": "value",
+				},
+			},
+		}
+		payloadBytes, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("unexpected error marshaling payload: %v", err)
+		}
+
+		outcome := &VerificationOutcome{
+			EnvelopeContent: &signature.EnvelopeContent{
+				Payload: signature.Payload{
+					Content: payloadBytes,
+				},
+			},
+		}
+		metadata, err := outcome.UserMetadata()
+		if err != nil {
+			t.Fatalf("unexpected error getting user metadata: %v", err)
+		}
+		if len(metadata) != 1 || metadata["key"] != "value" {
+			t.Fatalf("expected metadata map[key]=value, got %v", metadata)
+		}
+	})
+
+	t.Run("Annotation is nil", func(t *testing.T) {
+		payload := envelope.Payload{
+			TargetArtifact: ocispec.Descriptor{},
+		}
+		payloadBytes, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("unexpected error marshaling payload: %v", err)
+		}
+
+		outcome := &VerificationOutcome{
+			EnvelopeContent: &signature.EnvelopeContent{
+				Payload: signature.Payload{
+					Content: payloadBytes,
+				},
+			},
+		}
+		metadata, err := outcome.UserMetadata()
+		if err != nil {
+			t.Fatalf("unexpected error getting user metadata: %v", err)
+		}
+		if len(metadata) != 0 {
+			t.Fatalf("expected empty metadata, got %v", metadata)
+		}
+	})
 }
