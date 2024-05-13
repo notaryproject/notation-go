@@ -28,6 +28,7 @@ import (
 	"time"
 
 	orasRegistry "oras.land/oras-go/v2/registry"
+	"oras.land/oras-go/v2/registry/remote"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
@@ -41,8 +42,6 @@ import (
 )
 
 var errDoneVerification = errors.New("done verification")
-
-const errReferrersTagSchemaDelete = "failed to delete dangling referrers index"
 
 var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
@@ -169,7 +168,8 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, signOpts.SignatureMediaType)
 	_, _, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
-		if strings.Contains(err.Error(), errReferrersTagSchemaDelete) {
+		var referrerError *remote.ReferrersError
+		if errors.As(err, &referrerError) && referrerError.IsReferrersIndexDelete() {
 			logger.Warn("The signature has been attached to the artifact, but it failed to delete the dangling referrers index.")
 		} else {
 			logger.Error("Failed to push the signature")

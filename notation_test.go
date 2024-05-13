@@ -34,6 +34,7 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/registry/remote"
 )
 
 var expectedMetadata = map[string]string{"foo": "bar", "bar": "foo"}
@@ -157,7 +158,10 @@ func TestSignSuccessWithUserMetadata(t *testing.T) {
 
 func TestSignWithDanglingReferrersIndex(t *testing.T) {
 	repo := mock.NewRepository()
-	repo.PushSignatureError = errors.New("failed to delete dangling referrers index")
+	repo.PushSignatureError = &remote.ReferrersError{
+		Op:  "DeleteReferrersIndex",
+		Err: errors.New("error"),
+	}
 	opts := SignOptions{}
 	opts.ArtifactReference = mock.SampleArtifactUri
 	opts.SignatureMediaType = jws.MediaTypeEnvelope
