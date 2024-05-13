@@ -271,6 +271,37 @@ func TestSignWithInvalidUserMetadata(t *testing.T) {
 	}
 }
 
+func TestSignOptsMissingSignatureMediaType(t *testing.T) {
+	repo := mock.NewRepository()
+	opts := SignOptions{
+		SignerSignOptions: SignerSignOptions{
+			SignatureMediaType: "",
+		},
+		ArtifactReference: mock.SampleArtifactUri,
+	}
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("expected error but not found")
+	}
+}
+
+func TestSignOptsUnknownMediaType(t *testing.T) {
+	repo := mock.NewRepository()
+	opts := SignOptions{
+		SignerSignOptions: SignerSignOptions{
+			SignatureMediaType: "unknown",
+		},
+		ArtifactReference: mock.SampleArtifactUri,
+	}
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("expected error but not found")
+	}
+
+}
+
 func TestRegistryResolveError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
@@ -450,18 +481,47 @@ func TestExceededMaxSignatureAttempts(t *testing.T) {
 }
 
 func TestVerifyFailed(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
-	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
-	expectedErr := ErrorVerificationFailed{}
+	t.Run("verification error", func(t *testing.T) {
+		policyDocument := dummyPolicyDocument()
+		repo := mock.NewRepository()
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
+		expectedErr := ErrorVerificationFailed{}
 
-	// mock the repository
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
-	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+		// mock the repository
+		opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+		_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
-	if err == nil || !errors.Is(err, expectedErr) {
-		t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
-	}
+		if err == nil || !errors.Is(err, expectedErr) {
+			t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+		}
+	})
+
+	t.Run("verifier is nil", func(t *testing.T) {
+		repo := mock.NewRepository()
+		expectedErr := errors.New("verifier cannot be nil")
+
+		// mock the repository
+		opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+		_, _, err := Verify(context.Background(), nil, repo, opts)
+
+		if err == nil || err.Error() != expectedErr.Error() {
+			t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+		}
+	})
+
+	t.Run("repo is nil", func(t *testing.T) {
+		policyDocument := dummyPolicyDocument()
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+		expectedErr := errors.New("repo cannot be nil")
+
+		// mock the repository
+		opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+		_, _, err := Verify(context.Background(), &verifier, nil, opts)
+
+		if err == nil || err.Error() != expectedErr.Error() {
+			t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+		}
+	})
 }
 
 func dummyPolicyDocument() (policyDoc trustpolicy.Document) {

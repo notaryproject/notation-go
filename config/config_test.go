@@ -51,3 +51,15 @@ func TestSaveFile(t *testing.T) {
 		t.Fatal("save config file failed.")
 	}
 }
+
+func TestLoadNonExistedConfig(t *testing.T) {
+	dir.UserConfigDir = "./testdata/non-existed"
+	got, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error. err = %v", err)
+	}
+
+	if !reflect.DeepEqual(got, NewConfig()) {
+		t.Errorf("loadFile() = %v, want %v", got, NewConfig())
+	}
+}
