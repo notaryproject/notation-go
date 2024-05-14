@@ -27,11 +27,13 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/internal/mock/ocilayout"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/registry/internal/artifactspec"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/content"
+	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 )
@@ -464,7 +466,6 @@ func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Ref
 }
 
 var (
-	ociLayoutPath      = filepath.FromSlash("../internal/testdata/oci-layout")
 	reference          = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	expectedTargetDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.oci.image.manifest.v1+json",
@@ -487,11 +488,23 @@ var (
 	}
 )
 
-func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
+func TestOciLayoutRepositoryPushAndFetch(t *testing.T) {
+	// create a temp OCI layout
+	ociLayoutTestdataPath, err := filepath.Abs(filepath.Join("..", "internal", "testdata", "oci-layout"))
+	if err != nil {
+		t.Fatalf("failed to get oci layout path: %v", err)
+	}
+
+	ociLayoutPath, err := ocilayout.TempOCILayout(t, ociLayoutTestdataPath)
+	if err != nil {
+		t.Fatalf("failed to create temp oci layout: %v", err)
+	}
 	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
+
+	// test resolve
 	targetDesc, err := repo.Resolve(context.Background(), reference)
 	if err != nil {
 		t.Fatalf("failed to resolve reference: %v", err)
@@ -499,59 +512,96 @@ func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
 	if !content.Equal(targetDesc, expectedTargetDesc) {
 		t.Fatalf("failed to resolve reference. expected descriptor: %v, but got: %v", expectedTargetDesc, targetDesc)
 	}
-	signature, err := os.ReadFile(signaturePath)
-	if err != nil {
-		t.Fatalf("failed to read signature: %v", err)
-	}
-	_, signatureManifestDesc, err := repo.PushSignature(context.Background(), joseTag, signature, targetDesc, annotations)
-	if err != nil {
-		t.Fatalf("failed to push signature: %v", err)
-	}
-	if !content.Equal(expectedSignatureManifestDesc, signatureManifestDesc) {
-		t.Fatalf("expected desc: %v, got: %v", expectedSignatureManifestDesc, signatureManifestDesc)
-	}
-	expectedAnnotations := map[string]string{
-		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
-		ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
-	}
-	if !reflect.DeepEqual(expectedAnnotations, signatureManifestDesc.Annotations) {
-		t.Fatalf("expected annotations: %v, but got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
-	}
+
+	t.Run("oci layout push", func(t *testing.T) {
+		signature, err := os.ReadFile(signaturePath)
+		if err != nil {
+			t.Fatalf("failed to read signature: %v", err)
+		}
+		_, signatureManifestDesc, err := repo.PushSignature(context.Background(), joseTag, signature, targetDesc, annotations)
+		if err != nil {
+			t.Fatalf("failed to push signature: %v", err)
+		}
+		if !content.Equal(expectedSignatureManifestDesc, signatureManifestDesc) {
+			t.Fatalf("expected desc: %v, got: %v", expectedSignatureManifestDesc, signatureManifestDesc)
+		}
+		expectedAnnotations := map[string]string{
+			envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
+			ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
+		}
+		if !reflect.DeepEqual(expectedAnnotations, signatureManifestDesc.Annotations) {
+			t.Fatalf("expected annotations: %v, but got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
+		}
+	})
+
+	t.Run("oci layout fetch", func(t *testing.T) {
+		err = repo.ListSignatures(context.Background(), targetDesc, func(signatureManifests []ocispec.Descriptor) error {
+			if len(signatureManifests) == 0 {
+				return fmt.Errorf("expected to find signature in the OCI layout folder, but got none")
+			}
+			var found bool
+			for _, sigManifestDesc := range signatureManifests {
+				if !content.Equal(sigManifestDesc, expectedSignatureManifestDesc) {
+					continue
+				}
+				_, sigDesc, err := repo.FetchSignatureBlob(context.Background(), sigManifestDesc)
+				if err != nil {
+					return fmt.Errorf("failed to fetch blob: %w", err)
+				}
+				if !content.Equal(expectedSignatureBlobDesc, sigDesc) {
+					return fmt.Errorf("expected to get signature blob desc: %v, got: %v", expectedSignatureBlobDesc, sigDesc)
+				}
+				found = true
+			}
+			if !found {
+				return fmt.Errorf("expected to find the signature with manifest desc: %v, but failed", expectedSignatureManifestDesc)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
-func TestOciLayoutRepositoryListAndFetchBlob(t *testing.T) {
-	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{})
+func TestNewRepository(t *testing.T) {
+	target, err := oci.New(t.TempDir())
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
-	targetDesc, err := repo.Resolve(context.Background(), reference)
-	if err != nil {
-		t.Fatalf("failed to resolve reference: %v", err)
+	repo := NewRepository(target)
+	if repo == nil {
+		t.Fatalf("failed to create repository")
 	}
-	err = repo.ListSignatures(context.Background(), targetDesc, func(signatureManifests []ocispec.Descriptor) error {
-		if len(signatureManifests) == 0 {
-			return fmt.Errorf("expected to find signature in the OCI layout folder, but got none")
+	repoClient, ok := repo.(*repositoryClient)
+	if !ok {
+		t.Fatalf("failed to create repositoryClient")
+	}
+	if target != repoClient.GraphTarget {
+		t.Fatalf("expected target: %v, got: %v", target, repoClient.GraphTarget)
+	}
+}
+
+func TestNewOCIRepositoryFailed(t *testing.T) {
+	t.Run("os stat failed", func(t *testing.T) {
+		_, err := NewOCIRepository("invalid-path", RepositoryOptions{})
+		if err == nil {
+			t.Fatalf("expected to fail with invalid path")
 		}
-		var found bool
-		for _, sigManifestDesc := range signatureManifests {
-			if !content.Equal(sigManifestDesc, expectedSignatureManifestDesc) {
-				continue
-			}
-			_, sigDesc, err := repo.FetchSignatureBlob(context.Background(), sigManifestDesc)
-			if err != nil {
-				return fmt.Errorf("failed to fetch blob: %w", err)
-			}
-			if !content.Equal(expectedSignatureBlobDesc, sigDesc) {
-				return fmt.Errorf("expected to get signature blob desc: %v, got: %v", expectedSignatureBlobDesc, sigDesc)
-			}
-			found = true
-		}
-		if !found {
-			return fmt.Errorf("expected to find the signature with manifest desc: %v, but failed", expectedSignatureManifestDesc)
-		}
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	t.Run("path is regular file", func(t *testing.T) {
+		// create a regular file in the temp dir
+		filePath := filepath.Join(t.TempDir(), "file")
+		file, err := os.Create(filePath)
+		if err != nil {
+			t.Fatalf("failed to create file: %v", err)
+		}
+		file.Close()
+
+		_, err = NewOCIRepository(filePath, RepositoryOptions{})
+		if err == nil {
+			t.Fatalf("expected to fail with regular file")
+		}
+	})
 }

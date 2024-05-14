@@ -31,6 +31,7 @@ import (
 	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/internal/mock/ocilayout"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
@@ -606,7 +607,6 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 }
 
 var (
-	ociLayoutPath     = filepath.FromSlash("./internal/testdata/oci-layout")
 	reference         = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	artifactReference = "local/oci-layout@sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	signaturePath     = filepath.FromSlash("./internal/testdata/cose_signature.sig")
@@ -630,39 +630,49 @@ func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts
 	return sigBlob, &content.SignerInfo, nil
 }
 
-func TestSignLocalContent(t *testing.T) {
+func TestLocalContent(t *testing.T) {
+	// create a temp OCI layout
+	ociLayoutTestdataPath, err := filepath.Abs(filepath.Join("internal", "testdata", "oci-layout"))
+	if err != nil {
+		t.Fatalf("failed to get oci layout path: %v", err)
+	}
+	ociLayoutPath, err := ocilayout.TempOCILayout(t, ociLayoutTestdataPath)
+	if err != nil {
+		t.Fatalf("failed to create temp oci layout: %v", err)
+	}
 	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	signOpts := SignOptions{
-		SignerSignOptions: SignerSignOptions{
-			SignatureMediaType: cose.MediaTypeEnvelope,
-		},
-		ArtifactReference: reference,
-	}
-	_, err = Sign(context.Background(), &ociDummySigner{}, repo, signOpts)
-	if err != nil {
-		t.Fatalf("failed to Sign: %v", err)
-	}
-}
 
-func TestVerifyLocalContent(t *testing.T) {
-	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{})
-	if err != nil {
-		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
-	}
-	verifyOpts := VerifyOptions{
-		ArtifactReference:    artifactReference,
-		MaxSignatureAttempts: math.MaxInt64,
-	}
-	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
-	// verify signatures inside the OCI layout folder
-	_, _, err = Verify(context.Background(), &verifier, repo, verifyOpts)
-	if err != nil {
-		t.Fatalf("failed to verify local content: %v", err)
-	}
+	t.Run("sign the local content", func(t *testing.T) {
+		// sign the artifact
+		signOpts := SignOptions{
+			SignerSignOptions: SignerSignOptions{
+				SignatureMediaType: cose.MediaTypeEnvelope,
+			},
+			ArtifactReference: reference,
+		}
+		_, err = Sign(context.Background(), &ociDummySigner{}, repo, signOpts)
+		if err != nil {
+			t.Fatalf("failed to Sign: %v", err)
+		}
+	})
+
+	t.Run("verify local content", func(t *testing.T) {
+		// verify the artifact
+		verifyOpts := VerifyOptions{
+			ArtifactReference:    artifactReference,
+			MaxSignatureAttempts: math.MaxInt64,
+		}
+		policyDocument := dummyPolicyDocument()
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+		// verify signatures inside the OCI layout folder
+		_, _, err = Verify(context.Background(), &verifier, repo, verifyOpts)
+		if err != nil {
+			t.Fatalf("failed to verify local content: %v", err)
+		}
+	})
 }
 
 func TestUserMetadata(t *testing.T) {
