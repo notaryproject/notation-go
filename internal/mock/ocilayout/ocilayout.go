@@ -11,7 +11,7 @@ import (
 
 // Copy creates a temporary OCI layout for testing
 // and returns the path to the layout.
-func Copy(sourcePath string, destinationPath string) (string, error) {
+func Copy(sourcePath, destinationPath, tag string) (string, error) {
 	ctx := context.Background()
 	destPath := filepath.Join(destinationPath, "notation", "oci-layout")
 
@@ -27,7 +27,7 @@ func Copy(sourcePath string, destinationPath string) (string, error) {
 	}
 
 	// copy data
-	_, err = oras.ExtendedCopy(ctx, srcStore, "v2", destStore, "", oras.DefaultExtendedCopyOptions)
+	_, err = oras.ExtendedCopy(ctx, srcStore, tag, destStore, "", oras.DefaultExtendedCopyOptions)
 	if err != nil {
 		return "", err
 	}

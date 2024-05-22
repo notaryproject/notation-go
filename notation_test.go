@@ -636,7 +636,7 @@ func TestLocalContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get oci layout path: %v", err)
 	}
-	ociLayoutPath, err := ocilayout.Copy(ociLayoutTestdataPath, t.TempDir())
+	ociLayoutPath, err := ocilayout.Copy(ociLayoutTestdataPath, t.TempDir(), "v2")
 	if err != nil {
 		t.Fatalf("failed to create temp oci layout: %v", err)
 	}
