@@ -4,17 +4,16 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"testing"
 
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/oci"
 )
 
-// TempOCILayout creates a temporary OCI layout for testing
+// Copy creates a temporary OCI layout for testing
 // and returns the path to the layout.
-func TempOCILayout(t *testing.T, sourcePath string) (string, error) {
+func Copy(sourcePath string, destinationPath string) (string, error) {
 	ctx := context.Background()
-	destPath := filepath.Join(t.TempDir(), "notation", "oci-layout")
+	destPath := filepath.Join(destinationPath, "notation", "oci-layout")
 
 	srcStore, err := oci.NewFromFS(ctx, os.DirFS(sourcePath))
 	if err != nil {
