@@ -782,7 +782,7 @@ func TestSignatureReferrers(t *testing.T) {
 		}
 	})
 
-	t.Run("artifact manifest is empty", func(t *testing.T) {
+	t.Run("no valid artifact manifest", func(t *testing.T) {
 		store := &testStorage{
 			store: &memory.Store{},
 			PredecessorsDesc: []ocispec.Descriptor{
@@ -806,7 +806,7 @@ func TestSignatureReferrers(t *testing.T) {
 		}
 	})
 
-	t.Run("image manifest is empty", func(t *testing.T) {
+	t.Run("no valid image manifest", func(t *testing.T) {
 		store := &testStorage{
 			store: &memory.Store{},
 			PredecessorsDesc: []ocispec.Descriptor{
