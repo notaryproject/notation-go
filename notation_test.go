@@ -615,15 +615,16 @@ func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts
 
 func TestLocalContent(t *testing.T) {
 	// create a temp OCI layout
-	ociLayoutTestdataPath, err := filepath.Abs(filepath.Join("internal", "testdata", "oci-layout"))
+	ociLayoutTestDataPath, err := filepath.Abs(filepath.Join("internal", "testdata", "oci-layout"))
 	if err != nil {
 		t.Fatalf("failed to get oci layout path: %v", err)
 	}
-	ociLayoutPath, err := ocilayout.Copy(ociLayoutTestdataPath, t.TempDir(), "v2")
+	newOCILayoutPath := t.TempDir()
+	err = ocilayout.Copy(ociLayoutTestDataPath, newOCILayoutPath, "v2")
 	if err != nil {
 		t.Fatalf("failed to create temp oci layout: %v", err)
 	}
-	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{})
+	repo, err := registry.NewOCIRepository(newOCILayoutPath, registry.RepositoryOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
