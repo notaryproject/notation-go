@@ -620,8 +620,7 @@ func TestLocalContent(t *testing.T) {
 		t.Fatalf("failed to get oci layout path: %v", err)
 	}
 	newOCILayoutPath := t.TempDir()
-	err = ocilayout.Copy(ociLayoutTestDataPath, newOCILayoutPath, "v2")
-	if err != nil {
+	if err := ocilayout.Copy(ociLayoutTestDataPath, newOCILayoutPath, "v2"); err != nil {
 		t.Fatalf("failed to create temp oci layout: %v", err)
 	}
 	repo, err := registry.NewOCIRepository(newOCILayoutPath, registry.RepositoryOptions{})

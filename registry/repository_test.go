@@ -497,8 +497,7 @@ func TestOciLayoutRepositoryPushAndFetch(t *testing.T) {
 	}
 
 	newOCILayoutPath := t.TempDir()
-	err = ocilayout.Copy(ociLayoutTestdataPath, newOCILayoutPath, "v2")
-	if err != nil {
+	if err := ocilayout.Copy(ociLayoutTestdataPath, newOCILayoutPath, "v2"); err != nil {
 		t.Fatalf("failed to create temp oci layout: %v", err)
 	}
 	repo, err := NewOCIRepository(newOCILayoutPath, RepositoryOptions{})
