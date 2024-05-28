@@ -186,7 +186,7 @@ func run(ctx context.Context, pluginName string, pluginPath string, req plugin.R
 					InnerError: jsonErr,
 				}
 			}
-			logger.Errorf("failed to execute the %s command for plugin %s: %w", req.Command(), pluginName, re)
+			logger.Errorf("failed to execute the %s command for plugin %s: %s:%w", req.Command(), pluginName, re.Code, re)
 			return re
 		}
 	}
