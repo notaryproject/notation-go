@@ -169,9 +169,8 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	_, _, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		var referrerError *remote.ReferrersError
-		if errors.As(err, &referrerError) && referrerError.IsReferrersIndexDelete() {
-			logger.Warn("The signature has been attached to the artifact, but it failed to delete the dangling referrers index")
-		} else {
+		// do not log an error for failing to delete referral index.
+		if !errors.As(err, &referrerError) || !referrerError.IsReferrersIndexDelete() {
 			logger.Error("Failed to push the signature")
 		}
 		return ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
