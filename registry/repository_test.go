@@ -496,11 +496,11 @@ func TestOciLayoutRepositoryPushAndFetch(t *testing.T) {
 		t.Fatalf("failed to get oci layout path: %v", err)
 	}
 
-	ociLayoutPath, err := ocilayout.Copy(ociLayoutTestdataPath, t.TempDir(), "v2")
-	if err != nil {
+	newOCILayoutPath := t.TempDir()
+	if err := ocilayout.Copy(ociLayoutTestdataPath, newOCILayoutPath, "v2"); err != nil {
 		t.Fatalf("failed to create temp oci layout: %v", err)
 	}
-	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{})
+	repo, err := NewOCIRepository(newOCILayoutPath, RepositoryOptions{})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
@@ -779,6 +779,54 @@ func TestSignatureReferrers(t *testing.T) {
 		})
 		if err == nil {
 			t.Fatalf("expected to fail with marshal failed")
+		}
+	})
+
+	t.Run("no valid artifact manifest", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+					MediaType: "application/vnd.oci.artifact.manifest.v1+json",
+					Size:      2,
+				},
+			},
+			FetchContent: []byte("{}"),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+		})
+
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatalf("expected to get no referrers, but got: %v", descriptors)
+		}
+	})
+
+	t.Run("no valid image manifest", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+					MediaType: "application/vnd.oci.image.manifest.v1+json",
+					Size:      2,
+				},
+			},
+			FetchContent: []byte("{}"),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+		})
+
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatalf("expected to get no referrers, but got: %v", descriptors)
 		}
 	})
 }
