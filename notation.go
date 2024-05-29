@@ -170,7 +170,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	if err != nil {
 		var referrerError *remote.ReferrersError
 		if errors.As(err, &referrerError) && referrerError.IsReferrersIndexDelete() {
-			logger.Warn("The signature has been attached to the artifact, but it failed to delete the dangling referrers index.")
+			logger.Warn("The signature has been attached to the artifact, but it failed to delete the dangling referrers index")
 		} else {
 			logger.Error("Failed to push the signature")
 		}
