@@ -169,7 +169,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	_, _, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		var referrerError *remote.ReferrersError
-		// do not log an error for failing to delete referral index.
+		// do not log an error for failing to delete referral index
 		if !errors.As(err, &referrerError) || !referrerError.IsReferrersIndexDelete() {
 			logger.Error("Failed to push the signature")
 		}
