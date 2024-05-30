@@ -194,7 +194,13 @@ func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Verify signature of media type %v", opts.SignatureMediaType)
 
-	trustPolicy, err := v.blobTrustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyName)
+	var trustPolicy *trustpolicy.BlobTrustPolicy
+	var err error
+	if opts.TrustPolicyName == "" {
+		trustPolicy, err = v.blobTrustPolicyDoc.GetGlobalTrustPolicy();
+	} else {
+		trustPolicy, err = v.blobTrustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyName)
+	}
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}

@@ -121,15 +121,37 @@ func TestGetApplicableTrustPolicy(t *testing.T) {
 	policyDoc.TrustPolicies = []BlobTrustPolicy{*policyStatement, *policyStatement1, *policyStatement2}
 
 	validateGetApplicableTrustPolicy(t, policyDoc, "test-statement-name-2", policyStatement2)
-	validateGetApplicableTrustPolicy(t, policyDoc, "", policyStatement1)
 	validateGetApplicableTrustPolicy(t, policyDoc, "test-statement-name", policyStatement)
 }
 
 func TestGetApplicableTrustPolicy_Error(t *testing.T) {
 	policyDoc := dummyBlobPolicyDocument()
-	_, err := policyDoc.GetApplicableTrustPolicy("blaah")
-	if err == nil || err.Error() != "no applicable blob trust policy. Applicability for a given blob is determined by policy name" {
-		t.Fatalf("GetApplicableTrustPolicy() returned error: %v", err)
+	t.Run("empty policy name", func(t *testing.T) {
+		_, err := policyDoc.GetApplicableTrustPolicy("")
+		if err == nil || err.Error() != "policy name cannot be empty" {
+			t.Fatalf("GetApplicableTrustPolicy() returned error: %v", err)
+		}
+	})
+
+	t.Run("non existent policy name", func(t *testing.T) {
+		_, err := policyDoc.GetApplicableTrustPolicy("blaah")
+		if err == nil || err.Error() != "no applicable blob trust policy. Applicability for a given blob is determined by policy name" {
+			t.Fatalf("GetApplicableTrustPolicy() returned error: %v", err)
+		}
+	})
+}
+
+func TestGetGlobalTrustPolicy(t *testing.T) {
+	policyDoc := dummyBlobPolicyDocument()
+	policyDoc.TrustPolicies[0].GlobalPolicy = true
+
+	policy, err := policyDoc.GetGlobalTrustPolicy()
+	if err != nil {
+		t.Fatalf("GetGlobalTrustPolicy() returned error: %v", err)
+	}
+
+	if !reflect.DeepEqual(*policy, policyDoc.TrustPolicies[0]) {
+		t.Fatalf("GetGlobalTrustPolicy() returned unexpected policy")
 	}
 }
 

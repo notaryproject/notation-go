@@ -16,6 +16,7 @@ package trustpolicy
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/notaryproject/notation-go/dir"
 	set "github.com/notaryproject/notation-go/internal/container"
@@ -103,24 +104,32 @@ func (policyDoc *BlobDocument) Validate() error {
 	return nil
 }
 
-// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
+// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy for given policy name
 // see https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#blob-trust-policy
 func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*BlobTrustPolicy, error) {
+	if strings.TrimSpace(policyName) == "" {
+		return  nil, errors.New("policy name cannot be empty")
+	}
 	for _, policyStatement := range policyDoc.TrustPolicies {
-		if policyName == "" {
-			// global policy
-			if policyStatement.GlobalPolicy {
-				return (&policyStatement).clone(), nil
-			}
-		} else {
-			// exact match
-			if policyStatement.Name == policyName {
-				return (&policyStatement).clone(), nil
-			}
+		// exact match
+		if policyStatement.Name == policyName {
+			return (&policyStatement).clone(), nil
 		}
 	}
 
 	return nil, fmt.Errorf("no applicable blob trust policy. Applicability for a given blob is determined by policy name")
+}
+
+// GetGlobalTrustPolicy returns a pointer to the deep copy of the TrustPolicy that is marked as global policy
+// see https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#blob-trust-policy
+func (policyDoc *BlobDocument) GetGlobalTrustPolicy() (*BlobTrustPolicy, error) {
+	for _, policyStatement := range policyDoc.TrustPolicies {
+		if policyStatement.GlobalPolicy {
+			return (&policyStatement).clone(), nil
+		}
+	}
+
+	return nil, fmt.Errorf("no global blob trust policy")
 }
 
 // clone returns a pointer to the deeply copied TrustPolicy
