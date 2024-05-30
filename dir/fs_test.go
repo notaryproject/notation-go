@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func Test_sysFS_SysPath(t *testing.T) {
+func TestSysFS_SysPath(t *testing.T) {
 	wantPath := filepath.FromSlash("/path/notation/config.json")
 	fsys := NewSysFS("/path/notation")
 	path, err := fsys.SysPath(PathConfigFile)
@@ -31,7 +31,7 @@ func Test_sysFS_SysPath(t *testing.T) {
 	}
 }
 
-func Test_OsFs(t *testing.T) {
+func TestOsFs(t *testing.T) {
 	wantData := []byte("data")
 	fsys := NewSysFS("./testdata")
 
@@ -47,5 +47,27 @@ func Test_OsFs(t *testing.T) {
 	}
 	if !bytes.Equal(data, wantData) {
 		t.Fatalf("SysFS read failed. got data = %v, want %v", data, wantData)
+	}
+}
+
+func TestConfigFS(t *testing.T) {
+	configFS := ConfigFS()
+	path, err := configFS.SysPath(PathConfigFile)
+	if err != nil {
+		t.Fatalf("SysPath() failed. err = %v", err)
+	}
+	if path != filepath.Join(UserConfigDir, PathConfigFile) {
+		t.Fatalf(`SysPath() failed. got: %q, want: %q`, path, filepath.Join(UserConfigDir, PathConfigFile))
+	}
+}
+
+func TestPluginFS(t *testing.T) {
+	pluginFS := PluginFS()
+	path, err := pluginFS.SysPath("plugin")
+	if err != nil {
+		t.Fatalf("SysPath() failed. err = %v", err)
+	}
+	if path != filepath.Join(UserLibexecDir, PathPlugins, "plugin") {
+		t.Fatalf(`SysPath() failed. got: %q, want: %q`, path, filepath.Join(UserLibexecDir, PathPlugins, "plugin"))
 	}
 }

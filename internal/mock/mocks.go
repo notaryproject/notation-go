@@ -125,6 +125,7 @@ type Repository struct {
 	FetchSignatureBlobError    error
 	MissMatchDigest            bool
 	ExceededNumOfSignatures    bool
+	PushSignatureError         error
 }
 
 func NewRepository() Repository {
@@ -163,6 +164,10 @@ func (t Repository) FetchSignatureBlob(ctx context.Context, desc ocispec.Descrip
 }
 
 func (t Repository) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
+	if t.PushSignatureError != nil {
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, t.PushSignatureError
+	}
+
 	return ocispec.Descriptor{}, ocispec.Descriptor{}, nil
 }
 

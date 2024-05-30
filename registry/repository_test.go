@@ -27,11 +27,14 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-go/internal/envelope"
+	"github.com/notaryproject/notation-go/internal/mock/ocilayout"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/registry/internal/artifactspec"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/content"
+	"oras.land/oras-go/v2/content/memory"
+	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 )
@@ -464,7 +467,6 @@ func newRepositoryClientWithImageManifest(client remote.Client, ref registry.Ref
 }
 
 var (
-	ociLayoutPath      = filepath.FromSlash("../internal/testdata/oci-layout")
 	reference          = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	expectedTargetDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.oci.image.manifest.v1+json",
@@ -487,11 +489,23 @@ var (
 	}
 )
 
-func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
-	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{})
+func TestOciLayoutRepositoryPushAndFetch(t *testing.T) {
+	// create a temp OCI layout
+	ociLayoutTestdataPath, err := filepath.Abs(filepath.Join("..", "internal", "testdata", "oci-layout"))
+	if err != nil {
+		t.Fatalf("failed to get oci layout path: %v", err)
+	}
+
+	newOCILayoutPath := t.TempDir()
+	if err := ocilayout.Copy(ociLayoutTestdataPath, newOCILayoutPath, "v2"); err != nil {
+		t.Fatalf("failed to create temp oci layout: %v", err)
+	}
+	repo, err := NewOCIRepository(newOCILayoutPath, RepositoryOptions{})
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
+
+	// test resolve
 	targetDesc, err := repo.Resolve(context.Background(), reference)
 	if err != nil {
 		t.Fatalf("failed to resolve reference: %v", err)
@@ -499,59 +513,320 @@ func TestOciLayoutRepositoryResolveAndPush(t *testing.T) {
 	if !content.Equal(targetDesc, expectedTargetDesc) {
 		t.Fatalf("failed to resolve reference. expected descriptor: %v, but got: %v", expectedTargetDesc, targetDesc)
 	}
-	signature, err := os.ReadFile(signaturePath)
-	if err != nil {
-		t.Fatalf("failed to read signature: %v", err)
-	}
-	_, signatureManifestDesc, err := repo.PushSignature(context.Background(), joseTag, signature, targetDesc, annotations)
-	if err != nil {
-		t.Fatalf("failed to push signature: %v", err)
-	}
-	if !content.Equal(expectedSignatureManifestDesc, signatureManifestDesc) {
-		t.Fatalf("expected desc: %v, got: %v", expectedSignatureManifestDesc, signatureManifestDesc)
-	}
-	expectedAnnotations := map[string]string{
-		envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
-		ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
-	}
-	if !reflect.DeepEqual(expectedAnnotations, signatureManifestDesc.Annotations) {
-		t.Fatalf("expected annotations: %v, but got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
-	}
+
+	t.Run("oci layout push", func(t *testing.T) {
+		signature, err := os.ReadFile(signaturePath)
+		if err != nil {
+			t.Fatalf("failed to read signature: %v", err)
+		}
+		_, signatureManifestDesc, err := repo.PushSignature(context.Background(), joseTag, signature, targetDesc, annotations)
+		if err != nil {
+			t.Fatalf("failed to push signature: %v", err)
+		}
+		if !content.Equal(expectedSignatureManifestDesc, signatureManifestDesc) {
+			t.Fatalf("expected desc: %v, got: %v", expectedSignatureManifestDesc, signatureManifestDesc)
+		}
+		expectedAnnotations := map[string]string{
+			envelope.AnnotationX509ChainThumbprint: "[\"9f5f5aecee24b5cfdc7a91f6d5ac5c3a5348feb17c934d403f59ac251549ea0d\"]",
+			ocispec.AnnotationCreated:              "2023-03-14T08:10:02Z",
+		}
+		if !reflect.DeepEqual(expectedAnnotations, signatureManifestDesc.Annotations) {
+			t.Fatalf("expected annotations: %v, but got: %v", expectedAnnotations, signatureManifestDesc.Annotations)
+		}
+	})
+
+	t.Run("oci layout fetch", func(t *testing.T) {
+		err = repo.ListSignatures(context.Background(), targetDesc, func(signatureManifests []ocispec.Descriptor) error {
+			if len(signatureManifests) == 0 {
+				return fmt.Errorf("expected to find signature in the OCI layout folder, but got none")
+			}
+			var found bool
+			for _, sigManifestDesc := range signatureManifests {
+				if !content.Equal(sigManifestDesc, expectedSignatureManifestDesc) {
+					continue
+				}
+				_, sigDesc, err := repo.FetchSignatureBlob(context.Background(), sigManifestDesc)
+				if err != nil {
+					return fmt.Errorf("failed to fetch blob: %w", err)
+				}
+				if !content.Equal(expectedSignatureBlobDesc, sigDesc) {
+					return fmt.Errorf("expected to get signature blob desc: %v, got: %v", expectedSignatureBlobDesc, sigDesc)
+				}
+				found = true
+			}
+			if !found {
+				return fmt.Errorf("expected to find the signature with manifest desc: %v, but failed", expectedSignatureManifestDesc)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
-func TestOciLayoutRepositoryListAndFetchBlob(t *testing.T) {
-	repo, err := NewOCIRepository(ociLayoutPath, RepositoryOptions{})
+func TestNewRepository(t *testing.T) {
+	target, err := oci.New(t.TempDir())
 	if err != nil {
 		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
 	}
-	targetDesc, err := repo.Resolve(context.Background(), reference)
-	if err != nil {
-		t.Fatalf("failed to resolve reference: %v", err)
+	repo := NewRepository(target)
+	if repo == nil {
+		t.Fatalf("failed to create repository")
 	}
-	err = repo.ListSignatures(context.Background(), targetDesc, func(signatureManifests []ocispec.Descriptor) error {
-		if len(signatureManifests) == 0 {
-			return fmt.Errorf("expected to find signature in the OCI layout folder, but got none")
+	repoClient, ok := repo.(*repositoryClient)
+	if !ok {
+		t.Fatalf("failed to create repositoryClient")
+	}
+	if target != repoClient.GraphTarget {
+		t.Fatalf("expected target: %v, got: %v", target, repoClient.GraphTarget)
+	}
+}
+
+func TestNewOCIRepositoryFailed(t *testing.T) {
+	t.Run("os stat failed", func(t *testing.T) {
+		_, err := NewOCIRepository("invalid-path", RepositoryOptions{})
+		if err == nil {
+			t.Fatalf("expected to fail with invalid path")
 		}
-		var found bool
-		for _, sigManifestDesc := range signatureManifests {
-			if !content.Equal(sigManifestDesc, expectedSignatureManifestDesc) {
-				continue
-			}
-			_, sigDesc, err := repo.FetchSignatureBlob(context.Background(), sigManifestDesc)
-			if err != nil {
-				return fmt.Errorf("failed to fetch blob: %w", err)
-			}
-			if !content.Equal(expectedSignatureBlobDesc, sigDesc) {
-				return fmt.Errorf("expected to get signature blob desc: %v, got: %v", expectedSignatureBlobDesc, sigDesc)
-			}
-			found = true
-		}
-		if !found {
-			return fmt.Errorf("expected to find the signature with manifest desc: %v, but failed", expectedSignatureManifestDesc)
-		}
-		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
+
+	t.Run("path is regular file", func(t *testing.T) {
+		// create a regular file in the temp dir
+		filePath := filepath.Join(t.TempDir(), "file")
+		file, err := os.Create(filePath)
+		if err != nil {
+			t.Fatalf("failed to create file: %v", err)
+		}
+		file.Close()
+
+		_, err = NewOCIRepository(filePath, RepositoryOptions{})
+		if err == nil {
+			t.Fatalf("expected to fail with regular file")
+		}
+	})
+
+	t.Run("no permission to create new path", func(t *testing.T) {
+		// create a directory in the temp dir
+		dirPath := filepath.Join(t.TempDir(), "dir")
+		err := os.Mkdir(dirPath, 0000)
+		if err != nil {
+			t.Fatalf("failed to create dir: %v", err)
+		}
+
+		_, err = NewOCIRepository(dirPath, RepositoryOptions{})
+		if err == nil {
+			t.Fatalf("expected to fail with no permission to create new path")
+		}
+	})
+}
+
+// testStorage implements content.ReadOnlyGraphStorage
+type testStorage struct {
+	store             *memory.Store
+	FetchError        error
+	FetchContent      []byte
+	PredecessorsError error
+	PredecessorsDesc  []ocispec.Descriptor
+}
+
+func (s *testStorage) Push(ctx context.Context, expected ocispec.Descriptor, reader io.Reader) error {
+	return s.store.Push(ctx, expected, reader)
+}
+
+func (s *testStorage) Fetch(ctx context.Context, target ocispec.Descriptor) (io.ReadCloser, error) {
+	if s.FetchError != nil {
+		return nil, s.FetchError
 	}
+	return io.NopCloser(bytes.NewReader(s.FetchContent)), nil
+}
+
+func (s *testStorage) Exists(ctx context.Context, target ocispec.Descriptor) (bool, error) {
+	return s.store.Exists(ctx, target)
+}
+
+func (s *testStorage) Predecessors(ctx context.Context, node ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	if s.PredecessorsError != nil {
+		return nil, s.PredecessorsError
+	}
+	return s.PredecessorsDesc, nil
+}
+
+func TestSignatureReferrers(t *testing.T) {
+	t.Run("get predecessors failed", func(t *testing.T) {
+		store := &testStorage{
+			store:             &memory.Store{},
+			PredecessorsError: fmt.Errorf("failed to get predecessors"),
+		}
+		_, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{})
+		if err == nil {
+			t.Fatalf("expected to fail with getting predecessors")
+		}
+	})
+
+	t.Run("artifact manifest exceds max blob size", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    validDigestWithAlgo2,
+					MediaType: "application/vnd.oci.artifact.manifest.v1+json",
+					Size:      4*1024*1024 + 1,
+				},
+			},
+		}
+		_, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: validDigestWithAlgo2,
+		})
+		if err == nil {
+			t.Fatalf("expected to fail with artifact manifest exceds max blob size")
+		}
+	})
+
+	t.Run("image manifest exceds max blob size", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    validDigestWithAlgo2,
+					MediaType: "application/vnd.oci.image.manifest.v1+json",
+					Size:      4*1024*1024 + 1,
+				},
+			},
+		}
+		_, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: validDigestWithAlgo2,
+		})
+		if err == nil {
+			t.Fatalf("expected to fail with image manifest exceds max blob size")
+		}
+	})
+
+	t.Run("artifact manifest fetchAll failed", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    validDigestWithAlgo,
+					MediaType: "application/vnd.oci.artifact.manifest.v1+json",
+					Size:      481,
+				},
+			},
+			FetchError: fmt.Errorf("failed to fetch all"),
+		}
+		_, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: validDigestWithAlgo,
+		})
+		if err == nil {
+			t.Fatalf("expected to fail with fetchAll failed")
+		}
+	})
+
+	t.Run("image manifest fetchAll failed", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    validDigestWithAlgo,
+					MediaType: "application/vnd.oci.image.manifest.v1+json",
+					Size:      481,
+				},
+			},
+			FetchError: fmt.Errorf("failed to fetch all"),
+		}
+		_, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: validDigestWithAlgo,
+		})
+		if err == nil {
+			t.Fatalf("expected to fail with fetchAll failed")
+		}
+	})
+
+	t.Run("artifact manifest marshal failed", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    "sha256:24aafc739daae02bcd33471a1b28bcfaaef0bb5e530ef44cd4e5d2445e606690",
+					MediaType: "application/vnd.oci.artifact.manifest.v1+json",
+					Size:      15,
+				},
+			},
+			FetchContent: []byte("invalid content"),
+		}
+		_, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: "sha256:24aafc739daae02bcd33471a1b28bcfaaef0bb5e530ef44cd4e5d2445e606690",
+		})
+		if err == nil {
+			t.Fatalf("expected to fail with marshal failed")
+		}
+	})
+
+	t.Run("image manifest marshal failed", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    "sha256:24aafc739daae02bcd33471a1b28bcfaaef0bb5e530ef44cd4e5d2445e606690",
+					MediaType: "application/vnd.oci.image.manifest.v1+json",
+					Size:      15,
+				},
+			},
+			FetchContent: []byte("invalid content"),
+		}
+		_, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: "sha256:24aafc739daae02bcd33471a1b28bcfaaef0bb5e530ef44cd4e5d2445e606690",
+		})
+		if err == nil {
+			t.Fatalf("expected to fail with marshal failed")
+		}
+	})
+
+	t.Run("no valid artifact manifest", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+					MediaType: "application/vnd.oci.artifact.manifest.v1+json",
+					Size:      2,
+				},
+			},
+			FetchContent: []byte("{}"),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+		})
+
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatalf("expected to get no referrers, but got: %v", descriptors)
+		}
+	})
+
+	t.Run("no valid image manifest", func(t *testing.T) {
+		store := &testStorage{
+			store: &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{
+				{
+					Digest:    "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+					MediaType: "application/vnd.oci.image.manifest.v1+json",
+					Size:      2,
+				},
+			},
+			FetchContent: []byte("{}"),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest: "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+		})
+
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatalf("expected to get no referrers, but got: %v", descriptors)
+		}
+	})
 }
