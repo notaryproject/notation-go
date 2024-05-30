@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	"oras.land/oras-go/v2/registry/remote"
-
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
@@ -28,6 +26,7 @@ import (
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
+	"oras.land/oras-go/v2/registry/remote"
 )
 
 // ExampleRemoteVerify demonstrates how to use notation.Verify to verify
