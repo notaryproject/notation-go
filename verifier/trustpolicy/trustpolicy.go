@@ -132,8 +132,6 @@ var (
 	}
 )
 
-var supportedPolicyVersions = []string{"1.0"}
-
 // SignatureVerification represents verification configuration in a trust policy
 type SignatureVerification struct {
 	VerificationLevel string                              `json:"level"`

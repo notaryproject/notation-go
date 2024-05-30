@@ -49,6 +49,8 @@ type BlobTrustPolicy struct {
 	GlobalPolicy bool `json:"globalPolicy,omitempty"`
 }
 
+var supportedBlobPolicyVersions = []string{"1.0"}
+
 // LoadBlobDocument loads a trust policy document from a local file system
 func LoadBlobDocument() (*BlobDocument, error) {
 	var doc BlobDocument
@@ -68,7 +70,7 @@ func (policyDoc *BlobDocument) Validate() error {
 	if policyDoc.Version == "" {
 		return errors.New("blob trust policy has empty version, version must be specified")
 	}
-	if !slices.Contains(supportedPolicyVersions, policyDoc.Version) {
+	if !slices.Contains(supportedBlobPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("blob trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 

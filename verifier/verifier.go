@@ -824,23 +824,23 @@ func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPl
 	return installedPlugin.VerifySignature(ctx, req)
 }
 
-func verifyX509TrustedIdentities(name string, identities []string, certs []*x509.Certificate) error {
-	if slices.Contains(identities, trustpolicyInternal.Wildcard) {
+func verifyX509TrustedIdentities(policyName string, trustedIdentities []string, certs []*x509.Certificate) error {
+	if slices.Contains(trustedIdentities, trustpolicyInternal.Wildcard) {
 		return nil
 	}
 
 	var trustedX509Identities []map[string]string
-	for _, identity := range identities {
+	for _, identity := range trustedIdentities {
 		identityPrefix, identityValue, found := strings.Cut(identity, ":")
 		if !found {
-			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", name, identity)
+			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", policyName, identity)
 		}
 
 		// notation natively supports x509.subject identities only
 		if identityPrefix == trustpolicyInternal.X509Subject {
 			// identityValue cannot be empty
 			if identityValue == "" {
-				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", name, identity)
+				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", policyName, identity)
 			}
 			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
 			if err != nil {
@@ -851,7 +851,7 @@ func verifyX509TrustedIdentities(name string, identities []string, certs []*x509
 	}
 
 	if len(trustedX509Identities) == 0 {
-		return fmt.Errorf("no x509 trusted identities are configured in the trust policy %q", name)
+		return fmt.Errorf("no x509 trusted identities are configured in the trust policy %q", policyName)
 	}
 
 	leafCert := certs[0] // trusted identities only supported on the leaf cert
@@ -867,7 +867,7 @@ func verifyX509TrustedIdentities(name string, identities []string, certs []*x509
 		}
 	}
 
-	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, name)
+	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, policyName)
 }
 
 func logVerificationResult(logger log.Logger, result *notation.ValidationResult) {

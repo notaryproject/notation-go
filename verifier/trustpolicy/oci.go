@@ -67,6 +67,8 @@ type TrustPolicy = OCITrustPolicy
 // To load OCI Document, use LoadOCIDocument function.
 var LoadDocument = LoadOCIDocument
 
+var supportedOCIPolicyVersions = []string{"1.0"}
+
 // LoadOCIDocument loads a trust policy document from a local file system
 // first it tries to read from dir.PathOCITrustPolicy and if not found it tries reads from dir.PathTrustPolicy.
 func LoadOCIDocument() (*OCIDocument, error) {
@@ -100,7 +102,7 @@ func (policyDoc *OCIDocument) Validate() error {
 	if policyDoc.Version == "" {
 		return errors.New("oci trust policy document has empty version, version must be specified")
 	}
-	if !slices.Contains(supportedPolicyVersions, policyDoc.Version) {
+	if !slices.Contains(supportedOCIPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("oci trust policy document uses unsupported version %q", policyDoc.Version)
 	}
 
