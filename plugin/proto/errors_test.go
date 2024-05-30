@@ -22,7 +22,7 @@ import (
 
 func TestRequestError_Error(t *testing.T) {
 	err := RequestError{Code: ErrorCodeAccessDenied, Err: errors.New("an error")}
-	want := string(ErrorCodeAccessDenied) + ": an error"
+	want := "an error"
 	if got := err.Error(); got != want {
 		t.Errorf("RequestError.Error() = %v, want %v", got, want)
 	}
