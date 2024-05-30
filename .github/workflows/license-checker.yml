@@ -23,7 +23,6 @@ on:
       - main
       - release-*
 
-
 permissions:
   contents: write
   pull-requests: write
