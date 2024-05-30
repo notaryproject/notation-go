@@ -131,7 +131,7 @@ func dummyOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
 func dummyBlobPolicyDocument() (policyDoc trustpolicy.BlobDocument) {
 	return trustpolicy.BlobDocument{
 		Version: "1.0",
-		BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
+		TrustPolicies: []trustpolicy.BlobTrustPolicy{
 			{
 				Name:                  "blob-test-statement-name",
 				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},

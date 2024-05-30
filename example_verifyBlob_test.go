@@ -32,7 +32,7 @@ import (
 // https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#trust-policy
 var exampleBlobPolicyDocument = trustpolicy.BlobDocument{
 	Version: "1.0",
-	BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
+	TrustPolicies: []trustpolicy.BlobTrustPolicy{
 		{
 			Name:                  "test-statement-name",
 			SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name, Override: map[trustpolicy.ValidationType]trustpolicy.ValidationAction{trustpolicy.TypeRevocation: trustpolicy.ActionSkip}},

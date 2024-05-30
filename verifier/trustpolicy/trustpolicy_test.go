@@ -44,7 +44,7 @@ func dummyOCIPolicyDocument() OCIDocument {
 func dummyBlobPolicyDocument() BlobDocument {
 	return BlobDocument{
 		Version: "1.0",
-		BlobTrustPolicies: []BlobTrustPolicy{
+		TrustPolicies: []BlobTrustPolicy{
 			{
 				Name:                  "test-statement-name",
 				SignatureVerification: SignatureVerification{VerificationLevel: "strict"},

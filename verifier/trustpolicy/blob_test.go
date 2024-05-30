@@ -71,7 +71,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 
 	// No Policy Statements
 	policyDoc = dummyBlobPolicyDocument()
-	policyDoc.BlobTrustPolicies = nil
+	policyDoc.TrustPolicies = nil
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "blob trust policy document can not have zero trust policy statements" {
 		t.Fatalf("zero policy statements should return error")
@@ -79,7 +79,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 
 	// No Policy Statement Name
 	policyDoc = dummyBlobPolicyDocument()
-	policyDoc.BlobTrustPolicies[0].Name = ""
+	policyDoc.TrustPolicies[0].Name = ""
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "blob trust policy: a trust policy statement is missing a name, every statement requires a name" {
 		t.Fatalf("policy statement with no name should return an error")
@@ -87,12 +87,12 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 
 	// multiple global rust policy
 	policyDoc = dummyBlobPolicyDocument()
-	policyStatement1 := policyDoc.BlobTrustPolicies[0].clone()
+	policyStatement1 := policyDoc.TrustPolicies[0].clone()
 	policyStatement1.GlobalPolicy = true
-	policyStatement2 := policyDoc.BlobTrustPolicies[0].clone()
+	policyStatement2 := policyDoc.TrustPolicies[0].clone()
 	policyStatement2.Name = "test-statement-name-2"
 	policyStatement2.GlobalPolicy = true
-	policyDoc.BlobTrustPolicies = []BlobTrustPolicy{*policyStatement1, *policyStatement2}
+	policyDoc.TrustPolicies = []BlobTrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement should be marked as global policy" {
 		t.Fatalf("policy statement with no name should return an error")
@@ -100,9 +100,9 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 
 	// Policy Document with duplicate policy statement names
 	policyDoc = dummyBlobPolicyDocument()
-	policyStatement1 = policyDoc.BlobTrustPolicies[0].clone()
-	policyStatement2 = policyDoc.BlobTrustPolicies[0].clone()
-	policyDoc.BlobTrustPolicies = []BlobTrustPolicy{*policyStatement1, *policyStatement2}
+	policyStatement1 = policyDoc.TrustPolicies[0].clone()
+	policyStatement2 = policyDoc.TrustPolicies[0].clone()
+	policyDoc.TrustPolicies = []BlobTrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "multiple blob trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
 		t.Fatalf("policy statements with same name should return error")
@@ -112,13 +112,13 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 func TestGetApplicableTrustPolicy(t *testing.T) {
 	policyDoc := dummyBlobPolicyDocument()
 
-	policyStatement := policyDoc.BlobTrustPolicies[0].clone()
+	policyStatement := policyDoc.TrustPolicies[0].clone()
 	policyStatement1 := policyStatement.clone()
 	policyStatement1.Name = "test-statement-name-1"
 	policyStatement1.GlobalPolicy = true
 	policyStatement2 := policyStatement.clone()
 	policyStatement2.Name = "test-statement-name-2"
-	policyDoc.BlobTrustPolicies = []BlobTrustPolicy{*policyStatement, *policyStatement1, *policyStatement2}
+	policyDoc.TrustPolicies = []BlobTrustPolicy{*policyStatement, *policyStatement1, *policyStatement2}
 
 	validateGetApplicableTrustPolicy(t, policyDoc, "test-statement-name-2", policyStatement2)
 	validateGetApplicableTrustPolicy(t, policyDoc, "", policyStatement1)

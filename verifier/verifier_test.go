@@ -757,7 +757,7 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 func TestVerifyBlob(t *testing.T) {
 	policy := &trustpolicy.BlobDocument{
 		Version: "1.0",
-		BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
+		TrustPolicies: []trustpolicy.BlobTrustPolicy{
 			{
 				Name:                  "blob-test-policy",
 				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
@@ -792,7 +792,7 @@ func TestVerifyBlob(t *testing.T) {
 	})
 
 	t.Run("trust policy set to skip", func(t *testing.T) {
-		policy.BlobTrustPolicies[0].SignatureVerification = trustpolicy.SignatureVerification{VerificationLevel: "skip"}
+		policy.TrustPolicies[0].SignatureVerification = trustpolicy.SignatureVerification{VerificationLevel: "skip"}
 		opts.UserMetadata = map[string]string{"buildId": "101"}
 		if _, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts); err != nil {
 			t.Fatalf("VerifyBlob() with user metadata returned unexpected error: %v", err)
@@ -803,7 +803,7 @@ func TestVerifyBlob(t *testing.T) {
 func TestVerifyBlob_Error(t *testing.T) {
 	policy := &trustpolicy.BlobDocument{
 		Version: "1.0",
-		BlobTrustPolicies: []trustpolicy.BlobTrustPolicy{
+		TrustPolicies: []trustpolicy.BlobTrustPolicy{
 			{
 				Name:                  "blob-test-policy",
 				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},

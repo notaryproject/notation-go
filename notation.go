@@ -298,7 +298,7 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 	return payload.TargetArtifact.Annotations, nil
 }
 
-// VerifierVerifyOptions contains parameters for Verifier.Verify.
+// VerifierVerifyOptions contains parameters for Verifier.Verify used for verifying OCI artifact.
 type VerifierVerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is being
 	// verified against to. It must be a full reference.
@@ -317,10 +317,10 @@ type VerifierVerifyOptions struct {
 	UserMetadata map[string]string
 }
 
-// Verifier is a generic interface for verifying an artifact.
+// Verifier is a interface for verifying an OCI artifact.
 type Verifier interface {
-	// Verify verifies the signature blob `signature` against the target OCI
-	// artifact with manifest descriptor `desc`, and returns the outcome upon
+	// Verify verifies the `signature` associated with the target OCI artifact
+	//with manifest descriptor `desc`, and returns the outcome upon
 	// successful verification.
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.

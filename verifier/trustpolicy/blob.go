@@ -27,8 +27,8 @@ type BlobDocument struct {
 	// Version of the policy document
 	Version string `json:"version"`
 
-	// BlobTrustPolicies include each policy statement
-	BlobTrustPolicies []BlobTrustPolicy `json:"trustPolicies"`
+	// TrustPolicies include each policy statement
+	TrustPolicies []BlobTrustPolicy `json:"trustPolicies"`
 }
 
 // BlobTrustPolicy represents a policy statement in the blob policy document
@@ -73,18 +73,17 @@ func (policyDoc *BlobDocument) Validate() error {
 	}
 
 	// Validate the policy according to 1.0 rules
-	if len(policyDoc.BlobTrustPolicies) == 0 {
+	if len(policyDoc.TrustPolicies) == 0 {
 		return errors.New("blob trust policy document can not have zero trust policy statements")
 	}
 
 	policyNames := set.New[string]()
 	foundGlobalPolicy := false
-	for _, statement := range policyDoc.BlobTrustPolicies {
+	for _, statement := range policyDoc.TrustPolicies {
 		// Verify unique policy statement names across the policy document
 		if policyNames.Contains(statement.Name) {
 			return fmt.Errorf("multiple blob trust policy statements use the same name %q, statement names must be unique", statement.Name)
 		}
-		policyNames.Add(statement.Name)
 
 		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return fmt.Errorf("blob trust policy: %w", err)
@@ -96,6 +95,7 @@ func (policyDoc *BlobDocument) Validate() error {
 			}
 			foundGlobalPolicy = true
 		}
+		policyNames.Add(statement.Name)
 	}
 
 	return nil
@@ -104,7 +104,7 @@ func (policyDoc *BlobDocument) Validate() error {
 // GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
 // see https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#blob-trust-policy
 func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*BlobTrustPolicy, error) {
-	for _, policyStatement := range policyDoc.BlobTrustPolicies {
+	for _, policyStatement := range policyDoc.TrustPolicies {
 		if policyName == "" {
 			// global policy
 			if policyStatement.GlobalPolicy {

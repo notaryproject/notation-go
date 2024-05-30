@@ -115,11 +115,12 @@ func (policyDoc *OCIDocument) Validate() error {
 		if policyNames.Contains(statement.Name) {
 			return fmt.Errorf("multiple oci trust policy statements use the same name %q, statement names must be unique", statement.Name)
 		}
-		policyNames.Add(statement.Name)
 
 		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return fmt.Errorf("oci trust policy: %w", err)
 		}
+
+		policyNames.Add(statement.Name)
 	}
 
 	// Verify registry scopes are valid
