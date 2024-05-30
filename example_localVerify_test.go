@@ -80,7 +80,7 @@ func Example_localVerify() {
 		panic(err) // Handle error
 	}
 
-	// exampleVerifier is an example of notation.Verifier given
+	// exampleVerifier is an example of notation.verifier given
 	// trust policy document and X509 trust store.
 	exampleVerifier, err := verifier.New(&examplePolicyDocument, truststore.NewX509TrustStore(dir.ConfigFS()), nil)
 	if err != nil {

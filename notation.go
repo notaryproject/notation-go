@@ -188,7 +188,7 @@ func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, sign
 		return nil, nil, errors.New("content media-type cannot be empty")
 	}
 
-	if err := validateContentType(signBlobOpts.ContentMediaType); err != nil {
+	if err := validateContentMediaType(signBlobOpts.ContentMediaType); err != nil {
 		return nil, nil, err
 	}
 
@@ -327,7 +327,7 @@ type Verifier interface {
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifierVerifyOptions) (*VerificationOutcome, error)
 }
 
-// BlobVerifierVerifyOptions contains parameters for Verifier.Verify.
+// BlobVerifierVerifyOptions contains parameters for BlobVerifier.Verify.
 type BlobVerifierVerifyOptions struct {
 	// SignatureMediaType is the envelope type of the signature.
 	// Currently only `application/jose+json` and `application/cose` are
@@ -342,11 +342,11 @@ type BlobVerifierVerifyOptions struct {
 	UserMetadata map[string]string
 
 	// TrustPolicyName is the name of trust policy picked by caller.
-	// If empty, the global trust policy will be used.
+	// If empty, the global trust policy will be applied.
 	TrustPolicyName string
 }
 
-// BlobVerifier is a generic interface for verifying an artifact.
+// BlobVerifier is a generic interface for verifying a blob.
 type BlobVerifier interface {
 	// VerifyBlob verifies the `signature` against the target artifact and
 	// returns the outcome upon  successful verification.
@@ -403,7 +403,7 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 		return ocispec.Descriptor{}, nil, errors.New("signature cannot be nil or empty")
 	}
 
-	if err := validateContentType(verifyBlobOpts.ContentMediaType); err != nil {
+	if err := validateContentMediaType(verifyBlobOpts.ContentMediaType); err != nil {
 		return ocispec.Descriptor{}, nil, err
 	}
 
@@ -604,7 +604,7 @@ func getDescriptorFunc(ctx context.Context, reader io.Reader, contentMediaType s
 	}
 }
 
-func validateContentType(contentMediaType string) error {
+func validateContentMediaType(contentMediaType string) error {
 	if contentMediaType != "" {
 		if _, _, err := mime.ParseMediaType(contentMediaType); err != nil {
 			return fmt.Errorf("invalid content media-type '%s': %v", contentMediaType, err)

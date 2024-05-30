@@ -292,17 +292,17 @@ func validatePolicyCore(name string, signatureVerification SignatureVerification
 
 // validateTrustStore validates if the policy statement is following the
 // Notary Project spec rules for truststore
-func validateTrustStore(name string, trustStores []string) error {
+func validateTrustStore(policyName string, trustStores []string) error {
 	for _, trustStore := range trustStores {
 		storeType, namedStore, found := strings.Cut(trustStore, ":")
 		if !found {
-			return fmt.Errorf("trust policy statement %q has malformed trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", name, trustStore)
+			return fmt.Errorf("trust policy statement %q has malformed trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policyName, trustStore)
 		}
 		if !isValidTrustStoreType(storeType) {
-			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", name, storeType, trustStore)
+			return fmt.Errorf("trust policy statement %q uses an unsupported trust store type %q in trust store value %q", policyName, storeType, trustStore)
 		}
 		if !file.IsValidFileName(namedStore) {
-			return fmt.Errorf("trust policy statement %q uses an unsupported trust store name %q in trust store value %q. Named store name needs to follow [a-zA-Z0-9_.-]+ format", name, namedStore, trustStore)
+			return fmt.Errorf("trust policy statement %q uses an unsupported trust store name %q in trust store value %q. Named store name needs to follow [a-zA-Z0-9_.-]+ format", policyName, namedStore, trustStore)
 		}
 	}
 
@@ -311,35 +311,35 @@ func validateTrustStore(name string, trustStores []string) error {
 
 // validateTrustedIdentities validates if the policy statement is following the
 // Notary Project spec rules for trusted identities
-func validateTrustedIdentities(name string, tis []string) error {
+func validateTrustedIdentities(policyName string, tis []string) error {
 	// If there is a wildcard in trusted identities, there shouldn't be any other
 	//identities
 	if len(tis) > 1 && slices.Contains(tis, trustpolicy.Wildcard) {
-		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", name)
+		return fmt.Errorf("trust policy statement %q uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values", policyName)
 	}
 
 	var parsedDNs []parsedDN
 	// If there are trusted identities, verify they are valid
 	for _, identity := range tis {
 		if identity == "" {
-			return fmt.Errorf("trust policy statement %q has an empty trusted identity", name)
+			return fmt.Errorf("trust policy statement %q has an empty trusted identity", policyName)
 		}
 
 		if identity != trustpolicy.Wildcard {
 			identityPrefix, identityValue, found := strings.Cut(identity, ":")
 			if !found {
-				return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", name, identity)
+				return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", policyName, identity)
 			}
 
 			// notation natively supports x509.subject identities only
 			if identityPrefix == trustpolicy.X509Subject {
 				// identityValue cannot be empty
 				if identityValue == "" {
-					return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", name, identity)
+					return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", policyName, identity)
 				}
 				dn, err := pkix.ParseDistinguishedName(identityValue)
 				if err != nil {
-					return fmt.Errorf("trust policy statement %q has trusted identity %q with invalid identity value: %w", name, identity, err)
+					return fmt.Errorf("trust policy statement %q has trusted identity %q with invalid identity value: %w", policyName, identity, err)
 				}
 				parsedDNs = append(parsedDNs, parsedDN{RawString: identity, ParsedMap: dn})
 			}
@@ -347,7 +347,7 @@ func validateTrustedIdentities(name string, tis []string) error {
 	}
 
 	// Verify there are no overlapping DNs
-	if err := validateOverlappingDNs(name, parsedDNs); err != nil {
+	if err := validateOverlappingDNs(policyName, parsedDNs); err != nil {
 		return err
 	}
 

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"oras.land/oras-go/v2/registry/remote"
+
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
@@ -26,7 +28,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
-	"oras.land/oras-go/v2/registry/remote"
 )
 
 // ExampleRemoteVerify demonstrates how to use notation.Verify to verify
@@ -59,7 +60,7 @@ func Example_remoteVerify() {
 		panic(err) // Handle error
 	}
 
-	// exampleVerifier is an example of notation.Verifier given
+	// exampleVerifier is an example of notation.verifier given
 	// trust policy document and X509 trust store.
 	exampleVerifier, err := verifier.New(&examplePolicyDocument, truststore.NewX509TrustStore(dir.ConfigFS()), nil)
 	if err != nil {
