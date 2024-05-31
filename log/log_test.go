@@ -39,3 +39,115 @@ func TestGetLoggerWithNoLogger(t *testing.T) {
 		t.Errorf("GetLogger() = %v, want Discard", got)
 	}
 }
+
+func TestDiscardLogger(t *testing.T) {
+	logger := &discardLogger{}
+
+	t.Run("Debug", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Debug("test")
+	})
+
+	t.Run("Debugf", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Debugf("test %s", "format")
+	})
+
+	t.Run("Debugln", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Debugln("test")
+	})
+
+	t.Run("Info", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Info("test")
+	})
+
+	t.Run("Infof", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Infof("test %s", "format")
+	})
+
+	t.Run("Infoln", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Infoln("test")
+	})
+
+	t.Run("Warn", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Warn("test")
+	})
+
+	t.Run("Warnf", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Warnf("test %s", "format")
+	})
+
+	t.Run("Warnln", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Warnln("test")
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Error("test")
+	})
+
+	t.Run("Errorf", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Errorf("test %s", "format")
+	})
+
+	t.Run("Errorln", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("method panicked")
+			}
+		}()
+		logger.Errorln("test")
+	})
+}

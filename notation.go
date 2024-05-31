@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"mime"
 	"strings"
 	"time"
 
@@ -31,8 +29,6 @@ import (
 	"oras.land/oras-go/v2/registry/remote"
 
 	"github.com/notaryproject/notation-core-go/signature"
-	"github.com/notaryproject/notation-core-go/signature/cose"
-	"github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
@@ -48,7 +44,7 @@ var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 // SignerSignOptions contains parameters for Signer.Sign.
 type SignerSignOptions struct {
 	// SignatureMediaType is the envelope type of the signature.
-	// Currently, both `application/jose+json` and `application/cose` are
+	// Currently both `application/jose+json` and `application/cose` are
 	// supported.
 	SignatureMediaType string
 
@@ -63,35 +59,13 @@ type SignerSignOptions struct {
 	SigningAgent string
 }
 
-// Signer is a generic interface for signing an OCI artifact.
+// Signer is a generic interface for signing an artifact.
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
 type Signer interface {
-	// Sign signs the OCI artifact described by its descriptor,
+	// Sign signs the artifact described by its descriptor,
 	// and returns the signature and SignerInfo.
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
-}
-
-// SignBlobOptions contains parameters for notation.SignBlob.
-type SignBlobOptions struct {
-	SignerSignOptions
-	// ContentMediaType is the media-type of the blob being signed.
-	ContentMediaType string
-	// UserMetadata contains key-value pairs that are added to the signature
-	// payload
-	UserMetadata map[string]string
-}
-
-// BlobDescriptorGenerator creates descriptor using the digest Algorithm.
-type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
-
-// BlobSigner is a generic interface for signing arbitrary data.
-// The interface allows signing with local or remote keys,
-// and packing in various signature formats.
-type BlobSigner interface {
-	// SignBlob signs the descriptor returned by genDesc ,
-	// and returns the signature and SignerInfo
-	SignBlob(ctx context.Context, genDesc BlobDescriptorGenerator, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
 // signerAnnotation facilitates return of manifest annotations by signers
@@ -114,15 +88,21 @@ type SignOptions struct {
 	UserMetadata map[string]string
 }
 
-// Sign signs the OCI artifact and push the signature to the Repository.
-// The descriptor of the sign content is returned upon successful signing.
+// Sign signs the artifact and push the signature to the Repository.
+// The descriptor of the sign content is returned upon sucessful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
 	// sanity check
-	if err := validateSignArguments(signer, signOpts.SignerSignOptions); err != nil {
-		return ocispec.Descriptor{}, err
+	if signer == nil {
+		return ocispec.Descriptor{}, errors.New("signer cannot be nil")
 	}
 	if repo == nil {
 		return ocispec.Descriptor{}, errors.New("repo cannot be nil")
+	}
+	if signOpts.ExpiryDuration < 0 {
+		return ocispec.Descriptor{}, fmt.Errorf("expiry duration cannot be a negative value")
+	}
+	if signOpts.ExpiryDuration%time.Second != 0 {
+		return ocispec.Descriptor{}, fmt.Errorf("expiry duration supports minimum granularity of seconds")
 	}
 
 	logger := log.GetLogger(ctx)
@@ -177,50 +157,6 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	}
 
 	return targetDesc, nil
-}
-
-// SignBlob signs the arbitrary data and returns the signature
-func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, signBlobOpts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
-	// sanity checks
-	if err := validateSignArguments(signer, signBlobOpts.SignerSignOptions); err != nil {
-		return nil, nil, err
-	}
-
-	if blobReader == nil {
-		return nil, nil, errors.New("blobReader cannot be nil")
-	}
-
-	if signBlobOpts.ContentMediaType == "" {
-		return nil, nil, errors.New("content media-type cannot be empty")
-	}
-
-	if _, _, err := mime.ParseMediaType(signBlobOpts.ContentMediaType); err != nil {
-		return nil, nil, fmt.Errorf("invalid content media-type '%s': %v", signBlobOpts.ContentMediaType, err)
-	}
-
-	getDescFunc := getDescriptorFunc(ctx, blobReader, signBlobOpts.ContentMediaType, signBlobOpts.UserMetadata)
-	return signer.SignBlob(ctx, getDescFunc, signBlobOpts.SignerSignOptions)
-}
-
-func validateSignArguments(signer any, signOpts SignerSignOptions) error {
-	if signer == nil {
-		return errors.New("signer cannot be nil")
-	}
-	if signOpts.ExpiryDuration < 0 {
-		return errors.New("expiry duration cannot be a negative value")
-	}
-	if signOpts.ExpiryDuration%time.Second != 0 {
-		return errors.New("expiry duration supports minimum granularity of seconds")
-	}
-	if signOpts.SignatureMediaType == "" {
-		return errors.New("signature media-type cannot be empty")
-	}
-
-	if !(signOpts.SignatureMediaType == jws.MediaTypeEnvelope || signOpts.SignatureMediaType == cose.MediaTypeEnvelope) {
-		return fmt.Errorf("invalid signature media-type '%s'", signOpts.SignatureMediaType)
-	}
-
-	return nil
 }
 
 func addUserMetadataToDescriptor(ctx context.Context, desc ocispec.Descriptor, userMetadata map[string]string) (ocispec.Descriptor, error) {
@@ -307,7 +243,7 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 
 // VerifierVerifyOptions contains parameters for Verifier.Verify.
 type VerifierVerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is being
+	// ArtifactReference is the reference of the artifact that is been
 	// verified against to. It must be a full reference.
 	ArtifactReference string
 
@@ -341,7 +277,7 @@ type verifySkipper interface {
 
 // VerifyOptions contains parameters for notation.Verify.
 type VerifyOptions struct {
-	// ArtifactReference is the reference of the artifact that is being
+	// ArtifactReference is the reference of the artifact that is been
 	// verified against to.
 	ArtifactReference string
 
@@ -519,20 +455,4 @@ func generateAnnotations(signerInfo *signature.SignerInfo, annotations map[strin
 	}
 	annotations[ocispec.AnnotationCreated] = signingTime.Format(time.RFC3339)
 	return annotations, nil
-}
-
-func getDescriptorFunc(ctx context.Context, reader io.Reader, contentMediaType string, userMetadata map[string]string) BlobDescriptorGenerator {
-	return func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
-		digester := hashAlgo.Digester()
-		bytes, err := io.Copy(digester.Hash(), reader)
-		if err != nil {
-			return ocispec.Descriptor{}, err
-		}
-		targetDesc := ocispec.Descriptor{
-			MediaType: contentMediaType,
-			Digest:    digester.Digest(),
-			Size:      bytes,
-		}
-		return addUserMetadataToDescriptor(ctx, targetDesc, userMetadata)
-	}
 }
