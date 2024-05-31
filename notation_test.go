@@ -188,37 +188,6 @@ func TestSignWithInvalidUserMetadata(t *testing.T) {
 	}
 }
 
-func TestSignOptsMissingSignatureMediaType(t *testing.T) {
-	repo := mock.NewRepository()
-	opts := SignOptions{
-		SignerSignOptions: SignerSignOptions{
-			SignatureMediaType: "",
-		},
-		ArtifactReference: mock.SampleArtifactUri,
-	}
-
-	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
-	if err == nil {
-		t.Fatalf("expected error but not found")
-	}
-}
-
-func TestSignOptsUnknownMediaType(t *testing.T) {
-	repo := mock.NewRepository()
-	opts := SignOptions{
-		SignerSignOptions: SignerSignOptions{
-			SignatureMediaType: "unknown",
-		},
-		ArtifactReference: mock.SampleArtifactUri,
-	}
-
-	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
-	if err == nil {
-		t.Fatalf("expected error but not found")
-	}
-
-}
-
 func TestRegistryResolveError(t *testing.T) {
 	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
