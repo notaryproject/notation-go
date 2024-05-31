@@ -13,7 +13,7 @@
 
 // Package signer provides notation signing functionality. It implements the
 // notation.Signer interface by providing builtinSigner for local signing and
-// PluginSigner for remote signing.
+// pluginSigner for remote signing.
 package signer
 
 import (
@@ -36,36 +36,24 @@ import (
 // signingAgent is the unprotected header field used by signature.
 const signingAgent = "Notation/1.0.0"
 
-// GenericSigner implements notation.Signer and embeds signature.Signer
-type GenericSigner struct {
-	signer signature.Signer
+// genericSigner implements notation.Signer and embeds signature.Signer
+type genericSigner struct {
+	signature.Signer
 }
 
 // New returns a builtinSigner given key and cert chain
-// Deprecated: New function exists for historical compatibility and should not be used.
-// To create GenericSigner, use NewGenericSigner() function.
 func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
-	return NewGenericSigner(key, certChain)
-}
-
-// NewGenericSigner returns a builtinSigner given key and cert chain
-func NewGenericSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*GenericSigner, error) {
 	localSigner, err := signature.NewLocalSigner(certChain, key)
 	if err != nil {
 		return nil, err
 	}
-	return &GenericSigner{
-		signer: localSigner,
+	return &genericSigner{
+		Signer: localSigner,
 	}, nil
 }
 
 // NewFromFiles returns a builtinSigner given key and certChain paths.
 func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
-	return NewGenericSignerFromFiles(keyPath, certChainPath)
-}
-
-// NewGenericSignerFromFiles returns a builtinSigner given key and certChain paths.
-func NewGenericSignerFromFiles(keyPath, certChainPath string) (*GenericSigner, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
 	}
@@ -92,12 +80,12 @@ func NewGenericSignerFromFiles(keyPath, certChainPath string) (*GenericSigner, e
 	}
 
 	// create signer
-	return NewGenericSigner(cert.PrivateKey, certs)
+	return New(cert.PrivateKey, certs)
 }
 
 // Sign signs the artifact described by its descriptor and returns the
 // marshalled envelope.
-func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *genericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic signing for %v in signature media type %v", desc.Digest, opts.SignatureMediaType)
 	// Generate payload to be signed.
@@ -118,7 +106,7 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 			ContentType: envelope.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:        s.signer,
+		Signer:        s.Signer,
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
 		SigningAgent:  signingAgentId,
@@ -157,31 +145,4 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 
 	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
 	return sig, &envContent.SignerInfo, nil
-}
-
-// SignBlob signs the descriptor returned by blobGen and returns the marshalled envelope
-func (s *GenericSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
-	logger := log.GetLogger(ctx)
-	logger.Debugf("Generic blob signing for signature media type %v", opts.SignatureMediaType)
-
-	ks, err := s.signer.KeySpec()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	desc, err := getDescriptor(ks, descGenFunc)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return s.Sign(ctx, desc, opts)
-}
-
-func getDescriptor(ks signature.KeySpec, descGenFunc notation.BlobDescriptorGenerator) (ocispec.Descriptor, error) {
-	digestAlg, ok := algorithms[ks.SignatureAlgorithm().Hash()]
-	if !ok {
-		return ocispec.Descriptor{}, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm().Hash())
-	}
-
-	return descGenFunc(digestAlg)
 }
