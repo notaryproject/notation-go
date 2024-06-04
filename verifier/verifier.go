@@ -521,6 +521,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 
 	// under signing scheme notary.x509
 	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
+		logger.Info("under signing scheme notary.x509...")
 		performTimestampVerification := true
 		timeStampLowerLimit := time.Now()
 		timeStampUpperLimit := timeStampLowerLimit
@@ -569,6 +570,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 					}
 				}
 			}
+			// this step is a success
 			return &notation.ValidationResult{
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
@@ -700,6 +702,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		}
 	} else if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
 		// under signing scheme notary.x509.signingAuthority
+		logger.Info("under signing scheme notary.x509.signingAuthority...")
 		authenticSigningTime := signerInfo.SignedAttributes.SigningTime
 		for _, cert := range signerInfo.CertificateChain {
 			if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
