@@ -525,19 +525,19 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		timeStampLowerLimit := time.Now()
 		timeStampUpperLimit := timeStampLowerLimit
 		// check if tsa trust store is configured in trust policy
-		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
+		tsaEnabled, err := isTSATrustStoreInPolicy(trustPolicy)
 		if err != nil {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
+				Error:  fmt.Errorf("failed to check tsa trust store configuration in turst policy with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		if len(trustTSACerts) < 1 {
+		if !tsaEnabled {
 			performTimestampVerification = false
 		}
 		// check based on 'verifyTimestamp' field
-		if trustPolicy.SignatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
+		if performTimestampVerification && trustPolicy.SignatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
 			// check if signing cert chain has expired
 			var expired bool
 			for _, cert := range signerInfo.CertificateChain {
@@ -586,7 +586,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		}
 		// 2. Verify the timestamp countersignature
 		logger.Info("Verifying the timestamp countersignature...")
-		signedToken, err := tspclient.ParseSignedToken(ctx, signerInfo.UnsignedAttributes.TimestampSignature)
+		signedToken, err := tspclient.ParseSignedToken(signerInfo.UnsignedAttributes.TimestampSignature)
 		if err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to parse timestamp countersignature with error: %w", err),
@@ -611,6 +611,21 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			}
 		}
 		roots := x509.NewCertPool()
+		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		if len(trustTSACerts) < 1 {
+			return &notation.ValidationResult{
+				Error:  errors.New("no TSA root cert found in trust store"),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
 		for _, cert := range trustTSACerts {
 			roots.AddCert(cert)
 		}

@@ -168,3 +168,18 @@ func loadX509TrustStoresWithType(ctx context.Context, trustStoreType truststore.
 	}
 	return certificates, nil
 }
+
+// isTSATrustStoreInPolicy checks if tsa trust store is configured in
+// trust policy
+func isTSATrustStoreInPolicy(policy *trustpolicy.TrustPolicy) (bool, error) {
+	for _, trustStore := range policy.TrustStores {
+		storeType, _, found := strings.Cut(trustStore, ":")
+		if !found {
+			return false, truststore.TrustStoreError{Msg: fmt.Sprintf("invalid trust policy statement: %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)}
+		}
+		if truststore.Type(storeType) == truststore.TypeTSA {
+			return true, nil
+		}
+	}
+	return false, nil
+}
