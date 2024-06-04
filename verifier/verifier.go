@@ -253,7 +253,7 @@ func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 		(desc.MediaType != "" && desc.MediaType != payload.TargetArtifact.MediaType) {
 		logger.Infof("payload.TargetArtifact in signature: %+v", payload.TargetArtifact)
 		logger.Infof("payload derived from the blob: %+v", desc)
-		outcome.Error = errors.New("signature integrity check failed")
+		outcome.Error = errors.New("integrity check failed. signature does not match the given blob")
 	}
 
 	if len(opts.UserMetadata) > 0 {
