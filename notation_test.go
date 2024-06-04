@@ -15,6 +15,7 @@ package notation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,12 +29,15 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
+	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/internal/mock/ocilayout"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/registry/remote"
 )
 
 var expectedMetadata = map[string]string{"foo": "bar", "bar": "foo"}
@@ -155,6 +159,71 @@ func TestSignSuccessWithUserMetadata(t *testing.T) {
 	}
 }
 
+func TestSignWithDanglingReferrersIndex(t *testing.T) {
+	repo := mock.NewRepository()
+	repo.PushSignatureError = &remote.ReferrersError{
+		Op:  "DeleteReferrersIndex",
+		Err: errors.New("error"),
+	}
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("no error occurred, expected error")
+	}
+}
+
+func TestSignWithNilRepo(t *testing.T) {
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, nil, opts)
+	if err == nil {
+		t.Fatalf("no error occurred, expected error: repo cannot be nil")
+	}
+}
+
+func TestSignResolveFailed(t *testing.T) {
+	repo := mock.NewRepository()
+	repo.ResolveError = errors.New("resolve error")
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("no error occurred, expected resolve error")
+	}
+}
+
+func TestSignArtifactRefIsTag(t *testing.T) {
+	repo := mock.NewRepository()
+	opts := SignOptions{}
+	opts.ArtifactReference = "registry.acme-rockets.io/software/net-monitor:v1"
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err != nil {
+		t.Fatalf("expect no error, got %s", err)
+	}
+}
+
+func TestSignWithPushSignatureError(t *testing.T) {
+	repo := mock.NewRepository()
+	repo.PushSignatureError = errors.New("error")
+	opts := SignOptions{}
+	opts.ArtifactReference = mock.SampleArtifactUri
+	opts.SignatureMediaType = jws.MediaTypeEnvelope
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("no error occurred, expected error: failed to delete dangling referrers index")
+	}
+}
+
 func TestSignWithInvalidExpiry(t *testing.T) {
 	repo := mock.NewRepository()
 	testCases := []struct {
@@ -188,12 +257,50 @@ func TestSignWithInvalidUserMetadata(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(b *testing.T) {
-			_, err := Sign(context.Background(), &dummySigner{}, repo, SignOptions{UserMetadata: tc.metadata})
+			opts := SignOptions{
+				UserMetadata: tc.metadata,
+				SignerSignOptions: SignerSignOptions{
+					SignatureMediaType: jws.MediaTypeEnvelope,
+				},
+			}
+
+			_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
 			if err == nil {
 				b.Fatalf("Expected error but not found")
 			}
 		})
 	}
+}
+
+func TestSignOptsMissingSignatureMediaType(t *testing.T) {
+	repo := mock.NewRepository()
+	opts := SignOptions{
+		SignerSignOptions: SignerSignOptions{
+			SignatureMediaType: "",
+		},
+		ArtifactReference: mock.SampleArtifactUri,
+	}
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("expected error but not found")
+	}
+}
+
+func TestSignOptsUnknownMediaType(t *testing.T) {
+	repo := mock.NewRepository()
+	opts := SignOptions{
+		SignerSignOptions: SignerSignOptions{
+			SignatureMediaType: "unknown",
+		},
+		ArtifactReference: mock.SampleArtifactUri,
+	}
+
+	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
+	if err == nil {
+		t.Fatalf("expected error but not found")
+	}
+
 }
 
 func TestRegistryResolveError(t *testing.T) {
@@ -375,18 +482,47 @@ func TestExceededMaxSignatureAttempts(t *testing.T) {
 }
 
 func TestVerifyFailed(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
-	repo := mock.NewRepository()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
-	expectedErr := ErrorVerificationFailed{}
+	t.Run("verification error", func(t *testing.T) {
+		policyDocument := dummyPolicyDocument()
+		repo := mock.NewRepository()
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
+		expectedErr := ErrorVerificationFailed{}
 
-	// mock the repository
-	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
-	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+		// mock the repository
+		opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+		_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
-	if err == nil || !errors.Is(err, expectedErr) {
-		t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
-	}
+		if err == nil || !errors.Is(err, expectedErr) {
+			t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+		}
+	})
+
+	t.Run("verifier is nil", func(t *testing.T) {
+		repo := mock.NewRepository()
+		expectedErr := errors.New("verifier cannot be nil")
+
+		// mock the repository
+		opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+		_, _, err := Verify(context.Background(), nil, repo, opts)
+
+		if err == nil || err.Error() != expectedErr.Error() {
+			t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+		}
+	})
+
+	t.Run("repo is nil", func(t *testing.T) {
+		policyDocument := dummyPolicyDocument()
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+		expectedErr := errors.New("repo cannot be nil")
+
+		// mock the repository
+		opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+		_, _, err := Verify(context.Background(), &verifier, nil, opts)
+
+		if err == nil || err.Error() != expectedErr.Error() {
+			t.Fatalf("VerificationFailed expected: %v got: %v", expectedErr, err)
+		}
+	})
 }
 
 func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
@@ -471,7 +607,6 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 }
 
 var (
-	ociLayoutPath     = filepath.FromSlash("./internal/testdata/oci-layout")
 	reference         = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	artifactReference = "local/oci-layout@sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	signaturePath     = filepath.FromSlash("./internal/testdata/cose_signature.sig")
@@ -495,37 +630,114 @@ func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts
 	return sigBlob, &content.SignerInfo, nil
 }
 
-func TestSignLocalContent(t *testing.T) {
-	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{})
+func TestLocalContent(t *testing.T) {
+	// create a temp OCI layout
+	ociLayoutTestDataPath, err := filepath.Abs(filepath.Join("internal", "testdata", "oci-layout"))
+	if err != nil {
+		t.Fatalf("failed to get oci layout path: %v", err)
+	}
+	newOCILayoutPath := t.TempDir()
+	if err := ocilayout.Copy(ociLayoutTestDataPath, newOCILayoutPath, "v2"); err != nil {
+		t.Fatalf("failed to create temp oci layout: %v", err)
+	}
+	repo, err := registry.NewOCIRepository(newOCILayoutPath, registry.RepositoryOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	signOpts := SignOptions{
-		SignerSignOptions: SignerSignOptions{
-			SignatureMediaType: cose.MediaTypeEnvelope,
-		},
-		ArtifactReference: reference,
-	}
-	_, err = Sign(context.Background(), &ociDummySigner{}, repo, signOpts)
-	if err != nil {
-		t.Fatalf("failed to Sign: %v", err)
-	}
+
+	t.Run("sign the local content", func(t *testing.T) {
+		// sign the artifact
+		signOpts := SignOptions{
+			SignerSignOptions: SignerSignOptions{
+				SignatureMediaType: cose.MediaTypeEnvelope,
+			},
+			ArtifactReference: reference,
+		}
+		_, err = Sign(context.Background(), &ociDummySigner{}, repo, signOpts)
+		if err != nil {
+			t.Fatalf("failed to Sign: %v", err)
+		}
+	})
+
+	t.Run("verify local content", func(t *testing.T) {
+		// verify the artifact
+		verifyOpts := VerifyOptions{
+			ArtifactReference:    artifactReference,
+			MaxSignatureAttempts: math.MaxInt64,
+		}
+		policyDocument := dummyPolicyDocument()
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+		// verify signatures inside the OCI layout folder
+		_, _, err = Verify(context.Background(), &verifier, repo, verifyOpts)
+		if err != nil {
+			t.Fatalf("failed to verify local content: %v", err)
+		}
+	})
 }
 
-func TestVerifyLocalContent(t *testing.T) {
-	repo, err := registry.NewOCIRepository(ociLayoutPath, registry.RepositoryOptions{})
-	if err != nil {
-		t.Fatalf("failed to create oci.Store as registry.Repository: %v", err)
-	}
-	verifyOpts := VerifyOptions{
-		ArtifactReference:    artifactReference,
-		MaxSignatureAttempts: math.MaxInt64,
-	}
-	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
-	// verify signatures inside the OCI layout folder
-	_, _, err = Verify(context.Background(), &verifier, repo, verifyOpts)
-	if err != nil {
-		t.Fatalf("failed to verify local content: %v", err)
-	}
+func TestUserMetadata(t *testing.T) {
+	t.Run("EnvelopeContent is nil", func(t *testing.T) {
+		outcome := &VerificationOutcome{}
+		_, err := outcome.UserMetadata()
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+		if err.Error() != "unable to find envelope content for verification outcome" {
+			t.Fatalf("expected error message 'unable to find envelope content for verification outcome', got '%s'", err.Error())
+		}
+	})
+
+	t.Run("EnvelopeContent is valid", func(t *testing.T) {
+		payload := envelope.Payload{
+			TargetArtifact: ocispec.Descriptor{
+				Annotations: map[string]string{
+					"key": "value",
+				},
+			},
+		}
+		payloadBytes, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("unexpected error marshaling payload: %v", err)
+		}
+
+		outcome := &VerificationOutcome{
+			EnvelopeContent: &signature.EnvelopeContent{
+				Payload: signature.Payload{
+					Content: payloadBytes,
+				},
+			},
+		}
+		metadata, err := outcome.UserMetadata()
+		if err != nil {
+			t.Fatalf("unexpected error getting user metadata: %v", err)
+		}
+		if len(metadata) != 1 || metadata["key"] != "value" {
+			t.Fatalf("expected metadata map[key]=value, got %v", metadata)
+		}
+	})
+
+	t.Run("Annotation is nil", func(t *testing.T) {
+		payload := envelope.Payload{
+			TargetArtifact: ocispec.Descriptor{},
+		}
+		payloadBytes, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("unexpected error marshaling payload: %v", err)
+		}
+
+		outcome := &VerificationOutcome{
+			EnvelopeContent: &signature.EnvelopeContent{
+				Payload: signature.Payload{
+					Content: payloadBytes,
+				},
+			},
+		}
+		metadata, err := outcome.UserMetadata()
+		if err != nil {
+			t.Fatalf("unexpected error getting user metadata: %v", err)
+		}
+		if len(metadata) != 0 {
+			t.Fatalf("expected empty metadata, got %v", metadata)
+		}
+	})
 }

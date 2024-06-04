@@ -44,6 +44,10 @@ type ValidationType string
 // Enforced, Logged, Skipped.
 type ValidationAction string
 
+// TimestampOption is an enum for timestamp verifiction options such as Always,
+// AfterCertExpiry.
+type TimestampOption string
+
 // VerificationLevel encapsulates the signature verification preset and its
 // actions for each verification type
 type VerificationLevel struct {
@@ -63,6 +67,11 @@ const (
 	ActionEnforce ValidationAction = "enforce"
 	ActionLog     ValidationAction = "log"
 	ActionSkip    ValidationAction = "skip"
+)
+
+const (
+	OptionAlways          TimestampOption = "always"
+	OptionAfterCertExpiry TimestampOption = "afterCertExpiry"
 )
 
 var (
@@ -167,6 +176,7 @@ type TrustPolicy struct {
 type SignatureVerification struct {
 	VerificationLevel string                              `json:"level"`
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
+	VerifyTimestamp   TimestampOption                     `json:"verifyTimestamp,omitempty"`
 }
 
 // Validate validates a policy document according to its version's rule set.

@@ -521,51 +521,91 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 
 	// under signing scheme notary.x509
 	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
-		var requireTimestampVerification bool
-		var invalidCertificate *x509.Certificate
-		for _, cert := range signerInfo.CertificateChain {
-			if time.Now().Before(cert.NotBefore) || time.Now().After(cert.NotAfter) {
-				// found at least one cert that current time is not in its
-				// validity period; require timestamp to continue this step
-				requireTimestampVerification = true
-				invalidCertificate = cert
-				break
-			}
-		}
-		if !requireTimestampVerification { // this step is a success
-			return &notation.ValidationResult{
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		invalidCertErrMsg := fmt.Sprintf("current time is not in certificate %q validity period [%q, %q]", invalidCertificate.Subject, invalidCertificate.NotBefore.Format(time.RFC1123Z), invalidCertificate.NotAfter.Format(time.RFC1123Z))
-		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
-			// if there is no timestamp token, fail this step
-			return &notation.ValidationResult{
-				Error:  errors.New(invalidCertErrMsg + ", and no timestamp countersignature was found in the signature envelope"),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
+		performTimestampVerification := true
+		timeStampLowerLimit := time.Now()
+		timeStampUpperLimit := timeStampLowerLimit
+		// check if tsa trust store is configured in trust policy
 		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
 		if err != nil {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and timestamp verification is disabled with error: %w", err),
+				Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
 		if len(trustTSACerts) < 1 {
+			performTimestampVerification = false
+		}
+		// check based on 'verifyTimestamp' field
+		if trustPolicy.SignatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
+			// check if signing cert chain has expired
+			var expired bool
+			for _, cert := range signerInfo.CertificateChain {
+				if time.Now().After(cert.NotAfter) {
+					expired = true
+					break
+				}
+			}
+			if !expired {
+				performTimestampVerification = false
+			}
+		}
+		// not performing any timestamp verification, signing cert chain MUST
+		// be valid at time of verification
+		if !performTimestampVerification {
+			for _, cert := range signerInfo.CertificateChain {
+				if timeStampLowerLimit.Before(cert.NotBefore) {
+					return &notation.ValidationResult{
+						Error:  fmt.Errorf("verification time %q is before certificate %q validity period, it will be valid from %q", timeStampLowerLimit.Format(time.RFC1123Z), cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
+						Type:   trustpolicy.TypeAuthenticTimestamp,
+						Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+					}
+				}
+				if timeStampUpperLimit.After(cert.NotAfter) {
+					return &notation.ValidationResult{
+						Error:  fmt.Errorf("verification time %q is after certificate %q validity period, it was expired at %q", timeStampUpperLimit.Format(time.RFC1123Z), cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
+						Type:   trustpolicy.TypeAuthenticTimestamp,
+						Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+					}
+				}
+			}
 			return &notation.ValidationResult{
-				Error:  errors.New(invalidCertErrMsg + ", and no trusted TSA root certificate was found in the trust store"),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
+		// Performing timestamp verification
+		// 1. Timestamp countersignature MUST be present
+		logger.Info("Checking timestamp countersignature existence...")
+		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
+			return &notation.ValidationResult{
+				Error:  errors.New("no timestamp countersignature was found in the signature envelope"),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		// 2. Verify the timestamp countersignature
+		logger.Info("Verifying the timestamp countersignature...")
 		signedToken, err := tspclient.ParseSignedToken(ctx, signerInfo.UnsignedAttributes.TimestampSignature)
 		if err != nil {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and failed to parse timestamp countersignature with error: %w", err),
+				Error:  fmt.Errorf("failed to parse timestamp countersignature with error: %w", err),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		info, err := signedToken.Info()
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("failed to get the timestamp TSTInfo with error: %w", err),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		ts, accuracy, err := info.Timestamp(signerInfo.Signature)
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
@@ -574,55 +614,34 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		for _, cert := range trustTSACerts {
 			roots.AddCert(cert)
 		}
-		timestampVerifyOpts := x509.VerifyOptions{
-			Roots: roots,
-		}
-		// get the timestamp token info
-		info, err := signedToken.Info()
+		tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
+			Roots:       roots,
+			CurrentTime: ts,
+		})
 		if err != nil {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and failed to get timestamp information with error: %w", err),
+				Error:  fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// validate the info and get the timestamp
-		ts, accuracy, err := info.Timestamp(signerInfo.Signature)
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and failed to get timestamp from timestamp countersignature with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		// verify the timestamp countersignature at the time point been stamped
-		timestampVerifyOpts.CurrentTime = ts
-		// verify the timestamp countersignature
-		tsaCertChain, err := signedToken.Verify(ctx, timestampVerifyOpts)
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and failed to verify the timestamp countersignature with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		// validate timestamping certificate chain
+		// 3. Validate timestamping certificate chain
+		logger.Info("Validating timestamping certificate chain...")
 		if err := nx509.ValidateTimeStampingCertChain(tsaCertChain, nil); err != nil {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and failed to validate the timestamping certificate chain with error: %w", err),
+				Error:  fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// get the timestamp token time range
-		timeStampLowerLimit := ts.Add(-accuracy)
-		timeStampUpperLimit := ts.Add(accuracy)
-		logger.Infof("timestamp token time range: [%v, %v]", timeStampLowerLimit, timeStampUpperLimit)
-		// perform the timestamping certificate chain revocation check
+		// 4. Perform the timestamping certificate chain revocation check
+		logger.Info("Checking timestamping certificate chain revocation...")
+		timeStampLowerLimit = ts.Add(-accuracy)
+		timeStampUpperLimit = ts.Add(accuracy)
 		certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, &http.Client{Timeout: 2 * time.Second})
 		if err != nil {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and timestamping certificate chain revocation check failed with error: %w", err),
+				Error:  fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
@@ -633,19 +652,21 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			logger.Debug("no verification impacting errors encountered while checking timestamping certificate chain revocation, status is OK")
 		case revocationresult.ResultRevoked:
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and timestamping certificate with subject %q is revoked", problematicCertSubject),
+				Error:  fmt.Errorf("timestamping certificate with subject %q is revoked", problematicCertSubject),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		default:
 			// revocationresult.ResultUnknown
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf(invalidCertErrMsg+", and timestamping certificate with subject %q revocation status is unknown", problematicCertSubject),
+				Error:  fmt.Errorf("timestamping certificate with subject %q revocation status is unknown", problematicCertSubject),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// core process
+		// 5. Check the timestamp against the signing certificate chain
+		logger.Info("Checking the timestamp against the signing certificate chain...")
+		logger.Infof("timestamp range: [%v, %v]", timeStampLowerLimit, timeStampUpperLimit)
 		for _, cert := range signerInfo.CertificateChain {
 			if timeStampLowerLimit.Before(cert.NotBefore) {
 				return &notation.ValidationResult{

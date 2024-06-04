@@ -28,6 +28,7 @@ import (
 	"time"
 
 	orasRegistry "oras.land/oras-go/v2/registry"
+	"oras.land/oras-go/v2/registry/remote"
 
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
@@ -41,6 +42,7 @@ import (
 )
 
 var errDoneVerification = errors.New("done verification")
+
 var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
 // SignerSignOptions contains parameters for Signer.Sign.
@@ -169,7 +171,11 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, signOpts.SignatureMediaType)
 	_, _, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
-		logger.Error("Failed to push the signature")
+		var referrerError *remote.ReferrersError
+		// do not log an error for failing to delete referral index
+		if !errors.As(err, &referrerError) || !referrerError.IsReferrersIndexDelete() {
+			logger.Error("Failed to push the signature")
+		}
 		return ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
 
