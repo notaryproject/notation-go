@@ -833,7 +833,7 @@ func TestVerifyBlob_Error(t *testing.T) {
 	t.Run("descriptor mismatch returns error", func(t *testing.T) {
 		descGenFunc := getTestDescGenFunc(false, "sha384:b8ab24dafba5cf7e4c89c562f811cf10493d4203da982d3b1345f366ca863d9c2ed323dbd0fb7ff83a80302ceffa5a62")
 		_, err = v.VerifyBlob(context.Background(), descGenFunc, []byte(testSig), opts)
-		if err == nil || err.Error() != "signature integrity check failed" {
+		if err == nil || err.Error() != "integrity check failed. signature does not match the given blob" {
 			t.Errorf("VerifyBlob() didn't return error or didnt returned expected error: %v", err)
 		}
 	})
