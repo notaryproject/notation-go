@@ -612,7 +612,16 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		roots := x509.NewCertPool()
+		tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
+			CurrentTime: ts,
+		})
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
 		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
 		if err != nil {
 			return &notation.ValidationResult{
@@ -623,21 +632,26 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		}
 		if len(trustTSACerts) < 1 {
 			return &notation.ValidationResult{
-				Error:  errors.New("no TSA root cert found in trust store"),
+				Error:  errors.New("no trusted TSA certificate found in trust store"),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		for _, cert := range trustTSACerts {
-			roots.AddCert(cert)
+		var foundTrustedCert bool
+		for _, trust := range trustTSACerts {
+			for _, cert := range tsaCertChain {
+				if trust.Equal(cert) {
+					foundTrustedCert = true
+					break
+				}
+			}
+			if foundTrustedCert {
+				break
+			}
 		}
-		tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
-			Roots:       roots,
-			CurrentTime: ts,
-		})
-		if err != nil {
+		if !foundTrustedCert {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err),
+				Error:  errors.New("failed to verify the timestamp countersignature with error: tsa certificate chain does not contain trusted certificate in trust store"),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}

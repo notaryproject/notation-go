@@ -144,14 +144,9 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		return nil, nil, err
 	}
 
-	var timestampErr *signature.TimestampError
 	sig, err := sigEnv.Sign(signReq)
 	if err != nil {
-		if !errors.As(err, &timestampErr) {
-			return nil, nil, err
-		}
-		// warn on timestamping error, but do not fail the signing process
-		logger.Warnf("Failed to timestamp the signature. Error: %v", timestampErr)
+		return nil, nil, err
 	}
 
 	envContent, err := sigEnv.Verify()
