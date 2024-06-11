@@ -622,6 +622,17 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
+		// 3. Validate timestamping certificate chain
+		logger.Info("Validating timestamping certificate chain...")
+		if err := nx509.ValidateTimeStampingCertChain(tsaCertChain, nil); err != nil {
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		// 4. Check authenticity of the TSA against trust store
+		logger.Info("Checking TSA authenticity against the trust store...")
 		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
 		if err != nil {
 			return &notation.ValidationResult{
@@ -656,16 +667,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// 3. Validate timestamping certificate chain
-		logger.Info("Validating timestamping certificate chain...")
-		if err := nx509.ValidateTimeStampingCertChain(tsaCertChain, nil); err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		// 4. Perform the timestamping certificate chain revocation check
+		// 5. Perform the timestamping certificate chain revocation check
 		logger.Info("Checking timestamping certificate chain revocation...")
 		timeStampLowerLimit = ts.Add(-accuracy)
 		timeStampUpperLimit = ts.Add(accuracy)
@@ -695,7 +697,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		// 5. Check the timestamp against the signing certificate chain
+		// 6. Check the timestamp against the signing certificate chain
 		logger.Info("Checking the timestamp against the signing certificate chain...")
 		logger.Infof("Timestamp range: [%v, %v]", timeStampLowerLimit, timeStampUpperLimit)
 		for _, cert := range signerInfo.CertificateChain {
