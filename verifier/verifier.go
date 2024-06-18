@@ -604,7 +604,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		ts, accuracy, err := info.Timestamp(signerInfo.Signature)
+		ts, accuracy, err := info.Validate(signerInfo.Signature)
 		if err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err),
