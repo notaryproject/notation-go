@@ -557,14 +557,14 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			for _, cert := range signerInfo.CertificateChain {
 				if timeStampLowerLimit.Before(cert.NotBefore) {
 					return &notation.ValidationResult{
-						Error:  fmt.Errorf("verification time %q is before certificate %q validity period, it will be valid from %q", timeStampLowerLimit.Format(time.RFC1123Z), cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
+						Error:  fmt.Errorf("verification time is before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
 						Type:   trustpolicy.TypeAuthenticTimestamp,
 						Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 					}
 				}
 				if timeStampUpperLimit.After(cert.NotAfter) {
 					return &notation.ValidationResult{
-						Error:  fmt.Errorf("verification time %q is after certificate %q validity period, it was expired at %q", timeStampUpperLimit.Format(time.RFC1123Z), cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
+						Error:  fmt.Errorf("verification time is after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
 						Type:   trustpolicy.TypeAuthenticTimestamp,
 						Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 					}
@@ -631,6 +631,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
+		logger.Info("TSA identity is: %s", tsaCertChain[0].Subject)
 		// 4. Check authenticity of the TSA against trust store
 		logger.Info("Checking TSA authenticity against the trust store...")
 		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
