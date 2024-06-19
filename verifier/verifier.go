@@ -288,7 +288,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, trustPolicy, v.trustStore, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, trustPolicy, v.trustStore, outcome, &http.Client{Timeout: 2 * time.Second})
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -516,7 +516,7 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome, revocationHttpClient *http.Client) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	// under signing scheme notary.x509
@@ -554,6 +554,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		// not performing any timestamp verification, signing cert chain MUST
 		// be valid at time of verification
 		if !performTimestampVerification {
+			logger.Info("Timestamp verification disabled")
 			for _, cert := range signerInfo.CertificateChain {
 				if timeStampLowerLimit.Before(cert.NotBefore) {
 					return &notation.ValidationResult{
@@ -672,7 +673,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		logger.Info("Checking timestamping certificate chain revocation...")
 		timeStampLowerLimit = ts.Add(-accuracy)
 		timeStampUpperLimit = ts.Add(accuracy)
-		certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, &http.Client{Timeout: 2 * time.Second})
+		certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, revocationHttpClient)
 		if err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err),
