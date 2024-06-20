@@ -277,7 +277,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to failed to validate tsa cert chain", func(t *testing.T) {
-		signedToken, err := os.ReadFile("testdata/timestamp/countersignature/TimeStampTokenWithSHA1RootCert.p7s")
+		signedToken, err := os.ReadFile("testdata/timestamp/countersignature/TimestampTokenWithSHA1RootCert.p7s")
 		if err != nil {
 			t.Fatalf("failed to get signedToken: %v", err)
 		}
