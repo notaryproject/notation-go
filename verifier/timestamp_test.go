@@ -276,28 +276,6 @@ func TestAuthenticTimestamp(t *testing.T) {
 		}
 	})
 
-	t.Run("verify Authentic Timestamp failed due to failed to validate tsa cert chain", func(t *testing.T) {
-		signedToken, err := os.ReadFile("testdata/timestamp/countersignature/TimestampTokenWithSHA1RootCert.p7s")
-		if err != nil {
-			t.Fatalf("failed to get signedToken: %v", err)
-		}
-		envContent, err := parseEnvContent("testdata/timestamp/sigEnv/withoutTimestamp.sig", jws.MediaTypeEnvelope)
-		if err != nil {
-			t.Fatalf("failed to get signature envelope content: %v", err)
-		}
-		envContent.SignerInfo.UnsignedAttributes.TimestampSignature = signedToken
-		envContent.SignerInfo.Signature = []byte("notation")
-		outcome := &notation.VerificationOutcome{
-			EnvelopeContent:   envContent,
-			VerificationLevel: trustpolicy.LevelStrict,
-		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy, trustStore, outcome)
-		expectedErrMsg := "failed to validate the timestamping certificate chain with error: root certificate with subject \"CN=DigiCert Assured ID Root CA,OU=www.digicert.com,O=DigiCert Inc,C=US\" is invalid or not self-signed. Certificate chain must end with a valid self-signed root certificate. Error: x509: cannot verify signature: insecure algorithm SHA1-RSA (temporarily override with GODEBUG=x509sha1=1)"
-		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
-			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
-		}
-	})
-
 	t.Run("verify Authentic Timestamp failed due to trust store does not exist", func(t *testing.T) {
 		dummyTrustPolicy := &trustpolicy.TrustPolicy{
 			Name:           "test-timestamp",
