@@ -652,7 +652,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		logger.Info("TSA identity is: %s", tsaCertChain[0].Subject)
+		logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
 		// 4. Check authenticity of the TSA against trust store
 		// logger.Info("Checking TSA authenticity against the trust store...")
 		// trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
