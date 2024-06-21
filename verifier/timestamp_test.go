@@ -336,7 +336,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
 		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy, trustStore, outcome)
-		expectedErrMsg := "failed to verify the timestamp countersignature with error: tsa certificate chain does not contain trusted certificate in trust store"
+		expectedErrMsg := "failed to verify the timestamp countersignature with error: failed to verify signed token: cms verification failure: x509: certificate signed by unknown authority"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 		}

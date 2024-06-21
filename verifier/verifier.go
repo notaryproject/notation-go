@@ -605,6 +605,25 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
+		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
+		if err != nil {
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		if len(trustTSACerts) < 1 {
+			return &notation.ValidationResult{
+				Error:  errors.New("no trusted TSA certificate found in trust store"),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+		rootCertPool := x509.NewCertPool()
+		for _, trustedCerts := range trustTSACerts {
+			rootCertPool.AddCert(trustedCerts)
+		}
 		ts, accuracy, err := info.Validate(signerInfo.Signature)
 		if err != nil {
 			return &notation.ValidationResult{
@@ -615,6 +634,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		}
 		tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
 			CurrentTime: ts,
+			Roots:       rootCertPool,
 		})
 		if err != nil {
 			return &notation.ValidationResult{
@@ -634,41 +654,41 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		}
 		logger.Info("TSA identity is: %s", tsaCertChain[0].Subject)
 		// 4. Check authenticity of the TSA against trust store
-		logger.Info("Checking TSA authenticity against the trust store...")
-		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		if len(trustTSACerts) < 1 {
-			return &notation.ValidationResult{
-				Error:  errors.New("no trusted TSA certificate found in trust store"),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		var foundTrustedCert bool
-		for _, trust := range trustTSACerts {
-			for _, cert := range tsaCertChain {
-				if trust.Equal(cert) {
-					foundTrustedCert = true
-					break
-				}
-			}
-			if foundTrustedCert {
-				break
-			}
-		}
-		if !foundTrustedCert {
-			return &notation.ValidationResult{
-				Error:  errors.New("failed to verify the timestamp countersignature with error: tsa certificate chain does not contain trusted certificate in trust store"),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
+		// logger.Info("Checking TSA authenticity against the trust store...")
+		// trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
+		// if err != nil {
+		// 	return &notation.ValidationResult{
+		// 		Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
+		// 		Type:   trustpolicy.TypeAuthenticTimestamp,
+		// 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+		// 	}
+		// }
+		// if len(trustTSACerts) < 1 {
+		// 	return &notation.ValidationResult{
+		// 		Error:  errors.New("no trusted TSA certificate found in trust store"),
+		// 		Type:   trustpolicy.TypeAuthenticTimestamp,
+		// 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+		// 	}
+		// }
+		// var foundTrustedCert bool
+		// for _, trust := range trustTSACerts {
+		// 	for _, cert := range tsaCertChain {
+		// 		if trust.Equal(cert) {
+		// 			foundTrustedCert = true
+		// 			break
+		// 		}
+		// 	}
+		// 	if foundTrustedCert {
+		// 		break
+		// 	}
+		// }
+		// if !foundTrustedCert {
+		// 	return &notation.ValidationResult{
+		// 		Error:  errors.New("failed to verify the timestamp countersignature with error: tsa certificate chain does not contain trusted certificate in trust store"),
+		// 		Type:   trustpolicy.TypeAuthenticTimestamp,
+		// 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+		// 	}
+		// }
 		// 5. Perform the timestamping certificate chain revocation check
 		logger.Info("Checking timestamping certificate chain revocation...")
 		timeStampLowerLimit = ts.Add(-accuracy)
