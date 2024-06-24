@@ -18,6 +18,7 @@ package notation
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -62,8 +63,11 @@ type SignerSignOptions struct {
 	// SigningAgent sets the signing agent name
 	SigningAgent string
 
-	// TSA denotes the TSA server URL
+	// TSAServerURL denotes the TSA server URL
 	TSAServerURL string
+
+	// TSARootCertificate denotes the TSA trust anchor
+	TSARootCertificate *x509.Certificate
 }
 
 // Signer is a generic interface for signing an OCI artifact.

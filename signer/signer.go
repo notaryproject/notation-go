@@ -118,11 +118,12 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 			ContentType: envelope.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:        s.signer,
-		SigningTime:   time.Now(),
-		SigningScheme: signature.SigningSchemeX509,
-		SigningAgent:  signingAgentId,
-		TSAServerURL:  opts.TSAServerURL,
+		Signer:             s.signer,
+		SigningTime:        time.Now(),
+		SigningScheme:      signature.SigningSchemeX509,
+		SigningAgent:       signingAgentId,
+		TSAServerURL:       opts.TSAServerURL,
+		TSARootCertificate: opts.TSARootCertificate,
 	}
 
 	// Add expiry only if ExpiryDuration is not zero
@@ -137,7 +138,6 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
 	logger.Debugf("  SigningAgent:  %v", signReq.SigningAgent)
 	logger.Debugf("  TSAServerURL:  %v", signReq.TSAServerURL)
-	logger.Debugf("  TSARootCertificate Subject:  %v", signReq.TSARootCertificate.Subject)
 
 	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)
