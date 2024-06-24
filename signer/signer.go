@@ -137,6 +137,7 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
 	logger.Debugf("  SigningAgent:  %v", signReq.SigningAgent)
 	logger.Debugf("  TSAServerURL:  %v", signReq.TSAServerURL)
+	logger.Debugf("  TSARootCertificate Subject:  %v", signReq.TSARootCertificate.Subject)
 
 	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)
