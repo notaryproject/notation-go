@@ -118,7 +118,7 @@ func TestSignBlobError(t *testing.T) {
 	}{
 		{"negativeExpiry", &dummySigner{}, -1 * time.Second, nil, "video/mp4", jws.MediaTypeEnvelope, "expiry duration cannot be a negative value"},
 		{"milliSecExpiry", &dummySigner{}, 1 * time.Millisecond, nil, "video/mp4", jws.MediaTypeEnvelope, "expiry duration supports minimum granularity of seconds"},
-		{"invalidContentMediaType", &dummySigner{}, 1 * time.Second, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type 'video/mp4/zoping': mime: unexpected content after media subtype"},
+		{"invalidContentMediaType", &dummySigner{}, 1 * time.Second, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type \"video/mp4/zoping\": mime: unexpected content after media subtype"},
 		{"emptyContentMediaType", &dummySigner{}, 1 * time.Second, reader, "", jws.MediaTypeEnvelope, "content media-type cannot be empty"},
 		{"invalidSignatureMediaType", &dummySigner{}, 1 * time.Second, reader, "", "", "content media-type cannot be empty"},
 		{"nilReader", &dummySigner{}, 1 * time.Second, nil, "video/mp4", jws.MediaTypeEnvelope, "blobReader cannot be nil"},
@@ -546,8 +546,8 @@ func TestVerifyBlobError(t *testing.T) {
 		{"nilSignature", &dummyVerifier{}, nil, reader, "video/mp4", jws.MediaTypeEnvelope, "signature cannot be nil or empty"},
 		{"emptySignature", &dummyVerifier{}, []byte{}, reader, "video/mp4", jws.MediaTypeEnvelope, "signature cannot be nil or empty"},
 		{"nilReader", &dummyVerifier{}, sig, nil, "video/mp4", jws.MediaTypeEnvelope, "blobReader cannot be nil"},
-		{"invalidContentType", &dummyVerifier{}, sig, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type 'video/mp4/zoping': mime: unexpected content after media subtype"},
-		{"invalidSigType", &dummyVerifier{}, sig, reader, "video/mp4", "hola!", "invalid signature media-type 'hola!'"},
+		{"invalidContentType", &dummyVerifier{}, sig, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type \"video/mp4/zoping\": mime: unexpected content after media subtype"},
+		{"invalidSigType", &dummyVerifier{}, sig, reader, "video/mp4", "hola!", "invalid signature media-type \"hola!\""},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
