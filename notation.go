@@ -393,7 +393,8 @@ type VerifyBlobOptions struct {
 
 // VerifyBlob performs signature verification for a blob using notation supported
 // verification types (like integrity, authenticity, etc.) and return the
-// successful signature verification outcome.
+// successful signature verification outcome. The blob is read using blobReader and
+// upon successful verification, it returns the descriptor of the blob.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Reader, signature []byte, verifyBlobOpts VerifyBlobOptions) (ocispec.Descriptor, *VerificationOutcome, error) {
