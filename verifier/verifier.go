@@ -193,6 +193,9 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, signature []byte, opts notation.BlobVerifierVerifyOptions) (*notation.VerificationOutcome, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Verify signature of media type %v", opts.SignatureMediaType)
+	if v.blobTrustPolicyDoc == nil {
+		return nil,  errors.New("blobTrustPolicyDoc is nil")
+	}
 
 	var trustPolicy *trustpolicy.BlobTrustPolicy
 	var err error
@@ -278,10 +281,15 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	logger := log.GetLogger(ctx)
 
 	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, envelopeMediaType)
+	if v.ociTrustPolicyDoc == nil {
+		return nil,  errors.New("ociTrustPolicyDoc is nil")
+	}
+
 	trustPolicy, err := v.ociTrustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
+
 	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
