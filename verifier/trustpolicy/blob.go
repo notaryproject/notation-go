@@ -81,7 +81,7 @@ func (policyDoc *BlobDocument) Validate() error {
 	}
 
 	policyNames := set.New[string]()
-	foundGlobalPolicy := false
+	var foundGlobalPolicy bool
 	for _, statement := range policyDoc.TrustPolicies {
 		// Verify unique policy statement names across the policy document
 		if policyNames.Contains(statement.Name) {
