@@ -114,6 +114,33 @@ func TestIsCriticalFailure(t *testing.T) {
 	}
 }
 
+func TestLoadX509TSATrustStores(t *testing.T) {
+	policyDoc := trustpolicy.Document{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.TrustPolicy{
+			{
+				Name:                  "testTSA",
+				RegistryScopes:        []string{"*"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"tsa:test-timestamp"},
+				TrustedIdentities:     []string{"*"},
+			},
+		},
+	}
+	dir.UserConfigDir = "testdata"
+	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
+	_, err := loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509, &policyDoc.TrustPolicies[0], x509truststore)
+	if err != nil {
+		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
+	}
+
+	_, err = loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, &policyDoc.TrustPolicies[0], x509truststore)
+	expectedErrMsg := "error while loading the TSA trust store, signing scheme must be notary.x509, but got notary.x509.signingAuthority"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+	}
+}
+
 func getArtifactDigestFromReference(artifactReference string) (string, error) {
 	invalidUriErr := fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified OCI artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
 	i := strings.LastIndex(artifactReference, "@")
