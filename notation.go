@@ -613,7 +613,7 @@ func getDescriptorFunc(ctx context.Context, reader io.Reader, contentMediaType s
 func validateContentMediaType(contentMediaType string) error {
 	if contentMediaType != "" {
 		if _, _, err := mime.ParseMediaType(contentMediaType); err != nil {
-			return fmt.Errorf("invalid content media-type '%s': %v", contentMediaType, err)
+			return fmt.Errorf("invalid content media-type %q: %v", contentMediaType, err)
 		}
 	}
 	return nil
