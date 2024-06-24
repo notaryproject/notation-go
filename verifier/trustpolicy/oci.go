@@ -69,8 +69,9 @@ var LoadDocument = LoadOCIDocument
 
 var supportedOCIPolicyVersions = []string{"1.0"}
 
-// LoadOCIDocument loads a trust policy document from a local file system
-// first it tries to read from dir.PathOCITrustPolicy and if not found it tries reads from dir.PathTrustPolicy.
+// LoadOCIDocument retrieves a trust policy document from the local file system.
+// It attempts to read from dir.PathOCITrustPolicy first; if not found, it tries dir.PathTrustPolicy.
+// If both dir.PathOCITrustPolicy and dir.PathTrustPolicy exist, dir.PathOCITrustPolicy will be read.
 func LoadOCIDocument() (*OCIDocument, error) {
 
 	var doc OCIDocument
