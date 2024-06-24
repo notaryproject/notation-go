@@ -621,7 +621,7 @@ func validateContentMediaType(contentMediaType string) error {
 
 func validateSigMediaType(sigMediaType string) error {
 	if !(sigMediaType == jws.MediaTypeEnvelope || sigMediaType == cose.MediaTypeEnvelope) {
-		return fmt.Errorf("invalid signature media-type '%s'", sigMediaType)
+		return fmt.Errorf("invalid signature media-type %q", sigMediaType)
 	}
 	return nil
 }
