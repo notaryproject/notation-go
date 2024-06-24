@@ -394,8 +394,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify x509 trust store based authenticity
 	logger.Debug("Validating cert chain")
-	sigScheme := outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme
-	trustCerts, err := loadX509TrustStores(ctx, sigScheme, policyName, trustStores, v.trustStore)
+	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, policyName, trustStores, v.trustStore)
 	var authenticityResult *notation.ValidationResult
 	if err != nil {
 		authenticityResult = &notation.ValidationResult{
