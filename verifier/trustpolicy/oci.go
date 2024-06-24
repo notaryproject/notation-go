@@ -79,7 +79,7 @@ func LoadOCIDocument() (*OCIDocument, error) {
 		// if the document is not found at the first path, try the second path
 		if errors.As(err, &errPolicyNotExist{}) {
 			if err := getDocument(dir.PathTrustPolicy, &doc); err != nil {
-				return &doc, err
+				return nil, err
 			}
 			return &doc, nil
 		}
