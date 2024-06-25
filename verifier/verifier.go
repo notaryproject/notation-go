@@ -655,11 +655,11 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			}
 		}
 		logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
+		timeStampLowerLimit = ts.Add(-accuracy)
+		timeStampUpperLimit = ts.Add(accuracy)
 		// 4. Perform the timestamping certificate chain revocation check
 		if !trustPolicy.SignatureVerification.SkipTimestampRevocationCheck {
 			logger.Info("Checking timestamping certificate chain revocation...")
-			timeStampLowerLimit = ts.Add(-accuracy)
-			timeStampUpperLimit = ts.Add(accuracy)
 			certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, &http.Client{Timeout: 5 * time.Second})
 			if err != nil {
 				return &notation.ValidationResult{
