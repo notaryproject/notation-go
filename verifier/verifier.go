@@ -550,7 +550,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				}
 			}
 			if !expired {
-				logger.Info("Timestamp verification disabled: verifyTimestamp is set to \"afterCertExpiry\" and signing cert chain unexpired")
+				logger.Infof("Timestamp verification disabled: verifyTimestamp is set to %q and signing cert chain unexpired", trustpolicy.OptionAfterCertExpiry)
 				performTimestampVerification = false
 			}
 		}
