@@ -30,7 +30,7 @@ func dummyPolicyStatement() (policyStatement TrustPolicy) {
 	policyStatement = TrustPolicy{
 		Name:                  "test-statement-name",
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-		SignatureVerification: SignatureVerification{VerificationLevel: "strict", VerifyTimestamp: "always"},
+		SignatureVerification: SignatureVerification{VerificationLevel: "strict"},
 		TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
 		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
 	}
@@ -609,19 +609,12 @@ func TestLoadDocument(t *testing.T) {
 		dir.UserConfigDir = tempRoot
 		path := filepath.Join(tempRoot, "trustpolicy.json")
 		policyDoc1 := dummyPolicyDocument()
-		policyDoc1.TrustPolicies[0].SignatureVerification.VerifyTimestamp = ""
 		policyJson, _ := json.Marshal(policyDoc1)
 		if err := os.WriteFile(path, policyJson, 0600); err != nil {
 			t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
 		}
-		policyDoc, err := LoadDocument()
-		if err != nil {
+		if _, err := LoadDocument(); err != nil {
 			t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
-		}
-		for _, statement := range policyDoc.TrustPolicies {
-			if statement.SignatureVerification.VerifyTimestamp != OptionAlways {
-				t.Fatal("expecting to get default VerifyTimestamp value \"always\"")
-			}
 		}
 	})
 

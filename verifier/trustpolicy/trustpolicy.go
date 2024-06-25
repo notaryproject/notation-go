@@ -220,7 +220,9 @@ func (policyDoc *Document) Validate() error {
 		if err != nil {
 			return fmt.Errorf("trust policy statement %q has invalid signatureVerification: %w", statement.Name, err)
 		}
-		if statement.SignatureVerification.VerifyTimestamp != OptionAlways && statement.SignatureVerification.VerifyTimestamp != OptionAfterCertExpiry {
+		if statement.SignatureVerification.VerifyTimestamp != "" &&
+			statement.SignatureVerification.VerifyTimestamp != OptionAlways &&
+			statement.SignatureVerification.VerifyTimestamp != OptionAfterCertExpiry {
 			return fmt.Errorf("trust policy statement %q has invalid signatureVerification: verifyTimestamp must be %q or %q, but got %q", statement.Name, OptionAlways, OptionAfterCertExpiry, statement.SignatureVerification.VerifyTimestamp)
 		}
 
@@ -331,12 +333,6 @@ func LoadDocument() (*Document, error) {
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
 		return nil, fmt.Errorf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink)
-	}
-	for idx, statement := range policyDocument.TrustPolicies {
-		if statement.SignatureVerification.VerifyTimestamp == "" {
-			// default value for VerifyTimestamp is "always"
-			policyDocument.TrustPolicies[idx].SignatureVerification.VerifyTimestamp = OptionAlways
-		}
 	}
 	return policyDocument, nil
 }
