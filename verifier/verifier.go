@@ -535,10 +535,12 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			}
 		}
 		if !tsaEnabled {
+			logger.Info("Timestamp verification disabled: no tsa trust store is configured in trust policy")
 			performTimestampVerification = false
 		}
 		// check based on 'verifyTimestamp' field
-		if performTimestampVerification && trustPolicy.SignatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
+		if performTimestampVerification &&
+			trustPolicy.SignatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
 			// check if signing cert chain has expired
 			var expired bool
 			for _, cert := range signerInfo.CertificateChain {
@@ -548,13 +550,13 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				}
 			}
 			if !expired {
+				logger.Info("Timestamp verification disabled: verifyTimestamp is set to \"afterCertExpiry\" and signing cert chain unexpired")
 				performTimestampVerification = false
 			}
 		}
-		// not performing any timestamp verification, signing cert chain MUST
-		// be valid at time of verification
+		// timestamp verification disabled, signing cert chain MUST be valid
+		// at time of verification
 		if !performTimestampVerification {
-			logger.Info("Timestamp verification disabled")
 			for _, cert := range signerInfo.CertificateChain {
 				if timeStampLowerLimit.Before(cert.NotBefore) {
 					return &notation.ValidationResult{
@@ -571,7 +573,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 					}
 				}
 			}
-			// this step is a success
+			// success
 			return &notation.ValidationResult{
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
@@ -658,7 +660,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 			logger.Info("Checking timestamping certificate chain revocation...")
 			timeStampLowerLimit = ts.Add(-accuracy)
 			timeStampUpperLimit = ts.Add(accuracy)
-			certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, &http.Client{Timeout: 2 * time.Second})
+			certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, &http.Client{Timeout: 5 * time.Second})
 			if err != nil {
 				return &notation.ValidationResult{
 					Error:  fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err),
@@ -719,7 +721,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		}
 	}
 
-	// this step is a success
+	// success
 	return &notation.ValidationResult{
 		Type:   trustpolicy.TypeAuthenticTimestamp,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],

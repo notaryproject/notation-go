@@ -25,6 +25,6 @@ require (
 	golang.org/x/sync v0.6.0 // indirect
 )
 
-replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240624084736-28b80547d251
+replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240625061446-64bf87aaf899
 
-replace github.com/notaryproject/tspclient-go => github.com/Two-Hearts/tspclient-go v0.0.0-20240624080215-1284fbf408ce
+replace github.com/notaryproject/tspclient-go => github.com/Two-Hearts/tspclient-go v0.0.0-20240625051139-b86a837d928d
