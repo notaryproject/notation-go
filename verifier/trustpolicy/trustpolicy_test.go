@@ -77,22 +77,27 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 
 	policyStatement6 := dummyPolicyStatement()
 	policyStatement6.Name = "test-statement-name-6"
+	policyStatement6.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor6"}
 	policyStatement6.SignatureVerification.VerifyTimestamp = ""
 
 	policyStatement7 := dummyPolicyStatement()
 	policyStatement7.Name = "test-statement-name-7"
+	policyStatement7.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor7"}
 	policyStatement7.SignatureVerification.VerifyTimestamp = OptionAlways
 
 	policyStatement8 := dummyPolicyStatement()
 	policyStatement8.Name = "test-statement-name-8"
+	policyStatement8.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor8"}
 	policyStatement8.SignatureVerification.VerifyTimestamp = OptionAfterCertExpiry
 
 	policyStatement9 := dummyPolicyStatement()
 	policyStatement9.Name = "test-statement-name-9"
+	policyStatement9.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor9"}
 	policyStatement9.SignatureVerification.SkipTimestampRevocationCheck = true
 
 	policyStatement10 := dummyPolicyStatement()
 	policyStatement10.Name = "test-statement-name-10"
+	policyStatement10.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor10"}
 	policyStatement10.SignatureVerification.SkipTimestampRevocationCheck = false
 
 	policyDoc.TrustPolicies = []TrustPolicy{
