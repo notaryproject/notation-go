@@ -30,7 +30,7 @@ func dummyPolicyStatement() (policyStatement TrustPolicy) {
 	policyStatement = TrustPolicy{
 		Name:                  "test-statement-name",
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-		SignatureVerification: SignatureVerification{VerificationLevel: "strict"},
+		SignatureVerification: SignatureVerification{VerificationLevel: "strict", VerifyTimestamp: "always"},
 		TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
 		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
 	}
@@ -54,26 +54,46 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 	policyStatement2 := dummyPolicyStatement()
 	policyStatement2.Name = "test-statement-name-2"
 	policyStatement2.RegistryScopes = []string{"registry.wabbit-networks.io/software/unsigned/net-utils"}
-	policyStatement2.SignatureVerification = SignatureVerification{VerificationLevel: "permissive"}
+	policyStatement2.SignatureVerification.VerificationLevel = "permissive"
 
 	policyStatement3 := dummyPolicyStatement()
 	policyStatement3.Name = "test-statement-name-3"
 	policyStatement3.RegistryScopes = []string{"registry.acme-rockets.io/software/legacy/metrics"}
 	policyStatement3.TrustStores = []string{}
 	policyStatement3.TrustedIdentities = []string{}
-	policyStatement3.SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
+	policyStatement3.SignatureVerification.VerificationLevel = "skip"
 
 	policyStatement4 := dummyPolicyStatement()
 	policyStatement4.Name = "test-statement-name-4"
 	policyStatement4.TrustStores = []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store-2"}
 	policyStatement4.RegistryScopes = []string{"*"}
-	policyStatement4.SignatureVerification = SignatureVerification{VerificationLevel: "audit"}
+	policyStatement4.SignatureVerification.VerificationLevel = "audit"
 
 	policyStatement5 := dummyPolicyStatement()
 	policyStatement5.Name = "test-statement-name-5"
 	policyStatement5.RegistryScopes = []string{"registry.acme-rockets2.io/software"}
 	policyStatement5.TrustedIdentities = []string{"*"}
-	policyStatement5.SignatureVerification = SignatureVerification{VerificationLevel: "strict"}
+	policyStatement5.SignatureVerification.VerificationLevel = "strict"
+
+	policyStatement6 := dummyPolicyStatement()
+	policyStatement6.Name = "test-statement-name-6"
+	policyStatement6.SignatureVerification.VerifyTimestamp = ""
+
+	policyStatement7 := dummyPolicyStatement()
+	policyStatement7.Name = "test-statement-name-7"
+	policyStatement7.SignatureVerification.VerifyTimestamp = OptionAlways
+
+	policyStatement8 := dummyPolicyStatement()
+	policyStatement8.Name = "test-statement-name-8"
+	policyStatement8.SignatureVerification.VerifyTimestamp = OptionAfterCertExpiry
+
+	policyStatement9 := dummyPolicyStatement()
+	policyStatement9.Name = "test-statement-name-9"
+	policyStatement9.SignatureVerification.SkipTimestampRevocationCheck = true
+
+	policyStatement10 := dummyPolicyStatement()
+	policyStatement10.Name = "test-statement-name-10"
+	policyStatement10.SignatureVerification.SkipTimestampRevocationCheck = false
 
 	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement1,
@@ -81,6 +101,11 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 		policyStatement3,
 		policyStatement4,
 		policyStatement5,
+		policyStatement6,
+		policyStatement7,
+		policyStatement8,
+		policyStatement9,
+		policyStatement10,
 	}
 	err := policyDoc.Validate()
 	if err != nil {
@@ -288,7 +313,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has zero registry scopes, it must specify registry scopes with at least one value" {
-		t.Fatalf("policy statement with registry scopes should return error")
+		t.Fatalf("policy statement with registry scopes should return error, but got %s", err)
 	}
 
 	// Multiple policy statements with same registry scope
@@ -322,6 +347,15 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
+	policyDoc = dummyPolicyDocument()
+	policyStatement = dummyPolicyStatement()
+	policyStatement.SignatureVerification.VerifyTimestamp = "invalid"
+	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
+	err = policyDoc.Validate()
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has invalid signatureVerification: verifyTimestamp must be \"always\" or \"afterCertExpiry\", but got \"invalid\"" {
+		t.Fatalf("policy statement with invalid SignatureVerification should return error, but got %s", err)
+	}
+
 	// strict SignatureVerification should have a trust store
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
@@ -345,7 +379,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// skip SignatureVerification should not have trust store or trusted identities
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
-	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
+	policyStatement.SignatureVerification.VerificationLevel = "skip"
 	policyDoc.TrustPolicies = []TrustPolicy{policyStatement}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped" {
@@ -385,7 +419,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// trust store/trusted identites are optional for skip SignatureVerification
 	policyDoc = dummyPolicyDocument()
 	policyStatement = dummyPolicyStatement()
-	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
+	policyStatement.SignatureVerification.VerificationLevel = "skip"
 	policyStatement.TrustStores = []string{}
 	policyStatement.TrustedIdentities = []string{}
 	err = policyDoc.Validate()
@@ -467,7 +501,7 @@ func TestGetVerificationLevel(t *testing.T) {
 			} else {
 				for index, action := range tt.verificationActions {
 					if action != level.Enforcement[ValidationTypes[index]] {
-						t.Errorf("%q verification action should be %q for Verification Level %q", ValidationTypes[index], action, tt.verificationLevel)
+						t.Errorf("%q verification action should be %q for Verification Level %v", ValidationTypes[index], action, tt.verificationLevel)
 					}
 				}
 			}
@@ -517,7 +551,7 @@ func TestCustomVerificationLevel(t *testing.T) {
 				}
 				for index, action := range tt.verificationActions {
 					if action != level.Enforcement[ValidationTypes[index]] {
-						t.Errorf("%q verification action should be %q for custom verification %q", ValidationTypes[index], action, tt.customVerification)
+						t.Errorf("%q verification action should be %q for custom verification %v", ValidationTypes[index], action, tt.customVerification)
 					}
 				}
 			}
@@ -570,6 +604,26 @@ func TestApplicableTrustPolicy(t *testing.T) {
 }
 
 func TestLoadDocument(t *testing.T) {
+	t.Run("valid policy file", func(t *testing.T) {
+		tempRoot := t.TempDir()
+		dir.UserConfigDir = tempRoot
+		path := filepath.Join(tempRoot, "trustpolicy.json")
+		policyDoc1 := dummyPolicyDocument()
+		policyDoc1.TrustPolicies[0].SignatureVerification.VerifyTimestamp = ""
+		policyJson, _ := json.Marshal(policyDoc1)
+		if err := os.WriteFile(path, policyJson, 0600); err != nil {
+			t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
+		}
+		policyDoc, err := LoadDocument()
+		if err != nil {
+			t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
+		}
+		for _, statement := range policyDoc.TrustPolicies {
+			if statement.SignatureVerification.VerifyTimestamp != OptionAlways {
+				t.Fatal("expecting to get default VerifyTimestamp value \"always\"")
+			}
+		}
+	})
 
 	t.Run("non-existing policy file", func(t *testing.T) {
 		tempRoot := t.TempDir()
@@ -588,20 +642,6 @@ func TestLoadDocument(t *testing.T) {
 		}
 		if _, err := LoadDocument(); err == nil {
 			t.Fatalf("TestLoadPolicyDocument should throw error for invalid policy file. Error: %v", err)
-		}
-	})
-
-	t.Run("valid policy file", func(t *testing.T) {
-		tempRoot := t.TempDir()
-		dir.UserConfigDir = tempRoot
-		path := filepath.Join(tempRoot, "trustpolicy.json")
-		policyDoc1 := dummyPolicyDocument()
-		policyJson, _ := json.Marshal(policyDoc1)
-		if err := os.WriteFile(path, policyJson, 0600); err != nil {
-			t.Fatalf("TestLoadPolicyDocument create valid policy file failed. Error: %v", err)
-		}
-		if _, err := LoadDocument(); err != nil {
-			t.Fatalf("TestLoadPolicyDocument should not throw error for an existing policy file. Error: %v", err)
 		}
 	})
 

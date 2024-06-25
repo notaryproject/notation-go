@@ -44,10 +44,6 @@ type ValidationType string
 // Enforced, Logged, Skipped.
 type ValidationAction string
 
-// TimestampOption is an enum for timestamp verifiction options such as Always,
-// AfterCertExpiry.
-type TimestampOption string
-
 // VerificationLevel encapsulates the signature verification preset and its
 // actions for each verification type
 type VerificationLevel struct {
@@ -69,8 +65,16 @@ const (
 	ActionSkip    ValidationAction = "skip"
 )
 
+// TimestampOption is an enum for timestamp verifiction options such as Always,
+// AfterCertExpiry.
+type TimestampOption string
+
 const (
-	OptionAlways          TimestampOption = "always"
+	// OptionAlways denotes always perform timestamp verification
+	OptionAlways TimestampOption = "always"
+
+	// OptionAfterCertExpiry denotes perform timestamp verification only if
+	// the signing certificate chain has expired
 	OptionAfterCertExpiry TimestampOption = "afterCertExpiry"
 )
 
@@ -174,9 +178,10 @@ type TrustPolicy struct {
 
 // SignatureVerification represents verification configuration in a trust policy
 type SignatureVerification struct {
-	VerificationLevel string                              `json:"level"`
-	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
-	VerifyTimestamp   TimestampOption                     `json:"verifyTimestamp,omitempty"`
+	VerificationLevel            string                              `json:"level"`
+	Override                     map[ValidationType]ValidationAction `json:"override,omitempty"`
+	VerifyTimestamp              TimestampOption                     `json:"verifyTimestamp,omitempty"`
+	SkipTimestampRevocationCheck bool                                `json:"skipTimestampRevocationCheck,omitempty"`
 }
 
 // Validate validates a policy document according to its version's rule set.
@@ -214,6 +219,9 @@ func (policyDoc *Document) Validate() error {
 		verificationLevel, err := statement.SignatureVerification.GetVerificationLevel()
 		if err != nil {
 			return fmt.Errorf("trust policy statement %q has invalid signatureVerification: %w", statement.Name, err)
+		}
+		if statement.SignatureVerification.VerifyTimestamp != OptionAlways && statement.SignatureVerification.VerifyTimestamp != OptionAfterCertExpiry {
+			return fmt.Errorf("trust policy statement %q has invalid signatureVerification: verifyTimestamp must be %q or %q, but got %q", statement.Name, OptionAlways, OptionAfterCertExpiry, statement.SignatureVerification.VerifyTimestamp)
 		}
 
 		// Any signature verification other than "skip" needs a trust store and
@@ -323,6 +331,12 @@ func LoadDocument() (*Document, error) {
 	err = json.NewDecoder(jsonFile).Decode(policyDocument)
 	if err != nil {
 		return nil, fmt.Errorf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink)
+	}
+	for idx, statement := range policyDocument.TrustPolicies {
+		if statement.SignatureVerification.VerifyTimestamp == "" {
+			// default value for VerifyTimestamp is "always"
+			policyDocument.TrustPolicies[idx].SignatureVerification.VerifyTimestamp = OptionAlways
+		}
 	}
 	return policyDocument, nil
 }
