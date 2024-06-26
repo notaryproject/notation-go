@@ -171,7 +171,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	}
 
 	if !content.Equal(payload.TargetArtifact, desc) {
-		logger.Infof("payload.TargetArtifact in signature: %+v", payload.TargetArtifact)
+		logger.Infof("Target artifact in signature payload: %+v", payload.TargetArtifact)
 		logger.Infof("Target artifact that want to be verified: %+v", desc)
 		outcome.Error = errors.New("content descriptor mismatch")
 	}
@@ -576,12 +576,15 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 
 	authenticSigningTime, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
 	if err != nil {
-		logger.Debugf("not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
+		// TODO: this error occurs only when signing scheme is notary.x509,
+		// because RFC 3161 timestamping is not supported yet. Once it's
+		// supported, this log would become valid.
+		logger.Debugf("Not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
 		authenticSigningTime = time.Time{}
 	}
 	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 	if err != nil {
-		logger.Debug("error while checking revocation status, err: %s", err.Error())
+		logger.Debug("Error while checking revocation status, err: %s", err.Error())
 		return &notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
@@ -600,7 +603,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	var revokedCertSubject string
 	for i := len(certResults) - 1; i >= 0; i-- {
 		if len(certResults[i].ServerResults) > 0 && certResults[i].ServerResults[0].Error != nil {
-			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
+			logger.Debugf("Error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
 		}
 
 		if certResults[i].Result == revocationresult.ResultOK || certResults[i].Result == revocationresult.ResultNonRevokable {
@@ -624,7 +627,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 
 	switch finalResult {
 	case revocationresult.ResultOK:
-		logger.Debug("no verification impacting errors encountered while checking revocation, status is OK")
+		logger.Debug("No verification impacting errors encountered while checking revocation, status is OK")
 	case revocationresult.ResultRevoked:
 		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
 	default:
