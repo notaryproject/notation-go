@@ -117,7 +117,7 @@ func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*Blo
 		}
 	}
 
-	return nil, fmt.Errorf("no applicable blob trust policy. Applicability for a given blob is determined by policy name")
+	return nil, fmt.Errorf("no applicable blob trust policy with name %q", policyName)
 }
 
 // GetGlobalTrustPolicy returns a pointer to the deep copy of the TrustPolicy that is marked as global policy
