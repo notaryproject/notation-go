@@ -30,7 +30,7 @@ func TestGetMetadata(t *testing.T) {
 	t.Run("plugin error is in invalid json format", func(t *testing.T) {
 		exitErr := errors.New("unknown error")
 		stderr := []byte("sad")
-		expectedErrMsg := "failed to execute the get-plugin-metadata command for plugin test-plugin: sad"
+		expectedErrMsg := "invalid character 's' looking for beginning of value"
 		plugin := CLIPlugin{name: "test-plugin"}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})
@@ -55,7 +55,7 @@ func TestGetMetadata(t *testing.T) {
 	t.Run("plugin cause system error", func(t *testing.T) {
 		exitErr := errors.New("system error")
 		stderr := []byte("")
-		expectedErrMsg := "failed to execute the get-plugin-metadata command for plugin test-plugin"
+		expectedErrMsg := "system error"
 		plugin := CLIPlugin{name: "test-plugin"}
 		executor = testCommander{stdout: nil, stderr: stderr, err: exitErr}
 		_, err := plugin.GetMetadata(context.Background(), &proto.GetMetadataRequest{})

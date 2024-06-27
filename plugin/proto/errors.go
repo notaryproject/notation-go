@@ -72,7 +72,7 @@ type RequestError struct {
 }
 
 func (e RequestError) Error() string {
-	return fmt.Sprintf("%s: %v", e.Code, e.Err)
+	return fmt.Sprintf("%v", e.Err)
 }
 
 func (e RequestError) Unwrap() error {

@@ -97,12 +97,22 @@ func (s *PluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		ks, err := s.getKeySpec(ctx, mergedConfig)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("failed to sign with the plugin %s: %w", metadata.Name, err)
 		}
-		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
+
+		sig, signerInfo, err := s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to sign with the plugin %s: %w", metadata.Name, err)
+		}
+		return sig, signerInfo, nil
 	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
-		return s.generateSignatureEnvelope(ctx, desc, opts)
+		sig, signerInfo, err := s.generateSignatureEnvelope(ctx, desc, opts)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to sign with the plugin %s: %w", metadata.Name, err)
+		}
+		return sig, signerInfo, nil
 	}
+
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
