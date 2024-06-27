@@ -406,7 +406,7 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 		return ocispec.Descriptor{}, nil, errors.New("blobReader cannot be nil")
 	}
 
-	if signature == nil || len(signature) == 0 {
+	if len(signature) == 0 {
 		return ocispec.Descriptor{}, nil, errors.New("signature cannot be nil or empty")
 	}
 
