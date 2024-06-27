@@ -16,6 +16,7 @@ package verifier
 
 import (
 	"context"
+	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -45,47 +46,76 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
 	"github.com/notaryproject/tspclient-go"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// verifier implements notation.Verifier and notation.verifySkipper
+var algorithms = map[crypto.Hash]digest.Algorithm{
+	crypto.SHA256: digest.SHA256,
+	crypto.SHA384: digest.SHA384,
+	crypto.SHA512: digest.SHA512,
+}
+
+// verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
 type verifier struct {
-	trustPolicyDoc   *trustpolicy.Document
-	trustStore       truststore.X509TrustStore
-	pluginManager    plugin.Manager
-	revocationClient revocation.Revocation
+	ociTrustPolicyDoc  *trustpolicy.OCIDocument
+	blobTrustPolicyDoc *trustpolicy.BlobDocument
+	trustStore         truststore.X509TrustStore
+	pluginManager      plugin.Manager
+	revocationClient   revocation.Revocation
 }
 
 // VerifierOptions specifies additional parameters that can be set when using
-// the NewWithOptions constructor
+// the NewVerifierWithOptions constructor
 type VerifierOptions struct {
 	// RevocationClient is an implementation of revocation.Revocation to use for
 	// verifying revocation
 	RevocationClient revocation.Revocation
 }
 
-// NewFromConfig returns a verifier based on local file system
-func NewFromConfig() (notation.Verifier, error) {
+// NewOCIVerifierFromConfig returns a OCI verifier based on local file system
+func NewOCIVerifierFromConfig() (*verifier, error) {
 	// load trust policy
-	policyDocument, err := trustpolicy.LoadDocument()
+	policyDocument, err := trustpolicy.LoadOCIDocument()
 	if err != nil {
 		return nil, err
 	}
 	// load trust store
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
-	return New(policyDocument, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
+	return NewVerifier(policyDocument, nil, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
 }
 
-// New creates a new verifier given trustPolicy, trustStore and pluginManager
-func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
-	return NewWithOptions(trustPolicy, trustStore, pluginManager, VerifierOptions{})
+// NewBlobVerifierFromConfig returns a Blob verifier based on local file system
+func NewBlobVerifierFromConfig() (*verifier, error) {
+	// load trust policy
+	policyDocument, err := trustpolicy.LoadBlobDocument()
+	if err != nil {
+		return nil, err
+	}
+	// load trust store
+	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
+
+	return NewVerifier(nil, policyDocument, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
 }
 
-// NewWithOptions creates a new verifier given trustPolicy, trustStore,
+// NewWithOptions creates a new verifier given ociTrustPolicy, trustStore,
 // pluginManager, and VerifierOptions
-func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
-	revocationClient := opts.RevocationClient
+// Deprecated: NewWithOptions function exists for historical compatibility and should not be used.
+// To create verifier, use NewVerifierWithOptions function.
+func NewWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
+	return NewVerifierWithOptions(ociTrustPolicy, nil, trustStore, pluginManager, opts)
+}
+
+// NewVerifier creates a new verifier given ociTrustPolicy, trustStore and pluginManager
+func NewVerifier(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (*verifier, error) {
+	return NewVerifierWithOptions(ociTrustPolicy, blobTrustPolicy, trustStore, pluginManager, VerifierOptions{})
+}
+
+// NewVerifierWithOptions creates a new verifier given ociTrustPolicy, blobTrustPolicy,
+// trustStore, pluginManager, and verifierOptions
+func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (*verifier, error) {
+	revocationClient := verifierOptions.RevocationClient
 	if revocationClient == nil {
 		var err error
 		revocationClient, err = revocation.New(&http.Client{Timeout: 2 * time.Second})
@@ -93,18 +123,49 @@ func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X50
 			return nil, err
 		}
 	}
-	if trustPolicy == nil || trustStore == nil {
-		return nil, errors.New("trustPolicy or trustStore cannot be nil")
+
+	if trustStore == nil {
+		return nil, errors.New("trustStore cannot be nil")
 	}
-	if err := trustPolicy.Validate(); err != nil {
-		return nil, err
+
+	if ociTrustPolicy == nil && blobTrustPolicy == nil {
+		return nil, errors.New("ociTrustPolicy and blobTrustPolicy both cannot be nil")
 	}
+
+	if ociTrustPolicy != nil {
+		if err := ociTrustPolicy.Validate(); err != nil {
+			return nil, err
+		}
+	}
+
+	if blobTrustPolicy != nil {
+		if err := blobTrustPolicy.Validate(); err != nil {
+			return nil, err
+		}
+	}
+
 	return &verifier{
-		trustPolicyDoc:   trustPolicy,
-		trustStore:       trustStore,
-		pluginManager:    pluginManager,
-		revocationClient: revocationClient,
+		ociTrustPolicyDoc:  ociTrustPolicy,
+		blobTrustPolicyDoc: blobTrustPolicy,
+		trustStore:         trustStore,
+		pluginManager:      pluginManager,
+		revocationClient:   revocationClient,
 	}, nil
+
+}
+
+// NewFromConfig returns a OCI verifier based on local file system
+// Deprecated: NewFromConfig function exists for historical compatibility and should not be used.
+// To create an OCI verifier, use NewOCIVerifierFromConfig function.
+func NewFromConfig() (notation.Verifier, error) {
+	return NewOCIVerifierFromConfig()
+}
+
+// New creates a new verifier given ociTrustPolicy, trustStore and pluginManager
+// Deprecated: New function exists for historical compatibility and should not be used.
+// To create verifier, use NewVerifier function.
+func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
+	return NewVerifier(ociTrustPolicy, nil, trustStore, pluginManager)
 }
 
 // SkipVerify validates whether the verification level is skip.
@@ -112,23 +173,105 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	logger := log.GetLogger(ctx)
 
 	logger.Debugf("Check verification level against artifact %v", opts.ArtifactReference)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
+	trustPolicy, err := v.ociTrustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
 		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
 	logger.Infof("Trust policy configuration: %+v", trustPolicy)
+
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
-
 	// verificationLevel is skip
 	if reflect.DeepEqual(verificationLevel, trustpolicy.LevelSkip) {
 		logger.Debug("Skipping signature verification")
 		return true, trustpolicy.LevelSkip, nil
 	}
+
 	return false, verificationLevel, nil
 }
 
-// Verify verifies the signature blob `signature` against the target OCI
+// VerifyBlob verifies the signature of given blob , and returns the outcome upon
+// successful verification.
+func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, signature []byte, opts notation.BlobVerifierVerifyOptions) (*notation.VerificationOutcome, error) {
+	logger := log.GetLogger(ctx)
+	logger.Debugf("Verify signature of media type %v", opts.SignatureMediaType)
+	if v.blobTrustPolicyDoc == nil {
+		return nil, errors.New("blobTrustPolicyDoc is nil")
+	}
+
+	var trustPolicy *trustpolicy.BlobTrustPolicy
+	var err error
+	if opts.TrustPolicyName == "" {
+		trustPolicy, err = v.blobTrustPolicyDoc.GetGlobalTrustPolicy()
+	} else {
+		trustPolicy, err = v.blobTrustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyName)
+	}
+	if err != nil {
+		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+	}
+	logger.Infof("Trust policy configuration: %+v", trustPolicy)
+
+	// ignore the error since we already validated the policy document
+	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
+	outcome := &notation.VerificationOutcome{
+		RawSignature:      signature,
+		VerificationLevel: verificationLevel,
+	}
+	// verificationLevel is skip
+	if reflect.DeepEqual(verificationLevel, trustpolicy.LevelSkip) {
+		logger.Debug("Skipping signature verification")
+		return outcome, nil
+	}
+	err = v.processSignature(ctx, signature, opts.SignatureMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, opts.PluginConfig, outcome)
+	if err != nil {
+		outcome.Error = err
+		return outcome, err
+	}
+
+	payload := &envelope.Payload{}
+	err = json.Unmarshal(outcome.EnvelopeContent.Payload.Content, payload)
+	if err != nil {
+		logger.Error("Failed to unmarshal the payload content in the signature blob to envelope.Payload")
+		outcome.Error = err
+		return outcome, err
+	}
+
+	cryptoHash := outcome.EnvelopeContent.SignerInfo.SignatureAlgorithm.Hash()
+	digestAlgo, ok := algorithms[cryptoHash]
+	if !ok {
+		logger.Error("Unsupported hashing algorithm: %v", cryptoHash)
+		err := fmt.Errorf("unsupported hashing algorithm: %v", cryptoHash)
+		outcome.Error = err
+		return outcome, err
+	}
+
+	desc, err := descGenFunc(digestAlgo)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to generate descriptor for given artifact. Error: %s", err)
+		logger.Error(errMsg)
+		descErr := errors.New(errMsg)
+		outcome.Error = descErr
+		return outcome, descErr
+	}
+
+	if desc.Digest != payload.TargetArtifact.Digest || desc.Size != payload.TargetArtifact.Size ||
+		(desc.MediaType != "" && desc.MediaType != payload.TargetArtifact.MediaType) {
+		logger.Infof("payload present in the signature: %+v", payload.TargetArtifact)
+		logger.Infof("payload derived from the blob: %+v", desc)
+		outcome.Error = errors.New("integrity check failed. signature does not match the given blob")
+	}
+
+	if len(opts.UserMetadata) > 0 {
+		err := verifyUserMetadata(logger, payload, opts.UserMetadata)
+		if err != nil {
+			outcome.Error = err
+		}
+	}
+
+	return outcome, outcome.Error
+}
+
+// Verify verifies the signature associated the target OCI
 // artifact with manifest descriptor `desc`, and returns the outcome upon
 // successful verification.
 // If nil signature is present and the verification level is not 'skip',
@@ -140,10 +283,15 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	logger := log.GetLogger(ctx)
 
 	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, envelopeMediaType)
-	trustPolicy, err := v.trustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
+	if v.ociTrustPolicyDoc == nil {
+		return nil, errors.New("ociTrustPolicyDoc is nil")
+	}
+
+	trustPolicy, err := v.ociTrustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
 		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
 	}
+
 	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 	// ignore the error since we already validated the policy document
 	verificationLevel, _ := trustPolicy.SignatureVerification.GetVerificationLevel()
@@ -157,7 +305,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy, pluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, pluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err
@@ -188,7 +336,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType string, trustPolicy *trustpolicy.TrustPolicy, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType, policyName string, trustedIdentities, trustStores []string, signatureVerification trustpolicy.SignatureVerification, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter
@@ -256,7 +404,18 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify x509 trust store based authenticity
 	logger.Debug("Validating cert chain")
-	authenticityResult := verifyAuthenticity(ctx, trustPolicy, v.trustStore, outcome)
+	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, policyName, trustStores, v.trustStore)
+	var authenticityResult *notation.ValidationResult
+	if err != nil {
+		authenticityResult = &notation.ValidationResult{
+			Error:  err,
+			Type:   trustpolicy.TypeAuthenticity,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
+		}
+	} else {
+		// verify authenticity
+		authenticityResult = verifyAuthenticity(trustCerts, outcome)
+	}
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
 	logVerificationResult(logger, authenticityResult)
 	if isCriticalFailure(authenticityResult) {
@@ -267,7 +426,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 	// to perform this verification rather than a plugin)
 	if !slices.Contains(pluginCapabilities, pluginframework.CapabilityTrustedIdentityVerifier) {
 		logger.Debug("Validating trust identity")
-		err = verifyX509TrustedIdentities(outcome.EnvelopeContent.SignerInfo.CertificateChain, trustPolicy)
+		err = verifyX509TrustedIdentities(policyName, trustedIdentities, outcome.EnvelopeContent.SignerInfo.CertificateChain)
 		if err != nil {
 			authenticityResult.Error = err
 			logVerificationResult(logger, authenticityResult)
@@ -288,7 +447,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, trustPolicy, v.trustStore, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -325,7 +484,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 		if len(capabilitiesToVerify) > 0 {
 			logger.Debugf("Executing verification plugin %q with capabilities %v", verificationPluginName, capabilitiesToVerify)
-			response, err := executePlugin(ctx, installedPlugin, trustPolicy, capabilitiesToVerify, outcome.EnvelopeContent, pluginConfig)
+			response, err := executePlugin(ctx, installedPlugin, capabilitiesToVerify, outcome.EnvelopeContent, trustedIdentities, pluginConfig)
 			if err != nil {
 				return err
 			}
@@ -444,18 +603,7 @@ func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation
 	}
 }
 
-func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
-	// verify authenticity
-	trustCerts, err := loadX509TrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
-
-	if err != nil {
-		return &notation.ValidationResult{
-			Error:  err,
-			Type:   trustpolicy.TypeAuthenticity,
-			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
-		}
-	}
-
+func verifyAuthenticity(trustCerts []*x509.Certificate, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	if len(trustCerts) < 1 {
 		return &notation.ValidationResult{
 			Error:  notation.ErrorVerificationInconclusive{Msg: "no trusted certificates are found to verify authenticity"},
@@ -463,7 +611,7 @@ func verifyAuthenticity(ctx context.Context, trustPolicy *trustpolicy.TrustPolic
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 		}
 	}
-	_, err = signature.VerifyAuthenticity(&outcome.EnvelopeContent.SignerInfo, trustCerts)
+	_, err := signature.VerifyAuthenticity(&outcome.EnvelopeContent.SignerInfo, trustCerts)
 	if err != nil {
 		switch err.(type) {
 		case *signature.SignatureAuthenticityError:
@@ -516,7 +664,7 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	// under signing scheme notary.x509
@@ -526,7 +674,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		timeStampLowerLimit := time.Now()
 		timeStampUpperLimit := timeStampLowerLimit
 		// check if tsa trust store is configured in trust policy
-		tsaEnabled, err := isTSATrustStoreInPolicy(trustPolicy)
+		tsaEnabled, err := isTSATrustStoreInPolicy(policyName, trustStores)
 		if err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to check tsa trust store configuration in turst policy with error: %w", err),
@@ -540,7 +688,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		}
 		// check based on 'verifyTimestamp' field
 		if performTimestampVerification &&
-			trustPolicy.SignatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
+			signatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
 			// check if signing cert chain has expired
 			var expired bool
 			for _, cert := range signerInfo.CertificateChain {
@@ -607,7 +755,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 			}
 		}
-		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, trustPolicy, x509TrustStore)
+		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, policyName, trustStores, x509TrustStore)
 		if err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
@@ -658,7 +806,7 @@ func verifyAuthenticTimestamp(ctx context.Context, trustPolicy *trustpolicy.Trus
 		timeStampLowerLimit = ts.Add(-accuracy)
 		timeStampUpperLimit = ts.Add(accuracy)
 		// 4. Perform the timestamping certificate chain revocation check
-		if !trustPolicy.SignatureVerification.SkipTimestampRevocationCheck {
+		if !signatureVerification.SkipTimestampRevocationCheck {
 			logger.Info("Checking timestamping certificate chain revocation...")
 			certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, &http.Client{Timeout: 5 * time.Second})
 			if err != nil {
@@ -804,7 +952,7 @@ func revocationFinalResult(certResults []*revocationresult.CertRevocationResult,
 	return finalResult, problematicCertSubject
 }
 
-func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPlugin, trustPolicy *trustpolicy.TrustPolicy, capabilitiesToVerify []pluginframework.Capability, envelopeContent *signature.EnvelopeContent, pluginConfig map[string]string) (*pluginframework.VerifySignatureResponse, error) {
+func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPlugin, capabilitiesToVerify []pluginframework.Capability, envelopeContent *signature.EnvelopeContent, trustedIdentities []string, pluginConfig map[string]string) (*pluginframework.VerifySignatureResponse, error) {
 	logger := log.GetLogger(ctx)
 	// sanity check
 	if installedPlugin == nil {
@@ -832,7 +980,7 @@ func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPl
 		// https://github.com/notaryproject/notation-core-go/issues/38
 	}
 
-	signature := pluginframework.Signature{
+	sig := pluginframework.Signature{
 		CriticalAttributes: pluginframework.CriticalAttributes{
 			ContentType:          payloadInfo.ContentType,
 			SigningScheme:        string(signerInfo.SignedAttributes.SigningScheme),
@@ -845,36 +993,36 @@ func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPl
 	}
 
 	policy := pluginframework.TrustPolicy{
-		TrustedIdentities:     trustPolicy.TrustedIdentities,
+		TrustedIdentities:     trustedIdentities,
 		SignatureVerification: capabilitiesToVerify,
 	}
 
 	req := &pluginframework.VerifySignatureRequest{
 		ContractVersion: pluginframework.ContractVersion,
-		Signature:       signature,
+		Signature:       sig,
 		TrustPolicy:     policy,
 		PluginConfig:    pluginConfig,
 	}
 	return installedPlugin.VerifySignature(ctx, req)
 }
 
-func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpolicy.TrustPolicy) error {
-	if slices.Contains(trustPolicy.TrustedIdentities, trustpolicyInternal.Wildcard) {
+func verifyX509TrustedIdentities(policyName string, trustedIdentities []string, certs []*x509.Certificate) error {
+	if slices.Contains(trustedIdentities, trustpolicyInternal.Wildcard) {
 		return nil
 	}
 
 	var trustedX509Identities []map[string]string
-	for _, identity := range trustPolicy.TrustedIdentities {
+	for _, identity := range trustedIdentities {
 		identityPrefix, identityValue, found := strings.Cut(identity, ":")
 		if !found {
-			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", trustPolicy.Name, identity)
+			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", policyName, identity)
 		}
 
 		// notation natively supports x509.subject identities only
 		if identityPrefix == trustpolicyInternal.X509Subject {
 			// identityValue cannot be empty
 			if identityValue == "" {
-				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", trustPolicy.Name, identity)
+				return fmt.Errorf("trust policy statement %q has trusted identity %q without an identity value", policyName, identity)
 			}
 			parsedSubject, err := pkix.ParseDistinguishedName(identityValue)
 			if err != nil {
@@ -885,7 +1033,7 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 	}
 
 	if len(trustedX509Identities) == 0 {
-		return fmt.Errorf("no x509 trusted identities are configured in the trust policy %q", trustPolicy.Name)
+		return fmt.Errorf("no x509 trusted identities are configured in the trust policy %q", policyName)
 	}
 
 	leafCert := certs[0] // trusted identities only supported on the leaf cert
@@ -901,7 +1049,7 @@ func verifyX509TrustedIdentities(certs []*x509.Certificate, trustPolicy *trustpo
 		}
 	}
 
-	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, trustPolicy.Name)
+	return fmt.Errorf("signing certificate from the digital signature does not match the X.509 trusted identities %q defined in the trust policy %q", trustedX509Identities, policyName)
 }
 
 func logVerificationResult(logger log.Logger, result *notation.ValidationResult) {

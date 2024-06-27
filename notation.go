@@ -90,6 +90,12 @@ type SignBlobOptions struct {
 }
 
 // BlobDescriptorGenerator creates descriptor using the digest Algorithm.
+// Below is the example of minimal descriptor, it must contain mediatype, digest and size of the artifact
+// {
+//    "mediaType": "application/octet-stream",
+//    "digest": "sha256:2f3a23b6373afb134ddcd864be8e037e34a662d090d33ee849471ff73c873345",
+//    "size": 1024
+// }
 type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
 
 // BlobSigner is a generic interface for signing arbitrary data.
@@ -201,8 +207,8 @@ func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, sign
 		return nil, nil, errors.New("content media-type cannot be empty")
 	}
 
-	if _, _, err := mime.ParseMediaType(signBlobOpts.ContentMediaType); err != nil {
-		return nil, nil, fmt.Errorf("invalid content media-type '%s': %v", signBlobOpts.ContentMediaType, err)
+	if err := validateContentMediaType(signBlobOpts.ContentMediaType); err != nil {
+		return nil, nil, err
 	}
 
 	getDescFunc := getDescriptorFunc(ctx, blobReader, signBlobOpts.ContentMediaType, signBlobOpts.UserMetadata)
@@ -222,9 +228,8 @@ func validateSignArguments(signer any, signOpts SignerSignOptions) error {
 	if signOpts.SignatureMediaType == "" {
 		return errors.New("signature media-type cannot be empty")
 	}
-
-	if !(signOpts.SignatureMediaType == jws.MediaTypeEnvelope || signOpts.SignatureMediaType == cose.MediaTypeEnvelope) {
-		return fmt.Errorf("invalid signature media-type '%s'", signOpts.SignatureMediaType)
+	if err := validateSigMediaType(signOpts.SignatureMediaType); err != nil {
+		return err
 	}
 
 	return nil
@@ -312,14 +317,14 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 	return payload.TargetArtifact.Annotations, nil
 }
 
-// VerifierVerifyOptions contains parameters for Verifier.Verify.
+// VerifierVerifyOptions contains parameters for Verifier.Verify used for verifying OCI artifact.
 type VerifierVerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is being
 	// verified against to. It must be a full reference.
 	ArtifactReference string
 
 	// SignatureMediaType is the envelope type of the signature.
-	// Currently both `application/jose+json` and `application/cose` are
+	// Currently only `application/jose+json` and `application/cose` are
 	// supported.
 	SignatureMediaType string
 
@@ -331,14 +336,41 @@ type VerifierVerifyOptions struct {
 	UserMetadata map[string]string
 }
 
-// Verifier is a generic interface for verifying an artifact.
+// Verifier is a interface for verifying an OCI artifact.
 type Verifier interface {
-	// Verify verifies the signature blob `signature` against the target OCI
-	// artifact with manifest descriptor `desc`, and returns the outcome upon
+	// Verify verifies the `signature` associated with the target OCI artifact
+	//with manifest descriptor `desc`, and returns the outcome upon
 	// successful verification.
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifierVerifyOptions) (*VerificationOutcome, error)
+}
+
+// BlobVerifierVerifyOptions contains parameters for BlobVerifier.Verify.
+type BlobVerifierVerifyOptions struct {
+	// SignatureMediaType is the envelope type of the signature.
+	// Currently only `application/jose+json` and `application/cose` are
+	// supported.
+	SignatureMediaType string
+
+	// PluginConfig is a map of plugin configs.
+	PluginConfig map[string]string
+
+	// UserMetadata contains key-value pairs that must be present in the
+	// signature.
+	UserMetadata map[string]string
+
+	// TrustPolicyName is the name of trust policy picked by caller.
+	// If empty, the global trust policy will be applied.
+	TrustPolicyName string
+}
+
+// BlobVerifier is a generic interface for verifying a blob.
+type BlobVerifier interface {
+	// VerifyBlob verifies the `signature` against the target artifact using the
+	// descriptor returned by descGenFunc parameter and
+	// returns the outcome upon  successful verification.
+	VerifyBlob(ctx context.Context, descGenFunc BlobDescriptorGenerator, signature []byte, opts BlobVerifierVerifyOptions) (*VerificationOutcome, error)
 }
 
 type verifySkipper interface {
@@ -363,6 +395,55 @@ type VerifyOptions struct {
 	// UserMetadata contains key-value pairs that must be present in the
 	// signature
 	UserMetadata map[string]string
+}
+
+// VerifyBlobOptions contains parameters for notation.VerifyBlob.
+type VerifyBlobOptions struct {
+	BlobVerifierVerifyOptions
+
+	// ContentMediaType is the media-type type of the content being verified.
+	ContentMediaType string
+}
+
+// VerifyBlob performs signature verification for a blob using notation supported
+// verification types (like integrity, authenticity, etc.) and return the
+// successful signature verification outcome. The blob is read using blobReader and
+// upon successful verification, it returns the descriptor of the blob.
+// For more details on signature verification, see
+// https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
+func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Reader, signature []byte, verifyBlobOpts VerifyBlobOptions) (ocispec.Descriptor, *VerificationOutcome, error) {
+	if blobVerifier == nil {
+		return ocispec.Descriptor{}, nil, errors.New("blobVerifier cannot be nil")
+	}
+
+	if blobReader == nil {
+		return ocispec.Descriptor{}, nil, errors.New("blobReader cannot be nil")
+	}
+
+	if len(signature) == 0 {
+		return ocispec.Descriptor{}, nil, errors.New("signature cannot be nil or empty")
+	}
+
+	if err := validateContentMediaType(verifyBlobOpts.ContentMediaType); err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+
+	if err := validateSigMediaType(verifyBlobOpts.SignatureMediaType); err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+
+	getDescFunc := getDescriptorFunc(ctx, blobReader, verifyBlobOpts.ContentMediaType, verifyBlobOpts.UserMetadata)
+	vo, err := blobVerifier.VerifyBlob(ctx, getDescFunc, signature, verifyBlobOpts.BlobVerifierVerifyOptions)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+
+	var desc ocispec.Descriptor
+	if err = json.Unmarshal(vo.EnvelopeContent.Payload.Content, &desc); err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+
+	return desc, vo, nil
 }
 
 // Verify performs signature verification on each of the notation supported
@@ -542,4 +623,20 @@ func getDescriptorFunc(ctx context.Context, reader io.Reader, contentMediaType s
 		}
 		return addUserMetadataToDescriptor(ctx, targetDesc, userMetadata)
 	}
+}
+
+func validateContentMediaType(contentMediaType string) error {
+	if contentMediaType != "" {
+		if _, _, err := mime.ParseMediaType(contentMediaType); err != nil {
+			return fmt.Errorf("invalid content media-type %q: %v", contentMediaType, err)
+		}
+	}
+	return nil
+}
+
+func validateSigMediaType(sigMediaType string) error {
+	if !(sigMediaType == jws.MediaTypeEnvelope || sigMediaType == cose.MediaTypeEnvelope) {
+		return fmt.Errorf("invalid signature media-type %q", sigMediaType)
+	}
+	return nil
 }

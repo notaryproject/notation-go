@@ -28,25 +28,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
-func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
-	policyStatement = trustpolicy.TrustPolicy{
-		Name:                  "test-statement-name",
-		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-		SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
-		TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
-		TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
-	}
-	return
-}
-
-func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
-	policyDoc = trustpolicy.Document{
-		Version:       "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{dummyPolicyStatement()},
-	}
-	return
-}
-
 func TestGetArtifactDigestFromUri(t *testing.T) {
 
 	tests := []struct {
@@ -79,15 +60,15 @@ func TestLoadX509TrustStore(t *testing.T) {
 	// load "ca" and "signingAuthority" trust store
 	caStore := "ca:valid-trust-store"
 	signingAuthorityStore := "signingAuthority:valid-trust-store"
-	dummyPolicy := dummyPolicyStatement()
+	dummyPolicy := dummyOCIPolicyDocument().TrustPolicies[0]
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
 	dir.UserConfigDir = "testdata"
 	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
-	_, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, &dummyPolicy, x509truststore)
+	_, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
-	_, err = loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, &dummyPolicy, x509truststore)
+	_, err = loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
@@ -129,12 +110,13 @@ func TestLoadX509TSATrustStores(t *testing.T) {
 	}
 	dir.UserConfigDir = "testdata"
 	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
-	_, err := loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509, &policyDoc.TrustPolicies[0], x509truststore)
+	policyStatement := policyDoc.TrustPolicies[0]
+	_, err := loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509, policyStatement.Name, policyStatement.TrustStores, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
 
-	_, err = loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, &policyDoc.TrustPolicies[0], x509truststore)
+	_, err = loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, policyStatement.Name, policyStatement.TrustStores, x509truststore)
 	expectedErrMsg := "error while loading the TSA trust store, signing scheme must be notary.x509, but got notary.x509.signingAuthority"
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -154,4 +136,33 @@ func getArtifactDigestFromReference(artifactReference string) (string, error) {
 	}
 
 	return artifactReference[i+1:], nil
+}
+
+func dummyOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
+	return trustpolicy.OCIDocument{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.OCITrustPolicy{
+			{
+				Name:                  "test-statement-name",
+				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
+				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
+			},
+		},
+	}
+}
+
+func dummyBlobPolicyDocument() (policyDoc trustpolicy.BlobDocument) {
+	return trustpolicy.BlobDocument{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.BlobTrustPolicy{
+			{
+				Name:                  "blob-test-statement-name",
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
+				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
+			},
+		},
+	}
 }
