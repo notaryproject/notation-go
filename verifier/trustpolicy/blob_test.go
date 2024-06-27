@@ -94,8 +94,9 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyStatement2.GlobalPolicy = true
 	policyDoc.TrustPolicies = []BlobTrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement should be marked as global policy" {
-		t.Fatalf("policy statement with no name should return an error")
+	if err == nil || err.Error() != "multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement can be marked as global policy" {
+		t.Error(err)
+		t.Fatalf("multiple global blob policy should return error")
 	}
 
 	// Policy Document with duplicate policy statement names
@@ -135,7 +136,7 @@ func TestGetApplicableTrustPolicy_Error(t *testing.T) {
 
 	t.Run("non existent policy name", func(t *testing.T) {
 		_, err := policyDoc.GetApplicableTrustPolicy("blaah")
-		if err == nil || err.Error() != "no applicable blob trust policy. Applicability for a given blob is determined by policy name" {
+		if err == nil || err.Error() != "no applicable blob trust policy with name \"blaah\"" {
 			t.Fatalf("GetApplicableTrustPolicy() returned error: %v", err)
 		}
 	})
