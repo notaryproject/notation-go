@@ -16,6 +16,7 @@ package trustpolicy
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/notaryproject/notation-go/dir"
@@ -96,6 +97,12 @@ func (policyDoc *BlobDocument) Validate() error {
 			if foundGlobalPolicy {
 				return errors.New("multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement can be marked as global policy")
 			}
+
+			// verificationLevel is skip
+			if reflect.DeepEqual(statement.SignatureVerification.VerificationLevel, LevelSkip) {
+				return errors.New("global blob trust policy statement cannot have verification level set to skip")
+			}
+
 			foundGlobalPolicy = true
 		}
 		policyNames.Add(statement.Name)

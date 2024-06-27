@@ -83,6 +83,12 @@ type SignBlobOptions struct {
 }
 
 // BlobDescriptorGenerator creates descriptor using the digest Algorithm.
+// Below is the example of minimal descriptor, it must contain mediatype, digest and size of the artifact
+// {
+//    "mediaType": "application/octet-stream",
+//    "digest": "sha256:2f3a23b6373afb134ddcd864be8e037e34a662d090d33ee849471ff73c873345",
+//    "size": 1024
+// }
 type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
 
 // BlobSigner is a generic interface for signing arbitrary data.
@@ -354,7 +360,8 @@ type BlobVerifierVerifyOptions struct {
 
 // BlobVerifier is a generic interface for verifying a blob.
 type BlobVerifier interface {
-	// VerifyBlob verifies the `signature` against the target artifact and
+	// VerifyBlob verifies the `signature` against the target artifact using the
+	// descriptor returned by descGenFunc parameter and
 	// returns the outcome upon  successful verification.
 	VerifyBlob(ctx context.Context, descGenFunc BlobDescriptorGenerator, signature []byte, opts BlobVerifierVerifyOptions) (*VerificationOutcome, error)
 }
