@@ -178,9 +178,10 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// Invalid SignatureVerification VerifyTimestamp
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].SignatureVerification.VerifyTimestamp = "invalid"
+	expectedErrMsg := "oci trust policy: trust policy statement \"test-statement-name\" has invalid signatureVerification: verifyTimestamp must be \"always\" or \"afterCertExpiry\", but got \"invalid\""
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has invalid signatureVerification: verifyTimestamp must be \"always\" or \"afterCertExpiry\", but got \"invalid\"" {
-		t.Fatalf("policy statement with invalid SignatureVerification should return error, but got %s", err)
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 	}
 
 	// strict SignatureVerification should have a trust store
