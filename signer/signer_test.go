@@ -117,7 +117,7 @@ func generateKeyBytes(key crypto.PrivateKey) (keyBytes []byte, err error) {
 	return keyBytes, nil
 }
 
-func prepareTestKeyCertFile(keyCert *keyCertPair, envelopeType, dir string) (string, string, error) {
+func prepareTestKeyCertFile(keyCert *keyCertPair, dir string) (string, string, error) {
 	keyPath, certPath := filepath.Join(dir, keyCert.keySpecName+".key"), filepath.Join(dir, keyCert.keySpecName+".cert")
 	keyBytes, err := generateKeyBytes(keyCert.key)
 	if err != nil {
@@ -138,7 +138,7 @@ func prepareTestKeyCertFile(keyCert *keyCertPair, envelopeType, dir string) (str
 }
 
 func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir string) {
-	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, envelopeType, dir)
+	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, dir)
 	if err != nil {
 		t.Fatalf("prepareTestKeyCertFile() failed: %v", err)
 	}
@@ -269,7 +269,7 @@ func signRSA(digest []byte, hash crypto.Hash, pk *rsa.PrivateKey) ([]byte, error
 	return rsa.SignPSS(rand.Reader, pk, hash, digest, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
 }
 
-func signECDSA(digest []byte, hash crypto.Hash, pk *ecdsa.PrivateKey) ([]byte, error) {
+func signECDSA(digest []byte, pk *ecdsa.PrivateKey) ([]byte, error) {
 	r, s, err := ecdsa.Sign(rand.Reader, pk, digest)
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func localSign(payload []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, 
 	case *rsa.PrivateKey:
 		return signRSA(digest, hash, key)
 	case *ecdsa.PrivateKey:
-		return signECDSA(digest, hash, key)
+		return signECDSA(digest, key)
 	default:
 		return nil, errors.New("signing private key not supported")
 	}

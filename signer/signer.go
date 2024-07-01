@@ -122,6 +122,8 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
 		SigningAgent:  signingAgentId,
+		TSAServerURL:  opts.TSAServerURL,
+		TSARootCAs:    opts.TSARootCAs,
 	}
 
 	// Add expiry only if ExpiryDuration is not zero
@@ -135,6 +137,7 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger.Debugf("  Expiry:        %v", signReq.Expiry)
 	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
 	logger.Debugf("  SigningAgent:  %v", signReq.SigningAgent)
+	logger.Debugf("  TSAServerURL:  %v", signReq.TSAServerURL)
 
 	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)
@@ -154,8 +157,6 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	if err := envelope.ValidatePayloadContentType(&envContent.Payload); err != nil {
 		return nil, nil, err
 	}
-
-	// TODO: re-enable timestamping https://github.com/notaryproject/notation-go/issues/78
 	return sig, &envContent.SignerInfo, nil
 }
 

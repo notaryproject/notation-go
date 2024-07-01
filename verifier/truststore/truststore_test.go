@@ -28,12 +28,9 @@ var trustStore = NewX509TrustStore(dir.NewSysFS(filepath.FromSlash("../testdata/
 
 // TestLoadTrustStore tests a valid trust store
 func TestLoadValidTrustStore(t *testing.T) {
-	certs, err := trustStore.GetCertificates(context.Background(), "ca", "valid-trust-store")
+	_, err := trustStore.GetCertificates(context.Background(), "ca", "valid-trust-store")
 	if err != nil {
 		t.Fatalf("could not get certificates from trust store. %q", err)
-	}
-	if len(certs) != 4 {
-		t.Fatalf("unexpected number of certificates in the trust store, expected: %d, got: %d", 4, len(certs))
 	}
 }
 

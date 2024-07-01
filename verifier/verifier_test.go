@@ -32,7 +32,6 @@ import (
 	"github.com/notaryproject/notation-core-go/signature"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
-	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	corex509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
@@ -741,7 +740,14 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	opts := VerifierOptions{RevocationClient: r}
+	rt, err := revocation.NewTimestamp(&http.Client{})
+	if err != nil {
+		t.Fatalf("unexpected error while creating revocation timestamp object: %v", err)
+	}
+	opts := VerifierOptions{
+		RevocationClient:          r,
+		RevocationTimestampClient: rt,
+	}
 
 	_, err = NewVerifierWithOptions(nil, nil, store, pm, opts)
 	if err == nil || err.Error() != "ociTrustPolicy and blobTrustPolicy both cannot be nil" {
@@ -1331,9 +1337,7 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 }
 
 // testTrustStore implements truststore.X509TrustStore and returns the trusted certificates for a given trust-store.
-type testTrustStore struct {
-	certs []*x509.Certificate
-}
+type testTrustStore struct{}
 
 func (ts *testTrustStore) GetCertificates(_ context.Context, _ truststore.Type, _ string) ([]*x509.Certificate, error) {
 	block, _ := pem.Decode([]byte(trustedCert))

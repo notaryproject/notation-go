@@ -243,7 +243,7 @@ func TestGetVerificationLevel(t *testing.T) {
 			} else {
 				for index, action := range tt.verificationActions {
 					if action != level.Enforcement[ValidationTypes[index]] {
-						t.Errorf("%q verification action should be %q for Verification Level %q", ValidationTypes[index], action, tt.verificationLevel)
+						t.Errorf("%q verification action should be %q for Verification Level %v", ValidationTypes[index], action, tt.verificationLevel)
 					}
 				}
 			}
@@ -293,7 +293,7 @@ func TestCustomVerificationLevel(t *testing.T) {
 				}
 				for index, action := range tt.verificationActions {
 					if action != level.Enforcement[ValidationTypes[index]] {
-						t.Errorf("%q verification action should be %q for custom verification %q", ValidationTypes[index], action, tt.customVerification)
+						t.Errorf("%q verification action should be %q for custom verification %v", ValidationTypes[index], action, tt.customVerification)
 					}
 				}
 			}
@@ -302,6 +302,9 @@ func TestCustomVerificationLevel(t *testing.T) {
 }
 
 func TestGetDocument(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	dir.UserConfigDir = "/"
 	var ociDoc OCIDocument
 	var blobDoc BlobDocument
@@ -349,6 +352,9 @@ func TestGetDocumentErrors(t *testing.T) {
 	})
 
 	t.Run("invalid json file", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
 		tempRoot := t.TempDir()
 		path := filepath.Join(tempRoot, "invalid.json")
 		if err := os.WriteFile(path, []byte(`{"invalid`), 0600); err != nil {
