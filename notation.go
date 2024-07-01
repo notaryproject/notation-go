@@ -66,8 +66,8 @@ type SignerSignOptions struct {
 	// TSAServerURL denotes the TSA server URL
 	TSAServerURL string
 
-	// TSARootCertificate denotes the TSA trust anchor
-	TSARootCertificate *x509.Certificate
+	// TSARootCAs is the cert pool holding caller's TSA trust anchor
+	TSARootCAs *x509.CertPool
 }
 
 // Signer is a generic interface for signing an OCI artifact.
@@ -91,11 +91,12 @@ type SignBlobOptions struct {
 
 // BlobDescriptorGenerator creates descriptor using the digest Algorithm.
 // Below is the example of minimal descriptor, it must contain mediatype, digest and size of the artifact
-// {
-//    "mediaType": "application/octet-stream",
-//    "digest": "sha256:2f3a23b6373afb134ddcd864be8e037e34a662d090d33ee849471ff73c873345",
-//    "size": 1024
-// }
+//
+//	{
+//	   "mediaType": "application/octet-stream",
+//	   "digest": "sha256:2f3a23b6373afb134ddcd864be8e037e34a662d090d33ee849471ff73c873345",
+//	   "size": 1024
+//	}
 type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
 
 // BlobSigner is a generic interface for signing arbitrary data.

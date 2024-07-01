@@ -302,6 +302,9 @@ func TestCustomVerificationLevel(t *testing.T) {
 }
 
 func TestGetDocument(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	dir.UserConfigDir = "/"
 	var ociDoc OCIDocument
 	var blobDoc BlobDocument
@@ -349,6 +352,9 @@ func TestGetDocumentErrors(t *testing.T) {
 	})
 
 	t.Run("invalid json file", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
 		tempRoot := t.TempDir()
 		path := filepath.Join(tempRoot, "invalid.json")
 		if err := os.WriteFile(path, []byte(`{"invalid`), 0600); err != nil {

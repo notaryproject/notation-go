@@ -58,19 +58,24 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 
 // verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
 type verifier struct {
-	ociTrustPolicyDoc  *trustpolicy.OCIDocument
-	blobTrustPolicyDoc *trustpolicy.BlobDocument
-	trustStore         truststore.X509TrustStore
-	pluginManager      plugin.Manager
-	revocationClient   revocation.Revocation
+	ociTrustPolicyDoc         *trustpolicy.OCIDocument
+	blobTrustPolicyDoc        *trustpolicy.BlobDocument
+	trustStore                truststore.X509TrustStore
+	pluginManager             plugin.Manager
+	revocationClient          revocation.Revocation
+	revocationTimestampClient revocation.Revocation
 }
 
 // VerifierOptions specifies additional parameters that can be set when using
 // the NewVerifierWithOptions constructor
 type VerifierOptions struct {
 	// RevocationClient is an implementation of revocation.Revocation to use for
-	// verifying revocation
+	// verifying revocation of code signing certificate chain
 	RevocationClient revocation.Revocation
+
+	// RevocationTimestampClient is an implementaion of evocation.Revocation to
+	// use for verifying revocation of timestamping certificate chain
+	RevocationTimestampClient revocation.Revocation
 }
 
 // NewOCIVerifierFromConfig returns a OCI verifier based on local file system
@@ -124,6 +129,15 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 		}
 	}
 
+	revocationTimestampClient := verifierOptions.RevocationTimestampClient
+	if revocationTimestampClient == nil {
+		var err error
+		revocationTimestampClient, err = revocation.NewTimestamp(&http.Client{Timeout: 5 * time.Second})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if trustStore == nil {
 		return nil, errors.New("trustStore cannot be nil")
 	}
@@ -145,13 +159,13 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 	}
 
 	return &verifier{
-		ociTrustPolicyDoc:  ociTrustPolicy,
-		blobTrustPolicyDoc: blobTrustPolicy,
-		trustStore:         trustStore,
-		pluginManager:      pluginManager,
-		revocationClient:   revocationClient,
+		ociTrustPolicyDoc:         ociTrustPolicy,
+		blobTrustPolicyDoc:        blobTrustPolicy,
+		trustStore:                trustStore,
+		pluginManager:             pluginManager,
+		revocationClient:          revocationClient,
+		revocationTimestampClient: revocationTimestampClient,
 	}, nil
-
 }
 
 // NewFromConfig returns a OCI verifier based on local file system
@@ -447,7 +461,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.revocationTimestampClient, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -664,15 +678,13 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	// under signing scheme notary.x509
 	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
 		logger.Info("Under signing scheme notary.x509...")
 		performTimestampVerification := true
-		timeStampLowerLimit := time.Now()
-		timeStampUpperLimit := timeStampLowerLimit
 		// check if tsa trust store is configured in trust policy
 		tsaEnabled, err := isTSATrustStoreInPolicy(policyName, trustStores)
 		if err != nil {
@@ -705,15 +717,17 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 		// timestamp verification disabled, signing cert chain MUST be valid
 		// at time of verification
 		if !performTimestampVerification {
+			timestampLowerLimit := time.Now()
+			timestampUpperLimit := timestampLowerLimit
 			for _, cert := range signerInfo.CertificateChain {
-				if timeStampLowerLimit.Before(cert.NotBefore) {
+				if timestampLowerLimit.Before(cert.NotBefore) {
 					return &notation.ValidationResult{
 						Error:  fmt.Errorf("verification time is before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
 						Type:   trustpolicy.TypeAuthenticTimestamp,
 						Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 					}
 				}
-				if timeStampUpperLimit.After(cert.NotAfter) {
+				if timestampUpperLimit.After(cert.NotAfter) {
 					return &notation.ValidationResult{
 						Error:  fmt.Errorf("verification time is after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
 						Type:   trustpolicy.TypeAuthenticTimestamp,
@@ -774,7 +788,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 		for _, trustedCerts := range trustTSACerts {
 			rootCertPool.AddCert(trustedCerts)
 		}
-		ts, accuracy, err := info.Validate(signerInfo.Signature)
+		timestamp, err := info.Validate(signerInfo.Signature)
 		if err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err),
@@ -783,7 +797,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 			}
 		}
 		tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
-			CurrentTime: ts,
+			CurrentTime: timestamp.Value,
 			Roots:       rootCertPool,
 		})
 		if err != nil {
@@ -795,7 +809,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 		}
 		// 3. Validate timestamping certificate chain
 		logger.Info("Validating timestamping certificate chain...")
-		if err := nx509.ValidateTimeStampingCertChain(tsaCertChain, nil); err != nil {
+		if err := nx509.ValidateTimestampingCertChain(tsaCertChain, nil); err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
@@ -803,12 +817,10 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 			}
 		}
 		logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
-		timeStampLowerLimit = ts.Add(-accuracy)
-		timeStampUpperLimit = ts.Add(accuracy)
 		// 4. Perform the timestamping certificate chain revocation check
 		if !signatureVerification.SkipTimestampRevocationCheck {
 			logger.Info("Checking timestamping certificate chain revocation...")
-			certResults, err := revocation.ValidateTimestampCertChain(tsaCertChain, timeStampUpperLimit, &http.Client{Timeout: 5 * time.Second})
+			certResults, err := r.Validate(tsaCertChain, timestamp.Value)
 			if err != nil {
 				return &notation.ValidationResult{
 					Error:  fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err),
@@ -837,18 +849,18 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 		}
 		// 5. Check the timestamp against the signing certificate chain
 		logger.Info("Checking the timestamp against the signing certificate chain...")
-		logger.Infof("Timestamp range: [%v, %v]", timeStampLowerLimit, timeStampUpperLimit)
+		logger.Infof("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
 		for _, cert := range signerInfo.CertificateChain {
-			if timeStampLowerLimit.Before(cert.NotBefore) {
+			if !timestamp.BoundedAfter(cert.NotBefore) {
 				return &notation.ValidationResult{
-					Error:  fmt.Errorf("timestamp lower limit %q is before certificate %q validity period, it will be valid from %q", timeStampLowerLimit.Format(time.RFC1123Z), cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
+					Error:  fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
 					Type:   trustpolicy.TypeAuthenticTimestamp,
 					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 				}
 			}
-			if timeStampUpperLimit.After(cert.NotAfter) {
+			if !timestamp.BoundedBefore(cert.NotAfter) {
 				return &notation.ValidationResult{
-					Error:  fmt.Errorf("timestamp upper limit %q is after certificate %q validity period, it was expired at %q", timeStampUpperLimit.Format(time.RFC1123Z), cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
+					Error:  fmt.Errorf("timestamp can be after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
 					Type:   trustpolicy.TypeAuthenticTimestamp,
 					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 				}

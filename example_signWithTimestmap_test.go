@@ -101,13 +101,15 @@ gKDWHrO8Dw9TdSmq6hN35N6MgSGtBxBHEa2HPQfRdbzP82Z+
 	if err != nil {
 		panic("failed to parse tsa root certificate: " + err.Error())
 	}
+	tsaRootCAs := x509.NewCertPool()
+	tsaRootCAs.AddCert(tsaRootCert)
 
 	// exampleSignOptions is an example of notation.SignOptions.
 	exampleSignOptions := notation.SignOptions{
 		SignerSignOptions: notation.SignerSignOptions{
 			SignatureMediaType: exampleSignatureMediaType,
 			TSAServerURL:       exampleRFC3161TSAServer,
-			TSARootCertificate: tsaRootCert,
+			TSARootCAs:         tsaRootCAs,
 		},
 		ArtifactReference: exampleArtifactReference,
 	}
