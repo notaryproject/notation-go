@@ -25,6 +25,7 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/signer"
+	"github.com/notaryproject/tspclient-go"
 )
 
 // Example_signWithTimestamp demonstrates how to use notation.Sign to sign an
@@ -105,10 +106,14 @@ gKDWHrO8Dw9TdSmq6hN35N6MgSGtBxBHEa2HPQfRdbzP82Z+
 	tsaRootCAs.AddCert(tsaRootCert)
 
 	// exampleSignOptions is an example of notation.SignOptions.
+	httpTimestamper, err := tspclient.NewHTTPTimestamper(nil, exampleRFC3161TSAServer)
+	if err != nil {
+		panic(err) // Handle error
+	}
 	exampleSignOptions := notation.SignOptions{
 		SignerSignOptions: notation.SignerSignOptions{
 			SignatureMediaType: exampleSignatureMediaType,
-			TSAServerURL:       exampleRFC3161TSAServer,
+			Timestamper:        httpTimestamper,
 			TSARootCAs:         tsaRootCAs,
 		},
 		ArtifactReference: exampleArtifactReference,

@@ -809,7 +809,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 		}
 		// 3. Validate timestamping certificate chain
 		logger.Info("Validating timestamping certificate chain...")
-		if err := nx509.ValidateTimestampingCertChain(tsaCertChain, nil); err != nil {
+		if err := nx509.ValidateTimestampingCertChain(tsaCertChain); err != nil {
 			return &notation.ValidationResult{
 				Error:  fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err),
 				Type:   trustpolicy.TypeAuthenticTimestamp,

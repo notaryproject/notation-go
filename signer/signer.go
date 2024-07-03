@@ -122,7 +122,7 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
 		SigningAgent:  signingAgentId,
-		TSAServerURL:  opts.TSAServerURL,
+		Timestamper:   opts.Timestamper,
 		TSARootCAs:    opts.TSARootCAs,
 	}
 
@@ -137,7 +137,9 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger.Debugf("  Expiry:        %v", signReq.Expiry)
 	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
 	logger.Debugf("  SigningAgent:  %v", signReq.SigningAgent)
-	logger.Debugf("  TSAServerURL:  %v", signReq.TSAServerURL)
+
+	// Add ctx to the SignRequest
+	signReq = signReq.WithContext(ctx)
 
 	// perform signing
 	sigEnv, err := signature.NewEnvelope(opts.SignatureMediaType)

@@ -15,6 +15,7 @@ package ocilayout
 
 import (
 	"os"
+	"runtime"
 	"testing"
 )
 
@@ -26,7 +27,10 @@ func TestCopy(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid target path", func(t *testing.T) {
+	t.Run("invalid target path permission", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
 		tempDir := t.TempDir()
 		// change the permission of the tempDir to make it invalid
 		if err := os.Chmod(tempDir, 0); err != nil {

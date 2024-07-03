@@ -38,6 +38,7 @@ import (
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/tspclient-go"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -63,8 +64,8 @@ type SignerSignOptions struct {
 	// SigningAgent sets the signing agent name
 	SigningAgent string
 
-	// TSAServerURL denotes the TSA server URL
-	TSAServerURL string
+	// Timestamper denotes the timestamper for RFC 3161 timestamping
+	Timestamper tspclient.Timestamper
 
 	// TSARootCAs is the cert pool holding caller's TSA trust anchor
 	TSARootCAs *x509.CertPool

@@ -34,12 +34,16 @@ import (
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/testhelper"
+	nx509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/tspclient-go"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+const rfc3161URL = "http://timestamp.digicert.com"
 
 type keyCertPair struct {
 	keySpecName string
@@ -208,7 +212,18 @@ func TestSignWithCertChain(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs)
+				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs, false)
+			})
+		}
+	}
+}
+
+func TestSignWithTimestamping(t *testing.T) {
+	// sign with key
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs, true)
 			})
 		}
 	}
@@ -354,7 +369,7 @@ func verifySigningAgent(t *testing.T, signingAgentId string, metadata *proto.Get
 	}
 }
 
-func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate) {
+func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate, timestamp bool) {
 	s, err := New(key, certs)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
@@ -363,6 +378,19 @@ func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.Private
 	ctx := context.Background()
 	desc, sOpts := generateSigningContent()
 	sOpts.SignatureMediaType = envelopeType
+	if timestamp {
+		sOpts.Timestamper, err = tspclient.NewHTTPTimestamper(nil, rfc3161URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rootCerts, err := nx509.ReadCertificateFile("./testdata/DigiCertTSARootSHA384.cer")
+		if err != nil {
+			t.Fatal(err)
+		}
+		rootCAs := x509.NewCertPool()
+		rootCAs.AddCert(rootCerts[0])
+		sOpts.TSARootCAs = rootCAs
+	}
 	sig, _, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
