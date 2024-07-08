@@ -32,7 +32,6 @@ import (
 	"github.com/notaryproject/notation-core-go/revocation"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
-	nx509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
@@ -45,7 +44,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
-	"github.com/notaryproject/tspclient-go"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -681,206 +679,25 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
+	signerInfo := outcome.EnvelopeContent.SignerInfo
 	// under signing scheme notary.x509
-	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
+	if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
 		logger.Info("Under signing scheme notary.x509...")
-		performTimestampVerification := true
-		// check if tsa trust store is configured in trust policy
-		tsaEnabled, err := isTSATrustStoreInPolicy(policyName, trustStores)
-		if err != nil {
+		return verifyTimestamp(ctx, policyName, trustStores, signatureVerification, x509TrustStore, r, outcome)
+	}
+
+	// under signing scheme notary.x509.signingAuthority
+	logger.Info("Under signing scheme notary.x509.signingAuthority...")
+	authenticSigningTime := signerInfo.SignedAttributes.SigningTime
+	for _, cert := range signerInfo.CertificateChain {
+		if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
 			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to check tsa trust store configuration in turst policy with error: %w", err),
+				Error:  fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z)),
 				Type:   trustpolicy.TypeAuthenticTimestamp,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		if !tsaEnabled {
-			logger.Info("Timestamp verification disabled: no tsa trust store is configured in trust policy")
-			performTimestampVerification = false
-		}
-		// check based on 'verifyTimestamp' field
-		if performTimestampVerification &&
-			signatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
-			// check if signing cert chain has expired
-			var expired bool
-			for _, cert := range signerInfo.CertificateChain {
-				if time.Now().After(cert.NotAfter) {
-					expired = true
-					break
-				}
-			}
-			if !expired {
-				logger.Infof("Timestamp verification disabled: verifyTimestamp is set to %q and signing cert chain unexpired", trustpolicy.OptionAfterCertExpiry)
-				performTimestampVerification = false
-			}
-		}
-		// timestamp verification disabled, signing cert chain MUST be valid
-		// at time of verification
-		if !performTimestampVerification {
-			timestampLowerLimit := time.Now()
-			timestampUpperLimit := timestampLowerLimit
-			for _, cert := range signerInfo.CertificateChain {
-				if timestampLowerLimit.Before(cert.NotBefore) {
-					return &notation.ValidationResult{
-						Error:  fmt.Errorf("verification time is before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
-						Type:   trustpolicy.TypeAuthenticTimestamp,
-						Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-					}
-				}
-				if timestampUpperLimit.After(cert.NotAfter) {
-					return &notation.ValidationResult{
-						Error:  fmt.Errorf("verification time is after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
-						Type:   trustpolicy.TypeAuthenticTimestamp,
-						Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-					}
-				}
-			}
-			// success
-			return &notation.ValidationResult{
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		// Performing timestamp verification
-		// 1. Timestamp countersignature MUST be present
-		logger.Info("Checking timestamp countersignature existence...")
-		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
-			return &notation.ValidationResult{
-				Error:  errors.New("no timestamp countersignature was found in the signature envelope"),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		// 2. Verify the timestamp countersignature
-		logger.Info("Verifying the timestamp countersignature...")
-		signedToken, err := tspclient.ParseSignedToken(signerInfo.UnsignedAttributes.TimestampSignature)
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to parse timestamp countersignature with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		info, err := signedToken.Info()
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to get the timestamp TSTInfo with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, policyName, trustStores, x509TrustStore)
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to load tsa trust store with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		if len(trustTSACerts) < 1 {
-			return &notation.ValidationResult{
-				Error:  errors.New("no trusted TSA certificate found in trust store"),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		rootCertPool := x509.NewCertPool()
-		for _, trustedCerts := range trustTSACerts {
-			rootCertPool.AddCert(trustedCerts)
-		}
-		timestamp, err := info.Validate(signerInfo.Signature)
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
-			CurrentTime: timestamp.Value,
-			Roots:       rootCertPool,
-		})
-		if err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		// 3. Validate timestamping certificate chain
-		logger.Info("Validating timestamping certificate chain...")
-		if err := nx509.ValidateTimestampingCertChain(tsaCertChain); err != nil {
-			return &notation.ValidationResult{
-				Error:  fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err),
-				Type:   trustpolicy.TypeAuthenticTimestamp,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-			}
-		}
-		logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
-		// 4. Perform the timestamping certificate chain revocation check
-		if !signatureVerification.SkipTimestampRevocationCheck {
-			logger.Info("Checking timestamping certificate chain revocation...")
-			certResults, err := r.Validate(tsaCertChain, timestamp.Value)
-			if err != nil {
-				return &notation.ValidationResult{
-					Error:  fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err),
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			finalResult, problematicCertSubject := revocationFinalResult(certResults, tsaCertChain, logger)
-			switch finalResult {
-			case revocationresult.ResultOK:
-				logger.Debug("No verification impacting errors encountered while checking timestamping certificate chain revocation, status is OK")
-			case revocationresult.ResultRevoked:
-				return &notation.ValidationResult{
-					Error:  fmt.Errorf("timestamping certificate with subject %q is revoked", problematicCertSubject),
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			default:
-				// revocationresult.ResultUnknown
-				return &notation.ValidationResult{
-					Error:  fmt.Errorf("timestamping certificate with subject %q revocation status is unknown", problematicCertSubject),
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-		}
-		// 5. Check the timestamp against the signing certificate chain
-		logger.Info("Checking the timestamp against the signing certificate chain...")
-		logger.Infof("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
-		for _, cert := range signerInfo.CertificateChain {
-			if !timestamp.BoundedAfter(cert.NotBefore) {
-				return &notation.ValidationResult{
-					Error:  fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z)),
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-			if !timestamp.BoundedBefore(cert.NotAfter) {
-				return &notation.ValidationResult{
-					Error:  fmt.Errorf("timestamp can be after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z)),
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
-			}
-		}
-	} else if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
-		// under signing scheme notary.x509.signingAuthority
-		logger.Info("Under signing scheme notary.x509.signingAuthority...")
-		authenticSigningTime := signerInfo.SignedAttributes.SigningTime
-		for _, cert := range signerInfo.CertificateChain {
-			if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
-				return &notation.ValidationResult{
-					Error:  fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z)),
-					Type:   trustpolicy.TypeAuthenticTimestamp,
-					Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
-				}
 			}
 		}
 	}
-
 	// success
 	return &notation.ValidationResult{
 		Type:   trustpolicy.TypeAuthenticTimestamp,

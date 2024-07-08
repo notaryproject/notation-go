@@ -35,7 +35,8 @@ func Example_verifyWithTimestamp() {
 	// exampleArtifactReference is an example of the target artifact reference
 	exampleArtifactReference := "localhost:5000/software@sha256:60043cf45eaebc4c0867fea485a039b598f52fd09fd5b07b0b2d2f88fad9d74e"
 
-	// examplePolicyDocument is an example of a valid trust policy document.
+	// examplePolicyDocument is an example of a valid trust policy document with
+	// timestamping configurations.
 	// trust policy document should follow this spec:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#trust-policy
 	examplePolicyDocument := trustpolicy.Document{
