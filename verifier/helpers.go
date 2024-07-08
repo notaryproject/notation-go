@@ -190,6 +190,8 @@ func isTSATrustStoreInPolicy(policyName string, trustStores []string) (bool, err
 	return false, nil
 }
 
+// verifyTimestamp provides core verification logic of authentic timestamp under
+// signing scheme `notary.x509`.
 func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
