@@ -52,11 +52,6 @@ func Example_verifyWithTimestamp() {
 					// certificate chain has expired.
 					// Default: trustpolicy.OptionAlways
 					VerifyTimestamp: trustpolicy.OptionAfterCertExpiry,
-
-					// verify timestamp countersignature but skip timestamp
-					// certificate chain revocation check.
-					// Default: false
-					SkipTimestampRevocationCheck: true,
 				},
 
 				// `tsa` trust store type MUST be configured to enable

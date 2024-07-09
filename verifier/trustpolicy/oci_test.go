@@ -376,16 +376,6 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 	policyStatement8.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor8"}
 	policyStatement8.SignatureVerification.VerifyTimestamp = OptionAfterCertExpiry
 
-	policyStatement9 := policyStatement1.clone()
-	policyStatement9.Name = "test-statement-name-9"
-	policyStatement9.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor9"}
-	policyStatement9.SignatureVerification.SkipTimestampRevocationCheck = true
-
-	policyStatement10 := policyStatement1.clone()
-	policyStatement10.Name = "test-statement-name-10"
-	policyStatement10.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor10"}
-	policyStatement10.SignatureVerification.SkipTimestampRevocationCheck = false
-
 	policyDoc.TrustPolicies = []OCITrustPolicy{
 		*policyStatement1,
 		*policyStatement2,
@@ -395,8 +385,6 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 		*policyStatement6,
 		*policyStatement7,
 		*policyStatement8,
-		*policyStatement9,
-		*policyStatement10,
 	}
 
 	err := policyDoc.Validate()

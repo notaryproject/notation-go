@@ -147,10 +147,9 @@ var (
 
 // SignatureVerification represents verification configuration in a trust policy
 type SignatureVerification struct {
-	VerificationLevel            string                              `json:"level"`
-	Override                     map[ValidationType]ValidationAction `json:"override,omitempty"`
-	VerifyTimestamp              TimestampOption                     `json:"verifyTimestamp,omitempty"`
-	SkipTimestampRevocationCheck bool                                `json:"skipTimestampRevocationCheck,omitempty"`
+	VerificationLevel string                              `json:"level"`
+	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
+	VerifyTimestamp   TimestampOption                     `json:"verifyTimestamp,omitempty"`
 }
 
 type errPolicyNotExist struct{}
