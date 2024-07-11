@@ -1004,7 +1004,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// 4. Perform the timestamping certificate chain revocation check
 	logger.Info("Checking timestamping certificate chain revocation...")
-	certResults, err := r.Validate(tsaCertChain, timestamp.Value)
+	certResults, err := r.Validate(tsaCertChain, time.Time{})
 	if err != nil {
 		return fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err)
 	}
