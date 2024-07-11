@@ -704,6 +704,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 			}
 		}
 	}
+
 	// success
 	return &notation.ValidationResult{
 		Type:   trustpolicy.TypeAuthenticTimestamp,
