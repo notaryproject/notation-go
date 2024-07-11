@@ -910,6 +910,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	signerInfo := outcome.EnvelopeContent.SignerInfo
 	performTimestampVerification := true
+
 	// check if tsa trust store is configured in trust policy
 	tsaEnabled, err := isTSATrustStoreInPolicy(policyName, trustStores)
 	if err != nil {
@@ -919,13 +920,15 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 		logger.Info("Timestamp verification disabled: no tsa trust store is configured in trust policy")
 		performTimestampVerification = false
 	}
+
 	// check based on 'verifyTimestamp' field
+	timeOfVerification := time.Now()
 	if performTimestampVerification &&
 		signatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
 		// check if signing cert chain has expired
 		var expired bool
 		for _, cert := range signerInfo.CertificateChain {
-			if time.Now().After(cert.NotAfter) {
+			if timeOfVerification.After(cert.NotAfter) {
 				expired = true
 				break
 			}
@@ -935,10 +938,10 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 			performTimestampVerification = false
 		}
 	}
+
 	// timestamp verification disabled, signing cert chain MUST be valid
 	// at time of verification
 	if !performTimestampVerification {
-		timeOfVerification := time.Now()
 		for _, cert := range signerInfo.CertificateChain {
 			if timeOfVerification.Before(cert.NotBefore) {
 				return fmt.Errorf("verification time is before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
@@ -947,15 +950,18 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 				return fmt.Errorf("verification time is after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
 			}
 		}
+
 		// success
 		return nil
 	}
+
 	// Performing timestamp verification
 	// 1. Timestamp countersignature MUST be present
 	logger.Info("Checking timestamp countersignature existence...")
 	if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
 		return errors.New("no timestamp countersignature was found in the signature envelope")
 	}
+
 	// 2. Verify the timestamp countersignature
 	logger.Info("Verifying the timestamp countersignature...")
 	signedToken, err := tspclient.ParseSignedToken(signerInfo.UnsignedAttributes.TimestampSignature)
@@ -988,12 +994,14 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	if err != nil {
 		return fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err)
 	}
+
 	// 3. Validate timestamping certificate chain
 	logger.Info("Validating timestamping certificate chain...")
 	if err := nx509.ValidateTimestampingCertChain(tsaCertChain); err != nil {
 		return fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err)
 	}
 	logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
+
 	// 4. Perform the timestamping certificate chain revocation check
 	logger.Info("Checking timestamping certificate chain revocation...")
 	certResults, err := r.Validate(tsaCertChain, timestamp.Value)
@@ -1010,6 +1018,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 		// revocationresult.ResultUnknown
 		return fmt.Errorf("timestamping certificate with subject %q revocation status is unknown", problematicCertSubject)
 	}
+
 	// 5. Check the timestamp against the signing certificate chain
 	logger.Info("Checking the timestamp against the signing certificate chain...")
 	logger.Infof("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
@@ -1021,6 +1030,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 			return fmt.Errorf("timestamp can be after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
 		}
 	}
+
 	// success
 	return nil
 }
