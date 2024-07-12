@@ -47,7 +47,7 @@ var VerificationPluginHeaders = []string{
 
 var errExtendedAttributeNotExist = errors.New("extended attribute not exist")
 
-func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policy *trustpolicy.TrustPolicy, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
+func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, policyName string, trustStores []string, x509TrustStore truststore.X509TrustStore) ([]*x509.Certificate, error) {
 	var typeToLoad truststore.Type
 	switch scheme {
 	case signature.SigningSchemeX509:
@@ -60,7 +60,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 
 	processedStoreSet := set.New[string]()
 	var certificates []*x509.Certificate
-	for _, trustStore := range policy.TrustStores {
+	for _, trustStore := range trustStores {
 		if processedStoreSet.Contains(trustStore) {
 			// we loaded this trust store already
 			continue
@@ -68,7 +68,7 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 
 		storeType, name, found := strings.Cut(trustStore, ":")
 		if !found {
-			return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the trust store, trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policy.Name, trustStore)}
+			return nil, truststore.TrustStoreError{Msg: fmt.Sprintf("error while loading the trust store, trust policy statement %q is missing separator in trust store value %q. The required format is <TrustStoreType>:<TrustStoreName>", policyName, trustStore)}
 		}
 		if typeToLoad != truststore.Type(storeType) {
 			continue

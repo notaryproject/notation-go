@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"oras.land/oras-go/v2/registry/remote"
+
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
@@ -37,7 +39,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"oras.land/oras-go/v2/registry/remote"
 )
 
 var expectedMetadata = map[string]string{"foo": "bar", "bar": "foo"}
@@ -117,7 +118,7 @@ func TestSignBlobError(t *testing.T) {
 	}{
 		{"negativeExpiry", &dummySigner{}, -1 * time.Second, nil, "video/mp4", jws.MediaTypeEnvelope, "expiry duration cannot be a negative value"},
 		{"milliSecExpiry", &dummySigner{}, 1 * time.Millisecond, nil, "video/mp4", jws.MediaTypeEnvelope, "expiry duration supports minimum granularity of seconds"},
-		{"invalidContentMediaType", &dummySigner{}, 1 * time.Second, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type 'video/mp4/zoping': mime: unexpected content after media subtype"},
+		{"invalidContentMediaType", &dummySigner{}, 1 * time.Second, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type \"video/mp4/zoping\": mime: unexpected content after media subtype"},
 		{"emptyContentMediaType", &dummySigner{}, 1 * time.Second, reader, "", jws.MediaTypeEnvelope, "content media-type cannot be empty"},
 		{"invalidSignatureMediaType", &dummySigner{}, 1 * time.Second, reader, "", "", "content media-type cannot be empty"},
 		{"nilReader", &dummySigner{}, 1 * time.Second, nil, "video/mp4", jws.MediaTypeEnvelope, "blobReader cannot be nil"},
@@ -304,9 +305,10 @@ func TestSignOptsUnknownMediaType(t *testing.T) {
 }
 
 func TestRegistryResolveError(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
 
 	errorMessage := "network error"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -322,9 +324,10 @@ func TestRegistryResolveError(t *testing.T) {
 }
 
 func TestVerifyEmptyReference(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+
 
 	errorMessage := "reference is missing digest or tag"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -338,8 +341,8 @@ func TestVerifyEmptyReference(t *testing.T) {
 }
 
 func TestVerifyTagReferenceFailed(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
 	errorMessage := "invalid reference: invalid repository \"UPPERCASE/test\""
@@ -354,9 +357,9 @@ func TestVerifyTagReferenceFailed(t *testing.T) {
 }
 
 func TestVerifyDigestNotMatchResolve(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	repo.MissMatchDigest = true
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
 	errorMessage := fmt.Sprintf("user input digest %s does not match the resolved digest %s", mock.SampleDigest, mock.ZeroDigest)
@@ -390,8 +393,8 @@ func TestSignDigestNotMatchResolve(t *testing.T) {
 }
 
 func TestSkippedSignatureVerification(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
 
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
@@ -403,8 +406,8 @@ func TestSkippedSignatureVerification(t *testing.T) {
 }
 
 func TestRegistryNoSignatureManifests(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 	errorMessage := fmt.Sprintf("no signature is associated with %q, make sure the artifact was signed successfully", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -420,8 +423,8 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 }
 
 func TestRegistryFetchSignatureBlobError(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the Repository, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -437,8 +440,8 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 }
 
 func TestVerifyValid(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 
 	// mock the repository
@@ -451,8 +454,8 @@ func TestVerifyValid(t *testing.T) {
 }
 
 func TestMaxSignatureAttemptsMissing(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", 0)}
 
@@ -466,10 +469,11 @@ func TestMaxSignatureAttemptsMissing(t *testing.T) {
 }
 
 func TestExceededMaxSignatureAttempts(t *testing.T) {
-	policyDocument := dummyPolicyDocument()
 	repo := mock.NewRepository()
 	repo.ExceededNumOfSignatures = true
+	policyDocument := dummyPolicyDocument()
 	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
+
 	expectedErr := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", 1)}
 
 	// mock the repository
@@ -525,6 +529,63 @@ func TestVerifyFailed(t *testing.T) {
 	})
 }
 
+func TestVerifyBlobError(t *testing.T) {
+	reader := strings.NewReader("some content")
+	sig := []byte("signature")
+	testCases := []struct {
+		name     string
+		verifier BlobVerifier
+		sig      []byte
+		rdr      io.Reader
+		ctMType  string
+		sigMType string
+		errMsg   string
+	}{
+		{"nilVerifier", nil, sig, reader, "video/mp4", jws.MediaTypeEnvelope, "blobVerifier cannot be nil"},
+		{"verifierError", &dummyVerifier{FailVerify: true}, sig, reader, "video/mp4", jws.MediaTypeEnvelope, "failed verify"},
+		{"nilSignature", &dummyVerifier{}, nil, reader, "video/mp4", jws.MediaTypeEnvelope, "signature cannot be nil or empty"},
+		{"emptySignature", &dummyVerifier{}, []byte{}, reader, "video/mp4", jws.MediaTypeEnvelope, "signature cannot be nil or empty"},
+		{"nilReader", &dummyVerifier{}, sig, nil, "video/mp4", jws.MediaTypeEnvelope, "blobReader cannot be nil"},
+		{"invalidContentType", &dummyVerifier{}, sig, reader, "video/mp4/zoping", jws.MediaTypeEnvelope, "invalid content media-type \"video/mp4/zoping\": mime: unexpected content after media subtype"},
+		{"invalidSigType", &dummyVerifier{}, sig, reader, "video/mp4", "hola!", "invalid signature media-type \"hola!\""},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := VerifyBlobOptions{
+				BlobVerifierVerifyOptions: BlobVerifierVerifyOptions{
+					SignatureMediaType: tc.sigMType,
+					UserMetadata:       nil,
+					TrustPolicyName:    "",
+				},
+				ContentMediaType: tc.ctMType,
+			}
+
+			_, _, err := VerifyBlob(context.Background(), tc.verifier, tc.rdr, tc.sig, opts)
+			if err == nil {
+				t.Fatalf("expected error but didnt found")
+			}
+			if err.Error() != tc.errMsg {
+				t.Fatalf("expected err message to be '%s' but found '%s'", tc.errMsg, err.Error())
+			}
+		})
+	}
+}
+
+func TestVerifyBlobValid(t *testing.T) {
+	opts := VerifyBlobOptions{
+		BlobVerifierVerifyOptions: BlobVerifierVerifyOptions{
+			SignatureMediaType: jws.MediaTypeEnvelope,
+			UserMetadata:       nil,
+			TrustPolicyName:    "",
+		},
+	}
+
+	_, _, err := VerifyBlob(context.Background(), &dummyVerifier{}, strings.NewReader("some content"), []byte("signature"), opts)
+	if err != nil {
+		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", nil, err)
+	}
+}
+
 func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
 	policyDoc = trustpolicy.Document{
 		Version:       "1.0",
@@ -544,11 +605,12 @@ func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
 	return
 }
 
+
 type dummySigner struct {
 	fail bool
 }
 
-func (s *dummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *dummySigner) Sign(_ context.Context, _ ocispec.Descriptor, _ SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	return []byte("ABC"), &signature.SignerInfo{
 		SignedAttributes: signature.SignedAttributes{
 			SigningTime: time.Now(),
@@ -575,7 +637,7 @@ func (s *dummySigner) SignBlob(_ context.Context, descGenFunc BlobDescriptorGene
 
 type verifyMetadataSigner struct{}
 
-func (s *verifyMetadataSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *verifyMetadataSigner) Sign(_ context.Context, desc ocispec.Descriptor, _ SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	for k, v := range expectedMetadata {
 		if desc.Annotations[k] != v {
 			return nil, nil, errors.New("expected metadata not present in descriptor")
@@ -589,13 +651,13 @@ func (s *verifyMetadataSigner) Sign(ctx context.Context, desc ocispec.Descriptor
 }
 
 type dummyVerifier struct {
-	TrustPolicyDoc    *trustpolicy.Document
+	TrustPolicyDoc    *trustpolicy.OCIDocument
 	PluginManager     plugin.Manager
 	FailVerify        bool
 	VerificationLevel trustpolicy.VerificationLevel
 }
 
-func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifierVerifyOptions) (*VerificationOutcome, error) {
+func (v *dummyVerifier) Verify(_ context.Context, _ ocispec.Descriptor, _ []byte, _ VerifierVerifyOptions) (*VerificationOutcome, error) {
 	outcome := &VerificationOutcome{
 		VerificationResults: []*ValidationResult{},
 		VerificationLevel:   &v.VerificationLevel,
@@ -606,6 +668,22 @@ func (v *dummyVerifier) Verify(ctx context.Context, desc ocispec.Descriptor, sig
 	return outcome, nil
 }
 
+func (v *dummyVerifier) VerifyBlob(_ context.Context, _ BlobDescriptorGenerator, _ []byte, _ BlobVerifierVerifyOptions) (*VerificationOutcome, error) {
+	if v.FailVerify {
+		return nil, errors.New("failed verify")
+	}
+
+	return &VerificationOutcome{
+		VerificationResults: []*ValidationResult{},
+		VerificationLevel:   &v.VerificationLevel,
+		EnvelopeContent: &signature.EnvelopeContent{
+			Payload: signature.Payload{
+				Content: []byte("{}"),
+			},
+		},
+	}, nil
+}
+
 var (
 	reference         = "sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
 	artifactReference = "local/oci-layout@sha256:19dbd2e48e921426ee8ace4dc892edfb2ecdc1d1a72d5416c83670c30acecef0"
@@ -614,7 +692,7 @@ var (
 
 type ociDummySigner struct{}
 
-func (s *ociDummySigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+func (s *ociDummySigner) Sign(_ context.Context, _ ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	sigBlob, err := os.ReadFile(signaturePath)
 	if err != nil {
 		return nil, nil, err
