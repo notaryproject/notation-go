@@ -132,7 +132,7 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 	revocationTimestampClient := verifierOptions.RevocationTimestampClient
 	if revocationTimestampClient == nil {
 		var err error
-		revocationTimestampClient, err = revocation.NewTimestamp(&http.Client{Timeout: 5 * time.Second})
+		revocationTimestampClient, err = revocation.NewTimestamp(&http.Client{Timeout: 2 * time.Second})
 		if err != nil {
 			return nil, err
 		}
@@ -918,7 +918,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 		return fmt.Errorf("failed to check tsa trust store configuration in turst policy with error: %w", err)
 	}
 	if !tsaEnabled {
-		logger.Info("Timestamp verification disabled: no tsa trust store is configured in trust policy")
+		logger.Debug("Timestamp verification disabled: no tsa trust store is configured in trust policy")
 		performTimestampVerification = false
 	}
 
@@ -935,7 +935,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 			}
 		}
 		if !expired {
-			logger.Infof("Timestamp verification disabled: verifyTimestamp is set to %q and signing cert chain unexpired", trustpolicy.OptionAfterCertExpiry)
+			logger.Debugf("Timestamp verification disabled: verifyTimestamp is set to %q and signing cert chain unexpired", trustpolicy.OptionAfterCertExpiry)
 			performTimestampVerification = false
 		}
 	}
@@ -958,13 +958,13 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// Performing timestamp verification
 	// 1. Timestamp countersignature MUST be present
-	logger.Info("Checking timestamp countersignature existence...")
+	logger.Debug("Checking timestamp countersignature existence...")
 	if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
 		return errors.New("no timestamp countersignature was found in the signature envelope")
 	}
 
 	// 2. Verify the timestamp countersignature
-	logger.Info("Verifying the timestamp countersignature...")
+	logger.Debug("Verifying the timestamp countersignature...")
 	signedToken, err := tspclient.ParseSignedToken(signerInfo.UnsignedAttributes.TimestampSignature)
 	if err != nil {
 		return fmt.Errorf("failed to parse timestamp countersignature with error: %w", err)
@@ -972,6 +972,10 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	info, err := signedToken.Info()
 	if err != nil {
 		return fmt.Errorf("failed to get the timestamp TSTInfo with error: %w", err)
+	}
+	timestamp, err := info.Validate(signerInfo.Signature)
+	if err != nil {
+		return fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err)
 	}
 	trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, policyName, trustStores, x509TrustStore)
 	if err != nil {
@@ -984,10 +988,6 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	for _, trustedCerts := range trustTSACerts {
 		rootCertPool.AddCert(trustedCerts)
 	}
-	timestamp, err := info.Validate(signerInfo.Signature)
-	if err != nil {
-		return fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err)
-	}
 	tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
 		CurrentTime: timestamp.Value,
 		Roots:       rootCertPool,
@@ -997,14 +997,26 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	}
 
 	// 3. Validate timestamping certificate chain
-	logger.Info("Validating timestamping certificate chain...")
+	logger.Debug("Validating timestamping certificate chain...")
 	if err := nx509.ValidateTimestampingCertChain(tsaCertChain); err != nil {
 		return fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err)
 	}
-	logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
+	logger.Debug("TSA identity is: ", tsaCertChain[0].Subject)
 
-	// 4. Perform the timestamping certificate chain revocation check
-	logger.Info("Checking timestamping certificate chain revocation...")
+	// 4. Check the timestamp against the signing certificate chain
+	logger.Debug("Checking the timestamp against the signing certificate chain...")
+	logger.Debugf("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
+	for _, cert := range signerInfo.CertificateChain {
+		if !timestamp.BoundedAfter(cert.NotBefore) {
+			return fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
+		}
+		if !timestamp.BoundedBefore(cert.NotAfter) {
+			return fmt.Errorf("timestamp can be after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
+		}
+	}
+
+	// 5. Perform the timestamping certificate chain revocation check
+	logger.Debug("Checking timestamping certificate chain revocation...")
 	certResults, err := r.Validate(tsaCertChain, time.Time{})
 	if err != nil {
 		return fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err)
@@ -1018,18 +1030,6 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	default:
 		// revocationresult.ResultUnknown
 		return fmt.Errorf("timestamping certificate with subject %q revocation status is unknown", problematicCertSubject)
-	}
-
-	// 5. Check the timestamp against the signing certificate chain
-	logger.Info("Checking the timestamp against the signing certificate chain...")
-	logger.Infof("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
-	for _, cert := range signerInfo.CertificateChain {
-		if !timestamp.BoundedAfter(cert.NotBefore) {
-			return fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
-		}
-		if !timestamp.BoundedBefore(cert.NotAfter) {
-			return fmt.Errorf("timestamp can be after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
-		}
 	}
 
 	// success
