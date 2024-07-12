@@ -1001,11 +1001,11 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	if err := nx509.ValidateTimestampingCertChain(tsaCertChain); err != nil {
 		return fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err)
 	}
-	logger.Debug("TSA identity is: ", tsaCertChain[0].Subject)
+	logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
 
 	// 4. Check the timestamp against the signing certificate chain
 	logger.Debug("Checking the timestamp against the signing certificate chain...")
-	logger.Debugf("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
+	logger.Infof("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
 	for _, cert := range signerInfo.CertificateChain {
 		if !timestamp.BoundedAfter(cert.NotBefore) {
 			return fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
