@@ -122,8 +122,12 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		SigningTime:   time.Now(),
 		SigningScheme: signature.SigningSchemeX509,
 		SigningAgent:  signingAgentId,
-		Timestamper:   opts.Timestamper,
-		TSARootCAs:    opts.TSARootCAs,
+	}
+	if opts.Timestamper != nil && opts.TSARootCAs != nil {
+		signReq.Timestamper = opts.Timestamper
+		signReq.TSARootCAs = opts.TSARootCAs
+	} else if opts.Timestamper != nil || opts.TSARootCAs != nil {
+		return nil, nil, errors.New("timestamping: both Timestamper and TSARootCAs must be provided")
 	}
 
 	// Add expiry only if ExpiryDuration is not zero

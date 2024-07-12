@@ -227,6 +227,36 @@ func TestSignWithTimestamping(t *testing.T) {
 			})
 		}
 	}
+
+	// timestamping without timestamper
+	envelopeType := signature.RegisteredEnvelopeTypes()[0]
+	keyCert := keyCertPairCollections[0]
+	s, err := New(keyCert.key, keyCert.certs)
+	if err != nil {
+		t.Fatalf("NewSigner() error = %v", err)
+	}
+	ctx := context.Background()
+	desc, sOpts := generateSigningContent()
+	sOpts.SignatureMediaType = envelopeType
+	sOpts.TSARootCAs = x509.NewCertPool()
+	_, _, err = s.Sign(ctx, desc, sOpts)
+	expectedErrMsg := "timestamping: both Timestamper and TSARootCAs must be provided"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+	}
+
+	// timestamping without TSARootCAs
+	desc, sOpts = generateSigningContent()
+	sOpts.SignatureMediaType = envelopeType
+	sOpts.Timestamper, err = tspclient.NewHTTPTimestamper(nil, rfc3161URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = s.Sign(ctx, desc, sOpts)
+	expectedErrMsg = "timestamping: both Timestamper and TSARootCAs must be provided"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+	}
 }
 
 func TestSignBlobWithCertChain(t *testing.T) {
