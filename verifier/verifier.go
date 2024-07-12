@@ -684,7 +684,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 	signerInfo := outcome.EnvelopeContent.SignerInfo
 	// under signing scheme notary.x509
 	if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
-		logger.Info("Under signing scheme notary.x509...")
+		logger.Debug("Under signing scheme notary.x509...")
 		return &notation.ValidationResult{
 			Error:  verifyTimestamp(ctx, policyName, trustStores, signatureVerification, x509TrustStore, r, outcome),
 			Type:   trustpolicy.TypeAuthenticTimestamp,
@@ -693,7 +693,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 	}
 
 	// under signing scheme notary.x509.signingAuthority
-	logger.Info("Under signing scheme notary.x509.signingAuthority...")
+	logger.Debug("Under signing scheme notary.x509.signingAuthority...")
 	authenticSigningTime := signerInfo.SignedAttributes.SigningTime
 	for _, cert := range signerInfo.CertificateChain {
 		if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
