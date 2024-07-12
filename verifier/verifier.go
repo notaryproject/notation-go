@@ -918,7 +918,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 		return fmt.Errorf("failed to check tsa trust store configuration in turst policy with error: %w", err)
 	}
 	if !tsaEnabled {
-		logger.Debug("Timestamp verification disabled: no tsa trust store is configured in trust policy")
+		logger.Info("Timestamp verification disabled: no tsa trust store is configured in trust policy")
 		performTimestampVerification = false
 	}
 
@@ -935,7 +935,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 			}
 		}
 		if !expired {
-			logger.Debugf("Timestamp verification disabled: verifyTimestamp is set to %q and signing cert chain unexpired", trustpolicy.OptionAfterCertExpiry)
+			logger.Infof("Timestamp verification disabled: verifyTimestamp is set to %q and signing cert chain unexpired", trustpolicy.OptionAfterCertExpiry)
 			performTimestampVerification = false
 		}
 	}
