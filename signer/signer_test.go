@@ -240,7 +240,7 @@ func TestSignWithTimestamping(t *testing.T) {
 	sOpts.SignatureMediaType = envelopeType
 	sOpts.TSARootCAs = x509.NewCertPool()
 	_, _, err = s.Sign(ctx, desc, sOpts)
-	expectedErrMsg := "timestamping: both Timestamper and TSARootCAs must be provided"
+	expectedErrMsg := "timestamping: got TSARootCAs but nil Timestamper"
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 	}
@@ -253,7 +253,7 @@ func TestSignWithTimestamping(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _, err = s.Sign(ctx, desc, sOpts)
-	expectedErrMsg = "timestamping: both Timestamper and TSARootCAs must be provided"
+	expectedErrMsg = "timestamping: got Timestamper but nil TSARootCAs"
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 	}
