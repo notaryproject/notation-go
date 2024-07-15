@@ -30,6 +30,8 @@ import (
 	"oras.land/oras-go/v2/content"
 
 	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/crl/cache"
+	"github.com/notaryproject/notation-core-go/revocation/ocsp"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
@@ -67,8 +69,13 @@ type verifier struct {
 // the NewVerifierWithOptions constructor
 type VerifierOptions struct {
 	// RevocationClient is an implementation of revocation.Revocation to use for
-	// verifying revocation
+	// verifying revocation for code signing certificates
 	RevocationClient revocation.Revocation
+
+	// TimestampingRevocationClient is an implementation of
+	// revocation.Revocation to use for verifying revocation of timestamping
+	// certificates
+	TimestampingRevocationClient revocation.Revocation
 }
 
 // NewOCIVerifierFromConfig returns a OCI verifier based on local file system
@@ -81,7 +88,21 @@ func NewOCIVerifierFromConfig() (*verifier, error) {
 	// load trust store
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
-	return NewVerifier(policyDocument, nil, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
+	cacheDir, err := dir.CacheFS().SysPath()
+	if err != nil {
+		return nil, err
+	}
+
+	revocationClient, err := revocation.NewWithOptions(revocation.Options{
+		HttpClient:       &http.Client{Timeout: 2 * time.Second},
+		CRLCache:         cache.NewFileSystemCache(cacheDir),
+		CertChainPurpose: ocsp.PurposeCodeSigning,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return NewVerifierWithOptions(policyDocument, nil, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()), VerifierOptions{RevocationClient: revocationClient})
 }
 
 // NewBlobVerifierFromConfig returns a Blob verifier based on local file system
