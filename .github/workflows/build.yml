@@ -15,10 +15,16 @@ name: build
 
 on:
   push:
-    branches: main
+    branches: 
+      - main
+      - release-*
   pull_request:
-    branches: main
+    branches:
+      - main
+      - release-*
 
 jobs:
   build:
     uses: notaryproject/notation-core-go/.github/workflows/reusable-build.yml@main
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

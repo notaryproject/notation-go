@@ -36,12 +36,14 @@ type Type string
 const (
 	TypeCA               Type = "ca"
 	TypeSigningAuthority Type = "signingAuthority"
+	TypeTSA              Type = "tsa"
 )
 
 var (
 	Types = []Type{
 		TypeCA,
 		TypeSigningAuthority,
+		TypeTSA,
 	}
 )
 
