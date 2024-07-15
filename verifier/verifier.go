@@ -194,13 +194,13 @@ func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Verify signature of media type %v", opts.SignatureMediaType)
 	if v.blobTrustPolicyDoc == nil {
-		return nil,  errors.New("blobTrustPolicyDoc is nil")
+		return nil, errors.New("blobTrustPolicyDoc is nil")
 	}
 
 	var trustPolicy *trustpolicy.BlobTrustPolicy
 	var err error
 	if opts.TrustPolicyName == "" {
-		trustPolicy, err = v.blobTrustPolicyDoc.GetGlobalTrustPolicy();
+		trustPolicy, err = v.blobTrustPolicyDoc.GetGlobalTrustPolicy()
 	} else {
 		trustPolicy, err = v.blobTrustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyName)
 	}
@@ -282,7 +282,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 
 	logger.Debugf("Verify signature against artifact %v referenced as %s in signature media type %v", desc.Digest, artifactRef, envelopeMediaType)
 	if v.ociTrustPolicyDoc == nil {
-		return nil,  errors.New("ociTrustPolicyDoc is nil")
+		return nil, errors.New("ociTrustPolicyDoc is nil")
 	}
 
 	trustPolicy, err := v.ociTrustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
