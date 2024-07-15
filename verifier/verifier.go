@@ -104,7 +104,17 @@ func NewOCIVerifierFromConfig() (*verifier, error) {
 		return nil, err
 	}
 
-	return NewVerifierWithOptions(policyDocument, nil, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()), VerifierOptions{RevocationClient: revocationClient})
+	revocationTimestampClient, err := revocation.NewWithOptions(revocation.Options{
+		HttpClient:       &http.Client{Timeout: 2 * time.Second},
+		CRLCache:         cache.NewFileSystemCache(cacheDir),
+		CertChainPurpose: ocsp.PurposeTimestamping,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return NewVerifierWithOptions(policyDocument, nil, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()),
+		VerifierOptions{RevocationClient: revocationClient, RevocationTimestampClient: revocationTimestampClient})
 }
 
 // NewBlobVerifierFromConfig returns a Blob verifier based on local file system
@@ -252,7 +262,7 @@ func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, opts.SignatureMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, opts.PluginConfig, outcome)
+	err = v.processSignature(ctx, signature, opts.SignatureMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, trustPolicy.RevocationModeCA(), trustPolicy.RevocationModeTSA(), opts.PluginConfig, outcome)
 	if err != nil {
 		outcome.Error = err
 		return outcome, err
@@ -335,7 +345,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, pluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, trustPolicy.RevocationModeCA(), trustPolicy.RevocationModeTSA(), pluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err
@@ -366,7 +376,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType, policyName string, trustedIdentities, trustStores []string, signatureVerification trustpolicy.SignatureVerification, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType, policyName string, trustedIdentities, trustStores []string, signatureVerification trustpolicy.SignatureVerification, revocationModeCA string, revocationModeTSA string, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter
@@ -477,7 +487,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.revocationTimestampClient, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.revocationTimestampClient, revocationModeTSA, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -491,7 +501,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		!slices.Contains(pluginCapabilities, pluginframework.CapabilityRevocationCheckVerifier) {
 
 		logger.Debug("Validating revocation")
-		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
+		revocationResult := verifyRevocation(outcome, v.revocationClient, revocationModeCA, logger)
 		outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
 		logVerificationResult(logger, revocationResult)
 		if isCriticalFailure(revocationResult) {
@@ -694,7 +704,7 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, revocationMode string, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	signerInfo := outcome.EnvelopeContent.SignerInfo
@@ -702,7 +712,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 	if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
 		logger.Debug("Under signing scheme notary.x509...")
 		return &notation.ValidationResult{
-			Error:  verifyTimestamp(ctx, policyName, trustStores, signatureVerification, x509TrustStore, r, outcome),
+			Error:  verifyTimestamp(ctx, policyName, trustStores, signatureVerification, x509TrustStore, r, revocationMode, outcome),
 			Type:   trustpolicy.TypeAuthenticTimestamp,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 		}
@@ -728,7 +738,7 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 	}
 }
 
-func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revocation, logger log.Logger) *notation.ValidationResult {
+func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revocation, revocationMode string, logger log.Logger) *notation.ValidationResult {
 	if r == nil {
 		return &notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
@@ -742,7 +752,41 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		logger.Debugf("Not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
 		authenticSigningTime = time.Time{}
 	}
-	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+
+	var certResults []*revocationresult.CertRevocationResult
+	switch revocationMode {
+	case trustpolicy.RevocationModeAuto:
+		logger.Debug("Revocation mode is set to auto")
+		certResults, err = r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+	case trustpolicy.RevocationModeOCSP:
+		logger.Debug("Revocation mode is set to OCSP")
+		if r, ok := r.(revocation.OCSPRevocation); ok {
+			certResults, err = r.ValidateOCSPOnly(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+		} else {
+			return &notation.ValidationResult{
+				Type:   trustpolicy.TypeRevocation,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+				Error:  fmt.Errorf("revocation client does not support OCSP revocation"),
+			}
+		}
+	case trustpolicy.RevocationModeCRL:
+		logger.Debug("Revocation mode is set to CRL")
+		if r, ok := r.(revocation.CRLRevocation); ok {
+			certResults, err = r.ValidateCRLOnly(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+		} else {
+			return &notation.ValidationResult{
+				Type:   trustpolicy.TypeRevocation,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+				Error:  fmt.Errorf("revocation client does not support CRL revocation"),
+			}
+		}
+	default:
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+			Error:  fmt.Errorf("unknown revocation mode %q", revocationMode),
+		}
+	}
 	if err != nil {
 		logger.Debug("Error while checking revocation status, err: %s", err.Error())
 		return &notation.ValidationResult{
@@ -922,7 +966,7 @@ func isRequiredVerificationPluginVer(pluginVer string, minPluginVer string) bool
 
 // verifyTimestamp provides core verification logic of authentic timestamp under
 // signing scheme `notary.x509`.
-func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) error {
+func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, revocationMode string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	signerInfo := outcome.EnvelopeContent.SignerInfo
@@ -1035,7 +1079,27 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// 5. Perform the timestamping certificate chain revocation check
 	logger.Debug("Checking timestamping certificate chain revocation...")
-	certResults, err := r.Validate(tsaCertChain, time.Time{})
+
+	var certResults []*revocationresult.CertRevocationResult
+	switch revocationMode {
+	case trustpolicy.RevocationModeAuto:
+		logger.Debug("Revocation mode is set to auto")
+		certResults, err = r.Validate(tsaCertChain, time.Time{})
+	case trustpolicy.RevocationModeOCSP:
+		logger.Debug("Revocation mode is set to OCSP")
+		if r, ok := r.(revocation.OCSPRevocation); ok {
+			certResults, err = r.ValidateOCSPOnly(tsaCertChain, time.Time{})
+		} else {
+			return errors.New("revocation client does not support OCSP")
+		}
+	case trustpolicy.RevocationModeCRL:
+		logger.Debug("Revocation mode is set to CRL")
+		if r, ok := r.(revocation.CRLRevocation); ok {
+			certResults, err = r.ValidateCRLOnly(tsaCertChain, time.Time{})
+		} else {
+			return errors.New("revocation client does not support CRL")
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err)
 	}

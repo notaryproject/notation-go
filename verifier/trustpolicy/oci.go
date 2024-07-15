@@ -62,9 +62,9 @@ type OCITrustPolicy struct {
 	// time is longer than the CRLValidity
 	CRLValidity int `json:"crlValidity"`
 
-	// RevocationModeGlobal sets the global revocation mode
+	// GlobalRevocationMode sets the global revocation mode
 	// it supported values are "auto", "ocsp", "crl"
-	RevocationModeGlobal string `json:"revocationModeGlobal"`
+	GlobalRevocationMode string `json:"revocationModeGlobal"`
 
 	// RevocationMode sets the revocation mode for CA and TSA
 	// it will override RevocationModeGlobal if set
@@ -151,6 +151,34 @@ func (policyDoc *OCIDocument) Validate() error {
 			return fmt.Errorf("oci trust policy: %w", err)
 		}
 
+		switch statement.GlobalRevocationMode {
+		case RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL:
+		case "":
+			statement.GlobalRevocationMode = RevocationModeAuto
+		default:
+			return fmt.Errorf("oci trust policy statement %q has unsupported global revocation mode %q, supported values are %q, %q, %q", statement.Name, statement.GlobalRevocationMode, RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL)
+		}
+
+		switch statement.RevocationMode.CA {
+		case RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL:
+		case "":
+			statement.RevocationMode.CA = RevocationModeAuto
+		default:
+			return fmt.Errorf("oci trust policy statement %q has unsupported CA revocation mode %q, supported values are %q, %q, %q", statement.Name, statement.RevocationMode.CA, RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL)
+		}
+
+		switch statement.RevocationMode.TSA {
+		case RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL:
+		case "":
+			statement.RevocationMode.TSA = RevocationModeAuto
+		default:
+			return fmt.Errorf("oci trust policy statement %q has unsupported TSA revocation mode %q, supported values are %q, %q, %q", statement.Name, statement.RevocationMode.TSA, RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL)
+		}
+
+		if statement.CRLValidity < 0 {
+			return fmt.Errorf("oci trust policy statement %q has negative CRL validity %d, it must be a non-negative integer", statement.Name, statement.CRLValidity)
+		}
+
 		policyNames.Add(statement.Name)
 	}
 
@@ -195,14 +223,28 @@ func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string)
 	}
 }
 
-func (policy *OCITrustPolicy) GetRevocationMode(storeType string) string {
-	if policy.RevocationMode.CA != "" && storeType == "ca" {
+func (policy *OCITrustPolicy) RevocationModeCA() string {
+	if policy.RevocationMode.CA != "" {
 		return policy.RevocationMode.CA
 	}
-	if policy.RevocationMode.TSA != "" && storeType == "tsa" {
+
+	if policy.GlobalRevocationMode != "" {
+		return policy.GlobalRevocationMode
+	}
+
+	return RevocationModeAuto
+}
+
+func (policy *OCITrustPolicy) RevocationModeTSA() string {
+	if policy.RevocationMode.TSA != "" {
 		return policy.RevocationMode.TSA
 	}
-	return policy.RevocationModeGlobal
+
+	if policy.GlobalRevocationMode != "" {
+		return policy.GlobalRevocationMode
+	}
+
+	return RevocationModeAuto
 }
 
 // clone returns a pointer to the deeply copied TrustPolicy
