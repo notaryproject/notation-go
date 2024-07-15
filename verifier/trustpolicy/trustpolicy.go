@@ -63,6 +63,19 @@ const (
 	ActionSkip    ValidationAction = "skip"
 )
 
+// TimestampOption is an enum for timestamp verifiction options such as Always,
+// AfterCertExpiry.
+type TimestampOption string
+
+const (
+	// OptionAlways denotes always perform timestamp verification
+	OptionAlways TimestampOption = "always"
+
+	// OptionAfterCertExpiry denotes perform timestamp verification only if
+	// the signing certificate chain has expired
+	OptionAfterCertExpiry TimestampOption = "afterCertExpiry"
+)
+
 var (
 	LevelStrict = &VerificationLevel{
 		Name: "strict",
@@ -136,6 +149,7 @@ var (
 type SignatureVerification struct {
 	VerificationLevel string                              `json:"level"`
 	Override          map[ValidationType]ValidationAction `json:"override,omitempty"`
+	VerifyTimestamp   TimestampOption                     `json:"verifyTimestamp,omitempty"`
 }
 
 type errPolicyNotExist struct{}
@@ -262,6 +276,11 @@ func validatePolicyCore(name string, signatureVerification SignatureVerification
 	verificationLevel, err := signatureVerification.GetVerificationLevel()
 	if err != nil {
 		return fmt.Errorf("trust policy statement %q has invalid signatureVerification: %w", name, err)
+	}
+	if signatureVerification.VerifyTimestamp != "" &&
+		signatureVerification.VerifyTimestamp != OptionAlways &&
+		signatureVerification.VerifyTimestamp != OptionAfterCertExpiry {
+		return fmt.Errorf("trust policy statement %q has invalid signatureVerification: verifyTimestamp must be %q or %q, but got %q", name, OptionAlways, OptionAfterCertExpiry, signatureVerification.VerifyTimestamp)
 	}
 
 	// Any signature verification other than "skip" needs a trust store and

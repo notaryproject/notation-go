@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -607,6 +608,9 @@ func TestNewOCIRepositoryFailed(t *testing.T) {
 	})
 
 	t.Run("no permission to create new path", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
 		// create a directory in the temp dir
 		dirPath := filepath.Join(t.TempDir(), "dir")
 		err := os.Mkdir(dirPath, 0000)

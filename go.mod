@@ -4,8 +4,9 @@ go 1.21
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.8
-	github.com/notaryproject/notation-core-go v1.0.3
+	github.com/notaryproject/notation-core-go v1.0.4-0.20240708015912-faac9b7f3f10
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
+	github.com/notaryproject/tspclient-go v0.1.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/veraison/go-cose v1.1.0
@@ -16,7 +17,7 @@ require (
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
-	github.com/fxamacker/cbor/v2 v2.6.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.5 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

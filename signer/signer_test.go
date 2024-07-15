@@ -34,12 +34,16 @@ import (
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-core-go/testhelper"
+	nx509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin/proto"
+	"github.com/notaryproject/tspclient-go"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+const rfc3161URL = "http://timestamp.digicert.com"
 
 type keyCertPair struct {
 	keySpecName string
@@ -117,7 +121,7 @@ func generateKeyBytes(key crypto.PrivateKey) (keyBytes []byte, err error) {
 	return keyBytes, nil
 }
 
-func prepareTestKeyCertFile(keyCert *keyCertPair, envelopeType, dir string) (string, string, error) {
+func prepareTestKeyCertFile(keyCert *keyCertPair, dir string) (string, string, error) {
 	keyPath, certPath := filepath.Join(dir, keyCert.keySpecName+".key"), filepath.Join(dir, keyCert.keySpecName+".cert")
 	keyBytes, err := generateKeyBytes(keyCert.key)
 	if err != nil {
@@ -138,7 +142,7 @@ func prepareTestKeyCertFile(keyCert *keyCertPair, envelopeType, dir string) (str
 }
 
 func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir string) {
-	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, envelopeType, dir)
+	keyPath, certPath, err := prepareTestKeyCertFile(keyCert, dir)
 	if err != nil {
 		t.Fatalf("prepareTestKeyCertFile() failed: %v", err)
 	}
@@ -208,9 +212,50 @@ func TestSignWithCertChain(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		for _, keyCert := range keyCertPairCollections {
 			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs)
+				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs, false)
 			})
 		}
+	}
+}
+
+func TestSignWithTimestamping(t *testing.T) {
+	// sign with key
+	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
+		for _, keyCert := range keyCertPairCollections {
+			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
+				validateSignWithCerts(t, envelopeType, keyCert.key, keyCert.certs, true)
+			})
+		}
+	}
+
+	// timestamping without timestamper
+	envelopeType := signature.RegisteredEnvelopeTypes()[0]
+	keyCert := keyCertPairCollections[0]
+	s, err := New(keyCert.key, keyCert.certs)
+	if err != nil {
+		t.Fatalf("NewSigner() error = %v", err)
+	}
+	ctx := context.Background()
+	desc, sOpts := generateSigningContent()
+	sOpts.SignatureMediaType = envelopeType
+	sOpts.TSARootCAs = x509.NewCertPool()
+	_, _, err = s.Sign(ctx, desc, sOpts)
+	expectedErrMsg := "timestamping: got TSARootCAs but nil Timestamper"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+	}
+
+	// timestamping without TSARootCAs
+	desc, sOpts = generateSigningContent()
+	sOpts.SignatureMediaType = envelopeType
+	sOpts.Timestamper, err = tspclient.NewHTTPTimestamper(nil, rfc3161URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = s.Sign(ctx, desc, sOpts)
+	expectedErrMsg = "timestamping: got Timestamper but nil TSARootCAs"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 	}
 }
 
@@ -269,7 +314,7 @@ func signRSA(digest []byte, hash crypto.Hash, pk *rsa.PrivateKey) ([]byte, error
 	return rsa.SignPSS(rand.Reader, pk, hash, digest, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
 }
 
-func signECDSA(digest []byte, hash crypto.Hash, pk *ecdsa.PrivateKey) ([]byte, error) {
+func signECDSA(digest []byte, pk *ecdsa.PrivateKey) ([]byte, error) {
 	r, s, err := ecdsa.Sign(rand.Reader, pk, digest)
 	if err != nil {
 		return nil, err
@@ -289,7 +334,7 @@ func localSign(payload []byte, hash crypto.Hash, pk crypto.PrivateKey) ([]byte, 
 	case *rsa.PrivateKey:
 		return signRSA(digest, hash, key)
 	case *ecdsa.PrivateKey:
-		return signECDSA(digest, hash, key)
+		return signECDSA(digest, key)
 	default:
 		return nil, errors.New("signing private key not supported")
 	}
@@ -354,7 +399,7 @@ func verifySigningAgent(t *testing.T, signingAgentId string, metadata *proto.Get
 	}
 }
 
-func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate) {
+func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.PrivateKey, certs []*x509.Certificate, timestamp bool) {
 	s, err := New(key, certs)
 	if err != nil {
 		t.Fatalf("NewSigner() error = %v", err)
@@ -363,6 +408,19 @@ func validateSignWithCerts(t *testing.T, envelopeType string, key crypto.Private
 	ctx := context.Background()
 	desc, sOpts := generateSigningContent()
 	sOpts.SignatureMediaType = envelopeType
+	if timestamp {
+		sOpts.Timestamper, err = tspclient.NewHTTPTimestamper(nil, rfc3161URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rootCerts, err := nx509.ReadCertificateFile("./testdata/DigiCertTSARootSHA384.cer")
+		if err != nil {
+			t.Fatal(err)
+		}
+		rootCAs := x509.NewCertPool()
+		rootCAs.AddCert(rootCerts[0])
+		sOpts.TSARootCAs = rootCAs
+	}
 	sig, _, err := s.Sign(ctx, desc, sOpts)
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
