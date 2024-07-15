@@ -721,11 +721,19 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		}
 	}
 
-	authenticSigningTime, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
-	if err != nil {
-		logger.Debugf("Not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
-		authenticSigningTime = time.Time{}
+	var authenticSigningTime time.Time
+	var err error
+	if outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
+		authenticSigningTime, err = outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
+		if err != nil {
+			return &notation.ValidationResult{
+				Type:   trustpolicy.TypeRevocation,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+				Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
+			}
+		}
 	}
+
 	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 	if err != nil {
 		logger.Debug("Error while checking revocation status, err: %s", err.Error())

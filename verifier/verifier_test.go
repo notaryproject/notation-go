@@ -623,17 +623,18 @@ func TestVerifyRevocation(t *testing.T) {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
 	})
-	t.Run("verifyRevocation zero signing time no invalidity", func(t *testing.T) {
+	t.Run("verifyRevocation zero signing time", func(t *testing.T) {
 		revocationClient, err := revocation.New(revokedClient)
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
+		expectedErrMsg := "unable to check revocation status, err: authentic signing time must be present under signing scheme \"notary.x509.signingAuthority\""
 		result := verifyRevocation(createMockOutcome(revokableChain, zeroTime), revocationClient, logger)
+		if result.Error == nil || result.Error.Error() != expectedErrMsg {
+			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
+		}
 		if !zeroTime.IsZero() {
 			t.Fatalf("exected zeroTime.IsZero() to be true")
-		}
-		if result.Error == nil || result.Error.Error() != revokedMsg {
-			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
 	})
 	t.Run("verifyRevocation older signing time with invalidity", func(t *testing.T) {
@@ -646,19 +647,6 @@ func TestVerifyRevocation(t *testing.T) {
 			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
 		}
 	})
-	t.Run("verifyRevocation zero signing time with invalidity", func(t *testing.T) {
-		revocationClient, err := revocation.New(revokedInvalidityClient)
-		if err != nil {
-			t.Fatalf("unexpected error while creating revocation object: %v", err)
-		}
-		result := verifyRevocation(createMockOutcome(revokableChain, zeroTime), revocationClient, logger)
-		if !zeroTime.IsZero() {
-			t.Fatalf("exected zeroTime.IsZero() to be true")
-		}
-		if result.Error == nil || result.Error.Error() != revokedMsg {
-			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
-		}
-	})
 	t.Run("verifyRevocation non-authentic signing time with invalidity", func(t *testing.T) {
 		revocationClient, err := revocation.New(revokedInvalidityClient)
 		if err != nil {
@@ -666,16 +654,13 @@ func TestVerifyRevocation(t *testing.T) {
 		}
 		// Specifying older signing time (which should succeed), but will use zero time since no authentic signing time
 		outcome := createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour))
-		outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme = "unsupported scheme"
-
-		time, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
-		expectedErr := errors.New("authenticSigningTime not found")
-		if !time.IsZero() || err == nil || err.Error() != expectedErr.Error() {
+		outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme = "notary.x509"
+		authenticSigningTime, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
+		expectedErr := errors.New("authentic signing time not supported under signing scheme \"notary.x509\"")
+		if !authenticSigningTime.IsZero() || err == nil || err.Error() != expectedErr.Error() {
 			t.Fatalf("expected AuthenticSigningTime to fail with %v, but got %v", expectedErr, err)
 		}
-
 		result := verifyRevocation(outcome, revocationClient, logger)
-
 		if result.Error == nil || result.Error.Error() != revokedMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
