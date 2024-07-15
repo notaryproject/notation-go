@@ -34,6 +34,7 @@ import (
 	"github.com/notaryproject/notation-core-go/revocation/ocsp"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
+	nx509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
@@ -46,6 +47,7 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
+	"github.com/notaryproject/tspclient-go"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -58,24 +60,24 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 
 // verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
 type verifier struct {
-	ociTrustPolicyDoc  *trustpolicy.OCIDocument
-	blobTrustPolicyDoc *trustpolicy.BlobDocument
-	trustStore         truststore.X509TrustStore
-	pluginManager      plugin.Manager
-	revocationClient   revocation.Revocation
+	ociTrustPolicyDoc         *trustpolicy.OCIDocument
+	blobTrustPolicyDoc        *trustpolicy.BlobDocument
+	trustStore                truststore.X509TrustStore
+	pluginManager             plugin.Manager
+	revocationClient          revocation.Revocation
+	revocationTimestampClient revocation.Revocation
 }
 
 // VerifierOptions specifies additional parameters that can be set when using
 // the NewVerifierWithOptions constructor
 type VerifierOptions struct {
 	// RevocationClient is an implementation of revocation.Revocation to use for
-	// verifying revocation for code signing certificates
+	// verifying revocation of code signing certificate chain
 	RevocationClient revocation.Revocation
 
-	// TimestampingRevocationClient is an implementation of
-	// revocation.Revocation to use for verifying revocation of timestamping
-	// certificates
-	TimestampingRevocationClient revocation.Revocation
+	// RevocationTimestampClient is an implementaion of evocation.Revocation to
+	// use for verifying revocation of timestamping certificate chain
+	RevocationTimestampClient revocation.Revocation
 }
 
 // NewOCIVerifierFromConfig returns a OCI verifier based on local file system
@@ -143,6 +145,15 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 		}
 	}
 
+	revocationTimestampClient := verifierOptions.RevocationTimestampClient
+	if revocationTimestampClient == nil {
+		var err error
+		revocationTimestampClient, err = revocation.NewTimestamp(&http.Client{Timeout: 2 * time.Second})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if trustStore == nil {
 		return nil, errors.New("trustStore cannot be nil")
 	}
@@ -164,13 +175,13 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 	}
 
 	return &verifier{
-		ociTrustPolicyDoc:  ociTrustPolicy,
-		blobTrustPolicyDoc: blobTrustPolicy,
-		trustStore:         trustStore,
-		pluginManager:      pluginManager,
-		revocationClient:   revocationClient,
+		ociTrustPolicyDoc:         ociTrustPolicy,
+		blobTrustPolicyDoc:        blobTrustPolicy,
+		trustStore:                trustStore,
+		pluginManager:             pluginManager,
+		revocationClient:          revocationClient,
+		revocationTimestampClient: revocationTimestampClient,
 	}, nil
-
 }
 
 // NewFromConfig returns a OCI verifier based on local file system
@@ -241,7 +252,7 @@ func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, opts.SignatureMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, opts.PluginConfig, outcome)
+	err = v.processSignature(ctx, signature, opts.SignatureMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, opts.PluginConfig, outcome)
 	if err != nil {
 		outcome.Error = err
 		return outcome, err
@@ -324,7 +335,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 		logger.Debug("Skipping signature verification")
 		return outcome, nil
 	}
-	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, pluginConfig, outcome)
+	err = v.processSignature(ctx, signature, envelopeMediaType, trustPolicy.Name, trustPolicy.TrustedIdentities, trustPolicy.TrustStores, trustPolicy.SignatureVerification, pluginConfig, outcome)
 
 	if err != nil {
 		outcome.Error = err
@@ -355,7 +366,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	return outcome, outcome.Error
 }
 
-func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType, policyName string, trustedIdentities, trustStores []string, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
+func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelopeMediaType, policyName string, trustedIdentities, trustStores []string, signatureVerification trustpolicy.SignatureVerification, pluginConfig map[string]string, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	// verify integrity first. notation will always verify integrity no matter
@@ -466,7 +477,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.revocationTimestampClient, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -683,51 +694,34 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(outcome *notation.VerificationOutcome) *notation.ValidationResult {
-	invalidTimestamp := false
-	var err error
+func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+	logger := log.GetLogger(ctx)
 
-	if signerInfo := outcome.EnvelopeContent.SignerInfo; signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
-		// TODO verify RFC3161 TSA signature if present (not in RC1)
-		// https://github.com/notaryproject/notation-go/issues/78
-		if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
-			// if there is no TSA signature, then every certificate should be
-			// valid at the time of verification
-			now := time.Now()
-			for _, cert := range signerInfo.CertificateChain {
-				if now.Before(cert.NotBefore) {
-					invalidTimestamp = true
-					err = fmt.Errorf("certificate %q is not valid yet, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
-					break
-				}
-				if now.After(cert.NotAfter) {
-					invalidTimestamp = true
-					err = fmt.Errorf("certificate %q is not valid anymore, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
-					break
-				}
-			}
-		}
-	} else if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
-		authenticSigningTime := signerInfo.SignedAttributes.SigningTime
-		// TODO use authenticSigningTime from signerInfo
-		// https://github.com/notaryproject/notation-core-go/issues/38
-		for _, cert := range signerInfo.CertificateChain {
-			if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
-				invalidTimestamp = true
-				err = fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z))
-				break
-			}
-		}
-	}
-
-	if invalidTimestamp {
+	signerInfo := outcome.EnvelopeContent.SignerInfo
+	// under signing scheme notary.x509
+	if signerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509 {
+		logger.Debug("Under signing scheme notary.x509...")
 		return &notation.ValidationResult{
-			Error:  err,
+			Error:  verifyTimestamp(ctx, policyName, trustStores, signatureVerification, x509TrustStore, r, outcome),
 			Type:   trustpolicy.TypeAuthenticTimestamp,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 		}
 	}
 
+	// under signing scheme notary.x509.signingAuthority
+	logger.Debug("Under signing scheme notary.x509.signingAuthority...")
+	authenticSigningTime := signerInfo.SignedAttributes.SigningTime
+	for _, cert := range signerInfo.CertificateChain {
+		if authenticSigningTime.Before(cert.NotBefore) || authenticSigningTime.After(cert.NotAfter) {
+			return &notation.ValidationResult{
+				Error:  fmt.Errorf("certificate %q was not valid when the digital signature was produced at %q", cert.Subject, authenticSigningTime.Format(time.RFC1123Z)),
+				Type:   trustpolicy.TypeAuthenticTimestamp,
+				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
+			}
+		}
+	}
+
+	// success
 	return &notation.ValidationResult{
 		Type:   trustpolicy.TypeAuthenticTimestamp,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
@@ -745,12 +739,12 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 
 	authenticSigningTime, err := outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
 	if err != nil {
-		logger.Debugf("not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
+		logger.Debugf("Not using authentic signing time due to error retrieving AuthenticSigningTime, err: %v", err)
 		authenticSigningTime = time.Time{}
 	}
 	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
 	if err != nil {
-		logger.Debug("error while checking revocation status, err: %s", err.Error())
+		logger.Debug("Error while checking revocation status, err: %s", err.Error())
 		return &notation.ValidationResult{
 			Type:   trustpolicy.TypeRevocation,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
@@ -762,6 +756,23 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 		Type:   trustpolicy.TypeRevocation,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
 	}
+	finalResult, problematicCertSubject := revocationFinalResult(certResults, outcome.EnvelopeContent.SignerInfo.CertificateChain, logger)
+	switch finalResult {
+	case revocationresult.ResultOK:
+		logger.Debug("No verification impacting errors encountered while checking revocation, status is OK")
+	case revocationresult.ResultRevoked:
+		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
+	default:
+		// revocationresult.ResultUnknown
+		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
+	}
+
+	return result
+}
+
+// revocationFinalResult returns the final revocation result and problematic
+// certificate subject if the final result is not ResultOK
+func revocationFinalResult(certResults []*revocationresult.CertRevocationResult, certChain []*x509.Certificate, logger log.Logger) (revocationresult.Result, string) {
 	finalResult := revocationresult.ResultUnknown
 	numOKResults := 0
 	var problematicCertSubject string
@@ -769,14 +780,14 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	var revokedCertSubject string
 	for i := len(certResults) - 1; i >= 0; i-- {
 		if len(certResults[i].ServerResults) > 0 && certResults[i].ServerResults[0].Error != nil {
-			logger.Debugf("error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
+			logger.Debugf("Error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), certChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
 		}
 
 		if certResults[i].Result == revocationresult.ResultOK || certResults[i].Result == revocationresult.ResultNonRevokable {
 			numOKResults++
 		} else {
 			finalResult = certResults[i].Result
-			problematicCertSubject = outcome.EnvelopeContent.SignerInfo.CertificateChain[i].Subject.String()
+			problematicCertSubject = certChain[i].Subject.String()
 			if certResults[i].Result == revocationresult.ResultRevoked {
 				revokedFound = true
 				revokedCertSubject = problematicCertSubject
@@ -790,18 +801,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	if numOKResults == len(certResults) {
 		finalResult = revocationresult.ResultOK
 	}
-
-	switch finalResult {
-	case revocationresult.ResultOK:
-		logger.Debug("no verification impacting errors encountered while checking revocation, status is OK")
-	case revocationresult.ResultRevoked:
-		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
-	default:
-		// revocationresult.ResultUnknown
-		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
-	}
-
-	return result
+	return finalResult, problematicCertSubject
 }
 
 func executePlugin(ctx context.Context, installedPlugin pluginframework.VerifyPlugin, capabilitiesToVerify []pluginframework.Capability, envelopeContent *signature.EnvelopeContent, trustedIdentities []string, pluginConfig map[string]string) (*pluginframework.VerifySignatureResponse, error) {
@@ -918,4 +918,138 @@ func logVerificationResult(logger log.Logger, result *notation.ValidationResult)
 
 func isRequiredVerificationPluginVer(pluginVer string, minPluginVer string) bool {
 	return semver.Compare("v"+pluginVer, "v"+minPluginVer) != -1
+}
+
+// verifyTimestamp provides core verification logic of authentic timestamp under
+// signing scheme `notary.x509`.
+func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) error {
+	logger := log.GetLogger(ctx)
+
+	signerInfo := outcome.EnvelopeContent.SignerInfo
+	performTimestampVerification := true
+
+	// check if tsa trust store is configured in trust policy
+	tsaEnabled, err := isTSATrustStoreInPolicy(policyName, trustStores)
+	if err != nil {
+		return fmt.Errorf("failed to check tsa trust store configuration in turst policy with error: %w", err)
+	}
+	if !tsaEnabled {
+		logger.Info("Timestamp verification disabled: no tsa trust store is configured in trust policy")
+		performTimestampVerification = false
+	}
+
+	// check based on 'verifyTimestamp' field
+	timeOfVerification := time.Now()
+	if performTimestampVerification &&
+		signatureVerification.VerifyTimestamp == trustpolicy.OptionAfterCertExpiry {
+		// check if signing cert chain has expired
+		var expired bool
+		for _, cert := range signerInfo.CertificateChain {
+			if timeOfVerification.After(cert.NotAfter) {
+				expired = true
+				break
+			}
+		}
+		if !expired {
+			logger.Infof("Timestamp verification disabled: verifyTimestamp is set to %q and signing cert chain unexpired", trustpolicy.OptionAfterCertExpiry)
+			performTimestampVerification = false
+		}
+	}
+
+	// timestamp verification disabled, signing cert chain MUST be valid
+	// at time of verification
+	if !performTimestampVerification {
+		for _, cert := range signerInfo.CertificateChain {
+			if timeOfVerification.Before(cert.NotBefore) {
+				return fmt.Errorf("verification time is before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
+			}
+			if timeOfVerification.After(cert.NotAfter) {
+				return fmt.Errorf("verification time is after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
+			}
+		}
+
+		// success
+		return nil
+	}
+
+	// Performing timestamp verification
+	logger.Info("Performing timestamp verification...")
+
+	// 1. Timestamp countersignature MUST be present
+	logger.Debug("Checking timestamp countersignature existence...")
+	if len(signerInfo.UnsignedAttributes.TimestampSignature) == 0 {
+		return errors.New("no timestamp countersignature was found in the signature envelope")
+	}
+
+	// 2. Verify the timestamp countersignature
+	logger.Debug("Verifying the timestamp countersignature...")
+	signedToken, err := tspclient.ParseSignedToken(signerInfo.UnsignedAttributes.TimestampSignature)
+	if err != nil {
+		return fmt.Errorf("failed to parse timestamp countersignature with error: %w", err)
+	}
+	info, err := signedToken.Info()
+	if err != nil {
+		return fmt.Errorf("failed to get the timestamp TSTInfo with error: %w", err)
+	}
+	timestamp, err := info.Validate(signerInfo.Signature)
+	if err != nil {
+		return fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err)
+	}
+	trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, policyName, trustStores, x509TrustStore)
+	if err != nil {
+		return fmt.Errorf("failed to load tsa trust store with error: %w", err)
+	}
+	if len(trustTSACerts) == 0 {
+		return errors.New("no trusted TSA certificate found in trust store")
+	}
+	rootCertPool := x509.NewCertPool()
+	for _, trustedCerts := range trustTSACerts {
+		rootCertPool.AddCert(trustedCerts)
+	}
+	tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
+		CurrentTime: timestamp.Value,
+		Roots:       rootCertPool,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err)
+	}
+
+	// 3. Validate timestamping certificate chain
+	logger.Debug("Validating timestamping certificate chain...")
+	if err := nx509.ValidateTimestampingCertChain(tsaCertChain); err != nil {
+		return fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err)
+	}
+	logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
+
+	// 4. Check the timestamp against the signing certificate chain
+	logger.Debug("Checking the timestamp against the signing certificate chain...")
+	logger.Debugf("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
+	for _, cert := range signerInfo.CertificateChain {
+		if !timestamp.BoundedAfter(cert.NotBefore) {
+			return fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
+		}
+		if !timestamp.BoundedBefore(cert.NotAfter) {
+			return fmt.Errorf("timestamp can be after certificate %q validity period, it was expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
+		}
+	}
+
+	// 5. Perform the timestamping certificate chain revocation check
+	logger.Debug("Checking timestamping certificate chain revocation...")
+	certResults, err := r.Validate(tsaCertChain, time.Time{})
+	if err != nil {
+		return fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err)
+	}
+	finalResult, problematicCertSubject := revocationFinalResult(certResults, tsaCertChain, logger)
+	switch finalResult {
+	case revocationresult.ResultOK:
+		logger.Debug("No verification impacting errors encountered while checking timestamping certificate chain revocation, status is OK")
+	case revocationresult.ResultRevoked:
+		return fmt.Errorf("timestamping certificate with subject %q is revoked", problematicCertSubject)
+	default:
+		// revocationresult.ResultUnknown
+		return fmt.Errorf("timestamping certificate with subject %q revocation status is unknown", problematicCertSubject)
+	}
+
+	// success
+	return nil
 }

@@ -25,6 +25,12 @@ import (
 	"github.com/notaryproject/notation-go/internal/trustpolicy"
 )
 
+const (
+	RevocationModeAuto = "auto"
+	RevocationModeOCSP = "ocsp"
+	RevocationModeCRL  = "crl"
+)
+
 // OCIDocument represents a trustPolicy.json document for OCI artifacts
 type OCIDocument struct {
 	// Version of the policy document
@@ -50,6 +56,28 @@ type OCITrustPolicy struct {
 
 	// RegistryScopes that this policy statement affects
 	RegistryScopes []string `json:"registryScopes"`
+
+	// CRLValidity is the longest validity period of the CRL
+	// it will override the CRL default next update time if the next update
+	// time is longer than the CRLValidity
+	CRLValidity int `json:"crlValidity"`
+
+	// RevocationModeGlobal sets the global revocation mode
+	// it supported values are "auto", "ocsp", "crl"
+	RevocationModeGlobal string `json:"revocationModeGlobal"`
+
+	// RevocationMode sets the revocation mode for CA and TSA
+	// it will override RevocationModeGlobal if set
+	RevocationMode RevocationMode `json:"revocationMode"`
+}
+
+// RevocationMode represents the revocation mode for CA and TSA
+type RevocationMode struct {
+	// CA revocation mode, supported values are "auto", "ocsp", "crl"
+	CA string `json:"ca"`
+
+	// TSA revocation mode, supported values are "auto", "ocsp", "crl"
+	TSA string `json:"tsa"`
 }
 
 // Document represents a trustPolicy.json document
@@ -165,6 +193,16 @@ func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string)
 	} else {
 		return nil, fmt.Errorf("artifact %q has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: %s", artifactReference, trustPolicyLink)
 	}
+}
+
+func (policy *OCITrustPolicy) GetRevocationMode(storeType string) string {
+	if policy.RevocationMode.CA != "" && storeType == "ca" {
+		return policy.RevocationMode.CA
+	}
+	if policy.RevocationMode.TSA != "" && storeType == "tsa" {
+		return policy.RevocationMode.TSA
+	}
+	return policy.RevocationModeGlobal
 }
 
 // clone returns a pointer to the deeply copied TrustPolicy

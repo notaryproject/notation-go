@@ -18,6 +18,7 @@ package notation
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -37,6 +38,7 @@ import (
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/tspclient-go"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -61,6 +63,12 @@ type SignerSignOptions struct {
 
 	// SigningAgent sets the signing agent name
 	SigningAgent string
+
+	// Timestamper denotes the timestamper for RFC 3161 timestamping
+	Timestamper tspclient.Timestamper
+
+	// TSARootCAs is the cert pool holding caller's TSA trust anchor
+	TSARootCAs *x509.CertPool
 }
 
 // Signer is a generic interface for signing an OCI artifact.
@@ -84,11 +92,12 @@ type SignBlobOptions struct {
 
 // BlobDescriptorGenerator creates descriptor using the digest Algorithm.
 // Below is the example of minimal descriptor, it must contain mediatype, digest and size of the artifact
-// {
-//    "mediaType": "application/octet-stream",
-//    "digest": "sha256:2f3a23b6373afb134ddcd864be8e037e34a662d090d33ee849471ff73c873345",
-//    "size": 1024
-// }
+//
+//	{
+//	   "mediaType": "application/octet-stream",
+//	   "digest": "sha256:2f3a23b6373afb134ddcd864be8e037e34a662d090d33ee849471ff73c873345",
+//	   "size": 1024
+//	}
 type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
 
 // BlobSigner is a generic interface for signing arbitrary data.
