@@ -60,24 +60,24 @@ type OCITrustPolicy struct {
 	// CRLValidity is the longest validity period of the CRL
 	// it will override the CRL default next update time if the next update
 	// time is longer than the CRLValidity
-	CRLValidity int `json:"crlValidity"`
+	CRLValidity int `json:"crlValidity,omitempty"`
 
 	// GlobalRevocationMode sets the global revocation mode
 	// it supported values are "auto", "ocsp", "crl"
-	GlobalRevocationMode string `json:"revocationModeGlobal"`
+	GlobalRevocationMode string `json:"globalRevocationMode,omitempty"`
 
 	// RevocationMode sets the revocation mode for CA and TSA
 	// it will override RevocationModeGlobal if set
-	RevocationMode RevocationMode `json:"revocationMode"`
+	RevocationMode RevocationMode `json:"revocationMode,omitempty"`
 }
 
 // RevocationMode represents the revocation mode for CA and TSA
 type RevocationMode struct {
 	// CA revocation mode, supported values are "auto", "ocsp", "crl"
-	CA string `json:"ca"`
+	CA string `json:"ca,omitempty"`
 
 	// TSA revocation mode, supported values are "auto", "ocsp", "crl"
-	TSA string `json:"tsa"`
+	TSA string `json:"tsa,omitempty"`
 }
 
 // Document represents a trustPolicy.json document
