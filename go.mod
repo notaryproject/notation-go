@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.8
-	github.com/notaryproject/notation-core-go v1.0.4-0.20240708015912-faac9b7f3f10
+	github.com/notaryproject/notation-core-go v1.0.4-0.20240716001320-f45197cbd53b
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
 	github.com/notaryproject/tspclient-go v0.1.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -24,5 +24,3 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 )
-
-replace github.com/notaryproject/notation-core-go => github.com/Two-Hearts/notation-core-go v0.0.0-20240715083411-74ad57be772a
