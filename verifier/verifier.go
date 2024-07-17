@@ -1007,7 +1007,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// 4. Check the timestamp against the signing certificate chain
 	logger.Debug("Checking the timestamp against the signing certificate chain...")
-	logger.Debugf("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
+	logger.Debugf("Timestamp range: %s", timestamp.Format(time.RFC3339))
 	for _, cert := range signerInfo.CertificateChain {
 		if !timestamp.BoundedAfter(cert.NotBefore) {
 			return fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
