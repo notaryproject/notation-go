@@ -335,7 +335,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 	}
 
 	if !content.Equal(payload.TargetArtifact, desc) {
-		logger.Infof("payload.TargetArtifact in signature: %+v", payload.TargetArtifact)
+		logger.Infof("Target artifact in signature payload: %+v", payload.TargetArtifact)
 		logger.Infof("Target artifact that want to be verified: %+v", desc)
 		outcome.Error = errors.New("content descriptor mismatch")
 	}
@@ -1007,7 +1007,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// 4. Check the timestamp against the signing certificate chain
 	logger.Debug("Checking the timestamp against the signing certificate chain...")
-	logger.Debugf("Timestamp range: [%v, %v]", timestamp.Value.Add(-timestamp.Accuracy), timestamp.Value.Add(timestamp.Accuracy))
+	logger.Debugf("Timestamp range: %s", timestamp.Format(time.RFC3339))
 	for _, cert := range signerInfo.CertificateChain {
 		if !timestamp.BoundedAfter(cert.NotBefore) {
 			return fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
