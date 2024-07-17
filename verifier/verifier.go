@@ -722,8 +722,8 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 	}
 
 	var authenticSigningTime time.Time
-	var err error
 	if outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
+		var err error
 		authenticSigningTime, err = outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
 		if err != nil {
 			return &notation.ValidationResult{
