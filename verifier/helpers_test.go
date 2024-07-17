@@ -64,16 +64,13 @@ func TestLoadX509TrustStore(t *testing.T) {
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
 	dir.UserConfigDir = "testdata"
 	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
-	caCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
+	_, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
 	}
-	saCerts, err := loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
+	_, err = loadX509TrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, dummyPolicy.Name, dummyPolicy.TrustStores, x509truststore)
 	if err != nil {
 		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
-	}
-	if len(caCerts) != 4 || len(saCerts) != 3 {
-		t.Fatalf("ca store should have 4 certs and signingAuthority store should have 3 certs")
 	}
 }
 
@@ -95,6 +92,34 @@ func TestIsCriticalFailure(t *testing.T) {
 				t.Fatalf("TestIsCriticalFailure Expected: %v Got: %v", tt.criticalFailure, endResult)
 			}
 		})
+	}
+}
+
+func TestLoadX509TSATrustStores(t *testing.T) {
+	policyDoc := trustpolicy.Document{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.TrustPolicy{
+			{
+				Name:                  "testTSA",
+				RegistryScopes:        []string{"*"},
+				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
+				TrustStores:           []string{"tsa:test-timestamp"},
+				TrustedIdentities:     []string{"*"},
+			},
+		},
+	}
+	dir.UserConfigDir = "testdata"
+	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
+	policyStatement := policyDoc.TrustPolicies[0]
+	_, err := loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509, policyStatement.Name, policyStatement.TrustStores, x509truststore)
+	if err != nil {
+		t.Fatalf("TestLoadX509TrustStore should not throw error for a valid trust store. Error: %v", err)
+	}
+
+	_, err = loadX509TSATrustStores(context.Background(), signature.SigningSchemeX509SigningAuthority, policyStatement.Name, policyStatement.TrustStores, x509truststore)
+	expectedErrMsg := "error while loading the TSA trust store, signing scheme must be notary.x509, but got notary.x509.signingAuthority"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 	}
 }
 

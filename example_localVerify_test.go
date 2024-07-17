@@ -31,7 +31,7 @@ import (
 
 // examplePolicyDocument is an example of a valid trust policy document.
 // trust policy document should follow this spec:
-// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-policy
+// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#trust-policy
 var examplePolicyDocument = trustpolicy.Document{
 	Version: "1.0",
 	TrustPolicies: []trustpolicy.TrustPolicy{
@@ -75,7 +75,7 @@ func Example_localVerify() {
 	// createTrustStore creates a trust store directory for demo purpose.
 	// Users could use the default trust store from Notary and add trusted
 	// certificates into it following the trust store spec:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/trust-store-trust-policy.md#trust-store
+	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#trust-store
 	if err := createTrustStore(); err != nil {
 		panic(err) // Handle error
 	}
@@ -173,7 +173,7 @@ func createTrustStore() error {
 	// Users should replace `exampleX509Certificate` with their own trusted
 	// certificate and add to the trust store, following the
 	// Notary certificate requirements:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0-rc.1/specs/signature-specification.md#certificate-requirements
+	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
 	exampleX509Certificate := `-----BEGIN CERTIFICATE-----
 MIIDQDCCAiigAwIBAgIBUTANBgkqhkiG9w0BAQsFADBOMQswCQYDVQQGEwJVUzEL
 MAkGA1UECBMCV0ExEDAOBgNVBAcTB1NlYXR0bGUxDzANBgNVBAoTBk5vdGFyeTEP

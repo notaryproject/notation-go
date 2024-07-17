@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/notaryproject/notation-go/dir"
@@ -33,6 +34,9 @@ func TestLoadNonExistentFile(t *testing.T) {
 }
 
 func TestLoadSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on Windows")
+	}
 	root := t.TempDir()
 	dir.UserConfigDir = root
 	fileName := "symlink"

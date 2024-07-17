@@ -175,6 +175,15 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
+	// Invalid SignatureVerification VerifyTimestamp
+	policyDoc = dummyOCIPolicyDocument()
+	policyDoc.TrustPolicies[0].SignatureVerification.VerifyTimestamp = "invalid"
+	expectedErrMsg := "oci trust policy: trust policy statement \"test-statement-name\" has invalid signatureVerification: verifyTimestamp must be \"always\" or \"afterCertExpiry\", but got \"invalid\""
+	err = policyDoc.Validate()
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+	}
+
 	// strict SignatureVerification should have a trust store
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{}
@@ -352,13 +361,32 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 	policyStatement5.TrustedIdentities = []string{"*"}
 	policyStatement5.SignatureVerification = SignatureVerification{VerificationLevel: "strict"}
 
+	policyStatement6 := policyStatement1.clone()
+	policyStatement6.Name = "test-statement-name-6"
+	policyStatement6.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor6"}
+	policyStatement6.SignatureVerification.VerifyTimestamp = ""
+
+	policyStatement7 := policyStatement1.clone()
+	policyStatement7.Name = "test-statement-name-7"
+	policyStatement7.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor7"}
+	policyStatement7.SignatureVerification.VerifyTimestamp = OptionAlways
+
+	policyStatement8 := policyStatement1.clone()
+	policyStatement8.Name = "test-statement-name-8"
+	policyStatement8.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor8"}
+	policyStatement8.SignatureVerification.VerifyTimestamp = OptionAfterCertExpiry
+
 	policyDoc.TrustPolicies = []OCITrustPolicy{
 		*policyStatement1,
 		*policyStatement2,
 		*policyStatement3,
 		*policyStatement4,
 		*policyStatement5,
+		*policyStatement6,
+		*policyStatement7,
+		*policyStatement8,
 	}
+
 	err := policyDoc.Validate()
 	if err != nil {
 		t.Fatalf("validation failed on a good policy document. Error : %q", err)
