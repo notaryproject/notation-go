@@ -255,6 +255,12 @@ func (t *OCITrustPolicy) clone() *OCITrustPolicy {
 		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
 		TrustStores:           append([]string(nil), t.TrustStores...),
 		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
+		CRLValidity:           t.CRLValidity,
+		GlobalRevocationMode:  t.GlobalRevocationMode,
+		RevocationMode: RevocationMode{
+			CA:  t.RevocationModeCA(),
+			TSA: t.RevocationModeTSA(),
+		},
 	}
 }
 
