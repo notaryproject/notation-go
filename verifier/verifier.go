@@ -90,7 +90,7 @@ func NewOCIVerifierFromConfig() (*verifier, error) {
 	// load trust store
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
-	cacheDir, err := dir.CacheFS().SysPath()
+	cacheDir, err := dir.CacheFS().SysPath("crl")
 	if err != nil {
 		return nil, err
 	}
