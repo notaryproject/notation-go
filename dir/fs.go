@@ -58,3 +58,7 @@ func ConfigFS() SysFS {
 func PluginFS() SysFS {
 	return NewSysFS(filepath.Join(UserLibexecDir, PathPlugins))
 }
+
+func CacheFS() SysFS {
+	return NewSysFS(UserCacheDir)
+}

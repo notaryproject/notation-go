@@ -25,6 +25,12 @@ import (
 	"github.com/notaryproject/notation-go/internal/trustpolicy"
 )
 
+const (
+	RevocationModeAuto = "auto"
+	RevocationModeOCSP = "ocsp"
+	RevocationModeCRL  = "crl"
+)
+
 // OCIDocument represents a trustPolicy.json document for OCI artifacts
 type OCIDocument struct {
 	// Version of the policy document
@@ -50,6 +56,28 @@ type OCITrustPolicy struct {
 
 	// RegistryScopes that this policy statement affects
 	RegistryScopes []string `json:"registryScopes"`
+
+	// CRLValidity is the longest validity period of the CRL
+	// it will override the CRL default next update time if the next update
+	// time is longer than the CRLValidity
+	CRLValidity int `json:"crlValidity,omitempty"`
+
+	// GlobalRevocationMode sets the global revocation mode
+	// it supported values are "auto", "ocsp", "crl"
+	GlobalRevocationMode string `json:"globalRevocationMode,omitempty"`
+
+	// RevocationMode sets the revocation mode for CA and TSA
+	// it will override RevocationModeGlobal if set
+	RevocationMode RevocationMode `json:"revocationMode,omitempty"`
+}
+
+// RevocationMode represents the revocation mode for CA and TSA
+type RevocationMode struct {
+	// CA revocation mode, supported values are "auto", "ocsp", "crl"
+	CA string `json:"ca,omitempty"`
+
+	// TSA revocation mode, supported values are "auto", "ocsp", "crl"
+	TSA string `json:"tsa,omitempty"`
 }
 
 // Document represents a trustPolicy.json document
@@ -123,6 +151,34 @@ func (policyDoc *OCIDocument) Validate() error {
 			return fmt.Errorf("oci trust policy: %w", err)
 		}
 
+		switch statement.GlobalRevocationMode {
+		case RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL:
+		case "":
+			statement.GlobalRevocationMode = RevocationModeAuto
+		default:
+			return fmt.Errorf("oci trust policy statement %q has unsupported global revocation mode %q, supported values are %q, %q, %q", statement.Name, statement.GlobalRevocationMode, RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL)
+		}
+
+		switch statement.RevocationMode.CA {
+		case RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL:
+		case "":
+			statement.RevocationMode.CA = RevocationModeAuto
+		default:
+			return fmt.Errorf("oci trust policy statement %q has unsupported CA revocation mode %q, supported values are %q, %q, %q", statement.Name, statement.RevocationMode.CA, RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL)
+		}
+
+		switch statement.RevocationMode.TSA {
+		case RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL:
+		case "":
+			statement.RevocationMode.TSA = RevocationModeAuto
+		default:
+			return fmt.Errorf("oci trust policy statement %q has unsupported TSA revocation mode %q, supported values are %q, %q, %q", statement.Name, statement.RevocationMode.TSA, RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL)
+		}
+
+		if statement.CRLValidity < 0 {
+			return fmt.Errorf("oci trust policy statement %q has negative CRL validity %d, it must be a non-negative integer", statement.Name, statement.CRLValidity)
+		}
+
 		policyNames.Add(statement.Name)
 	}
 
@@ -167,6 +223,30 @@ func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string)
 	}
 }
 
+func (policy *OCITrustPolicy) RevocationModeCA() string {
+	if policy.RevocationMode.CA != "" {
+		return policy.RevocationMode.CA
+	}
+
+	if policy.GlobalRevocationMode != "" {
+		return policy.GlobalRevocationMode
+	}
+
+	return RevocationModeAuto
+}
+
+func (policy *OCITrustPolicy) RevocationModeTSA() string {
+	if policy.RevocationMode.TSA != "" {
+		return policy.RevocationMode.TSA
+	}
+
+	if policy.GlobalRevocationMode != "" {
+		return policy.GlobalRevocationMode
+	}
+
+	return RevocationModeAuto
+}
+
 // clone returns a pointer to the deeply copied TrustPolicy
 func (t *OCITrustPolicy) clone() *OCITrustPolicy {
 	return &OCITrustPolicy{
@@ -175,6 +255,12 @@ func (t *OCITrustPolicy) clone() *OCITrustPolicy {
 		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
 		TrustStores:           append([]string(nil), t.TrustStores...),
 		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
+		CRLValidity:           t.CRLValidity,
+		GlobalRevocationMode:  t.GlobalRevocationMode,
+		RevocationMode: RevocationMode{
+			CA:  t.RevocationModeCA(),
+			TSA: t.RevocationModeTSA(),
+		},
 	}
 }
 

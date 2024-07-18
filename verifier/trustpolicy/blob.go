@@ -49,6 +49,19 @@ type BlobTrustPolicy struct {
 
 	// GlobalPolicy defines if policy statement is global or not
 	GlobalPolicy bool `json:"globalPolicy,omitempty"`
+
+	// CRLValidity is the longest validity period of the CRL
+	// it will override the CRL default next update time if the next update
+	// time is longer than the CRLValidity
+	CRLValidity int `json:"crlValidity"`
+
+	// GlobalRevocationMode sets the global revocation mode
+	// it supported values are "auto", "ocsp", "crl"
+	GlobalRevocationMode string `json:"revocationModeGlobal"`
+
+	// RevocationMode sets the revocation mode for CA and TSA
+	// it will override RevocationModeGlobal if set
+	RevocationMode RevocationMode `json:"revocationMode"`
 }
 
 var supportedBlobPolicyVersions = []string{"1.0"}
@@ -115,7 +128,7 @@ func (policyDoc *BlobDocument) Validate() error {
 // see https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#blob-trust-policy
 func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*BlobTrustPolicy, error) {
 	if strings.TrimSpace(policyName) == "" {
-		return  nil, errors.New("policy name cannot be empty")
+		return nil, errors.New("policy name cannot be empty")
 	}
 	for _, policyStatement := range policyDoc.TrustPolicies {
 		// exact match
@@ -137,6 +150,30 @@ func (policyDoc *BlobDocument) GetGlobalTrustPolicy() (*BlobTrustPolicy, error) 
 	}
 
 	return nil, fmt.Errorf("no global blob trust policy")
+}
+
+func (t *BlobTrustPolicy) RevocationModeCA() string {
+	if t.RevocationMode.CA != "" {
+		return t.RevocationMode.CA
+	}
+
+	if t.GlobalRevocationMode != "" {
+		return t.GlobalRevocationMode
+	}
+
+	return RevocationModeAuto
+}
+
+func (t *BlobTrustPolicy) RevocationModeTSA() string {
+	if t.RevocationMode.TSA != "" {
+		return t.RevocationMode.TSA
+	}
+
+	if t.GlobalRevocationMode != "" {
+		return t.GlobalRevocationMode
+	}
+
+	return RevocationModeAuto
 }
 
 // clone returns a pointer to the deeply copied TrustPolicy

@@ -44,6 +44,7 @@ import (
 var (
 	UserConfigDir  string // Absolute path of user level {NOTATION_CONFIG}
 	UserLibexecDir string // Absolute path of user level {NOTATION_LIBEXEC}
+	UserCacheDir   string // Absolute path of user level {NOTATION_CACHE}
 )
 
 const (
@@ -78,6 +79,7 @@ const (
 )
 
 var userConfigDir = os.UserConfigDir // for unit test
+var userCacheDir = os.UserCacheDir   // for unit test
 
 func init() {
 	loadUserPath()
@@ -94,6 +96,13 @@ func loadUserPath() {
 
 	// set user libexec
 	UserLibexecDir = UserConfigDir
+
+	// set cacheDir
+	cacheDir, err := userCacheDir()
+	if err != nil {
+		panic(err)
+	}
+	UserCacheDir = filepath.Join(cacheDir, notation)
 }
 
 // LocalKeyPath returns the local key and local cert relative paths.
