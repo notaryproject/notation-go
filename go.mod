@@ -25,4 +25,4 @@ require (
 	golang.org/x/sync v0.6.0 // indirect
 )
 
-replace github.com/notaryproject/notation-core-go => ../notation-core-go
+replace github.com/notaryproject/notation-core-go => github.com/JeyJeyGao/notation-core-go v0.0.0-20240719080906-2d39c3547b09
