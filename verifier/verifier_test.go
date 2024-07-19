@@ -628,7 +628,7 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		expectedErrMsg := "unable to check revocation status, err: authentic signing time must be present under signing scheme \"notary.x509.signingAuthority\""
+		expectedErrMsg := "signing certificate with subject \"CN=Notation Test Revokable RSA Chain Cert 3,O=Notary,L=Seattle,ST=WA,C=US\" is revoked"
 		result := verifyRevocation(createMockOutcome(revokableChain, zeroTime), revocationClient, logger)
 		if result.Error == nil || result.Error.Error() != expectedErrMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
