@@ -723,15 +723,7 @@ func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revoca
 
 	var authenticSigningTime time.Time
 	if outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
-		var err error
-		authenticSigningTime, err = outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
-		if err != nil {
-			return &notation.ValidationResult{
-				Type:   trustpolicy.TypeRevocation,
-				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-				Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
-			}
-		}
+		authenticSigningTime, _ = outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
 	}
 
 	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
