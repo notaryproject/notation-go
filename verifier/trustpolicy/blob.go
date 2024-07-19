@@ -50,18 +50,18 @@ type BlobTrustPolicy struct {
 	// GlobalPolicy defines if policy statement is global or not
 	GlobalPolicy bool `json:"globalPolicy,omitempty"`
 
-	// CRLValidity is the longest validity period of the CRL
+	// CRLCacheTTL is the longest validity period of the CRL
 	// it will override the CRL default next update time if the next update
-	// time is longer than the CRLValidity
-	CRLValidity int `json:"crlValidity"`
+	// time is longer than the CRLCacheTTL
+	CRLCacheTTL int `json:"crlCacheTTL,omitempty"`
 
 	// GlobalRevocationMode sets the global revocation mode
 	// it supported values are "auto", "ocsp", "crl"
-	GlobalRevocationMode string `json:"revocationModeGlobal"`
+	GlobalRevocationMode string `json:"revocationModeGlobal,omitempty"`
 
 	// RevocationMode sets the revocation mode for CA and TSA
 	// it will override RevocationModeGlobal if set
-	RevocationMode RevocationMode `json:"revocationMode"`
+	RevocationMode RevocationMode `json:"revocationMode,omitempty"`
 }
 
 var supportedBlobPolicyVersions = []string{"1.0"}

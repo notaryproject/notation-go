@@ -57,10 +57,10 @@ type OCITrustPolicy struct {
 	// RegistryScopes that this policy statement affects
 	RegistryScopes []string `json:"registryScopes"`
 
-	// CRLValidity is the longest validity period of the CRL
+	// CRLCacheTTL is the longest validity period of the CRL
 	// it will override the CRL default next update time if the next update
-	// time is longer than the CRLValidity
-	CRLValidity int `json:"crlValidity,omitempty"`
+	// time is longer than the CRLCacheTTL
+	CRLCacheTTL int `json:"crlCacheTTL,omitempty"`
 
 	// GlobalRevocationMode sets the global revocation mode
 	// it supported values are "auto", "ocsp", "crl"
@@ -175,8 +175,8 @@ func (policyDoc *OCIDocument) Validate() error {
 			return fmt.Errorf("oci trust policy statement %q has unsupported TSA revocation mode %q, supported values are %q, %q, %q", statement.Name, statement.RevocationMode.TSA, RevocationModeAuto, RevocationModeOCSP, RevocationModeCRL)
 		}
 
-		if statement.CRLValidity < 0 {
-			return fmt.Errorf("oci trust policy statement %q has negative CRL validity %d, it must be a non-negative integer", statement.Name, statement.CRLValidity)
+		if statement.CRLCacheTTL < 0 {
+			return fmt.Errorf("oci trust policy statement %q has negative CRL validity %d, it must be a non-negative integer", statement.Name, statement.CRLCacheTTL)
 		}
 
 		policyNames.Add(statement.Name)
@@ -255,7 +255,7 @@ func (t *OCITrustPolicy) clone() *OCITrustPolicy {
 		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
 		TrustStores:           append([]string(nil), t.TrustStores...),
 		RegistryScopes:        append([]string(nil), t.RegistryScopes...),
-		CRLValidity:           t.CRLValidity,
+		CRLCacheTTL:           t.CRLCacheTTL,
 		GlobalRevocationMode:  t.GlobalRevocationMode,
 		RevocationMode: RevocationMode{
 			CA:  t.RevocationModeCA(),

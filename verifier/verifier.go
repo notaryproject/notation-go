@@ -95,18 +95,26 @@ func NewOCIVerifierFromConfig() (*verifier, error) {
 		return nil, err
 	}
 
+	codeSigningCRLCache, err := cache.NewFileSystemCache(cacheDir, 0)
+	if err != nil {
+		return nil, err
+	}
 	revocationClient, err := revocation.NewWithOptions(revocation.Options{
 		HttpClient:       &http.Client{Timeout: 2 * time.Second},
-		CRLCache:         cache.NewFileSystemCache(cacheDir),
+		CRLCache:         codeSigningCRLCache,
 		CertChainPurpose: ocsp.PurposeCodeSigning,
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	timestampingCRLCache, err := cache.NewFileSystemCache(cacheDir, 0)
+	if err != nil {
+		return nil, err
+	}
 	revocationTimestampClient, err := revocation.NewWithOptions(revocation.Options{
 		HttpClient:       &http.Client{Timeout: 2 * time.Second},
-		CRLCache:         cache.NewFileSystemCache(cacheDir),
+		CRLCache:         timestampingCRLCache,
 		CertChainPurpose: ocsp.PurposeTimestamping,
 	})
 	if err != nil {
