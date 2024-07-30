@@ -58,12 +58,12 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 
 // verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
 type verifier struct {
-	ociTrustPolicyDoc         *trustpolicy.OCIDocument
-	blobTrustPolicyDoc        *trustpolicy.BlobDocument
-	trustStore                truststore.X509TrustStore
-	pluginManager             plugin.Manager
-	revocationClient          revocation.Revocation
-	revocationTimestampClient revocation.ContextRevocation
+	ociTrustPolicyDoc                *trustpolicy.OCIDocument
+	blobTrustPolicyDoc               *trustpolicy.BlobDocument
+	trustStore                       truststore.X509TrustStore
+	pluginManager                    plugin.Manager
+	revocationClient                 revocation.Revocation
+	contextRevocationTimestampClient revocation.ContextRevocation
 }
 
 // VerifierOptions specifies additional parameters that can be set when using
@@ -73,9 +73,9 @@ type VerifierOptions struct {
 	// verifying revocation of code signing certificate chain
 	RevocationClient revocation.Revocation
 
-	// RevocationTimestampClient is an implementaion of evocation.Revocation to
-	// use for verifying revocation of timestamping certificate chain
-	RevocationTimestampClient revocation.ContextRevocation
+	// ContextRevocationTimestampClient is used for verifying revocation of
+	// timestamping certificate chain with context.
+	ContextRevocationTimestampClient revocation.ContextRevocation
 }
 
 // NewOCIVerifierFromConfig returns a OCI verifier based on local file system
@@ -129,7 +129,7 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 		}
 	}
 
-	revocationTimestampClient := verifierOptions.RevocationTimestampClient
+	revocationTimestampClient := verifierOptions.ContextRevocationTimestampClient
 	if revocationTimestampClient == nil {
 		var err error
 		revocationTimestampClient, err = revocation.NewWithOptions(revocation.Options{
@@ -162,12 +162,12 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 	}
 
 	return &verifier{
-		ociTrustPolicyDoc:         ociTrustPolicy,
-		blobTrustPolicyDoc:        blobTrustPolicy,
-		trustStore:                trustStore,
-		pluginManager:             pluginManager,
-		revocationClient:          revocationClient,
-		revocationTimestampClient: revocationTimestampClient,
+		ociTrustPolicyDoc:                ociTrustPolicy,
+		blobTrustPolicyDoc:               blobTrustPolicy,
+		trustStore:                       trustStore,
+		pluginManager:                    pluginManager,
+		revocationClient:                 revocationClient,
+		contextRevocationTimestampClient: revocationTimestampClient,
 	}, nil
 }
 
@@ -464,7 +464,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.revocationTimestampClient, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.contextRevocationTimestampClient, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {

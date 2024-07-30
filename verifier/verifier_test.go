@@ -733,8 +733,8 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 		t.Fatalf("unexpected error while creating revocation timestamp object: %v", err)
 	}
 	opts := VerifierOptions{
-		RevocationClient:          r,
-		RevocationTimestampClient: rt,
+		RevocationClient:                 r,
+		ContextRevocationTimestampClient: rt,
 	}
 
 	_, err = NewVerifierWithOptions(nil, nil, store, pm, opts)
