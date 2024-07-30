@@ -1075,7 +1075,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 		VerificationLevel:   verificationLevel,
 	}
 	outcome, err = v.Verify(context.Background(), mock.ImageDescriptor, pluginSigEnv, opts)
-	if err == nil || outcome.Error == nil || outcome.Error.Error() != "invalid plugin response" {
+	if err == nil || outcome.Error == nil || outcome.Error.Error() != "failed to verify with plugin plugin-name: invalid plugin response" {
 		t.Fatalf("verification should fail when the verification plugin returns unexpected response. error : %v", outcome.Error)
 	}
 

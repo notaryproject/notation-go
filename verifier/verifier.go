@@ -500,7 +500,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 			logger.Debugf("Executing verification plugin %q with capabilities %v", verificationPluginName, capabilitiesToVerify)
 			response, err := executePlugin(ctx, installedPlugin, capabilitiesToVerify, outcome.EnvelopeContent, trustedIdentities, pluginConfig)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to verify with plugin %s: %w", verificationPluginName, err)
 			}
 
 			return processPluginResponse(capabilitiesToVerify, response, outcome)

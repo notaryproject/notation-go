@@ -173,20 +173,21 @@ func run(ctx context.Context, pluginName string, pluginPath string, req plugin.R
 		if len(stderr) == 0 {
 			// if stderr is empty, it is possible that the plugin is not
 			// running properly.
+			logger.Errorf("failed to execute the %s command for plugin %s: %s", req.Command(), pluginName, err)
 			return &PluginExecutableFileError{
-				Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s", req.Command(), pluginName),
 				InnerError: err,
 			}
 		} else {
 			var re proto.RequestError
 			jsonErr := json.Unmarshal(stderr, &re)
 			if jsonErr != nil {
+				logger.Errorf("failed to execute the %s command for plugin %s: %s", req.Command(), pluginName, strings.TrimSuffix(string(stderr), "\n"))
 				return &PluginMalformedError{
-					Msg:        fmt.Sprintf("failed to execute the %s command for plugin %s: %s", req.Command(), pluginName, strings.TrimSuffix(string(stderr), "\n")),
 					InnerError: jsonErr,
 				}
 			}
-			return fmt.Errorf("failed to execute the %s command for plugin %s: %w", req.Command(), pluginName, re)
+			logger.Errorf("failed to execute the %s command for plugin %s: %s: %w", req.Command(), pluginName, re.Code, re)
+			return re
 		}
 	}
 
