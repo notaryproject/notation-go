@@ -44,7 +44,10 @@ func TestAuthenticTimestamp(t *testing.T) {
 		TrustStores:       []string{"ca:valid-trust-store", "tsa:test-timestamp"},
 		TrustedIdentities: []string{"*"},
 	}
-	revocationTimestsampClient, err := revocation.NewTimestamp(&http.Client{Timeout: 5 * time.Second})
+	revocationTimestsampClient, err := revocation.NewWithOptions(revocation.Options{
+		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
+		CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+	})
 	if err != nil {
 		t.Fatalf("failed to get revocation timestamp client: %v", err)
 	}

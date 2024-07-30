@@ -725,7 +725,10 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	rt, err := revocation.NewTimestamp(&http.Client{})
+	rt, err := revocation.NewWithOptions(revocation.Options{
+		OCSPHTTPClient:   &http.Client{},
+		CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+	})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation timestamp object: %v", err)
 	}

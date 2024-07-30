@@ -63,7 +63,7 @@ type verifier struct {
 	trustStore                truststore.X509TrustStore
 	pluginManager             plugin.Manager
 	revocationClient          revocation.Revocation
-	revocationTimestampClient revocation.Revocation
+	revocationTimestampClient revocation.ContextRevocation
 }
 
 // VerifierOptions specifies additional parameters that can be set when using
@@ -75,7 +75,7 @@ type VerifierOptions struct {
 
 	// RevocationTimestampClient is an implementaion of evocation.Revocation to
 	// use for verifying revocation of timestamping certificate chain
-	RevocationTimestampClient revocation.Revocation
+	RevocationTimestampClient revocation.ContextRevocation
 }
 
 // NewOCIVerifierFromConfig returns a OCI verifier based on local file system
@@ -132,7 +132,10 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 	revocationTimestampClient := verifierOptions.RevocationTimestampClient
 	if revocationTimestampClient == nil {
 		var err error
-		revocationTimestampClient, err = revocation.NewTimestamp(&http.Client{Timeout: 2 * time.Second})
+		revocationTimestampClient, err = revocation.NewWithOptions(revocation.Options{
+			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
+			CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -678,7 +681,7 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.ContextRevocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	signerInfo := outcome.EnvelopeContent.SignerInfo
@@ -906,7 +909,7 @@ func isRequiredVerificationPluginVer(pluginVer string, minPluginVer string) bool
 
 // verifyTimestamp provides core verification logic of authentic timestamp under
 // signing scheme `notary.x509`.
-func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) error {
+func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.ContextRevocation, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	signerInfo := outcome.EnvelopeContent.SignerInfo
@@ -1019,7 +1022,10 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// 5. Perform the timestamping certificate chain revocation check
 	logger.Debug("Checking timestamping certificate chain revocation...")
-	certResults, err := r.Validate(tsaCertChain, time.Time{})
+	certResults, err := r.ValidateContext(ctx, revocation.ValidateContextOptions{
+		CertChain:            tsaCertChain,
+		AuthenticSigningTime: time.Time{},
+	})
 	if err != nil {
 		return fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err)
 	}
