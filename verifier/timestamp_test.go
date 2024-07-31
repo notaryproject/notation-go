@@ -44,7 +44,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 		TrustStores:       []string{"ca:valid-trust-store", "tsa:test-timestamp"},
 		TrustedIdentities: []string{"*"},
 	}
-	revocationTimestsampClient, err := revocation.NewWithOptions(revocation.Options{
+	revocationTimestampingValidator, err := revocation.NewWithOptions(revocation.Options{
 		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
 		CertChainPurpose: x509.ExtKeyUsageTimeStamping,
 	})
@@ -68,7 +68,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   jwsEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		if err := authenticTimestampResult.Error; err != nil {
 			t.Fatalf("expected nil error, but got %s", err)
 		}
@@ -79,7 +79,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   coseEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		if err := authenticTimestampResult.Error; err != nil {
 			t.Fatalf("expected nil error, but got %s", err)
 		}
@@ -94,7 +94,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   jwsEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		if err := authenticTimestampResult.Error; err != nil {
 			t.Fatalf("expected nil error, but got %s", err)
 		}
@@ -109,7 +109,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   coseEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		if err := authenticTimestampResult.Error; err != nil {
 			t.Fatalf("expected nil error, but got %s", err)
 		}
@@ -130,7 +130,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   coseEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		if err := authenticTimestampResult.Error; err != nil {
 			t.Fatalf("expected nil error, but got %s", err)
 		}
@@ -151,7 +151,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   jwsEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to check tsa trust store configuration in turst policy with error: invalid trust policy statement: \"test-timestamp\" is missing separator in trust store value \"tsa\". The required format is <TrustStoreType>:<TrustStoreName>"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -177,7 +177,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   coseEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "verification time is after certificate \"CN=testTSA,O=Notary,L=Seattle,ST=WA,C=US\" validity period, it was expired at \"Tue, 18 Jun 2024 07:30:31 +0000\""
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -193,7 +193,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   envContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "no timestamp countersignature was found in the signature envelope"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -214,7 +214,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   envContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to parse timestamp countersignature with error: unexpected content type: 1.2.840.113549.1.7.1"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -235,7 +235,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   envContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to get the timestamp TSTInfo with error: cannot unmarshal TSTInfo from timestamp token: asn1: structure error: tags don't match (23 vs {class:0 tag:16 length:3 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:24 set:false omitEmpty:false} Time @89"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -257,7 +257,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   envContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to get timestamp from timestamp countersignature with error: invalid TSTInfo: mismatched message"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -279,7 +279,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   envContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to verify the timestamp countersignature with error: failed to verify signed token: signing certificate not found in the timestamp token"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -301,7 +301,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   coseEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to load tsa trust store with error: the trust store \"does-not-exist\" of type \"tsa\" does not exist"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -323,7 +323,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   coseEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, dummyTrustStore{}, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, dummyTrustStore{}, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "no trusted TSA certificate found in trust store"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -345,7 +345,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   coseEnvContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to verify the timestamp countersignature with error: failed to verify signed token: cms verification failure: x509: certificate signed by unknown authority"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -371,7 +371,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   envContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "timestamp can be before certificate \"CN=testTSA,O=Notary,L=Seattle,ST=WA,C=US\" validity period, it will be valid from \"Fri, 18 Sep 2099 11:54:34 +0000\""
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
@@ -397,7 +397,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			EnvelopeContent:   envContent,
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestsampClient, outcome)
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "timestamp can be after certificate \"CN=testTSA,O=Notary,L=Seattle,ST=WA,C=US\" validity period, it was expired at \"Tue, 18 Sep 2001 11:54:34 +0000\""
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
