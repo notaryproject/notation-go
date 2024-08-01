@@ -114,7 +114,8 @@ func NewBlobVerifierFromConfig() (*verifier, error) {
 }
 
 // NewWithOptions creates a new verifier given ociTrustPolicy, trustStore,
-// pluginManager, and VerifierOptions
+// pluginManager, and VerifierOptions.
+//
 // Deprecated: NewWithOptions function exists for historical compatibility and should not be used.
 // To create verifier, use NewVerifierWithOptions function.
 func NewWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
@@ -170,14 +171,16 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 	return v, nil
 }
 
-// NewFromConfig returns a OCI verifier based on local file system
+// NewFromConfig returns a OCI verifier based on local file system.
+//
 // Deprecated: NewFromConfig function exists for historical compatibility and should not be used.
 // To create an OCI verifier, use NewOCIVerifierFromConfig function.
 func NewFromConfig() (notation.Verifier, error) {
 	return NewOCIVerifierFromConfig()
 }
 
-// New creates a new verifier given ociTrustPolicy, trustStore and pluginManager
+// New creates a new verifier given ociTrustPolicy, trustStore and pluginManager.
+//
 // Deprecated: New function exists for historical compatibility and should not be used.
 // To create verifier, use NewVerifier function.
 func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
