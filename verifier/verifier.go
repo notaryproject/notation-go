@@ -557,8 +557,8 @@ func (v *verifier) verifyRevocation(ctx context.Context, outcome *notation.Verif
 	var err error
 	if v.revocationCodeSigningValidator != nil {
 		certResults, err = v.revocationCodeSigningValidator.ValidateContext(ctx, revocation.ValidateContextOptions{
-			CertChain:            outcome.EnvelopeContent.SignerInfo.CertificateChain,
-			AuthenticSigningTime: authenticSigningTime,
+			CertChain:   outcome.EnvelopeContent.SignerInfo.CertificateChain,
+			SigningTime: authenticSigningTime,
 		})
 	} else {
 		certResults, err = v.revocationClient.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
@@ -1059,8 +1059,8 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	// 5. Perform the timestamping certificate chain revocation check
 	logger.Debug("Checking timestamping certificate chain revocation...")
 	certResults, err := r.ValidateContext(ctx, revocation.ValidateContextOptions{
-		CertChain:            tsaCertChain,
-		AuthenticSigningTime: time.Time{},
+		CertChain:   tsaCertChain,
+		SigningTime: time.Time{},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err)
