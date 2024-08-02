@@ -42,6 +42,26 @@ func TestParseDistinguishedName(t *testing.T) {
 			input:   "C=US,O=Notary Project",
 			wantErr: true,
 		},
+		{
+			name:    "invalid DN without State",
+			input:   "invalid",
+			wantErr: true,
+		},
+		{
+			name:    "duplicate RDN attribute",
+			input:   "C=US,ST=California,O=Notary Project,S=California",
+			wantErr: true,
+		},
+		{
+			name:    "unsupported DN =#",
+			input:   "C=US,ST=California,O=Notary Project=#",
+			wantErr: true,
+		},
+		{
+			name:    "multi-valued RDN attributes",
+			input:   "OU=Sales+CN=J.  Smith,DC=example,DC=net",
+			wantErr: true,
+		},
 	}
 
 	// Run tests
@@ -53,5 +73,71 @@ func TestParseDistinguishedName(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestIsSubsetDN(t *testing.T) {
+	// Test cases
+	tests := []struct {
+		name string
+		dn1  map[string]string
+		dn2  map[string]string
+		want bool
+	}{
+		{
+			name: "subset DN",
+			dn1: map[string]string{
+				"C":  "US",
+				"ST": "California",
+				"O":  "Notary Project",
+			},
+			dn2: map[string]string{
+				"C":  "US",
+				"ST": "California",
+				"O":  "Notary Project",
+				"L":  "Los Angeles",
+			},
+			want: true,
+		},
+		{
+			name: "not subset DN",
+			dn1: map[string]string{
+				"C":  "US",
+				"ST": "California",
+				"O":  "Notary Project",
+			},
+			dn2: map[string]string{
+				"C":  "US",
+				"ST": "California",
+				"O":  "Notary Project 2",
+				"L":  "Los Angeles",
+				"CN": "Notary",
+			},
+			want: false,
+		},
+		{
+			name: "not subset DN 2",
+			dn1: map[string]string{
+				"C":  "US",
+				"ST": "California",
+				"O":  "Notary Project",
+				"CN": "Notary",
+			},
+			dn2: map[string]string{
+				"C":  "US",
+				"ST": "California",
+				"O":  "Notary Project",
+				"L":  "Los Angeles",
+			},
+			want: false,
+		},
+	}
+
+	// Run tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsSubsetDN(tt.dn1, tt.dn2); got != tt.want {
+				t.Errorf("IsSubsetDN() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
