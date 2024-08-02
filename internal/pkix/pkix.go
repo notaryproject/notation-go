@@ -38,6 +38,10 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 			return nil, fmt.Errorf("distinguished name (DN) %q has multi-valued RDN attributes, remove multi-valued RDN attributes as they are not supported", name)
 		}
 		for _, attribute := range rdn.Attributes {
+			// stateOrProvincename 'S' is an alias for 'ST'
+			if attribute.Type == "S" {
+				attribute.Type = "ST"
+			}
 			if attrKeyValue[attribute.Type] == "" {
 				attrKeyValue[attribute.Type] = attribute.Value
 			} else {
@@ -47,18 +51,11 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 	}
 
 	// Verify mandatory fields are present
-	const contryField = "C"
-	const orgniazationField = "O"
-	for _, field := range []string{contryField, orgniazationField} {
+	mandatoryFields := []string{"C", "ST", "O"}
+	for _, field := range mandatoryFields {
 		if attrKeyValue[field] == "" {
 			return nil, fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q, it must contain 'C', 'ST' or 'S', and 'O' RDN attributes at a minimum", name, field)
 		}
-	}
-
-	const stateField = "ST"
-	const stateFieldAlias = "S"
-	if attrKeyValue[stateField] == "" && attrKeyValue[stateFieldAlias] == "" {
-		return nil, fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q or %q, it must contain 'C', 'ST' or 'S', and 'O' RDN attributes at a minimum", name, stateField, stateFieldAlias)
 	}
 
 	// No errors
