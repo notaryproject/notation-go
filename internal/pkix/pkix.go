@@ -38,7 +38,7 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 			return nil, fmt.Errorf("distinguished name (DN) %q has multi-valued RDN attributes, remove multi-valued RDN attributes as they are not supported", name)
 		}
 		for _, attribute := range rdn.Attributes {
-			// stateOrProvincename 'S' is an alias for 'ST'
+			// stateOrProvince name 'S' is an alias for 'ST'
 			if attribute.Type == "S" {
 				attribute.Type = "ST"
 			}
