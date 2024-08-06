@@ -78,7 +78,7 @@ type VerifierOptions struct {
 	// check, use [RevocationCodeSigningValidator].
 	RevocationClient revocation.Revocation
 
-	// RevocationTimestampingValidator is used for verifying revocation of
+	// RevocationCodeSigningValidator is used for verifying revocation of
 	// code signing certificate chain with context.
 	RevocationCodeSigningValidator revocation.Validator
 
@@ -130,17 +130,6 @@ func NewVerifier(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trust
 // NewVerifierWithOptions creates a new verifier given ociTrustPolicy, blobTrustPolicy,
 // trustStore, pluginManager, and verifierOptions
 func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (*verifier, error) {
-	revocationTimestampingValidator := verifierOptions.RevocationTimestampingValidator
-	var err error
-	if revocationTimestampingValidator == nil {
-		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
-			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-			CertChainPurpose: x509.ExtKeyUsageTimeStamping,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
 	if trustStore == nil {
 		return nil, errors.New("trustStore cannot be nil")
 	}
@@ -158,14 +147,13 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 		}
 	}
 	v := &verifier{
-		ociTrustPolicyDoc:               ociTrustPolicy,
-		blobTrustPolicyDoc:              blobTrustPolicy,
-		trustStore:                      trustStore,
-		pluginManager:                   pluginManager,
-		revocationTimestampingValidator: revocationTimestampingValidator,
+		ociTrustPolicyDoc:  ociTrustPolicy,
+		blobTrustPolicyDoc: blobTrustPolicy,
+		trustStore:         trustStore,
+		pluginManager:      pluginManager,
 	}
 
-	if err := v.setCodeSigningRevocation(verifierOptions); err != nil {
+	if err := v.setRevocation(verifierOptions); err != nil {
 		return nil, err
 	}
 	return v, nil
@@ -187,8 +175,23 @@ func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509Trus
 	return NewVerifier(ociTrustPolicy, nil, trustStore, pluginManager)
 }
 
-// setCodeSigningRevocation sets code signing revocation object of v
-func (v *verifier) setCodeSigningRevocation(verifierOptions VerifierOptions) error {
+// setRevocation sets revocation validators of v
+func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
+	// timestamping validator
+	revocationTimestampingValidator := verifierOptions.RevocationTimestampingValidator
+	var err error
+	if revocationTimestampingValidator == nil {
+		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
+			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
+			CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	v.revocationTimestampingValidator = revocationTimestampingValidator
+
+	// code signing validator
 	revocationCodeSigningValidator := verifierOptions.RevocationCodeSigningValidator
 	if revocationCodeSigningValidator != nil {
 		v.revocationCodeSigningValidator = revocationCodeSigningValidator
@@ -201,7 +204,6 @@ func (v *verifier) setCodeSigningRevocation(verifierOptions VerifierOptions) err
 	}
 
 	// both RevocationCodeSigningValidator and RevocationClient are nil
-	var err error
 	revocationCodeSigningValidator, err = revocation.NewWithOptions(revocation.Options{
 		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
 		CertChainPurpose: x509.ExtKeyUsageCodeSigning,
