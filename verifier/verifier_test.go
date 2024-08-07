@@ -29,6 +29,7 @@ import (
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	"github.com/notaryproject/notation-core-go/signature"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
@@ -761,9 +762,7 @@ func TestNewVerifierWithOptions(t *testing.T) {
 		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
 	}
 
-	csValidator, err := revocation.NewWithOptions(revocation.Options{
-		CertChainPurpose: x509.ExtKeyUsageCodeSigning,
-	})
+	csValidator, err := revocation.NewWithOptions(revocation.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -795,7 +794,7 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 	}
 	rt, err := revocation.NewWithOptions(revocation.Options{
 		OCSPHTTPClient:   &http.Client{},
-		CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+		CertChainPurpose: purpose.Timestamping,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation timestamp object: %v", err)

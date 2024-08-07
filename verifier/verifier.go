@@ -30,6 +30,7 @@ import (
 	"oras.land/oras-go/v2/content"
 
 	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
 	nx509 "github.com/notaryproject/notation-core-go/x509"
@@ -183,7 +184,7 @@ func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
 	if revocationTimestampingValidator == nil {
 		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
 			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-			CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+			CertChainPurpose: purpose.Timestamping,
 		})
 		if err != nil {
 			return err
@@ -206,7 +207,7 @@ func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
 	// both RevocationCodeSigningValidator and RevocationClient are nil
 	revocationCodeSigningValidator, err = revocation.NewWithOptions(revocation.Options{
 		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-		CertChainPurpose: x509.ExtKeyUsageCodeSigning,
+		CertChainPurpose: purpose.CodeSigning,
 	})
 	if err != nil {
 		return err

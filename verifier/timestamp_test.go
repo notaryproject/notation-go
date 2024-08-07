@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
@@ -46,7 +47,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	}
 	revocationTimestampingValidator, err := revocation.NewWithOptions(revocation.Options{
 		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-		CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+		CertChainPurpose: purpose.Timestamping,
 	})
 	if err != nil {
 		t.Fatalf("failed to get revocation timestamp client: %v", err)
