@@ -26,11 +26,10 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 		return nil, fmt.Errorf("unsupported distinguished name (DN) %q: notation does not support x509.subject identities containing \"=#\"", name)
 	}
 
-	mandatoryFields := []string{"C", "ST", "O"}
 	attrKeyValue := make(map[string]string)
 	dn, err := ldapv3.ParseDN(name)
 	if err != nil {
-		return nil, fmt.Errorf("parsing distinguished name (DN) %q failed with err: %v. A valid DN must contain 'C', 'ST', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name, err)
+		return nil, fmt.Errorf("parsing distinguished name (DN) %q failed with err: %v. A valid DN must contain 'C', 'ST' or 'S', and 'O' RDN attributes at a minimum, and follow RFC 4514 standard", name, err)
 	}
 
 	for _, rdn := range dn.RDNs {
@@ -39,6 +38,10 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 			return nil, fmt.Errorf("distinguished name (DN) %q has multi-valued RDN attributes, remove multi-valued RDN attributes as they are not supported", name)
 		}
 		for _, attribute := range rdn.Attributes {
+			// stateOrProvince name 'S' is an alias for 'ST'
+			if attribute.Type == "S" {
+				attribute.Type = "ST"
+			}
 			if attrKeyValue[attribute.Type] == "" {
 				attrKeyValue[attribute.Type] = attribute.Value
 			} else {
@@ -48,11 +51,13 @@ func ParseDistinguishedName(name string) (map[string]string, error) {
 	}
 
 	// Verify mandatory fields are present
+	mandatoryFields := []string{"C", "ST", "O"}
 	for _, field := range mandatoryFields {
 		if attrKeyValue[field] == "" {
-			return nil, fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q, it must contain 'C', 'ST', and 'O' RDN attributes at a minimum", name, field)
+			return nil, fmt.Errorf("distinguished name (DN) %q has no mandatory RDN attribute for %q, it must contain 'C', 'ST' or 'S', and 'O' RDN attributes at a minimum", name, field)
 		}
 	}
+
 	// No errors
 	return attrKeyValue, nil
 }
