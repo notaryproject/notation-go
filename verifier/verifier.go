@@ -153,7 +153,7 @@ func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPo
 		pluginManager:      pluginManager,
 	}
 
-	if err := setRevocation(v, verifierOptions); err != nil {
+	if err := v.setRevocation(verifierOptions); err != nil {
 		return nil, err
 	}
 	return v, nil
@@ -173,6 +173,46 @@ func NewFromConfig() (notation.Verifier, error) {
 // To create verifier, use NewVerifier function.
 func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
 	return NewVerifier(ociTrustPolicy, nil, trustStore, pluginManager)
+}
+
+// setRevocation sets revocation validators of v
+func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
+	// timestamping validator
+	revocationTimestampingValidator := verifierOptions.RevocationTimestampingValidator
+	var err error
+	if revocationTimestampingValidator == nil {
+		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
+			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
+			CertChainPurpose: x509.ExtKeyUsageTimeStamping,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	v.revocationTimestampingValidator = revocationTimestampingValidator
+
+	// code signing validator
+	revocationCodeSigningValidator := verifierOptions.RevocationCodeSigningValidator
+	if revocationCodeSigningValidator != nil {
+		v.revocationCodeSigningValidator = revocationCodeSigningValidator
+		return nil
+	}
+	revocationClient := verifierOptions.RevocationClient
+	if revocationClient != nil {
+		v.revocationClient = revocationClient
+		return nil
+	}
+
+	// both RevocationCodeSigningValidator and RevocationClient are nil
+	revocationCodeSigningValidator, err = revocation.NewWithOptions(revocation.Options{
+		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
+		CertChainPurpose: x509.ExtKeyUsageCodeSigning,
+	})
+	if err != nil {
+		return err
+	}
+	v.revocationCodeSigningValidator = revocationCodeSigningValidator
+	return nil
 }
 
 // SkipVerify validates whether the verification level is skip.
@@ -522,8 +562,8 @@ func (v *verifier) verifyRevocation(ctx context.Context, outcome *notation.Verif
 	var err error
 	if v.revocationCodeSigningValidator != nil {
 		certResults, err = v.revocationCodeSigningValidator.ValidateContext(ctx, revocation.ValidateContextOptions{
-			CertChain:   outcome.EnvelopeContent.SignerInfo.CertificateChain,
-			SigningTime: authenticSigningTime,
+			CertChain:            outcome.EnvelopeContent.SignerInfo.CertificateChain,
+			AuthenticSigningTime: authenticSigningTime,
 		})
 	} else {
 		certResults, err = v.revocationClient.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
@@ -1041,45 +1081,5 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	}
 
 	// success
-	return nil
-}
-
-// setRevocation sets revocation validators of verifier
-func setRevocation(verifier *verifier, verifierOptions VerifierOptions) error {
-	// timestamping validator
-	revocationTimestampingValidator := verifierOptions.RevocationTimestampingValidator
-	var err error
-	if revocationTimestampingValidator == nil {
-		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
-			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-			CertChainPurpose: x509.ExtKeyUsageTimeStamping,
-		})
-		if err != nil {
-			return err
-		}
-	}
-	verifier.revocationTimestampingValidator = revocationTimestampingValidator
-
-	// code signing validator
-	revocationCodeSigningValidator := verifierOptions.RevocationCodeSigningValidator
-	if revocationCodeSigningValidator != nil {
-		verifier.revocationCodeSigningValidator = revocationCodeSigningValidator
-		return nil
-	}
-	revocationClient := verifierOptions.RevocationClient
-	if revocationClient != nil {
-		verifier.revocationClient = revocationClient
-		return nil
-	}
-
-	// both RevocationCodeSigningValidator and RevocationClient are nil
-	revocationCodeSigningValidator, err = revocation.NewWithOptions(revocation.Options{
-		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-		CertChainPurpose: x509.ExtKeyUsageCodeSigning,
-	})
-	if err != nil {
-		return err
-	}
-	verifier.revocationCodeSigningValidator = revocationCodeSigningValidator
 	return nil
 }
