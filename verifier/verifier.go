@@ -48,7 +48,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
+// verifier implements notation.Verifier and notation.verifySkipper
 type verifier struct {
 	trustPolicyDoc            *trustpolicy.OCIDocument
 	trustStore                truststore.X509TrustStore
@@ -96,8 +96,8 @@ func NewVerifier(trustPolicy *trustpolicy.OCIDocument, trustStore truststore.X50
 	return NewVerifierWithOptions(trustPolicy, trustStore, pluginManager, VerifierOptions{})
 }
 
-// NewVerifierWithOptions creates a new verifier given trustPolicy, blobTrustPolicy,
-// trustStore, pluginManager, and verifierOptions
+// NewVerifierWithOptions creates a new verifier given trustPolicy, trustStore,
+// pluginManager, and verifierOptions
 func NewVerifierWithOptions(trustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (*verifier, error) {
 	revocationClient := verifierOptions.RevocationClient
 	if revocationClient == nil {
@@ -139,6 +139,7 @@ func NewVerifierWithOptions(trustPolicy *trustpolicy.OCIDocument, trustStore tru
 }
 
 // NewFromConfig returns a OCI verifier based on local file system
+//
 // Deprecated: NewFromConfig function exists for historical compatibility and should not be used.
 // To create an OCI verifier, use NewOCIVerifierFromConfig function.
 func NewFromConfig() (notation.Verifier, error) {
@@ -146,6 +147,7 @@ func NewFromConfig() (notation.Verifier, error) {
 }
 
 // New creates a new verifier given trustPolicy, trustStore and pluginManager
+//
 // Deprecated: New function exists for historical compatibility and should not be used.
 // To create verifier, use NewVerifier function.
 func New(trustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
