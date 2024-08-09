@@ -41,20 +41,6 @@ func dummyOCIPolicyDocument() OCIDocument {
 	}
 }
 
-func dummyBlobPolicyDocument() BlobDocument {
-	return BlobDocument{
-		Version: "1.0",
-		TrustPolicies: []BlobTrustPolicy{
-			{
-				Name:                  "test-statement-name",
-				SignatureVerification: SignatureVerification{VerificationLevel: "strict"},
-				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
-				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
-			},
-		},
-	}
-}
-
 // create testcase for validatePolicyCore method
 func TestValidatePolicyCore(t *testing.T) {
 	policyName := "test-statement-name"
@@ -307,7 +293,6 @@ func TestGetDocument(t *testing.T) {
 	}
 	dir.UserConfigDir = "/"
 	var ociDoc OCIDocument
-	var blobDoc BlobDocument
 	tests := []struct {
 		name             string
 		expectedDocument any
@@ -317,11 +302,6 @@ func TestGetDocument(t *testing.T) {
 			name:             "valid OCI policy file",
 			expectedDocument: dummyOCIPolicyDocument(),
 			actualDocument:   &ociDoc,
-		},
-		{
-			name:             "valid Blob policy file",
-			expectedDocument: dummyBlobPolicyDocument(),
-			actualDocument:   &blobDoc,
 		},
 	}
 

@@ -15,7 +15,6 @@ package signer
 
 import (
 	"context"
-	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -30,7 +29,6 @@ import (
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-plugin-framework-go/plugin"
-	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -41,12 +39,6 @@ type PluginSigner struct {
 	keyID               string
 	pluginConfig        map[string]string
 	manifestAnnotations map[string]string
-}
-
-var algorithms = map[crypto.Hash]digest.Algorithm{
-	crypto.SHA256: digest.SHA256,
-	crypto.SHA384: digest.SHA384,
-	crypto.SHA512: digest.SHA512,
 }
 
 // NewFromPlugin creates a notation.Signer that signs artifacts and generates
@@ -113,38 +105,6 @@ func (s *PluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 		return sig, signerInfo, nil
 	}
 
-	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
-}
-
-// SignBlob signs the arbitrary data and returns the marshalled envelope.
-func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
-	logger := log.GetLogger(ctx)
-	mergedConfig := s.mergeConfig(opts.PluginConfig)
-
-	logger.Debug("Invoking plugin's get-plugin-metadata command")
-	metadata, err := s.plugin.GetMetadata(ctx, &plugin.GetMetadataRequest{PluginConfig: mergedConfig})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	logger.Debug("Invoking plugin's describe-key command")
-	ks, err := s.getKeySpec(ctx, mergedConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// get descriptor to sign
-	desc, err := getDescriptor(ks, descGenFunc)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	logger.Debugf("Using plugin %v with capabilities %v to sign blob using descriptor %+v", metadata.Name, metadata.Capabilities, desc)
-	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
-		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
-	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
-		return s.generateSignatureEnvelope(ctx, desc, opts)
-	}
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 

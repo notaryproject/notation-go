@@ -152,17 +152,3 @@ func dummyOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
 		},
 	}
 }
-
-func dummyBlobPolicyDocument() (policyDoc trustpolicy.BlobDocument) {
-	return trustpolicy.BlobDocument{
-		Version: "1.0",
-		TrustPolicies: []trustpolicy.BlobTrustPolicy{
-			{
-				Name:                  "blob-test-statement-name",
-				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
-				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
-				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
-			},
-		},
-	}
-}
