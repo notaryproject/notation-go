@@ -6,7 +6,7 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.8
 	github.com/notaryproject/notation-core-go v1.1.0-beta.1
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
-	github.com/notaryproject/tspclient-go v0.1.1-0.20240715235637-df25ef8d2172
+	github.com/notaryproject/tspclient-go v0.2.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/veraison/go-cose v1.1.0
