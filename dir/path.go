@@ -58,6 +58,7 @@ const (
 	// PathSigningKeys is the signingkeys file relative path.
 	PathSigningKeys = "signingkeys.json"
 	// PathTrustPolicy is the OCI trust policy file relative path.
+	//
 	// Deprecated: PathTrustPolicy exists for historical compatibility and should not be used.
 	// To get OCI trust policy path, use PathOCITrustPolicy.
 	PathTrustPolicy = "trustpolicy.json"

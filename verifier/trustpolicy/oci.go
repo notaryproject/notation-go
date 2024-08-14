@@ -53,16 +53,19 @@ type OCITrustPolicy struct {
 }
 
 // Document represents a trustPolicy.json document
+//
 // Deprecated: Document exists for historical compatibility and should not be used.
 // To create OCI Document, use OCIDocument.
 type Document = OCIDocument
 
 // TrustPolicy represents a policy statement in the policy document
+//
 // Deprecated: TrustPolicy exists for historical compatibility and should not be used.
 // To create OCI TrustPolicy, use OCITrustPolicy.
 type TrustPolicy = OCITrustPolicy
 
 // LoadDocument loads a trust policy document from a local file system
+//
 // Deprecated: LoadDocument function exists for historical compatibility and should not be used.
 // To load OCI Document, use LoadOCIDocument function.
 var LoadDocument = LoadOCIDocument

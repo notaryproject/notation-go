@@ -42,6 +42,7 @@ type GenericSigner struct {
 }
 
 // New returns a builtinSigner given key and cert chain
+//
 // Deprecated: New function exists for historical compatibility and should not be used.
 // To create GenericSigner, use NewGenericSigner() function.
 func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {

@@ -44,6 +44,7 @@ type PluginSigner struct {
 // NewFromPlugin creates a notation.Signer that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
+//
 // Deprecated: NewFromPlugin function exists for historical compatibility and should not be used.
 // To create PluginSigner, use NewPluginSigner() function.
 func NewFromPlugin(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
