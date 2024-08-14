@@ -16,9 +16,11 @@ package verifier
 import (
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -58,17 +60,23 @@ func TestNewVerifier_Error(t *testing.T) {
 }
 
 func TestNewFromConfig(t *testing.T) {
-	_, err := NewFromConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	expectedErrMsg := "trust policy is not present. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"
-	_, err = NewFromConfig()
+	_, err := NewFromConfig()
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+	}
+
+	path := filepath.Join(tempRoot, "trustpolicy.json")
+	policyJson, _ := json.Marshal(dummyOCIPolicyDocument())
+	if err := os.WriteFile(path, policyJson, 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tempRoot) })
+	_, err = NewFromConfig()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

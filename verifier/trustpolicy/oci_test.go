@@ -41,7 +41,7 @@ func TestLoadOCIDocumentFromOldFileLocation(t *testing.T) {
 func TestLoadOCIDocumentFromNewFileLocation(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
-	path := filepath.Join(tempRoot, "trustpolicy.oci.json")
+	path := filepath.Join(tempRoot, "trustpolicy.json")
 	policyJson, _ := json.Marshal(dummyOCIPolicyDocument())
 	if err := os.WriteFile(path, policyJson, 0600); err != nil {
 		t.Fatalf("TestLoadOCIDocument write policy file failed. Error: %v", err)
