@@ -26,7 +26,7 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-func dummyOCIPolicyDocument() Document {
+func dummyPolicyDocument() Document {
 	return Document{
 		Version: "1.0",
 		TrustPolicies: []TrustPolicy{
@@ -292,16 +292,16 @@ func TestGetDocument(t *testing.T) {
 		t.Skip("skipping test on Windows")
 	}
 	dir.UserConfigDir = "/"
-	var ociDoc Document
+	var doc Document
 	tests := []struct {
 		name             string
 		expectedDocument any
 		actualDocument   any
 	}{
 		{
-			name:             "valid OCI policy file",
-			expectedDocument: dummyOCIPolicyDocument(),
-			actualDocument:   &ociDoc,
+			name:             "valid policy file",
+			expectedDocument: dummyPolicyDocument(),
+			actualDocument:   &doc,
 		},
 	}
 

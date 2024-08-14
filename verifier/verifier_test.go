@@ -45,7 +45,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-var ociPolicy = dummyPolicyDocument()
+var policy = dummyPolicyDocument()
 var invalidPolicy = dummyInvalidPolicyDocument()
 var store = truststore.NewX509TrustStore(dir.ConfigFS())
 var pm = mock.PluginManager{}
@@ -82,7 +82,7 @@ func TestNewFromConfig(t *testing.T) {
 
 func TestInvalidArtifactUriValidations(t *testing.T) {
 	verifier := verifier{
-		trustPolicyDoc: &ociPolicy,
+		trustPolicyDoc: &policy,
 		pluginManager:  mock.PluginManager{},
 	}
 
@@ -113,12 +113,12 @@ func TestInvalidArtifactUriValidations(t *testing.T) {
 
 func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 	verifier := verifier{
-		trustPolicyDoc: &ociPolicy,
+		trustPolicyDoc: &policy,
 		pluginManager:  mock.PluginManager{},
 	}
 	opts := notation.VerifierVerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
 	_, err := verifier.Verify(context.Background(), ocispec.Descriptor{}, []byte{}, opts)
-	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
+	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
 		t.Fatalf("no applicable trust policy must throw error")
 	}
 }
@@ -699,13 +699,13 @@ func TestVerifyRevocation(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	if _, err := New(&ociPolicy, store, pm); err != nil {
+	if _, err := New(&policy, store, pm); err != nil {
 		t.Fatalf("expected New constructor to succeed, but got %v", err)
 	}
 }
 
 func TestNewWithOptions(t *testing.T) {
-	if _, err := NewWithOptions(&ociPolicy, store, pm, VerifierOptions{}); err != nil {
+	if _, err := NewWithOptions(&policy, store, pm, VerifierOptions{}); err != nil {
 		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
 
@@ -715,7 +715,7 @@ func TestNewWithOptions(t *testing.T) {
 	}
 	opts := VerifierOptions{RevocationClient: r}
 
-	_, err = NewWithOptions(&ociPolicy, store, pm, opts)
+	_, err = NewWithOptions(&policy, store, pm, opts)
 	if err != nil {
 		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
@@ -736,13 +736,13 @@ func TestNewWithOptions(t *testing.T) {
 	}
 	opts.RevocationCodeSigningValidator = revocationCodeSigningValidator
 	opts.RevocationTimestampingValidator = revocationTimestampingValidator
-	_, err = NewWithOptions(&ociPolicy, store, pm, opts)
+	_, err = NewWithOptions(&policy, store, pm, opts)
 	if err != nil {
 		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
 
 	opts.RevocationClient = nil
-	_, err = NewWithOptions(&ociPolicy, store, pm, opts)
+	_, err = NewWithOptions(&policy, store, pm, opts)
 	if err != nil {
 		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
@@ -771,14 +771,14 @@ func TestNewWithOptionsError(t *testing.T) {
 		t.Errorf("expected %s, but got %s", expectedErrMsg, err)
 	}
 
-	_, err = NewWithOptions(&ociPolicy, nil, pm, opts)
+	_, err = NewWithOptions(&policy, nil, pm, opts)
 	expectedErrMsg = "trustStore cannot be nil"
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Errorf("expected %s, but got %s", expectedErrMsg, err)
 	}
 
 	_, err = NewWithOptions(&invalidPolicy, store, pm, opts)
-	expectedErrMsg = "oci trust policy document has empty version, version must be specified"
+	expectedErrMsg = "trust policy document has empty version, version must be specified"
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Errorf("expected %s, but got %s", expectedErrMsg, err)
 	}
