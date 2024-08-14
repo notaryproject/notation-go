@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	"github.com/notaryproject/notation-core-go/signature"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/testhelper"
@@ -36,7 +36,6 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
-	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/signer"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
@@ -45,6 +44,7 @@ import (
 )
 
 var ociPolicy = dummyOCIPolicyDocument()
+var invalidPolicy = dummyInvalidOCIPolicyDocument()
 var store = truststore.NewX509TrustStore(dir.ConfigFS())
 var pm = mock.PluginManager{}
 
@@ -459,7 +459,6 @@ func createMockOutcome(certChain []*x509.Certificate, signingTime time.Time) *no
 }
 
 func TestVerifyRevocation(t *testing.T) {
-	logger := log.GetLogger(context.Background())
 	zeroTime := time.Time{}
 
 	revokableTuples := testhelper.GetRevokableRSAChain(3)
@@ -482,10 +481,12 @@ func TestVerifyRevocation(t *testing.T) {
 	unknownMsg := fmt.Sprintf("signing certificate with subject %q revocation status is unknown", revokableChain[0].Subject.String())
 	revokedMsg := fmt.Sprintf("signing certificate with subject %q is revoked", revokableChain[0].Subject.String())
 	multiMsg := fmt.Sprintf("signing certificate with subject %q is revoked", revokableChain[1].Subject.String())
+	ctx := context.Background()
 
 	t.Run("verifyRevocation nil client", func(t *testing.T) {
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), nil, logger)
-		expectedErrMsg := "unable to check revocation status, revocation client cannot be nil"
+		v := &verifier{}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
+		expectedErrMsg := "unable to check revocation status, code signing revocation validator cannot be nil"
 		if result.Error == nil || result.Error.Error() != expectedErrMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
 		}
@@ -495,7 +496,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(invalidChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(invalidChain, time.Now()))
 		expectedErrMsg := "unable to check revocation status, err: invalid chain: expected chain to be correct and complete: invalid certificates or certificate with subject \"CN=Notation Test Revokable RSA Chain Cert 2,O=Notary,L=Seattle,ST=WA,C=US\" is not issued by \"CN=Notation Test Revokable RSA Chain Cert 3,O=Notary,L=Seattle,ST=WA,C=US\". Error: x509: invalid signature: parent certificate cannot sign this kind of certificate"
 		if result.Error == nil || result.Error.Error() != expectedErrMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
@@ -506,7 +510,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error != nil {
 			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
 		}
@@ -516,7 +523,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error == nil || result.Error.Error() != revokedMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
@@ -526,7 +536,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error == nil || result.Error.Error() != revokedMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
@@ -536,7 +549,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error == nil || result.Error.Error() != unknownMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
 		}
@@ -546,7 +562,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error == nil || result.Error.Error() != multiMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", multiMsg, result.Error)
 		}
@@ -556,7 +575,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error == nil || result.Error.Error() != revokedMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
@@ -566,7 +588,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error != nil {
 			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
 		}
@@ -576,7 +601,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now()), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now()))
 		if result.Error == nil || result.Error.Error() != unknownMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", unknownMsg, result.Error)
 		}
@@ -586,7 +614,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour)), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour)))
 		if result.Error == nil || result.Error.Error() != revokedMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
@@ -597,7 +628,10 @@ func TestVerifyRevocation(t *testing.T) {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
 		expectedErrMsg := "signing certificate with subject \"CN=Notation Test Revokable RSA Chain Cert 3,O=Notary,L=Seattle,ST=WA,C=US\" is revoked"
-		result := verifyRevocation(createMockOutcome(revokableChain, zeroTime), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, zeroTime))
 		if result.Error == nil || result.Error.Error() != expectedErrMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", expectedErrMsg, result.Error)
 		}
@@ -610,7 +644,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error while creating revocation object: %v", err)
 		}
-		result := verifyRevocation(createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour)), revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, createMockOutcome(revokableChain, time.Now().Add(-4*time.Hour)))
 		if result.Error != nil {
 			t.Fatalf("expected verifyRevocation to succeed, but got %v", result.Error)
 		}
@@ -628,7 +665,10 @@ func TestVerifyRevocation(t *testing.T) {
 		if !authenticSigningTime.IsZero() || err == nil || err.Error() != expectedErr.Error() {
 			t.Fatalf("expected AuthenticSigningTime to fail with %v, but got %v", expectedErr, err)
 		}
-		result := verifyRevocation(outcome, revocationClient, logger)
+		v := &verifier{
+			revocationClient: revocationClient,
+		}
+		result := v.verifyRevocation(ctx, outcome)
 		if result.Error == nil || result.Error.Error() != revokedMsg {
 			t.Fatalf("expected verifyRevocation to fail with %s, but got %v", revokedMsg, result.Error)
 		}
@@ -645,71 +685,79 @@ func TestNewWithOptions(t *testing.T) {
 	if _, err := NewWithOptions(&ociPolicy, store, pm, VerifierOptions{}); err != nil {
 		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
-}
 
-func TestNewVerifierWithOptions(t *testing.T) {
 	r, err := revocation.New(&http.Client{})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
 	opts := VerifierOptions{RevocationClient: r}
 
-	v, err := NewVerifierWithOptions(&ociPolicy, store, pm, opts)
+	_, err = NewWithOptions(&ociPolicy, store, pm, opts)
 	if err != nil {
-		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
-	}
-	if !(v.trustPolicyDoc == &ociPolicy) {
-		t.Fatalf("expected trustPolicyDoc %v, but got %v", v, v.trustPolicyDoc)
-	}
-	if !(v.trustStore == store) {
-		t.Fatalf("expected trustStore %v, but got %v", store, v.trustStore)
-	}
-	if !reflect.DeepEqual(v.pluginManager, pm) {
-		t.Fatalf("expected pluginManager %v, but got %v", pm, v.pluginManager)
-	}
-	if v.revocationClient == nil {
-		t.Fatal("expected nonnil revocationClient")
+		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
 
-	_, err = NewVerifierWithOptions(nil, store, pm, opts)
+	revocationCodeSigningValidator, err := revocation.NewWithOptions(revocation.Options{
+		OCSPHTTPClient:   &http.Client{},
+		CertChainPurpose: purpose.CodeSigning,
+	})
 	if err != nil {
-		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
+		t.Fatal(err)
 	}
-
-	_, err = NewVerifierWithOptions(&ociPolicy, store, pm, opts)
+	revocationTimestampingValidator, err := revocation.NewWithOptions(revocation.Options{
+		OCSPHTTPClient:   &http.Client{},
+		CertChainPurpose: purpose.Timestamping,
+	})
 	if err != nil {
-		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
+		t.Fatal(err)
+	}
+	opts.RevocationCodeSigningValidator = revocationCodeSigningValidator
+	opts.RevocationTimestampingValidator = revocationTimestampingValidator
+	_, err = NewWithOptions(&ociPolicy, store, pm, opts)
+	if err != nil {
+		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
 
 	opts.RevocationClient = nil
-	_, err = NewVerifierWithOptions(&ociPolicy, store, pm, opts)
+	_, err = NewWithOptions(&ociPolicy, store, pm, opts)
 	if err != nil {
-		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
+		t.Fatalf("expected NewWithOptions constructor to succeed, but got %v", err)
 	}
 }
 
-func TestNewVerifierWithOptionsError(t *testing.T) {
+func TestNewWithOptionsError(t *testing.T) {
 	r, err := revocation.New(&http.Client{})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	rt, err := revocation.NewTimestamp(&http.Client{})
+	rt, err := revocation.NewWithOptions(revocation.Options{
+		OCSPHTTPClient:   &http.Client{},
+		CertChainPurpose: purpose.Timestamping,
+	})
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation timestamp object: %v", err)
 	}
 	opts := VerifierOptions{
-		RevocationClient:          r,
-		RevocationTimestampClient: rt,
+		RevocationClient:                r,
+		RevocationTimestampingValidator: rt,
 	}
 
-	_, err = NewVerifierWithOptions(nil, store, pm, opts)
-	if err == nil || err.Error() != "trustPolicy cannot be nil" {
-		t.Errorf("expected err but not found.")
+	_, err = NewWithOptions(nil, store, pm, opts)
+	expectedErrMsg := "trustPolicy cannot be nil"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Errorf("expected %s, but got %s", expectedErrMsg, err)
 	}
 
-	_, err = NewVerifierWithOptions(&ociPolicy, nil, pm, opts)
-	if err == nil || err.Error() != "trustStore cannot be nil" {
-		t.Errorf("expected err but not found.")
+	_, err = NewWithOptions(&ociPolicy, nil, pm, opts)
+	expectedErrMsg = "trustStore cannot be nil"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Errorf("expected %s, but got %s", expectedErrMsg, err)
+	}
+
+	_, err = NewWithOptions(&invalidPolicy, store, pm, opts)
+	expectedErrMsg = "oci trust policy document has empty version, version must be specified"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Errorf("expected %s, but got %s", expectedErrMsg, err)
 	}
 }
 

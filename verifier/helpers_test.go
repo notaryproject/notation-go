@@ -152,3 +152,13 @@ func dummyOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
 		},
 	}
 }
+
+func dummyInvalidOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
+	return trustpolicy.OCIDocument{
+		TrustPolicies: []trustpolicy.OCITrustPolicy{
+			{
+				Name: "invalid",
+			},
+		},
+	}
+}
