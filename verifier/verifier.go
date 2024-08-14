@@ -30,6 +30,7 @@ import (
 	"oras.land/oras-go/v2/content"
 
 	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
 	nx509 "github.com/notaryproject/notation-core-go/x509"
@@ -58,12 +59,13 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 
 // verifier implements notation.Verifier, notation.BlobVerifier and notation.verifySkipper
 type verifier struct {
-	ociTrustPolicyDoc         *trustpolicy.OCIDocument
-	blobTrustPolicyDoc        *trustpolicy.BlobDocument
-	trustStore                truststore.X509TrustStore
-	pluginManager             plugin.Manager
-	revocationClient          revocation.Revocation
-	revocationTimestampClient revocation.Revocation
+	ociTrustPolicyDoc               *trustpolicy.OCIDocument
+	blobTrustPolicyDoc              *trustpolicy.BlobDocument
+	trustStore                      truststore.X509TrustStore
+	pluginManager                   plugin.Manager
+	revocationClient                revocation.Revocation
+	revocationCodeSigningValidator  revocation.Validator
+	revocationTimestampingValidator revocation.Validator
 }
 
 // VerifierOptions specifies additional parameters that can be set when using
@@ -71,11 +73,19 @@ type verifier struct {
 type VerifierOptions struct {
 	// RevocationClient is an implementation of revocation.Revocation to use for
 	// verifying revocation of code signing certificate chain
+	//
+	// Deprecated: RevocationClient exists for backwards compatibility and
+	// should not be used. To perform code signing certificate chain revocation
+	// check, use [RevocationCodeSigningValidator].
 	RevocationClient revocation.Revocation
 
-	// RevocationTimestampClient is an implementaion of evocation.Revocation to
-	// use for verifying revocation of timestamping certificate chain
-	RevocationTimestampClient revocation.Revocation
+	// RevocationCodeSigningValidator is used for verifying revocation of
+	// code signing certificate chain with context.
+	RevocationCodeSigningValidator revocation.Validator
+
+	// RevocationTimestampingValidator is used for verifying revocation of
+	// timestamping certificate chain with context.
+	RevocationTimestampingValidator revocation.Validator
 }
 
 // NewOCIVerifierFromConfig returns a OCI verifier based on local file system
@@ -105,7 +115,8 @@ func NewBlobVerifierFromConfig() (*verifier, error) {
 }
 
 // NewWithOptions creates a new verifier given ociTrustPolicy, trustStore,
-// pluginManager, and VerifierOptions
+// pluginManager, and VerifierOptions.
+//
 // Deprecated: NewWithOptions function exists for historical compatibility and should not be used.
 // To create verifier, use NewVerifierWithOptions function.
 func NewWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
@@ -120,66 +131,89 @@ func NewVerifier(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trust
 // NewVerifierWithOptions creates a new verifier given ociTrustPolicy, blobTrustPolicy,
 // trustStore, pluginManager, and verifierOptions
 func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (*verifier, error) {
-	revocationClient := verifierOptions.RevocationClient
-	if revocationClient == nil {
-		var err error
-		revocationClient, err = revocation.New(&http.Client{Timeout: 2 * time.Second})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	revocationTimestampClient := verifierOptions.RevocationTimestampClient
-	if revocationTimestampClient == nil {
-		var err error
-		revocationTimestampClient, err = revocation.NewTimestamp(&http.Client{Timeout: 2 * time.Second})
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if trustStore == nil {
 		return nil, errors.New("trustStore cannot be nil")
 	}
-
 	if ociTrustPolicy == nil && blobTrustPolicy == nil {
 		return nil, errors.New("ociTrustPolicy and blobTrustPolicy both cannot be nil")
 	}
-
 	if ociTrustPolicy != nil {
 		if err := ociTrustPolicy.Validate(); err != nil {
 			return nil, err
 		}
 	}
-
 	if blobTrustPolicy != nil {
 		if err := blobTrustPolicy.Validate(); err != nil {
 			return nil, err
 		}
 	}
+	v := &verifier{
+		ociTrustPolicyDoc:  ociTrustPolicy,
+		blobTrustPolicyDoc: blobTrustPolicy,
+		trustStore:         trustStore,
+		pluginManager:      pluginManager,
+	}
 
-	return &verifier{
-		ociTrustPolicyDoc:         ociTrustPolicy,
-		blobTrustPolicyDoc:        blobTrustPolicy,
-		trustStore:                trustStore,
-		pluginManager:             pluginManager,
-		revocationClient:          revocationClient,
-		revocationTimestampClient: revocationTimestampClient,
-	}, nil
+	if err := v.setRevocation(verifierOptions); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
-// NewFromConfig returns a OCI verifier based on local file system
+// NewFromConfig returns a OCI verifier based on local file system.
+//
 // Deprecated: NewFromConfig function exists for historical compatibility and should not be used.
 // To create an OCI verifier, use NewOCIVerifierFromConfig function.
 func NewFromConfig() (notation.Verifier, error) {
 	return NewOCIVerifierFromConfig()
 }
 
-// New creates a new verifier given ociTrustPolicy, trustStore and pluginManager
+// New creates a new verifier given ociTrustPolicy, trustStore and pluginManager.
+//
 // Deprecated: New function exists for historical compatibility and should not be used.
 // To create verifier, use NewVerifier function.
 func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
 	return NewVerifier(ociTrustPolicy, nil, trustStore, pluginManager)
+}
+
+// setRevocation sets revocation validators of v
+func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
+	// timestamping validator
+	revocationTimestampingValidator := verifierOptions.RevocationTimestampingValidator
+	var err error
+	if revocationTimestampingValidator == nil {
+		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
+			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
+			CertChainPurpose: purpose.Timestamping,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	v.revocationTimestampingValidator = revocationTimestampingValidator
+
+	// code signing validator
+	revocationCodeSigningValidator := verifierOptions.RevocationCodeSigningValidator
+	if revocationCodeSigningValidator != nil {
+		v.revocationCodeSigningValidator = revocationCodeSigningValidator
+		return nil
+	}
+	revocationClient := verifierOptions.RevocationClient
+	if revocationClient != nil {
+		v.revocationClient = revocationClient
+		return nil
+	}
+
+	// both RevocationCodeSigningValidator and RevocationClient are nil
+	revocationCodeSigningValidator, err = revocation.NewWithOptions(revocation.Options{
+		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
+		CertChainPurpose: purpose.CodeSigning,
+	})
+	if err != nil {
+		return err
+	}
+	v.revocationCodeSigningValidator = revocationCodeSigningValidator
+	return nil
 }
 
 // SkipVerify validates whether the verification level is skip.
@@ -461,7 +495,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 	// verify authentic timestamp
 	logger.Debug("Validating authentic timestamp")
-	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.revocationTimestampClient, outcome)
+	authenticTimestampResult := verifyAuthenticTimestamp(ctx, policyName, trustStores, signatureVerification, v.trustStore, v.revocationTimestampingValidator, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	logVerificationResult(logger, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
@@ -475,7 +509,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		!slices.Contains(pluginCapabilities, pluginframework.CapabilityRevocationCheckVerifier) {
 
 		logger.Debug("Validating revocation")
-		revocationResult := verifyRevocation(outcome, v.revocationClient, logger)
+		revocationResult := v.verifyRevocation(ctx, outcome)
 		outcome.VerificationResults = append(outcome.VerificationResults, revocationResult)
 		logVerificationResult(logger, revocationResult)
 		if isCriticalFailure(revocationResult) {
@@ -507,6 +541,59 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 	}
 	return nil
+}
+
+func (v *verifier) verifyRevocation(ctx context.Context, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+	logger := log.GetLogger(ctx)
+
+	if v.revocationCodeSigningValidator == nil && v.revocationClient == nil {
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+			Error:  fmt.Errorf("unable to check revocation status, code signing revocation validator cannot be nil"),
+		}
+	}
+
+	var authenticSigningTime time.Time
+	if outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
+		authenticSigningTime, _ = outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
+	}
+
+	var certResults []*revocationresult.CertRevocationResult
+	var err error
+	if v.revocationCodeSigningValidator != nil {
+		certResults, err = v.revocationCodeSigningValidator.ValidateContext(ctx, revocation.ValidateContextOptions{
+			CertChain:            outcome.EnvelopeContent.SignerInfo.CertificateChain,
+			AuthenticSigningTime: authenticSigningTime,
+		})
+	} else {
+		certResults, err = v.revocationClient.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
+	}
+	if err != nil {
+		logger.Debug("Error while checking revocation status, err: %s", err.Error())
+		return &notation.ValidationResult{
+			Type:   trustpolicy.TypeRevocation,
+			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+			Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
+		}
+	}
+
+	result := &notation.ValidationResult{
+		Type:   trustpolicy.TypeRevocation,
+		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
+	}
+	finalResult, problematicCertSubject := revocationFinalResult(certResults, outcome.EnvelopeContent.SignerInfo.CertificateChain, logger)
+	switch finalResult {
+	case revocationresult.ResultOK:
+		logger.Debug("No verification impacting errors encountered while checking revocation, status is OK")
+	case revocationresult.ResultRevoked:
+		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
+	default:
+		// revocationresult.ResultUnknown
+		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
+	}
+
+	return result
 }
 
 func processPluginResponse(capabilitiesToVerify []pluginframework.Capability, response *pluginframework.VerifySignatureResponse, outcome *notation.VerificationOutcome) error {
@@ -678,7 +765,7 @@ func verifyExpiry(outcome *notation.VerificationOutcome) *notation.ValidationRes
 	}
 }
 
-func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) *notation.ValidationResult {
+func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Validator, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	logger := log.GetLogger(ctx)
 
 	signerInfo := outcome.EnvelopeContent.SignerInfo
@@ -710,48 +797,6 @@ func verifyAuthenticTimestamp(ctx context.Context, policyName string, trustStore
 		Type:   trustpolicy.TypeAuthenticTimestamp,
 		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticTimestamp],
 	}
-}
-
-func verifyRevocation(outcome *notation.VerificationOutcome, r revocation.Revocation, logger log.Logger) *notation.ValidationResult {
-	if r == nil {
-		return &notation.ValidationResult{
-			Type:   trustpolicy.TypeRevocation,
-			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-			Error:  fmt.Errorf("unable to check revocation status, revocation client cannot be nil"),
-		}
-	}
-
-	var authenticSigningTime time.Time
-	if outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme == signature.SigningSchemeX509SigningAuthority {
-		authenticSigningTime, _ = outcome.EnvelopeContent.SignerInfo.AuthenticSigningTime()
-	}
-
-	certResults, err := r.Validate(outcome.EnvelopeContent.SignerInfo.CertificateChain, authenticSigningTime)
-	if err != nil {
-		logger.Debug("Error while checking revocation status, err: %s", err.Error())
-		return &notation.ValidationResult{
-			Type:   trustpolicy.TypeRevocation,
-			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-			Error:  fmt.Errorf("unable to check revocation status, err: %s", err.Error()),
-		}
-	}
-
-	result := &notation.ValidationResult{
-		Type:   trustpolicy.TypeRevocation,
-		Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeRevocation],
-	}
-	finalResult, problematicCertSubject := revocationFinalResult(certResults, outcome.EnvelopeContent.SignerInfo.CertificateChain, logger)
-	switch finalResult {
-	case revocationresult.ResultOK:
-		logger.Debug("No verification impacting errors encountered while checking revocation, status is OK")
-	case revocationresult.ResultRevoked:
-		result.Error = fmt.Errorf("signing certificate with subject %q is revoked", problematicCertSubject)
-	default:
-		// revocationresult.ResultUnknown
-		result.Error = fmt.Errorf("signing certificate with subject %q revocation status is unknown", problematicCertSubject)
-	}
-
-	return result
 }
 
 // revocationFinalResult returns the final revocation result and problematic
@@ -906,7 +951,7 @@ func isRequiredVerificationPluginVer(pluginVer string, minPluginVer string) bool
 
 // verifyTimestamp provides core verification logic of authentic timestamp under
 // signing scheme `notary.x509`.
-func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Revocation, outcome *notation.VerificationOutcome) error {
+func verifyTimestamp(ctx context.Context, policyName string, trustStores []string, signatureVerification trustpolicy.SignatureVerification, x509TrustStore truststore.X509TrustStore, r revocation.Validator, outcome *notation.VerificationOutcome) error {
 	logger := log.GetLogger(ctx)
 
 	signerInfo := outcome.EnvelopeContent.SignerInfo
@@ -1019,7 +1064,9 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// 5. Perform the timestamping certificate chain revocation check
 	logger.Debug("Checking timestamping certificate chain revocation...")
-	certResults, err := r.Validate(tsaCertChain, time.Time{})
+	certResults, err := r.ValidateContext(ctx, revocation.ValidateContextOptions{
+		CertChain: tsaCertChain,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to check timestamping certificate chain revocation with error: %w", err)
 	}
