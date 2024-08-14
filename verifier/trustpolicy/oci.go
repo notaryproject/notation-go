@@ -25,17 +25,17 @@ import (
 	"github.com/notaryproject/notation-go/internal/trustpolicy"
 )
 
-// OCIDocument represents a trustPolicy.json document for OCI artifacts
-type OCIDocument struct {
+// Document represents a trustpolicy.json document
+type Document struct {
 	// Version of the policy document
 	Version string `json:"version"`
 
 	// TrustPolicies include each policy statement
-	TrustPolicies []OCITrustPolicy `json:"trustPolicies"`
+	TrustPolicies []TrustPolicy `json:"trustPolicies"`
 }
 
-// OCITrustPolicy represents a policy statement in the policy document for OCI artifacts
-type OCITrustPolicy struct {
+// TrustPolicy represents a policy statement in the policy document
+type TrustPolicy struct {
 	// Name of the policy statement
 	Name string `json:"name"`
 
@@ -52,29 +52,11 @@ type OCITrustPolicy struct {
 	RegistryScopes []string `json:"registryScopes"`
 }
 
-// Document represents a trustPolicy.json document
-//
-// Deprecated: Document exists for historical compatibility and should not be used.
-// To create OCI Document, use OCIDocument.
-type Document = OCIDocument
-
-// TrustPolicy represents a policy statement in the policy document
-//
-// Deprecated: TrustPolicy exists for historical compatibility and should not be used.
-// To create OCI TrustPolicy, use OCITrustPolicy.
-type TrustPolicy = OCITrustPolicy
-
-// LoadDocument loads a trust policy document from a local file system
-//
-// Deprecated: LoadDocument function exists for historical compatibility and should not be used.
-// To load OCI Document, use LoadOCIDocument function.
-var LoadDocument = LoadOCIDocument
-
 var supportedOCIPolicyVersions = []string{"1.0"}
 
-// LoadOCIDocument retrieves a trust policy document from the local file system.
-func LoadOCIDocument() (*OCIDocument, error) {
-	var doc OCIDocument
+// LoadDocument retrieves a trust policy document from the local file system.
+func LoadDocument() (*Document, error) {
+	var doc Document
 	if err := getDocument(dir.PathTrustPolicy, &doc); err != nil {
 		return nil, err
 	}
@@ -83,7 +65,7 @@ func LoadOCIDocument() (*OCIDocument, error) {
 
 // Validate validates a policy document according to its version's rule set.
 // if any rule is violated, returns an error
-func (policyDoc *OCIDocument) Validate() error {
+func (policyDoc *Document) Validate() error {
 	// sanity check
 	if policyDoc == nil {
 		return errors.New("oci trust policy document cannot be nil")
@@ -128,14 +110,14 @@ func (policyDoc *OCIDocument) Validate() error {
 // statement that applies to the given registry scope. If no applicable trust
 // policy is found, returns an error
 // see https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
-func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string) (*OCITrustPolicy, error) {
+func (policyDoc *Document) GetApplicableTrustPolicy(artifactReference string) (*TrustPolicy, error) {
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
 	if err != nil {
 		return nil, err
 	}
 
-	var wildcardPolicy *OCITrustPolicy
-	var applicablePolicy *OCITrustPolicy
+	var wildcardPolicy *TrustPolicy
+	var applicablePolicy *TrustPolicy
 	for _, policyStatement := range policyDoc.TrustPolicies {
 		if slices.Contains(policyStatement.RegistryScopes, trustpolicy.Wildcard) {
 			// we need to deep copy because we can't use the loop variable
@@ -158,8 +140,8 @@ func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string)
 }
 
 // clone returns a pointer to the deeply copied TrustPolicy
-func (t *OCITrustPolicy) clone() *OCITrustPolicy {
-	return &OCITrustPolicy{
+func (t *TrustPolicy) clone() *TrustPolicy {
+	return &TrustPolicy{
 		Name:                  t.Name,
 		SignatureVerification: t.SignatureVerification,
 		TrustedIdentities:     append([]string(nil), t.TrustedIdentities...),
@@ -170,7 +152,7 @@ func (t *OCITrustPolicy) clone() *OCITrustPolicy {
 
 // validateRegistryScopes validates if the policy document is following the
 // Notary Project spec rules for registry scopes
-func validateRegistryScopes(policyDoc *OCIDocument) error {
+func validateRegistryScopes(policyDoc *Document) error {
 	registryScopeCount := make(map[string]int)
 	for _, statement := range policyDoc.TrustPolicies {
 		// Verify registry scopes are valid

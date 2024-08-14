@@ -51,7 +51,7 @@ import (
 
 // verifier implements notation.Verifier and notation.verifySkipper
 type verifier struct {
-	trustPolicyDoc                  *trustpolicy.OCIDocument
+	trustPolicyDoc                  *trustpolicy.Document
 	trustStore                      truststore.X509TrustStore
 	pluginManager                   plugin.Manager
 	revocationClient                revocation.Revocation
@@ -82,7 +82,7 @@ type VerifierOptions struct {
 // NewFromConfig returns a verifier based on local file system.
 func NewFromConfig() (notation.Verifier, error) {
 	// load trust policy
-	policyDocument, err := trustpolicy.LoadOCIDocument()
+	policyDocument, err := trustpolicy.LoadDocument()
 	if err != nil {
 		return nil, err
 	}
@@ -93,13 +93,13 @@ func NewFromConfig() (notation.Verifier, error) {
 }
 
 // New creates a new verifier given trustPolicy, trustStore and pluginManager
-func New(trustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
+func New(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
 	return NewWithOptions(trustPolicy, trustStore, pluginManager, VerifierOptions{})
 }
 
 // NewWithOptions creates a new verifier given trustPolicy, trustStore,
 // pluginManager, and verifierOptions
-func NewWithOptions(trustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (notation.Verifier, error) {
+func NewWithOptions(trustPolicy *trustpolicy.Document, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (notation.Verifier, error) {
 	if trustStore == nil {
 		return nil, errors.New("trustStore cannot be nil")
 	}

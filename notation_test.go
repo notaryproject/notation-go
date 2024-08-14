@@ -490,7 +490,7 @@ func (s *verifyMetadataSigner) Sign(_ context.Context, desc ocispec.Descriptor, 
 }
 
 type dummyVerifier struct {
-	TrustPolicyDoc    *trustpolicy.OCIDocument
+	TrustPolicyDoc    *trustpolicy.Document
 	PluginManager     plugin.Manager
 	FailVerify        bool
 	VerificationLevel trustpolicy.VerificationLevel

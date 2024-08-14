@@ -33,7 +33,7 @@ func TestLoadOCIDocumentFromOldFileLocation(t *testing.T) {
 	}
 	t.Cleanup(func() { os.RemoveAll(tempRoot) })
 
-	if _, err := LoadOCIDocument(); err != nil {
+	if _, err := LoadDocument(); err != nil {
 		t.Fatalf("LoadOCIDocument() should not throw error for an existing policy file. Error: %v", err)
 	}
 }
@@ -48,7 +48,7 @@ func TestLoadOCIDocumentFromNewFileLocation(t *testing.T) {
 	}
 	t.Cleanup(func() { os.RemoveAll(tempRoot) })
 
-	if _, err := LoadOCIDocument(); err != nil {
+	if _, err := LoadDocument(); err != nil {
 		t.Fatalf("LoadOCIDocument() should not throw error for an existing policy file. Error: %v", err)
 	}
 }
@@ -56,7 +56,7 @@ func TestLoadOCIDocumentFromNewFileLocation(t *testing.T) {
 func TestLoadOCIDocumentError(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
-	if _, err := LoadOCIDocument(); err == nil {
+	if _, err := LoadDocument(); err == nil {
 		t.Fatalf("LoadOCIDocument() should throw error if OCI trust policy is not found")
 	}
 }
@@ -72,7 +72,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	policyStatement.RegistryScopes = []string{registryScope}
 	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "strict"}
 
-	policyDoc.TrustPolicies = []OCITrustPolicy{
+	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement,
 	}
 	// existing Registry Scope
@@ -88,7 +88,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	}
 
 	// wildcard registry scope
-	wildcardStatement := OCITrustPolicy{
+	wildcardStatement := TrustPolicy{
 		Name:                  "test-statement-name-2",
 		SignatureVerification: SignatureVerification{VerificationLevel: "skip"},
 		TrustStores:           []string{},
@@ -96,7 +96,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		RegistryScopes:        []string{"*"},
 	}
 
-	policyDoc.TrustPolicies = []OCITrustPolicy{
+	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement,
 		wildcardStatement,
 	}
@@ -110,7 +110,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 // and tests various validations on policy elements
 func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// Sanity check
-	var nilPolicyDoc *OCIDocument
+	var nilPolicyDoc *Document
 	err := nilPolicyDoc.Validate()
 	if err == nil || err.Error() != "oci trust policy document cannot be nil" {
 		t.Fatalf("nil policyDoc should return error")
@@ -153,7 +153,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement1 := policyDoc.TrustPolicies[0].clone()
 	policyStatement2 := policyDoc.TrustPolicies[0].clone()
 	policyStatement2.Name = "test-statement-name-2"
-	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
+	policyDoc.TrustPolicies = []TrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "registry scope \"registry.acme-rockets.io/software/net-monitor\" is present in multiple oci trust policy statements, one registry scope value can only be associated with one statement" {
 		t.Fatalf("Policy statements with same registry scope should return error %q", err)
@@ -279,7 +279,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyStatement1 = policyDoc.TrustPolicies[0].clone()
 	policyStatement2 = policyDoc.TrustPolicies[0].clone()
 	policyStatement2.RegistryScopes = []string{"registry.acme-rockets.io/software/legacy/metrics"}
-	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
+	policyDoc.TrustPolicies = []TrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != "multiple oci trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
 		t.Fatalf("policy statements with same name should return error")
@@ -376,7 +376,7 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 	policyStatement8.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor8"}
 	policyStatement8.SignatureVerification.VerifyTimestamp = OptionAfterCertExpiry
 
-	policyDoc.TrustPolicies = []OCITrustPolicy{
+	policyDoc.TrustPolicies = []TrustPolicy{
 		*policyStatement1,
 		*policyStatement2,
 		*policyStatement3,
