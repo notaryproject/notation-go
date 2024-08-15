@@ -39,6 +39,9 @@ type TrustPolicy struct {
 	// Name of the policy statement
 	Name string `json:"name"`
 
+	// RegistryScopes that this policy statement affects
+	RegistryScopes []string `json:"registryScopes"`
+
 	// SignatureVerification setting for this policy statement
 	SignatureVerification SignatureVerification `json:"signatureVerification"`
 
@@ -47,9 +50,6 @@ type TrustPolicy struct {
 
 	// TrustedIdentities this policy statement pins
 	TrustedIdentities []string `json:"trustedIdentities"`
-
-	// RegistryScopes that this policy statement affects
-	RegistryScopes []string `json:"registryScopes"`
 }
 
 var supportedPolicyVersions = []string{"1.0"}
