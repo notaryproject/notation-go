@@ -259,31 +259,6 @@ func TestSignWithTimestamping(t *testing.T) {
 	}
 }
 
-func TestSignBlobWithCertChain(t *testing.T) {
-	// sign with key
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				s, err := NewGenericSigner(keyCert.key, keyCert.certs)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
-
-				sOpts := notation.SignerSignOptions{
-					SignatureMediaType: envelopeType,
-				}
-				sig, _, err := s.SignBlob(context.Background(), getDescriptorFunc(false), sOpts)
-				if err != nil {
-					t.Fatalf("Sign() error = %v", err)
-				}
-
-				// basic verification
-				basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
-			})
-		}
-	}
-}
-
 func TestSignWithoutExpiry(t *testing.T) {
 	// sign with key
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {

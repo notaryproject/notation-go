@@ -42,6 +42,7 @@ type GenericSigner struct {
 }
 
 // New returns a builtinSigner given key and cert chain
+//
 // Deprecated: New function exists for historical compatibility and should not be used.
 // To create GenericSigner, use NewGenericSigner() function.
 func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
@@ -166,31 +167,4 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 		return nil, nil, err
 	}
 	return sig, &envContent.SignerInfo, nil
-}
-
-// SignBlob signs the descriptor returned by blobGen and returns the marshalled envelope
-func (s *GenericSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
-	logger := log.GetLogger(ctx)
-	logger.Debugf("Generic blob signing for signature media type %v", opts.SignatureMediaType)
-
-	ks, err := s.signer.KeySpec()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	desc, err := getDescriptor(ks, descGenFunc)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return s.Sign(ctx, desc, opts)
-}
-
-func getDescriptor(ks signature.KeySpec, descGenFunc notation.BlobDescriptorGenerator) (ocispec.Descriptor, error) {
-	digestAlg, ok := algorithms[ks.SignatureAlgorithm().Hash()]
-	if !ok {
-		return ocispec.Descriptor{}, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm().Hash())
-	}
-
-	return descGenFunc(digestAlg)
 }
