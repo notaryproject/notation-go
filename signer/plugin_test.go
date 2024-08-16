@@ -32,7 +32,6 @@ import (
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/plugin/proto"
-	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -69,16 +68,6 @@ type mockPlugin struct {
 	key               crypto.PrivateKey
 	certs             []*x509.Certificate
 	keySpec           signature.KeySpec
-}
-
-func getDescriptorFunc(throwError bool) func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
-	return func(hashAlgo digest.Algorithm) (ocispec.Descriptor, error) {
-		if throwError {
-			return ocispec.Descriptor{}, errors.New("")
-		}
-		return validSignDescriptor, nil
-	}
-
 }
 
 func newMockPlugin(key crypto.PrivateKey, certs []*x509.Certificate, keySpec signature.KeySpec) *mockPlugin {
@@ -330,22 +319,6 @@ func TestPluginSigner_Sign_Valid(t *testing.T) {
 				}
 				validSignOpts.SignatureMediaType = envelopeType
 				data, signerInfo, err := pluginSigner.Sign(context.Background(), validSignDescriptor, validSignOpts)
-				basicSignTest(t, &pluginSigner, envelopeType, data, signerInfo, err)
-			})
-		}
-	}
-}
-
-func TestPluginSigner_SignBlob_Valid(t *testing.T) {
-	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
-		for _, keyCert := range keyCertPairCollections {
-			t.Run(fmt.Sprintf("external plugin,envelopeType=%v_keySpec=%v", envelopeType, keyCert.keySpecName), func(t *testing.T) {
-				keySpec, _ := proto.DecodeKeySpec(proto.KeySpec(keyCert.keySpecName))
-				pluginSigner := PluginSigner{
-					plugin: newMockPlugin(keyCert.key, keyCert.certs, keySpec),
-				}
-				validSignOpts.SignatureMediaType = envelopeType
-				data, signerInfo, err := pluginSigner.SignBlob(context.Background(), getDescriptorFunc(false), validSignOpts)
 				basicSignTest(t, &pluginSigner, envelopeType, data, signerInfo, err)
 			})
 		}

@@ -26,27 +26,13 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-func dummyOCIPolicyDocument() OCIDocument {
-	return OCIDocument{
+func dummyPolicyDocument() Document {
+	return Document{
 		Version: "1.0",
-		TrustPolicies: []OCITrustPolicy{
+		TrustPolicies: []TrustPolicy{
 			{
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
-				SignatureVerification: SignatureVerification{VerificationLevel: "strict"},
-				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
-				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
-			},
-		},
-	}
-}
-
-func dummyBlobPolicyDocument() BlobDocument {
-	return BlobDocument{
-		Version: "1.0",
-		TrustPolicies: []BlobTrustPolicy{
-			{
-				Name:                  "test-statement-name",
 				SignatureVerification: SignatureVerification{VerificationLevel: "strict"},
 				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
 				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
@@ -306,22 +292,16 @@ func TestGetDocument(t *testing.T) {
 		t.Skip("skipping test on Windows")
 	}
 	dir.UserConfigDir = "/"
-	var ociDoc OCIDocument
-	var blobDoc BlobDocument
+	var doc Document
 	tests := []struct {
 		name             string
 		expectedDocument any
 		actualDocument   any
 	}{
 		{
-			name:             "valid OCI policy file",
-			expectedDocument: dummyOCIPolicyDocument(),
-			actualDocument:   &ociDoc,
-		},
-		{
-			name:             "valid Blob policy file",
-			expectedDocument: dummyBlobPolicyDocument(),
-			actualDocument:   &blobDoc,
+			name:             "valid policy file",
+			expectedDocument: dummyPolicyDocument(),
+			actualDocument:   &doc,
 		},
 	}
 
@@ -345,7 +325,7 @@ func TestGetDocument(t *testing.T) {
 func TestGetDocumentErrors(t *testing.T) {
 	dir.UserConfigDir = "/"
 	t.Run("non-existing policy file", func(t *testing.T) {
-		var doc OCIDocument
+		var doc Document
 		if err := getDocument("blaah", &doc); err == nil || err.Error() != fmt.Sprintf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink) {
 			t.Fatalf("getDocument() should throw error for non existent policy")
 		}
@@ -362,7 +342,7 @@ func TestGetDocumentErrors(t *testing.T) {
 		}
 		t.Cleanup(func() { os.RemoveAll(tempRoot) })
 
-		var doc OCIDocument
+		var doc Document
 		if err := getDocument(path, &doc); err == nil || err.Error() != fmt.Sprintf("malformed trust policy. To create a trust policy, see: %s", trustPolicyLink) {
 			t.Fatalf("getDocument() should throw error for invalid policy file. Error: %v", err)
 		}
@@ -379,7 +359,7 @@ func TestGetDocumentErrors(t *testing.T) {
 			t.Fatalf("creation of invalid permission policy file failed. Error: %v", err)
 		}
 		expectedErrMsg := fmt.Sprintf("unable to read trust policy due to file permissions, please verify the permissions of %s", path)
-		var doc OCIDocument
+		var doc Document
 		if err := getDocument(path, &doc); err == nil || err.Error() != expectedErrMsg {
 			t.Errorf("getDocument() should throw error for a policy file with bad permissions. "+
 				"Expected error: '%v'qq but found '%v'", expectedErrMsg, err.Error())
@@ -400,7 +380,7 @@ func TestGetDocumentErrors(t *testing.T) {
 		if err := os.Symlink(path, symlinkPath); err != nil {
 			t.Fatalf("creation of symlink for policy file failed. Error: %v", err)
 		}
-		var doc OCIDocument
+		var doc Document
 		if err := getDocument(symlinkPath, &doc); err == nil || !strings.HasPrefix(err.Error(), "trust policy is not a regular file (symlinks are not supported)") {
 			t.Fatalf("getDocument() should throw error for a symlink policy file. Error: %v", err)
 		}

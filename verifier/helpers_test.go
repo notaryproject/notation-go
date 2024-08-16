@@ -60,7 +60,7 @@ func TestLoadX509TrustStore(t *testing.T) {
 	// load "ca" and "signingAuthority" trust store
 	caStore := "ca:valid-trust-store"
 	signingAuthorityStore := "signingAuthority:valid-trust-store"
-	dummyPolicy := dummyOCIPolicyDocument().TrustPolicies[0]
+	dummyPolicy := dummyPolicyDocument().TrustPolicies[0]
 	dummyPolicy.TrustStores = []string{caStore, signingAuthorityStore}
 	dir.UserConfigDir = "testdata"
 	x509truststore := truststore.NewX509TrustStore(dir.ConfigFS())
@@ -138,10 +138,10 @@ func getArtifactDigestFromReference(artifactReference string) (string, error) {
 	return artifactReference[i+1:], nil
 }
 
-func dummyOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
-	return trustpolicy.OCIDocument{
+func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
+	return trustpolicy.Document{
 		Version: "1.0",
-		TrustPolicies: []trustpolicy.OCITrustPolicy{
+		TrustPolicies: []trustpolicy.TrustPolicy{
 			{
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
@@ -153,15 +153,11 @@ func dummyOCIPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
 	}
 }
 
-func dummyBlobPolicyDocument() (policyDoc trustpolicy.BlobDocument) {
-	return trustpolicy.BlobDocument{
-		Version: "1.0",
-		TrustPolicies: []trustpolicy.BlobTrustPolicy{
+func dummyInvalidPolicyDocument() (policyDoc trustpolicy.Document) {
+	return trustpolicy.Document{
+		TrustPolicies: []trustpolicy.TrustPolicy{
 			{
-				Name:                  "blob-test-statement-name",
-				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
-				TrustStores:           []string{"ca:valid-trust-store", "signingAuthority:valid-trust-store"},
-				TrustedIdentities:     []string{"x509.subject:CN=Notation Test Root,O=Notary,L=Seattle,ST=WA,C=US"},
+				Name: "invalid",
 			},
 		},
 	}
