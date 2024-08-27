@@ -16,7 +16,8 @@ This document describes the checklist to publish a release for notation-go.
 7. Enter the cloned repository and execute `git checkout <commit_digest>` to switch to the specified branch based on the voting result.
 8. Create a tag by running `git tag $version`.
 9. Run `git tag` and ensure the desired tag name in the list looks correct, then push the new tag directly to the repository by running `git push origin $version`.
-10. Announce the new release in the Notary Project community.
+10. On notation-go GitHub page, click [Releases](https://github.com/notaryproject/notation-go/releases). Your newly created tag should be shown on the top, click on the tag. Check the draft release, revise the release description, and publish the release.
+11. Announce the new release in the Notary Project community.
 
 ## Release Process from a release branch
 
@@ -31,4 +32,5 @@ This document describes the checklist to publish a release for notation-go.
 8. Enter the cloned repository and execute `git checkout <commit_digest>` to switch to the specified branch based on the voting result.
 9. Create a tag by running `git tag $version`.
 10. Run `git tag` and ensure the desired tag name in the list looks correct, then push the new tag directly to the repository by running `git push origin $version`.
-11. Announce the new release in the Notary Project community.
+11. On notation-go GitHub page, click [Releases](https://github.com/notaryproject/notation-go/releases). Your newly created tag should be shown on the top, click on the tag. Check the draft release, revise the release description, and publish the release.
+12. Announce the new release in the Notary Project community.
