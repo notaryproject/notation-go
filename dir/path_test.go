@@ -43,6 +43,14 @@ func Test_UserConfigDirPath(t *testing.T) {
 	}
 }
 
+func Test_NoHomeVariable(t *testing.T) {
+	t.Setenv("HOME", "")
+	userConfigDir := UserConfigDirPath()
+	if userConfigDir != "notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want "notation"`, userConfigDir)
+	}
+}
+
 func Test_UserLibexecDirPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
 	got := UserLibexecDirPath()
@@ -50,7 +58,6 @@ func Test_UserLibexecDirPath(t *testing.T) {
 		t.Fatalf(`UserConfigDirPath() = %q, want "/path/notation"`, got)
 	}
 }
-
 
 func TestLocalKeyPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
