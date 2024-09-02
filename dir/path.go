@@ -81,15 +81,32 @@ var userConfigDir = os.UserConfigDir // for unit test
 
 // loadUserPath function defines UserConfigDir and UserLibexecDir.
 func loadUserPath() {
-	// set user config
-	userDir, err := userConfigDir()
-	if err != nil {
-		panic(err)
-	}
-	UserConfigDir = filepath.Join(userDir, notation)
+	UserConfigDir = ""
+	UserLibexecDir = ""
 
-	// set user libexec
-	UserLibexecDir = UserConfigDir
+	_ = UserLibexecDirPath()
+}
+
+// UserConfigDirPath returns the user level {NOTATION_CONFIG} path.
+func UserConfigDirPath() string {
+	if UserConfigDir == "" {
+		userDir, err := userConfigDir()
+		if err != nil {
+		panic(err)
+		}
+		// set user config
+		UserConfigDir = filepath.Join(userDir, notation)
+	}
+	return UserConfigDir
+}
+
+// UserLibexecDirPath returns the user level {NOTATION_LIBEXEC} path.
+func UserLibexecDirPath() string {
+	if UserLibexecDir == "" {
+		// set user libexec
+		UserLibexecDir = UserConfigDirPath()
+	}
+	return UserLibexecDir
 }
 
 // LocalKeyPath returns the local key and local cert relative paths.
