@@ -14,6 +14,7 @@
 package dir
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -45,9 +46,11 @@ func Test_UserConfigDirPath(t *testing.T) {
 
 func Test_NoHomeVariable(t *testing.T) {
 	t.Setenv("HOME", "")
-	userConfigDir := UserConfigDirPath()
-	if userConfigDir != "notation" {
-		t.Fatalf(`UserConfigDirPath() = %q, want "notation"`, userConfigDir)
+	UserConfigDir = ""
+	userConfigDir = os.UserConfigDir
+	got := UserConfigDirPath()
+	if got != "notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want "notation"`, UserConfigDir)
 	}
 }
 
