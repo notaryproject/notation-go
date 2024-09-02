@@ -35,6 +35,23 @@ func Test_loadPath(t *testing.T) {
 	}
 }
 
+func Test_UserConfigDirPath(t *testing.T) {
+	userConfigDir = mockGetUserConfig
+	got := UserConfigDirPath()
+	if got != "/path/notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want "/path/notation"`, got)
+	}
+}
+
+func Test_UserLibexecDirPath(t *testing.T) {
+	userConfigDir = mockGetUserConfig
+	got := UserLibexecDirPath()
+	if got != "/path/notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want "/path/notation"`, got)
+	}
+}
+
+
 func TestLocalKeyPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
 	loadUserPath()
