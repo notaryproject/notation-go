@@ -46,6 +46,7 @@ func Test_UserConfigDirPath(t *testing.T) {
 
 func Test_NoHomeVariable(t *testing.T) {
 	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
 	UserConfigDir = ""
 	userConfigDir = os.UserConfigDir
 	got := userConfigDirPath()
