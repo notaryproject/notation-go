@@ -85,7 +85,8 @@ func userConfigDirPath() string {
 		userDir, err := userConfigDir()
 		if err != nil {
 			// fallback to current directory
-			userDir = "."
+			UserConfigDir = "." + notation
+			return UserConfigDir
 			UserConfigDir = "." + notation
 			return UserConfigDir
 		}
