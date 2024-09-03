@@ -86,6 +86,8 @@ func userConfigDirPath() string {
 		if err != nil {
 			// fallback to current directory
 			userDir = "."
+			UserConfigDir = "." + notation
+			return UserConfigDir
 		}
 		// set user config
 		UserConfigDir = filepath.Join(userDir, notation)

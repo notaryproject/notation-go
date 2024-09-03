@@ -42,8 +42,8 @@ func Test_NoHomeVariable(t *testing.T) {
 	setup()
 	userConfigDir = os.UserConfigDir
 	got := userConfigDirPath()
-	if got != "notation" {
-		t.Fatalf(`UserConfigDirPath() = %q, want "notation"`, UserConfigDir)
+	if got != ".notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want ".notation"`, UserConfigDir)
 	}
 }
 
