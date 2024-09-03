@@ -79,14 +79,6 @@ const (
 
 var userConfigDir = os.UserConfigDir // for unit test
 
-// loadUserPath function defines UserConfigDir and UserLibexecDir.
-func loadUserPath() {
-	UserConfigDir = ""
-	UserLibexecDir = ""
-
-	_ = userLibexecDirPath()
-}
-
 // userConfigDirPath returns the user level {NOTATION_CONFIG} path.
 func userConfigDirPath() string {
 	if UserConfigDir == "" {
