@@ -51,10 +51,10 @@ func NewSysFS(root string) SysFS {
 
 // ConfigFS is the config SysFS
 func ConfigFS() SysFS {
-	return NewSysFS(UserConfigDirPath())
+	return NewSysFS(userConfigDirPath())
 }
 
 // PluginFS is the plugin SysFS
 func PluginFS() SysFS {
-	return NewSysFS(filepath.Join(UserLibexecDirPath(), PathPlugins))
+	return NewSysFS(filepath.Join(userLibexecDirPath(), PathPlugins))
 }

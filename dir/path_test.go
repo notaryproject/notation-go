@@ -38,7 +38,7 @@ func Test_loadPath(t *testing.T) {
 
 func Test_UserConfigDirPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
-	got := UserConfigDirPath()
+	got := userConfigDirPath()
 	if got != "/path/notation" {
 		t.Fatalf(`UserConfigDirPath() = %q, want "/path/notation"`, got)
 	}
@@ -48,7 +48,7 @@ func Test_NoHomeVariable(t *testing.T) {
 	t.Setenv("HOME", "")
 	UserConfigDir = ""
 	userConfigDir = os.UserConfigDir
-	got := UserConfigDirPath()
+	got := userConfigDirPath()
 	if got != "notation" {
 		t.Fatalf(`UserConfigDirPath() = %q, want "notation"`, UserConfigDir)
 	}
@@ -56,7 +56,7 @@ func Test_NoHomeVariable(t *testing.T) {
 
 func Test_UserLibexecDirPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
-	got := UserLibexecDirPath()
+	got := userLibexecDirPath()
 	if got != "/path/notation" {
 		t.Fatalf(`UserConfigDirPath() = %q, want "/path/notation"`, got)
 	}

@@ -84,11 +84,11 @@ func loadUserPath() {
 	UserConfigDir = ""
 	UserLibexecDir = ""
 
-	_ = UserLibexecDirPath()
+	_ = userLibexecDirPath()
 }
 
-// UserConfigDirPath returns the user level {NOTATION_CONFIG} path.
-func UserConfigDirPath() string {
+// userConfigDirPath returns the user level {NOTATION_CONFIG} path.
+func userConfigDirPath() string {
 	if UserConfigDir == "" {
 		userDir, err := userConfigDir()
 		if err != nil {
@@ -101,11 +101,11 @@ func UserConfigDirPath() string {
 	return UserConfigDir
 }
 
-// UserLibexecDirPath returns the user level {NOTATION_LIBEXEC} path.
-func UserLibexecDirPath() string {
+// userLibexecDirPath returns the user level {NOTATION_LIBEXEC} path.
+func userLibexecDirPath() string {
 	if UserLibexecDir == "" {
 		// set user libexec
-		UserLibexecDir = UserConfigDirPath()
+		UserLibexecDir = userConfigDirPath()
 	}
 	return UserLibexecDir
 }
