@@ -67,7 +67,7 @@ func TestPluginFS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SysPath() failed. err = %v", err)
 	}
-	if path != filepath.Join(UserLibexecDir, PathPlugins, "plugin") {
-		t.Fatalf(`SysPath() failed. got: %q, want: %q`, path, filepath.Join(UserLibexecDir, PathPlugins, "plugin"))
+	if path != filepath.Join(userLibexecDirPath(), PathPlugins, "plugin") {
+		t.Fatalf(`SysPath() failed. got: %q, want: %q`, path, filepath.Join(userLibexecDirPath(), PathPlugins, "plugin"))
 	}
 }

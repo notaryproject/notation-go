@@ -14,7 +14,7 @@
 package dir
 
 import (
-	"path/filepath"
+	"os"
 	"testing"
 )
 
@@ -22,22 +22,45 @@ func mockGetUserConfig() (string, error) {
 	return "/path/", nil
 }
 
-func Test_loadPath(t *testing.T) {
-	wantDir := filepath.FromSlash("/path/notation")
-	userConfigDir = mockGetUserConfig
-	loadUserPath()
-	if UserConfigDir != wantDir {
-		t.Fatalf(`loadPath() UserConfigDir is incorrect. got: %q, want: %q`, UserConfigDir, wantDir)
-	}
+func setup() {
+	UserConfigDir = ""
+	UserLibexecDir = ""
+}
 
-	if UserLibexecDir != UserConfigDir {
-		t.Fatalf(`loadPath() UserLibexecDir is incorrect. got: %q, want: %q`, UserLibexecDir, wantDir)
+func Test_UserConfigDirPath(t *testing.T) {
+	userConfigDir = mockGetUserConfig
+	setup()
+	got := userConfigDirPath()
+	if got != "/path/notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want "/path/notation"`, got)
+	}
+}
+
+func Test_NoHomeVariable(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	setup()
+	userConfigDir = os.UserConfigDir
+	got := userConfigDirPath()
+	if got != ".notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want ".notation"`, UserConfigDir)
+	}
+}
+
+func Test_UserLibexecDirPath(t *testing.T) {
+	userConfigDir = mockGetUserConfig
+	setup()
+	got := userLibexecDirPath()
+	if got != "/path/notation" {
+		t.Fatalf(`UserConfigDirPath() = %q, want "/path/notation"`, got)
 	}
 }
 
 func TestLocalKeyPath(t *testing.T) {
 	userConfigDir = mockGetUserConfig
-	loadUserPath()
+	setup()
+	_ = userConfigDirPath()
+	_ = userLibexecDirPath()
 	gotKeyPath, gotCertPath := LocalKeyPath("web")
 	if gotKeyPath != "localkeys/web.key" {
 		t.Fatalf(`LocalKeyPath() gotKeyPath = %q, want "localkeys/web.key"`, gotKeyPath)
@@ -49,7 +72,9 @@ func TestLocalKeyPath(t *testing.T) {
 
 func TestX509TrustStoreDir(t *testing.T) {
 	userConfigDir = mockGetUserConfig
-	loadUserPath()
+	setup()
+	_ = userConfigDirPath()
+	_ = userLibexecDirPath()
 	if got := X509TrustStoreDir("ca", "web"); got != "truststore/x509/ca/web" {
 		t.Fatalf(`X509TrustStoreDir() = %q, want "truststore/x509/ca/web"`, got)
 	}
