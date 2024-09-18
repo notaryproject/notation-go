@@ -16,6 +16,7 @@ package verifier
 import (
 	"context"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -30,6 +31,8 @@ import (
 
 	"github.com/notaryproject/notation-core-go/revocation"
 	"github.com/notaryproject/notation-core-go/revocation/purpose"
+	"github.com/notaryproject/notation-core-go/revocation/result"
+	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
@@ -39,6 +42,7 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/signer"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
@@ -1366,6 +1370,120 @@ func TestIsRequiredVerificationPluginVer(t *testing.T) {
 			t.Errorf("TestIsRequiredVerificationPluginVer Error: version comparison mismatch between plugin with version %s and min verification plugin version %s, function output: %v, expected output: %v", testPlugVer, tt.minVerTests[0], funcVal, tt.expectedVal)
 		}
 	}
+}
+
+func TestRevocationFinalResult(t *testing.T) {
+	certResult := []*revocationresult.CertRevocationResult{
+		{
+			// update leaf cert result in each sub-test
+		},
+		{
+			Result: revocationresult.ResultNonRevokable,
+			ServerResults: []*revocationresult.ServerResult{
+				{
+					Result: revocationresult.ResultNonRevokable,
+				},
+			},
+		},
+	}
+	certChain := []*x509.Certificate{
+		{
+			Subject: pkix.Name{
+				CommonName: "leafCert",
+			},
+		},
+		{
+			Subject: pkix.Name{
+				CommonName: "rootCert",
+			},
+		},
+	}
+	t.Run("OCSP error without fallback", func(t *testing.T) {
+		certResult[0] = &revocationresult.CertRevocationResult{
+			Result: revocationresult.ResultUnknown,
+			ServerResults: []*revocationresult.ServerResult{
+				{
+					Server:           "http://ocsp.example.com",
+					Result:           revocationresult.ResultUnknown,
+					Error:            errors.New("ocsp error"),
+					RevocationMethod: result.RevocationMethodOCSP,
+				},
+			},
+		}
+
+		finalResult, problematicCertSubject := revocationFinalResult(certResult, certChain, log.Discard)
+		if finalResult != revocationresult.ResultUnknown || problematicCertSubject != "CN=leafCert" {
+			t.Fatalf("unexpected final result: %v, problematic cert subject: %s", finalResult, problematicCertSubject)
+		}
+	})
+
+	t.Run("OCSP error with fallback", func(t *testing.T) {
+		certResult[0] = &revocationresult.CertRevocationResult{
+			Result: revocationresult.ResultOK,
+			ServerResults: []*revocationresult.ServerResult{
+				{
+					Server:           "http://ocsp.example.com",
+					Result:           revocationresult.ResultUnknown,
+					Error:            errors.New("ocsp error"),
+					RevocationMethod: result.RevocationMethodOCSP,
+				},
+				{
+					Result:           revocationresult.ResultOK,
+					Server:           "http://crl.example.com",
+					RevocationMethod: result.RevocationMethodCRL,
+				},
+			},
+			RevocationMethod: result.RevocationMethodOCSPFallbackCRL,
+		}
+
+		finalResult, problematicCertSubject := revocationFinalResult(certResult, certChain, log.Discard)
+		if finalResult != revocationresult.ResultOK || problematicCertSubject != "" {
+			t.Fatalf("unexpected final result: %v, problematic cert subject: %s", finalResult, problematicCertSubject)
+		}
+	})
+
+	t.Run("OCSP error with fallback and CRL error", func(t *testing.T) {
+		certResult[0] = &revocationresult.CertRevocationResult{
+			Result: revocationresult.ResultUnknown,
+			ServerResults: []*revocationresult.ServerResult{
+				{
+					Server:           "http://ocsp.example.com",
+					Result:           revocationresult.ResultUnknown,
+					Error:            errors.New("ocsp error"),
+					RevocationMethod: result.RevocationMethodOCSP,
+				},
+				{
+					Result:           revocationresult.ResultUnknown,
+					Error:            errors.New("crl error"),
+					RevocationMethod: result.RevocationMethodCRL,
+				},
+			},
+			RevocationMethod: result.RevocationMethodOCSPFallbackCRL,
+		}
+
+		finalResult, problematicCertSubject := revocationFinalResult(certResult, certChain, log.Discard)
+		if finalResult != revocationresult.ResultUnknown || problematicCertSubject != "CN=leafCert" {
+			t.Fatalf("unexpected final result: %v, problematic cert subject: %s", finalResult, problematicCertSubject)
+		}
+	})
+
+	t.Run("revocation method unknown error(should never reach here)", func(t *testing.T) {
+		certResult[0] = &revocationresult.CertRevocationResult{
+			Result: revocationresult.ResultUnknown,
+			ServerResults: []*revocationresult.ServerResult{
+				{
+					Result:           revocationresult.ResultUnknown,
+					Error:            errors.New("unknown error"),
+					RevocationMethod: result.RevocationMethodUnknown,
+				},
+			},
+		}
+
+		finalResult, problematicCertSubject := revocationFinalResult(certResult, certChain, log.Discard)
+		if finalResult != revocationresult.ResultUnknown || problematicCertSubject != "CN=leafCert" {
+			t.Fatalf("unexpected final result: %v, problematic cert subject: %s", finalResult, problematicCertSubject)
+		}
+	})
 }
 
 func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation.ValidationResult, expectedErr error, t *testing.T) {

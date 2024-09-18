@@ -808,16 +808,25 @@ func revocationFinalResult(certResults []*revocationresult.CertRevocationResult,
 	revokedFound := false
 	var revokedCertSubject string
 	for i := len(certResults) - 1; i >= 0; i-- {
-		if len(certResults[i].ServerResults) > 0 && certResults[i].ServerResults[0].Error != nil {
-			logger.Debugf("Error for certificate #%d in chain with subject %v for server %q: %v", (i + 1), certChain[i].Subject.String(), certResults[i].ServerResults[0].Server, certResults[i].ServerResults[0].Error)
+		cert := certChain[i]
+		certResult := certResults[i]
+		if certResult.RevocationMethod == revocationresult.RevocationMethodOCSPFallbackCRL {
+			// log the fallback warning
+			logger.Warnf("OCSP check failed with unknown error and fallback to CRL check for certificate #%d in chain with subject %v", (i + 1), cert.Subject.String())
+		}
+		for _, serverResult := range certResult.ServerResults {
+			if serverResult.Error != nil {
+				// log the revocation error
+				logger.Errorf("Certificate #%d in chain with subject %v encountered an error for revocation method %s at URL %q: %v", (i + 1), cert.Subject.String(), serverResult.RevocationMethod, serverResult.Server, serverResult.Error)
+			}
 		}
 
-		if certResults[i].Result == revocationresult.ResultOK || certResults[i].Result == revocationresult.ResultNonRevokable {
+		if certResult.Result == revocationresult.ResultOK || certResult.Result == revocationresult.ResultNonRevokable {
 			numOKResults++
 		} else {
-			finalResult = certResults[i].Result
-			problematicCertSubject = certChain[i].Subject.String()
-			if certResults[i].Result == revocationresult.ResultRevoked {
+			finalResult = certResult.Result
+			problematicCertSubject = cert.Subject.String()
+			if certResult.Result == revocationresult.ResultRevoked {
 				revokedFound = true
 				revokedCertSubject = problematicCertSubject
 			}
