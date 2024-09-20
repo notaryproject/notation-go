@@ -44,7 +44,6 @@ import (
 	trustpolicyInternal "github.com/notaryproject/notation-go/internal/trustpolicy"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin"
-	"github.com/notaryproject/notation-go/verifier/crl"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	pluginframework "github.com/notaryproject/notation-plugin-framework-go/plugin"
@@ -180,15 +179,14 @@ func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509Trus
 
 // setRevocation sets revocation validators of v
 func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
-	// default crl fetcher
-	crlFetcher, err := crlFetcher()
-	if err != nil {
-		return err
-	}
-
 	// timestamping validator
 	revocationTimestampingValidator := verifierOptions.RevocationTimestampingValidator
+	var err error
 	if revocationTimestampingValidator == nil {
+		crlFetcher, err := corecrl.NewHTTPFetcher(&http.Client{Timeout: 5 * time.Second})
+		if err != nil {
+			return err
+		}
 		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
 			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
 			CRLFetcher:       crlFetcher,
@@ -213,6 +211,10 @@ func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
 	}
 
 	// both RevocationCodeSigningValidator and RevocationClient are nil
+	crlFetcher, err := corecrl.NewHTTPFetcher(&http.Client{Timeout: 5 * time.Second})
+	if err != nil {
+		return err
+	}
 	revocationCodeSigningValidator, err = revocation.NewWithOptions(revocation.Options{
 		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
 		CRLFetcher:       crlFetcher,
@@ -1101,18 +1103,4 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// success
 	return nil
-}
-
-// crlFetcher creates a default crl Fetcher with file cache.
-func crlFetcher() (corecrl.Fetcher, error) {
-	crlFetcher, err := corecrl.NewHTTPFetcher(&http.Client{Timeout: 5 * time.Second})
-	if err != nil {
-		return nil, err
-	}
-	cacheRoot, _ := dir.CacheFS().SysPath() // always returns nil err
-	crlFetcher.Cache, err = crl.NewFileCache(cacheRoot)
-	if err != nil {
-		return nil, err
-	}
-	return crlFetcher, nil
 }

@@ -71,3 +71,14 @@ func TestPluginFS(t *testing.T) {
 		t.Fatalf(`SysPath() failed. got: %q, want: %q`, path, filepath.Join(userLibexecDirPath(), PathPlugins, "plugin"))
 	}
 }
+
+func TestCacheFS(t *testing.T) {
+	cacheFS := CacheFS()
+	path, err := cacheFS.SysPath()
+	if err != nil {
+		t.Fatalf("SysPath() failed. err = %v", err)
+	}
+	if path != filepath.Join(UserCacheDir) {
+		t.Fatalf(`SysPath() failed. got: %q, want: %q`, path, UserConfigDir)
+	}
+}
