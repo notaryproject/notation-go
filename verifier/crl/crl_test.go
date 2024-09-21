@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"os"
@@ -49,10 +50,6 @@ func TestFileCache(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 	cache, err := NewFileCache(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	t.Run("NewFileCache", func(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, but got %v", err)
@@ -134,9 +131,9 @@ func TestGetFailed(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid bundle", func(t *testing.T) {
+	t.Run("invalid content", func(t *testing.T) {
 		_, err := cache.Get(context.Background(), "invalid")
-		expectedErrMsg := "failed to decode file retrieved from file cache to CRL Bundle: unexpected EOF"
+		expectedErrMsg := "failed to decode file retrieved from file cache: invalid character 'i' looking for beginning of value"
 		if err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %v", expectedErrMsg, err)
 		}
@@ -154,6 +151,26 @@ func TestGetFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse base CRL: %v", err)
 	}
+
+	t.Run("invalid RawBaseCRL of content", func(t *testing.T) {
+		content := fileCacheContent{
+			RawBaseCRL: []byte("invalid"),
+		}
+		b, err := json.Marshal(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invalidBundleFile := filepath.Join(tempDir, cache.fileName("invalidBundle"))
+		if err := os.WriteFile(invalidBundleFile, b, 0644); err != nil {
+			t.Fatalf("failed to write file: %v", err)
+		}
+		_, err = cache.Get(context.Background(), "invalidBundle")
+		expectedErrMsg := "failed to parse base CRL of file retrieved from file cache: x509: malformed crl"
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected %s, but got %v", expectedErrMsg, err)
+		}
+	})
+
 	t.Run("bundle with invalid NextUpdate", func(t *testing.T) {
 		ctx := context.Background()
 		expiredBundle := &corecrl.Bundle{BaseCRL: baseCRL}
@@ -222,7 +239,16 @@ func TestSetFailed(t *testing.T) {
 		}
 	})
 
-	t.Run("failed to create tmp file", func(t *testing.T) {
+	t.Run("nil bundle BaseCRL", func(t *testing.T) {
+		bundle := &corecrl.Bundle{}
+		err := cache.Set(ctx, key, bundle)
+		expectedErrMsg := "failed to store crl bundle in file cache: bundle BaseCRL cannot be nil"
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected %s, but got %v", expectedErrMsg, err)
+		}
+	})
+
+	t.Run("failed to write into cache due to permission denied", func(t *testing.T) {
 		if err := os.Chmod(tempDir, 0); err != nil {
 			t.Fatal(err)
 		}

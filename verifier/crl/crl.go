@@ -17,10 +17,12 @@ package crl
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/gob"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -56,6 +58,15 @@ type FileCache struct {
 	root string
 }
 
+// fileCacheContent is the actual content saved in a FileCache
+type fileCacheContent struct {
+	// RawBaseCRL is baseCRL.Raw
+	RawBaseCRL []byte `json:"rawBaseCRL"`
+
+	// RawDeltaCRL is deltaCRL.Raw
+	RawDeltaCRL []byte `json:"rawDeltaCRL,omitempty"`
+}
+
 // NewFileCache creates a FileCache with root as the root directory
 func NewFileCache(root string) (*FileCache, error) {
 	if err := os.MkdirAll(root, 0700); err != nil {
@@ -71,25 +82,34 @@ func NewFileCache(root string) (*FileCache, error) {
 func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error) {
 	logger := log.GetLogger(ctx)
 
-	// read CRL bundle from file
+	// get content from file cache
 	f, err := os.Open(filepath.Join(c.root, c.fileName(url)))
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			logger.Infof("CRL file cache miss. Key %q does not exist", url)
 			return nil, corecrl.ErrCacheMiss
 		}
 		return nil, fmt.Errorf("failed to get crl bundle from file cache with key %q: %w", url, err)
 	}
 	defer f.Close()
-	dec := gob.NewDecoder(f)
-	var bundle corecrl.Bundle
-	err = dec.Decode(&bundle)
+
+	// decode content to crl Bundle
+	var content fileCacheContent
+	err = json.NewDecoder(f).Decode(&content)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode file retrieved from file cache to CRL Bundle: %w", err)
+		return nil, fmt.Errorf("failed to decode file retrieved from file cache: %w", err)
+	}
+	// TODO: add DeltaCRL once notation-core-go supports it. Issue: https://github.com/notaryproject/notation-core-go/issues/228
+	baseCRL, err := x509.ParseRevocationList(content.RawBaseCRL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse base CRL of file retrieved from file cache: %w", err)
+	}
+	bundle := corecrl.Bundle{
+		BaseCRL: baseCRL,
 	}
 
 	// check expiry
-	nextUpdate := bundle.BaseCRL.NextUpdate
+	nextUpdate := baseCRL.NextUpdate
 	if nextUpdate.IsZero() {
 		return nil, errors.New("crl bundle retrieved from file cache does not contain BaseCRL NextUpdate")
 	}
@@ -104,18 +124,29 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 
 // Set stores the CRL bundle in c with url as key.
 func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle) error {
+	// sanity check
 	if bundle == nil {
 		return errors.New("failed to store crl bundle in file cache: bundle cannot be nil")
 	}
-	// save to tmp file
+	if bundle.BaseCRL == nil {
+		return errors.New("failed to store crl bundle in file cache: bundle BaseCRL cannot be nil")
+	}
+
+	// actual content to be saved in the cache
+	//
+	// TODO: add DeltaCRL once notation-core-go supports it. Issue: https://github.com/notaryproject/notation-core-go/issues/228
+	content := fileCacheContent{
+		RawBaseCRL: bundle.BaseCRL.Raw,
+	}
+
+	// save content to tmp file
 	tmpFile, err := os.CreateTemp("", tmpFileName)
 	if err != nil {
-		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
+		return fmt.Errorf("failed to store crl bundle in file cache: failed to create temp file: %w", err)
 	}
-	enc := gob.NewEncoder(tmpFile)
-	err = enc.Encode(bundle)
+	err = json.NewEncoder(tmpFile).Encode(content)
 	if err != nil {
-		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
+		return fmt.Errorf("failed to store crl bundle in file cache: failed to encode content: %w", err)
 	}
 
 	// rename is atomic on UNIX-like platforms
@@ -126,7 +157,7 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	return nil
 }
 
-// fileName returns the filename of the CRL bundle within c
+// fileName returns the filename of the content stored in c
 func (c *FileCache) fileName(url string) string {
 	hash := sha256.Sum256([]byte(url))
 	return hex.EncodeToString(hash[:])

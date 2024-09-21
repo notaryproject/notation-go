@@ -30,7 +30,6 @@ import (
 	"oras.land/oras-go/v2/content"
 
 	"github.com/notaryproject/notation-core-go/revocation"
-	corecrl "github.com/notaryproject/notation-core-go/revocation/crl"
 	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
@@ -183,13 +182,8 @@ func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
 	revocationTimestampingValidator := verifierOptions.RevocationTimestampingValidator
 	var err error
 	if revocationTimestampingValidator == nil {
-		crlFetcher, err := corecrl.NewHTTPFetcher(&http.Client{Timeout: 5 * time.Second})
-		if err != nil {
-			return err
-		}
 		revocationTimestampingValidator, err = revocation.NewWithOptions(revocation.Options{
 			OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-			CRLFetcher:       crlFetcher,
 			CertChainPurpose: purpose.Timestamping,
 		})
 		if err != nil {
@@ -211,13 +205,8 @@ func (v *verifier) setRevocation(verifierOptions VerifierOptions) error {
 	}
 
 	// both RevocationCodeSigningValidator and RevocationClient are nil
-	crlFetcher, err := corecrl.NewHTTPFetcher(&http.Client{Timeout: 5 * time.Second})
-	if err != nil {
-		return err
-	}
 	revocationCodeSigningValidator, err = revocation.NewWithOptions(revocation.Options{
 		OCSPHTTPClient:   &http.Client{Timeout: 2 * time.Second},
-		CRLFetcher:       crlFetcher,
 		CertChainPurpose: purpose.CodeSigning,
 	})
 	if err != nil {
