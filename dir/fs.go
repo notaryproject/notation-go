@@ -59,7 +59,10 @@ func PluginFS() SysFS {
 	return NewSysFS(filepath.Join(userLibexecDirPath(), PathPlugins))
 }
 
-// CacheFS is the cache SysFS
+// CacheFS is the cache SysFS.
+//
+// To get the directory for crl file cache, one should use
+// `CacheFS().SysFS(PathCRLFileCache)`.
 func CacheFS() SysFS {
 	return NewSysFS(userCacheDirPath())
 }
