@@ -74,11 +74,11 @@ func TestPluginFS(t *testing.T) {
 
 func TestCRLFileCacheFS(t *testing.T) {
 	cacheFS := CacheFS()
-	path, err := cacheFS.SysPath(PathCRLFileCache)
+	path, err := cacheFS.SysPath(PathCRLCache)
 	if err != nil {
 		t.Fatalf("SysPath() failed. err = %v", err)
 	}
-	if path != filepath.Join(UserCacheDir, PathCRLFileCache) {
+	if path != filepath.Join(UserCacheDir, PathCRLCache) {
 		t.Fatalf(`SysPath() failed. got: %q, want: %q`, path, UserConfigDir)
 	}
 }

@@ -128,7 +128,7 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 }
 
 // Set stores the CRL bundle in c with url as key.
-func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle) error {
+func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle) (setErr error) {
 	logger := log.GetLogger(ctx)
 	logger.Infof("Storing crl bundle to file cache with key %q ...", url)
 
@@ -153,8 +153,15 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	if err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		if err := tmpFile.Close(); err != nil && setErr == nil {
+			setErr = fmt.Errorf("failed to close tmpFile while storing crl bundle in file cache: %w", err)
+		}
+		// remove the tmp file in case of error.
+		if setErr != nil {
+			defer os.Remove(tmpFile.Name())
+		}
+	}()
 	err = json.NewEncoder(tmpFile).Encode(content)
 	if err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: failed to encode content: %w", err)

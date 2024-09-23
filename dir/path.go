@@ -84,8 +84,8 @@ const (
 
 // The relative path to {NOTATION_CACHE}
 const (
-	// PathCRLFileCache is the crl file cache directory relative path.
-	PathCRLFileCache = "crl"
+	// PathCRLCache is the crl file cache directory relative path.
+	PathCRLCache = "crl"
 )
 
 // for unit tests
