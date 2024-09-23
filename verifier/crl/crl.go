@@ -68,6 +68,8 @@ type fileCacheContent struct {
 }
 
 // NewFileCache creates a FileCache with root as the root directory
+//
+// An example for root is `dir.CacheFS().SysPath(dir.PathCRLFileCache)`
 func NewFileCache(root string) (*FileCache, error) {
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create crl file cache: %w", err)
