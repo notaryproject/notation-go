@@ -80,7 +80,18 @@ func TestFileCache(t *testing.T) {
 	})
 
 	t.Run("comformance with delta crl", func(t *testing.T) {
-		bundle := &corecrl.Bundle{BaseCRL: baseCRL, DeltaCRL: baseCRL}
+		crlBytes, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+			Number:     big.NewInt(2),
+			NextUpdate: now.Add(time.Hour),
+		}, certChain[1].Cert, certChain[1].PrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		deltaCRL, err := x509.ParseRevocationList(crlBytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bundle := &corecrl.Bundle{BaseCRL: baseCRL, DeltaCRL: deltaCRL}
 		if err := cache.Set(ctx, key, bundle); err != nil {
 			t.Fatal(err)
 		}

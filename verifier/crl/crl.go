@@ -127,6 +127,9 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 
 // Set stores the CRL bundle in c with url as key.
 func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle) error {
+	logger := log.GetLogger(ctx)
+	logger.Infof("Storing crl bundle to file cache with key %q ...", url)
+
 	// sanity check
 	if bundle == nil {
 		return errors.New("failed to store crl bundle in file cache: bundle cannot be nil")
