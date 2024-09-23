@@ -66,8 +66,6 @@ const (
 	PathOCITrustPolicy = "trustpolicy.oci.json"
 	// PathBlobTrustPolicy is the Blob trust policy file relative path.
 	PathBlobTrustPolicy = "trustpolicy.blob.json"
-	// PathPlugins is the plugins directory relative path.
-	PathPlugins = "plugins"
 	// LocalKeysDir is the directory name for local key relative path.
 	LocalKeysDir = "localkeys"
 	// LocalCertificateExtension defines the extension of the certificate files.
@@ -76,6 +74,12 @@ const (
 	LocalKeyExtension = ".key"
 	// TrustStoreDir is the directory name of trust store.
 	TrustStoreDir = "truststore"
+)
+
+// The relative path to {NOTATION_LIBEXEC}
+const (
+	// PathPlugins is the plugins directory relative path.
+	PathPlugins = "plugins"
 )
 
 // The relative path to {NOTATION_CACHE}
