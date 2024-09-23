@@ -116,7 +116,7 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 	if err := checkExpiry(ctx, bundle.BaseCRL.NextUpdate); err != nil {
 		return nil, err
 	}
-	if content.RawDeltaCRL != nil {
+	if bundle.DeltaCRL != nil {
 		if err := checkExpiry(ctx, bundle.DeltaCRL.NextUpdate); err != nil {
 			return nil, err
 		}
