@@ -151,7 +151,7 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	// save content to tmp file
 	tmpFile, err := os.CreateTemp("", tmpFileName)
 	if err != nil {
-		return fmt.Errorf("failed to store crl bundle in file cache: failed to create temp file: %w", err)
+		return fmt.Errorf("failed to store crl bundle in file cache: failed to create tmpFile: %w", err)
 	}
 	defer func() {
 		if err := tmpFile.Close(); err != nil && setErr == nil {
