@@ -14,7 +14,6 @@
 package crl
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/x509"
@@ -23,6 +22,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -60,8 +60,8 @@ func TestFileCache(t *testing.T) {
 	})
 
 	key := "testKey"
-	bundle := &corecrl.Bundle{BaseCRL: baseCRL}
 	t.Run("comformance", func(t *testing.T) {
+		bundle := &corecrl.Bundle{BaseCRL: baseCRL}
 		if err := cache.Set(ctx, key, bundle); err != nil {
 			t.Fatal(err)
 		}
@@ -70,8 +70,31 @@ func TestFileCache(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !bytes.Equal(retrievedBundle.BaseCRL.Raw, bundle.BaseCRL.Raw) {
-			t.Fatalf("expected bundle %+v, but got %+v", bundle.BaseCRL, retrievedBundle.BaseCRL)
+		if !reflect.DeepEqual(retrievedBundle.BaseCRL, bundle.BaseCRL) {
+			t.Fatalf("expected BaseCRL %+v, but got %+v", bundle.BaseCRL, retrievedBundle.BaseCRL)
+		}
+
+		if bundle.DeltaCRL != nil {
+			t.Fatalf("expected DeltaCRL to be nil, but got %+v", retrievedBundle.DeltaCRL)
+		}
+	})
+
+	t.Run("comformance with delta crl", func(t *testing.T) {
+		bundle := &corecrl.Bundle{BaseCRL: baseCRL, DeltaCRL: baseCRL}
+		if err := cache.Set(ctx, key, bundle); err != nil {
+			t.Fatal(err)
+		}
+		retrievedBundle, err := cache.Get(ctx, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(retrievedBundle.BaseCRL, bundle.BaseCRL) {
+			t.Fatalf("expected BaseCRL %+v, but got %+v", bundle.BaseCRL, retrievedBundle.BaseCRL)
+		}
+
+		if !reflect.DeepEqual(retrievedBundle.DeltaCRL, bundle.DeltaCRL) {
+			t.Fatalf("expected DeltaCRL %+v, but got %+v", bundle.DeltaCRL, retrievedBundle.DeltaCRL)
 		}
 	})
 }
@@ -152,6 +175,25 @@ func TestGetFailed(t *testing.T) {
 		t.Fatalf("failed to parse base CRL: %v", err)
 	}
 
+	t.Run("empty RawBaseCRL of content", func(t *testing.T) {
+		content := fileCacheContent{
+			RawBaseCRL: []byte{},
+		}
+		b, err := json.Marshal(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invalidBundleFile := filepath.Join(tempDir, cache.fileName("invalidBundle"))
+		if err := os.WriteFile(invalidBundleFile, b, 0644); err != nil {
+			t.Fatalf("failed to write file: %v", err)
+		}
+		_, err = cache.Get(context.Background(), "invalidBundle")
+		expectedErrMsg := "failed to parse base CRL of file retrieved from file cache: x509: malformed crl"
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected %s, but got %v", expectedErrMsg, err)
+		}
+	})
+
 	t.Run("invalid RawBaseCRL of content", func(t *testing.T) {
 		content := fileCacheContent{
 			RawBaseCRL: []byte("invalid"),
@@ -171,6 +213,26 @@ func TestGetFailed(t *testing.T) {
 		}
 	})
 
+	t.Run("invalid RawDeltaCRL of content", func(t *testing.T) {
+		content := fileCacheContent{
+			RawBaseCRL:  baseCRL.Raw,
+			RawDeltaCRL: []byte("invalid"),
+		}
+		b, err := json.Marshal(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invalidBundleFile := filepath.Join(tempDir, cache.fileName("invalidBundle"))
+		if err := os.WriteFile(invalidBundleFile, b, 0644); err != nil {
+			t.Fatalf("failed to write file: %v", err)
+		}
+		_, err = cache.Get(context.Background(), "invalidBundle")
+		expectedErrMsg := "failed to parse delta CRL of file retrieved from file cache: x509: malformed crl"
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected %s, but got %v", expectedErrMsg, err)
+		}
+	})
+
 	t.Run("bundle with invalid NextUpdate", func(t *testing.T) {
 		ctx := context.Background()
 		expiredBundle := &corecrl.Bundle{BaseCRL: baseCRL}
@@ -178,7 +240,7 @@ func TestGetFailed(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, err = cache.Get(ctx, "expiredKey")
-		expectedErrMsg := "crl bundle retrieved from file cache does not contain BaseCRL NextUpdate"
+		expectedErrMsg := "crl bundle retrieved from file cache does not contain valid NextUpdate"
 		if err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %v", expectedErrMsg, err)
 		}
@@ -191,13 +253,47 @@ func TestGetFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create base CRL: %v", err)
 	}
-	baseCRL, err = x509.ParseRevocationList(crlBytes)
+	expiredBaseCRL, err := x509.ParseRevocationList(crlBytes)
 	if err != nil {
 		t.Fatalf("failed to parse base CRL: %v", err)
 	}
-	t.Run("bundle in cache has expired", func(t *testing.T) {
+	t.Run("base crl in cache has expired", func(t *testing.T) {
 		ctx := context.Background()
-		expiredBundle := &corecrl.Bundle{BaseCRL: baseCRL}
+		expiredBundle := &corecrl.Bundle{BaseCRL: expiredBaseCRL}
+		if err := cache.Set(ctx, "expiredKey", expiredBundle); err != nil {
+			t.Fatal(err)
+		}
+		_, err = cache.Get(ctx, "expiredKey")
+		if !errors.Is(err, corecrl.ErrCacheMiss) {
+			t.Fatalf("expected ErrCacheMiss, but got %v", err)
+		}
+	})
+
+	t.Run("delta crl in cache has expired", func(t *testing.T) {
+		ctx := context.Background()
+		crlBytes, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+			Number:     big.NewInt(1),
+			NextUpdate: now.Add(time.Hour),
+		}, certChain[1].Cert, certChain[1].PrivateKey)
+		if err != nil {
+			t.Fatalf("failed to create base CRL: %v", err)
+		}
+		baseCRL, err := x509.ParseRevocationList(crlBytes)
+		if err != nil {
+			t.Fatalf("failed to parse base CRL: %v", err)
+		}
+		crlBytes, err = x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+			Number:     big.NewInt(1),
+			NextUpdate: now.Add(-time.Hour),
+		}, certChain[1].Cert, certChain[1].PrivateKey)
+		if err != nil {
+			t.Fatalf("failed to create base CRL: %v", err)
+		}
+		expiredDeltaCRL, err := x509.ParseRevocationList(crlBytes)
+		if err != nil {
+			t.Fatalf("failed to parse base CRL: %v", err)
+		}
+		expiredBundle := &corecrl.Bundle{BaseCRL: baseCRL, DeltaCRL: expiredDeltaCRL}
 		if err := cache.Set(ctx, "expiredKey", expiredBundle); err != nil {
 			t.Fatal(err)
 		}

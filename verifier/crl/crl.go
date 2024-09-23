@@ -81,6 +81,7 @@ func NewFileCache(root string) (*FileCache, error) {
 // or the content has expired, corecrl.ErrCacheMiss is returned.
 func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error) {
 	logger := log.GetLogger(ctx)
+	logger.Infof("Retrieving crl bundle from file cache with key %q ...", url)
 
 	// get content from file cache
 	f, err := os.Open(filepath.Join(c.root, c.fileName(url)))
@@ -99,24 +100,26 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode file retrieved from file cache: %w", err)
 	}
-	// TODO: add DeltaCRL once notation-core-go supports it. Issue: https://github.com/notaryproject/notation-core-go/issues/228
-	baseCRL, err := x509.ParseRevocationList(content.RawBaseCRL)
+	var bundle corecrl.Bundle
+	bundle.BaseCRL, err = x509.ParseRevocationList(content.RawBaseCRL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse base CRL of file retrieved from file cache: %w", err)
 	}
-	bundle := corecrl.Bundle{
-		BaseCRL: baseCRL,
+	if content.RawDeltaCRL != nil {
+		bundle.DeltaCRL, err = x509.ParseRevocationList(content.RawDeltaCRL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse delta CRL of file retrieved from file cache: %w", err)
+		}
 	}
 
 	// check expiry
-	nextUpdate := baseCRL.NextUpdate
-	if nextUpdate.IsZero() {
-		return nil, errors.New("crl bundle retrieved from file cache does not contain BaseCRL NextUpdate")
+	if err := checkExpiry(ctx, bundle.BaseCRL.NextUpdate); err != nil {
+		return nil, err
 	}
-	if time.Now().After(nextUpdate) {
-		// content in file cache has expired
-		logger.Infof("CRL bundle retrieved from file cache with key %q has expired at %s", url, nextUpdate)
-		return nil, corecrl.ErrCacheMiss
+	if content.RawDeltaCRL != nil {
+		if err := checkExpiry(ctx, bundle.DeltaCRL.NextUpdate); err != nil {
+			return nil, err
+		}
 	}
 
 	return &bundle, nil
@@ -133,10 +136,11 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	}
 
 	// actual content to be saved in the cache
-	//
-	// TODO: add DeltaCRL once notation-core-go supports it. Issue: https://github.com/notaryproject/notation-core-go/issues/228
 	content := fileCacheContent{
 		RawBaseCRL: bundle.BaseCRL.Raw,
+	}
+	if bundle.DeltaCRL != nil {
+		content.RawDeltaCRL = bundle.DeltaCRL.Raw
 	}
 
 	// save content to tmp file
@@ -161,4 +165,18 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 func (c *FileCache) fileName(url string) string {
 	hash := sha256.Sum256([]byte(url))
 	return hex.EncodeToString(hash[:])
+}
+
+// checkExpiry returns nil when nextUpdate is bounded before current time
+func checkExpiry(ctx context.Context, nextUpdate time.Time) error {
+	logger := log.GetLogger(ctx)
+
+	if nextUpdate.IsZero() {
+		return errors.New("crl bundle retrieved from file cache does not contain valid NextUpdate")
+	}
+	if time.Now().After(nextUpdate) {
+		logger.Infof("CRL bundle retrieved from file cache has expired at %s", nextUpdate)
+		return corecrl.ErrCacheMiss
+	}
+	return nil
 }
