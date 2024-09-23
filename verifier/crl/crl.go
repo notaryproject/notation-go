@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	// tmpFileName is the prefix of the temporary file
-	tmpFileName = "notation-*"
+	// tempFileName is the prefix of the temporary file
+	tempFileName = "notation-*"
 )
 
 // FileCache implements corecrl.Cache.
@@ -148,27 +148,27 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 		content.DeltaCRL = bundle.DeltaCRL.Raw
 	}
 
-	// save content to tmp file
-	tmpFile, err := os.CreateTemp("", tmpFileName)
+	// save content to temp file
+	tempFile, err := os.CreateTemp("", tempFileName)
 	if err != nil {
-		return fmt.Errorf("failed to store crl bundle in file cache: failed to create tmpFile: %w", err)
+		return fmt.Errorf("failed to store crl bundle in file cache: failed to create temp file: %w", err)
 	}
 	defer func() {
-		if err := tmpFile.Close(); err != nil && setErr == nil {
-			setErr = fmt.Errorf("failed to close tmpFile while storing crl bundle in file cache: %w", err)
-		}
-		// remove the tmp file in case of error.
+		// remove the temp file in case of error
 		if setErr != nil {
-			defer os.Remove(tmpFile.Name())
+			defer os.Remove(tempFile.Name())
 		}
 	}()
 
-	if err := json.NewEncoder(tmpFile).Encode(content); err != nil {
+	if err := json.NewEncoder(tempFile).Encode(content); err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: failed to encode content: %w", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to store crl bundle in file cache: failed to close temp file: %w", err)
 	}
 
 	// rename is atomic on UNIX-like platforms
-	if err := os.Rename(tmpFile.Name(), filepath.Join(c.root, c.fileName(url))); err != nil {
+	if err := os.Rename(tempFile.Name(), filepath.Join(c.root, c.fileName(url))); err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
 	return nil
