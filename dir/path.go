@@ -118,7 +118,7 @@ func userCacheDirPath() string {
 			UserCacheDir = filepath.Join("."+notation, "cache")
 			return UserCacheDir
 		}
-		// set user config
+		// set user cache
 		UserCacheDir = filepath.Join(userDir, notation)
 	}
 	return UserCacheDir
