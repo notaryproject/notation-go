@@ -188,7 +188,7 @@ func TestGetFailed(t *testing.T) {
 
 	t.Run("empty RawBaseCRL of content", func(t *testing.T) {
 		content := fileCacheContent{
-			RawBaseCRL: []byte{},
+			BaseCRL: []byte{},
 		}
 		b, err := json.Marshal(content)
 		if err != nil {
@@ -207,7 +207,7 @@ func TestGetFailed(t *testing.T) {
 
 	t.Run("invalid RawBaseCRL of content", func(t *testing.T) {
 		content := fileCacheContent{
-			RawBaseCRL: []byte("invalid"),
+			BaseCRL: []byte("invalid"),
 		}
 		b, err := json.Marshal(content)
 		if err != nil {
@@ -226,8 +226,8 @@ func TestGetFailed(t *testing.T) {
 
 	t.Run("invalid RawDeltaCRL of content", func(t *testing.T) {
 		content := fileCacheContent{
-			RawBaseCRL:  baseCRL.Raw,
-			RawDeltaCRL: []byte("invalid"),
+			BaseCRL:  baseCRL.Raw,
+			DeltaCRL: []byte("invalid"),
 		}
 		b, err := json.Marshal(content)
 		if err != nil {

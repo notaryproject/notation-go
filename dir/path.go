@@ -78,6 +78,12 @@ const (
 	TrustStoreDir = "truststore"
 )
 
+// The relative path to {NOTATION_CACHE}
+const (
+	// PathCRLFileCache is the crl file cache directory relative path.
+	PathCRLFileCache = "crl"
+)
+
 // for unit tests
 var (
 	userConfigDir = os.UserConfigDir

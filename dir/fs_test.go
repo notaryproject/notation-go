@@ -73,7 +73,7 @@ func TestPluginFS(t *testing.T) {
 }
 
 func TestCacheFS(t *testing.T) {
-	cacheFS := CacheFS()
+	cacheFS := CRLFileCacheFS()
 	path, err := cacheFS.SysPath()
 	if err != nil {
 		t.Fatalf("SysPath() failed. err = %v", err)

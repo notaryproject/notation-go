@@ -60,11 +60,11 @@ type FileCache struct {
 
 // fileCacheContent is the actual content saved in a FileCache
 type fileCacheContent struct {
-	// RawBaseCRL is baseCRL.Raw
-	RawBaseCRL []byte `json:"rawBaseCRL"`
+	// BaseCRL is the ASN.1 encoded base CRL
+	BaseCRL []byte `json:"baseCRL"`
 
-	// RawDeltaCRL is deltaCRL.Raw
-	RawDeltaCRL []byte `json:"rawDeltaCRL,omitempty"`
+	// DeltaCRL is the ASN.1 encoded delta CRL
+	DeltaCRL []byte `json:"deltaCRL,omitempty"`
 }
 
 // NewFileCache creates a FileCache with root as the root directory
@@ -101,12 +101,12 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 		return nil, fmt.Errorf("failed to decode file retrieved from file cache: %w", err)
 	}
 	var bundle corecrl.Bundle
-	bundle.BaseCRL, err = x509.ParseRevocationList(content.RawBaseCRL)
+	bundle.BaseCRL, err = x509.ParseRevocationList(content.BaseCRL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse base CRL of file retrieved from file cache: %w", err)
 	}
-	if content.RawDeltaCRL != nil {
-		bundle.DeltaCRL, err = x509.ParseRevocationList(content.RawDeltaCRL)
+	if content.DeltaCRL != nil {
+		bundle.DeltaCRL, err = x509.ParseRevocationList(content.DeltaCRL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse delta CRL of file retrieved from file cache: %w", err)
 		}
@@ -140,10 +140,10 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 
 	// actual content to be saved in the cache
 	content := fileCacheContent{
-		RawBaseCRL: bundle.BaseCRL.Raw,
+		BaseCRL: bundle.BaseCRL.Raw,
 	}
 	if bundle.DeltaCRL != nil {
-		content.RawDeltaCRL = bundle.DeltaCRL.Raw
+		content.DeltaCRL = bundle.DeltaCRL.Raw
 	}
 
 	// save content to tmp file
@@ -151,6 +151,8 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	if err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: failed to create temp file: %w", err)
 	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
 	err = json.NewEncoder(tmpFile).Encode(content)
 	if err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: failed to encode content: %w", err)
