@@ -162,14 +162,13 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 			defer os.Remove(tmpFile.Name())
 		}
 	}()
-	err = json.NewEncoder(tmpFile).Encode(content)
-	if err != nil {
+
+	if err := json.NewEncoder(tmpFile).Encode(content); err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: failed to encode content: %w", err)
 	}
 
 	// rename is atomic on UNIX-like platforms
-	err = os.Rename(tmpFile.Name(), filepath.Join(c.root, c.fileName(url)))
-	if err != nil {
+	if err := os.Rename(tmpFile.Name(), filepath.Join(c.root, c.fileName(url))); err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
 	return nil
