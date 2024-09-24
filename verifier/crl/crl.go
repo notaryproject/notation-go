@@ -28,12 +28,8 @@ import (
 	"time"
 
 	corecrl "github.com/notaryproject/notation-core-go/revocation/crl"
+	"github.com/notaryproject/notation-go/internal/file"
 	"github.com/notaryproject/notation-go/log"
-)
-
-const (
-	// tempFileName is the prefix of the temporary file
-	tempFileName = "notation-*"
 )
 
 // FileCache implements corecrl.Cache.
@@ -126,7 +122,7 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 }
 
 // Set stores the CRL bundle in c with url as key.
-func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle) (setErr error) {
+func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle) error {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Storing crl bundle to file cache with key %q ...", url)
 
@@ -145,28 +141,11 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	if bundle.DeltaCRL != nil {
 		content.DeltaCRL = bundle.DeltaCRL.Raw
 	}
-
-	// save content to temp file
-	tempFile, err := os.CreateTemp("", tempFileName)
+	contentBytes, err := json.Marshal(content)
 	if err != nil {
-		return fmt.Errorf("failed to store crl bundle in file cache: failed to create temp file: %w", err)
+		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
-	defer func() {
-		// remove the temp file in case of error
-		if setErr != nil {
-			defer os.Remove(tempFile.Name())
-		}
-	}()
-
-	if err := json.NewEncoder(tempFile).Encode(content); err != nil {
-		return fmt.Errorf("failed to store crl bundle in file cache: failed to encode content: %w", err)
-	}
-	if err := tempFile.Close(); err != nil {
-		return fmt.Errorf("failed to store crl bundle in file cache: failed to close temp file: %w", err)
-	}
-
-	// rename is atomic on UNIX-like platforms
-	if err := os.Rename(tempFile.Name(), filepath.Join(c.root, c.fileName(url))); err != nil {
+	if err := file.WriteFile(filepath.Join(c.root, c.fileName(url)), contentBytes); err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
 	return nil
