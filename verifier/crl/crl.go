@@ -83,23 +83,21 @@ func NewFileCache(root string) (*FileCache, error) {
 // or the content has expired, corecrl.ErrCacheMiss is returned.
 func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error) {
 	logger := log.GetLogger(ctx)
-	logger.Infof("Retrieving crl bundle from file cache with key %q ...", url)
+	logger.Debugf("Retrieving crl bundle from file cache with key %q ...", url)
 
 	// get content from file cache
-	f, err := os.Open(filepath.Join(c.root, c.fileName(url)))
+	contentBytes, err := os.ReadFile(filepath.Join(c.root, c.fileName(url)))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			logger.Infof("CRL file cache miss. Key %q does not exist", url)
+			logger.Debugf("CRL file cache miss. Key %q does not exist", url)
 			return nil, corecrl.ErrCacheMiss
 		}
 		return nil, fmt.Errorf("failed to get crl bundle from file cache with key %q: %w", url, err)
 	}
-	defer f.Close()
 
 	// decode content to crl Bundle
 	var content fileCacheContent
-	err = json.NewDecoder(f).Decode(&content)
-	if err != nil {
+	if err := json.Unmarshal(contentBytes, &content); err != nil {
 		return nil, fmt.Errorf("failed to decode file retrieved from file cache: %w", err)
 	}
 	var bundle corecrl.Bundle
@@ -130,7 +128,7 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 // Set stores the CRL bundle in c with url as key.
 func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle) (setErr error) {
 	logger := log.GetLogger(ctx)
-	logger.Infof("Storing crl bundle to file cache with key %q ...", url)
+	logger.Debugf("Storing crl bundle to file cache with key %q ...", url)
 
 	// sanity check
 	if bundle == nil {
@@ -188,7 +186,7 @@ func checkExpiry(ctx context.Context, nextUpdate time.Time) error {
 		return errors.New("crl bundle retrieved from file cache does not contain valid NextUpdate")
 	}
 	if time.Now().After(nextUpdate) {
-		logger.Infof("CRL bundle retrieved from file cache has expired at %s", nextUpdate)
+		logger.Debugf("CRL bundle retrieved from file cache has expired at %s", nextUpdate)
 		return corecrl.ErrCacheMiss
 	}
 	return nil
