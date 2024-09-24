@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	nurl "net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -81,6 +82,10 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Retrieving crl bundle from file cache with key %q ...", url)
 
+	// sanity check
+	if _, err := nurl.Parse(url); err != nil {
+		return nil, fmt.Errorf("invalid url: %w", err)
+	}
 	// get content from file cache
 	contentBytes, err := os.ReadFile(filepath.Join(c.root, c.fileName(url)))
 	if err != nil {
@@ -127,6 +132,9 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	logger.Debugf("Storing crl bundle to file cache with key %q ...", url)
 
 	// sanity check
+	if _, err := nurl.Parse(url); err != nil {
+		return fmt.Errorf("invalid url: %w", err)
+	}
 	if bundle == nil {
 		return errors.New("failed to store crl bundle in file cache: bundle cannot be nil")
 	}

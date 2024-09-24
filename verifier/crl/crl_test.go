@@ -59,7 +59,7 @@ func TestFileCache(t *testing.T) {
 		}
 	})
 
-	key := "testKey"
+	key := "http://example.com"
 	t.Run("comformance", func(t *testing.T) {
 		bundle := &corecrl.Bundle{BaseCRL: baseCRL}
 		if err := cache.Set(ctx, key, bundle); err != nil {
