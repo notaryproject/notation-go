@@ -136,7 +136,7 @@ func WriteFile(path string, content []byte) (writeErr error) {
 	}()
 
 	if _, err := tempFile.Write(content); err != nil {
-		return fmt.Errorf("failed to write content: %w", err)
+		return fmt.Errorf("failed to write content to temp file: %w", err)
 	}
 
 	// close before moving
