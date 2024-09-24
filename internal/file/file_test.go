@@ -167,6 +167,9 @@ func TestWriteFile(t *testing.T) {
 	content := []byte("test WriteFile")
 
 	t.Run("permission denied", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
 		err := os.Chmod(tempDir, 0)
 		if err != nil {
 			t.Fatal(err)
