@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	// tempFileName is the prefix of the temporary file
-	tempFileName = "notation-*"
+	// tempFileNamePrefix is the prefix of the temporary file
+	tempFileNamePrefix = "notation-*"
 )
 
 // ErrNotRegularFile is returned when the file is not an regular file.
@@ -123,7 +123,7 @@ func WriteFile(path string, content []byte) (writeErr error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	tempFile, err := os.CreateTemp("", tempFileName)
+	tempFile, err := os.CreateTemp("", tempFileNamePrefix)
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
