@@ -32,6 +32,21 @@ import (
 	"github.com/notaryproject/notation-core-go/testhelper"
 )
 
+func TestCache(t *testing.T) {
+	t.Run("file cache implement Cache interface", func(t *testing.T) {
+		root := t.TempDir()
+		var coreCache corecrl.Cache
+		var err error
+		coreCache, err = NewFileCache(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := coreCache.(*FileCache); !ok {
+			t.Fatal("FileCache does not implement coreCache")
+		}
+	})
+}
+
 func TestFileCache(t *testing.T) {
 	now := time.Now()
 	certChain := testhelper.GetRevokableRSAChainWithRevocations(2, false, true)
@@ -152,6 +167,10 @@ func TestGetFailed(t *testing.T) {
 	}
 
 	t.Run("no permission to read file", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
+
 		if err := os.Chmod(invalidFile, 0); err != nil {
 			t.Fatal(err)
 		}
@@ -356,6 +375,10 @@ func TestSetFailed(t *testing.T) {
 	})
 
 	t.Run("failed to write into cache due to permission denied", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
+
 		if err := os.Chmod(tempDir, 0); err != nil {
 			t.Fatal(err)
 		}
