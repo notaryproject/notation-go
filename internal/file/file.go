@@ -117,7 +117,8 @@ func TrimFileExtension(fileName string) string {
 	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
-// WriteFile writes content to path with all parent directories created.
+// WriteFile writes content to a temporary file and move it to path with all
+// parent directories created.
 // If path already exists and is a file, WriteFile overwrites it.
 func WriteFile(path string, content []byte) (writeErr error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
