@@ -27,6 +27,9 @@ func TestCopyToDir(t *testing.T) {
 		tempDir := t.TempDir()
 		data := []byte("data")
 		filename := filepath.Join(tempDir, "a", "file.txt")
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
 		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
@@ -46,6 +49,9 @@ func TestCopyToDir(t *testing.T) {
 		destDir := t.TempDir()
 		data := []byte("data")
 		filename := filepath.Join(tempDir, "a", "file.txt")
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
 		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
@@ -78,6 +84,9 @@ func TestCopyToDir(t *testing.T) {
 		data := []byte("data")
 		// prepare file
 		filename := filepath.Join(tempDir, "a", "file.txt")
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
 		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
@@ -101,6 +110,9 @@ func TestCopyToDir(t *testing.T) {
 		data := []byte("data")
 		// prepare file
 		filename := filepath.Join(tempDir, "a", "file.txt")
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
 		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
@@ -124,6 +136,9 @@ func TestCopyToDir(t *testing.T) {
 		data := []byte("data")
 		// prepare file
 		filename := filepath.Join(tempDir, "a", "file.txt")
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
 		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
@@ -141,6 +156,9 @@ func TestCopyToDir(t *testing.T) {
 		tempDir := t.TempDir()
 		data := []byte("data")
 		filename := filepath.Join(tempDir, "a", "file.txt")
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
 		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
