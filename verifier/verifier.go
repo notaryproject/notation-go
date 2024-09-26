@@ -816,7 +816,14 @@ func revocationFinalResult(certResults []*revocationresult.CertRevocationResult,
 		}
 		for _, serverResult := range certResult.ServerResults {
 			if serverResult.Error != nil {
-				// log the revocation error
+				// log individual server errors
+				if certResult.RevocationMethod == revocationresult.RevocationMethodOCSPFallbackCRL && serverResult.RevocationMethod == revocationresult.RevocationMethodOCSP {
+					// when the final revocation method is OCSPFallbackCRL,
+					// the OCSP server results should not be logged as an error
+					// since the CRL revocation check can succeed.
+					logger.Debugf("Certificate #%d in chain with subject %v encountered an error for revocation method %s at URL %q: %v", (i + 1), cert.Subject.String(), revocationresult.RevocationMethodOCSP, serverResult.Server, serverResult.Error)
+					continue
+				}
 				logger.Errorf("Certificate #%d in chain with subject %v encountered an error for revocation method %s at URL %q: %v", (i + 1), cert.Subject.String(), serverResult.RevocationMethod, serverResult.Server, serverResult.Error)
 			}
 		}

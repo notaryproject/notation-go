@@ -15,20 +15,22 @@ package dir
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
-func mockGetUserConfig() (string, error) {
+func mockUserPath() (string, error) {
 	return "/path/", nil
 }
 
 func setup() {
 	UserConfigDir = ""
 	UserLibexecDir = ""
+	UserCacheDir = ""
 }
 
 func Test_UserConfigDirPath(t *testing.T) {
-	userConfigDir = mockGetUserConfig
+	userConfigDir = mockUserPath
 	setup()
 	got := userConfigDirPath()
 	if got != "/path/notation" {
@@ -39,16 +41,22 @@ func Test_UserConfigDirPath(t *testing.T) {
 func Test_NoHomeVariable(t *testing.T) {
 	t.Setenv("HOME", "")
 	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
 	setup()
 	userConfigDir = os.UserConfigDir
 	got := userConfigDirPath()
 	if got != ".notation" {
-		t.Fatalf(`UserConfigDirPath() = %q, want ".notation"`, UserConfigDir)
+		t.Fatalf(`userConfigDirPath() = %q, want ".notation"`, got)
+	}
+	got = userCacheDirPath()
+	want := filepath.Join("."+notation, "cache")
+	if got != want {
+		t.Fatalf(`userCacheDirPath() = %q, want %q`, got, want)
 	}
 }
 
 func Test_UserLibexecDirPath(t *testing.T) {
-	userConfigDir = mockGetUserConfig
+	userConfigDir = mockUserPath
 	setup()
 	got := userLibexecDirPath()
 	if got != "/path/notation" {
@@ -56,8 +64,17 @@ func Test_UserLibexecDirPath(t *testing.T) {
 	}
 }
 
+func Test_UserCacheDirPath(t *testing.T) {
+	userCacheDir = mockUserPath
+	setup()
+	got := userCacheDirPath()
+	if got != "/path/notation" {
+		t.Fatalf(`UserCacheDirPath() = %q, want "/path/notation"`, got)
+	}
+}
+
 func TestLocalKeyPath(t *testing.T) {
-	userConfigDir = mockGetUserConfig
+	userConfigDir = mockUserPath
 	setup()
 	_ = userConfigDirPath()
 	_ = userLibexecDirPath()
@@ -71,7 +88,7 @@ func TestLocalKeyPath(t *testing.T) {
 }
 
 func TestX509TrustStoreDir(t *testing.T) {
-	userConfigDir = mockGetUserConfig
+	userConfigDir = mockUserPath
 	setup()
 	_ = userConfigDirPath()
 	_ = userLibexecDirPath()

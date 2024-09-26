@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -26,7 +27,10 @@ func TestCopyToDir(t *testing.T) {
 		tempDir := t.TempDir()
 		data := []byte("data")
 		filename := filepath.Join(tempDir, "a", "file.txt")
-		if err := writeFile(filename, data); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
 
@@ -45,7 +49,10 @@ func TestCopyToDir(t *testing.T) {
 		destDir := t.TempDir()
 		data := []byte("data")
 		filename := filepath.Join(tempDir, "a", "file.txt")
-		if err := writeFile(filename, data); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
 
@@ -77,7 +84,10 @@ func TestCopyToDir(t *testing.T) {
 		data := []byte("data")
 		// prepare file
 		filename := filepath.Join(tempDir, "a", "file.txt")
-		if err := writeFile(filename, data); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
 		// forbid reading
@@ -100,7 +110,10 @@ func TestCopyToDir(t *testing.T) {
 		data := []byte("data")
 		// prepare file
 		filename := filepath.Join(tempDir, "a", "file.txt")
-		if err := writeFile(filename, data); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
 		// forbid dest directory operation
@@ -123,7 +136,10 @@ func TestCopyToDir(t *testing.T) {
 		data := []byte("data")
 		// prepare file
 		filename := filepath.Join(tempDir, "a", "file.txt")
-		if err := writeFile(filename, data); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
 		// forbid writing to destTempDir
@@ -140,7 +156,10 @@ func TestCopyToDir(t *testing.T) {
 		tempDir := t.TempDir()
 		data := []byte("data")
 		filename := filepath.Join(tempDir, "a", "file.txt")
-		if err := writeFile(filename, data); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := WriteFile(filename, data); err != nil {
 			t.Fatal(err)
 		}
 
@@ -161,6 +180,29 @@ func TestFileNameWithoutExtension(t *testing.T) {
 	}
 }
 
+func TestWriteFile(t *testing.T) {
+	tempDir := t.TempDir()
+	content := []byte("test WriteFile")
+
+	t.Run("permission denied", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
+		err := os.Chmod(tempDir, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = WriteFile(filepath.Join(tempDir, "testFile"), content)
+		if err == nil || !strings.Contains(err.Error(), "permission denied") {
+			t.Fatalf("expected permission denied error, but got %s", err)
+		}
+		err = os.Chmod(tempDir, 0700)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func validFileContent(t *testing.T, filename string, content []byte) {
 	b, err := os.ReadFile(filename)
 	if err != nil {
@@ -169,11 +211,4 @@ func validFileContent(t *testing.T, filename string, content []byte) {
 	if !bytes.Equal(content, b) {
 		t.Fatal("file content is not correct")
 	}
-}
-
-func writeFile(path string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0600)
 }

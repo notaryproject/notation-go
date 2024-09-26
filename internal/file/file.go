@@ -15,12 +15,18 @@ package file
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+)
+
+const (
+	// tempFileNamePrefix is the prefix of the temporary file
+	tempFileNamePrefix = "notation-*"
 )
 
 // ErrNotRegularFile is returned when the file is not an regular file.
@@ -109,4 +115,32 @@ func CopyDirToDir(src, dst string) error {
 // when input is xyz.tar.gz, output is xyz.tar
 func TrimFileExtension(fileName string) string {
 	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
+}
+
+// WriteFile writes content to a temporary file and moves it to path.
+// If path already exists and is a file, WriteFile overwrites it.
+func WriteFile(path string, content []byte) (writeErr error) {
+	tempFile, err := os.CreateTemp("", tempFileNamePrefix)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer func() {
+		// remove the temp file in case of error
+		if writeErr != nil {
+			tempFile.Close()
+			os.Remove(tempFile.Name())
+		}
+	}()
+
+	if _, err := tempFile.Write(content); err != nil {
+		return fmt.Errorf("failed to write content to temp file: %w", err)
+	}
+
+	// close before moving
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// rename is atomic on UNIX-like platforms
+	return os.Rename(tempFile.Name(), path)
 }

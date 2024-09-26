@@ -12,7 +12,7 @@
 // limitations under the License.
 
 // Package dir implements Notation directory structure.
-// [directory spec]: https://github.com/notaryproject/notation/blob/main/specs/directory.md
+// [directory spec]: https://notaryproject.dev/docs/user-guides/how-to/directory-structure/
 //
 // Example:
 //
@@ -31,7 +31,7 @@
 //   - Set custom configurations directory:
 //     dir.UserConfigDir = '/path/to/configurations/'
 //
-// Only user level directory is supported for RC.1, and system level directory
+// Only user level directory is supported, and system level directory
 // may be added later.
 package dir
 
@@ -44,6 +44,7 @@ import (
 var (
 	UserConfigDir  string // Absolute path of user level {NOTATION_CONFIG}
 	UserLibexecDir string // Absolute path of user level {NOTATION_LIBEXEC}
+	UserCacheDir   string // Absolute path of user level {NOTATION_CACHE}
 )
 
 const (
@@ -65,8 +66,6 @@ const (
 	PathOCITrustPolicy = "trustpolicy.oci.json"
 	// PathBlobTrustPolicy is the Blob trust policy file relative path.
 	PathBlobTrustPolicy = "trustpolicy.blob.json"
-	// PathPlugins is the plugins directory relative path.
-	PathPlugins = "plugins"
 	// LocalKeysDir is the directory name for local key relative path.
 	LocalKeysDir = "localkeys"
 	// LocalCertificateExtension defines the extension of the certificate files.
@@ -77,7 +76,24 @@ const (
 	TrustStoreDir = "truststore"
 )
 
-var userConfigDir = os.UserConfigDir // for unit test
+// The relative path to {NOTATION_LIBEXEC}
+const (
+	// PathPlugins is the plugins directory relative path.
+	PathPlugins = "plugins"
+)
+
+// The relative path to {NOTATION_CACHE}
+const (
+	// PathCRLCache is the crl file cache directory relative path.
+	PathCRLCache = "crl"
+)
+
+// for unit tests
+var (
+	userConfigDir = os.UserConfigDir
+
+	userCacheDir = os.UserCacheDir
+)
 
 // userConfigDirPath returns the user level {NOTATION_CONFIG} path.
 func userConfigDirPath() string {
@@ -101,6 +117,21 @@ func userLibexecDirPath() string {
 		UserLibexecDir = userConfigDirPath()
 	}
 	return UserLibexecDir
+}
+
+// userCacheDirPath returns the user level {NOTATION_CACHE} path.
+func userCacheDirPath() string {
+	if UserCacheDir == "" {
+		userDir, err := userCacheDir()
+		if err != nil {
+			// fallback to current directory
+			UserCacheDir = filepath.Join("."+notation, "cache")
+			return UserCacheDir
+		}
+		// set user cache
+		UserCacheDir = filepath.Join(userDir, notation)
+	}
+	return UserCacheDir
 }
 
 // LocalKeyPath returns the local key and local cert relative paths.
