@@ -23,47 +23,32 @@ import (
 	"github.com/notaryproject/notation-go/dir"
 )
 
-func TestLoadOCIDocumentFromOldFileLocation(t *testing.T) {
+func TestLoadDocumentFromFileLocation(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	path := filepath.Join(tempRoot, "trustpolicy.json")
-	policyJson, _ := json.Marshal(dummyOCIPolicyDocument())
+	policyJson, _ := json.Marshal(dummyPolicyDocument())
 	if err := os.WriteFile(path, policyJson, 0600); err != nil {
-		t.Fatalf("TestLoadOCIDocument write policy file failed. Error: %v", err)
+		t.Fatalf("TestLoadDocument write policy file failed. Error: %v", err)
 	}
 	t.Cleanup(func() { os.RemoveAll(tempRoot) })
 
-	if _, err := LoadOCIDocument(); err != nil {
-		t.Fatalf("LoadOCIDocument() should not throw error for an existing policy file. Error: %v", err)
+	if _, err := LoadDocument(); err != nil {
+		t.Fatalf("LoadDocument() should not throw error for an existing policy file. Error: %v", err)
 	}
 }
 
-func TestLoadOCIDocumentFromNewFileLocation(t *testing.T) {
+func TestLoadDocumentError(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
-	path := filepath.Join(tempRoot, "trustpolicy.oci.json")
-	policyJson, _ := json.Marshal(dummyOCIPolicyDocument())
-	if err := os.WriteFile(path, policyJson, 0600); err != nil {
-		t.Fatalf("TestLoadOCIDocument write policy file failed. Error: %v", err)
-	}
-	t.Cleanup(func() { os.RemoveAll(tempRoot) })
-
-	if _, err := LoadOCIDocument(); err != nil {
-		t.Fatalf("LoadOCIDocument() should not throw error for an existing policy file. Error: %v", err)
-	}
-}
-
-func TestLoadOCIDocumentError(t *testing.T) {
-	tempRoot := t.TempDir()
-	dir.UserConfigDir = tempRoot
-	if _, err := LoadOCIDocument(); err == nil {
-		t.Fatalf("LoadOCIDocument() should throw error if OCI trust policy is not found")
+	if _, err := LoadDocument(); err == nil {
+		t.Fatalf("LoadDocument() should throw error if trust policy is not found")
 	}
 }
 
 // TestApplicableTrustPolicy tests filtering policies against registry scopes
 func TestApplicableTrustPolicy(t *testing.T) {
-	policyDoc := dummyOCIPolicyDocument()
+	policyDoc := dummyPolicyDocument()
 
 	policyStatement := policyDoc.TrustPolicies[0]
 	policyStatement.Name = "test-statement-name-1"
@@ -72,7 +57,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 	policyStatement.RegistryScopes = []string{registryScope}
 	policyStatement.SignatureVerification = SignatureVerification{VerificationLevel: "strict"}
 
-	policyDoc.TrustPolicies = []OCITrustPolicy{
+	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement,
 	}
 	// existing Registry Scope
@@ -83,12 +68,12 @@ func TestApplicableTrustPolicy(t *testing.T) {
 
 	// non-existing Registry Scope
 	policy, err = (&policyDoc).GetApplicableTrustPolicy("non.existing.scope/repo@sha256:hash")
-	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
+	if policy != nil || err == nil || err.Error() != "artifact \"non.existing.scope/repo@sha256:hash\" has no applicable trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy" {
 		t.Fatalf("GetApplicableTrustPolicy() should return nil for non existing registry scope")
 	}
 
 	// wildcard registry scope
-	wildcardStatement := OCITrustPolicy{
+	wildcardStatement := TrustPolicy{
 		Name:                  "test-statement-name-2",
 		SignatureVerification: SignatureVerification{VerificationLevel: "skip"},
 		TrustStores:           []string{},
@@ -96,7 +81,7 @@ func TestApplicableTrustPolicy(t *testing.T) {
 		RegistryScopes:        []string{"*"},
 	}
 
-	policyDoc.TrustPolicies = []OCITrustPolicy{
+	policyDoc.TrustPolicies = []TrustPolicy{
 		policyStatement,
 		wildcardStatement,
 	}
@@ -110,130 +95,130 @@ func TestApplicableTrustPolicy(t *testing.T) {
 // and tests various validations on policy elements
 func TestValidateInvalidPolicyDocument(t *testing.T) {
 	// Sanity check
-	var nilPolicyDoc *OCIDocument
+	var nilPolicyDoc *Document
 	err := nilPolicyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy document cannot be nil" {
+	if err == nil || err.Error() != "trust policy document cannot be nil" {
 		t.Fatalf("nil policyDoc should return error")
 	}
 
 	// Invalid Version
-	policyDoc := dummyOCIPolicyDocument()
+	policyDoc := dummyPolicyDocument()
 	policyDoc.Version = "invalid"
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy document uses unsupported version \"invalid\"" {
+	if err == nil || err.Error() != "trust policy document uses unsupported version \"invalid\"" {
 		t.Fatalf("invalid version should return error")
 	}
 
 	// No Policy Statements
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies = nil
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy document can not have zero trust policy statements" {
+	if err == nil || err.Error() != "trust policy document can not have zero trust policy statements" {
 		t.Fatalf("zero policy statements should return error")
 	}
 
 	// No Policy Statement Name
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].Name = ""
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: a trust policy statement is missing a name, every statement requires a name" {
+	if err == nil || err.Error() != "trust policy: a trust policy statement is missing a name, every statement requires a name" {
 		t.Fatalf("policy statement with no name should return an error")
 	}
 
 	// No Registry Scopes
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].RegistryScopes = nil
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy statement \"test-statement-name\" has zero registry scopes, it must specify registry scopes with at least one value" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has zero registry scopes, it must specify registry scopes with at least one value" {
 		t.Fatalf("policy statement with registry scopes should return error")
 	}
 
 	// Multiple policy statements with same registry scope
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyStatement1 := policyDoc.TrustPolicies[0].clone()
 	policyStatement2 := policyDoc.TrustPolicies[0].clone()
 	policyStatement2.Name = "test-statement-name-2"
-	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
+	policyDoc.TrustPolicies = []TrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "registry scope \"registry.acme-rockets.io/software/net-monitor\" is present in multiple oci trust policy statements, one registry scope value can only be associated with one statement" {
+	if err == nil || err.Error() != "registry scope \"registry.acme-rockets.io/software/net-monitor\" is present in multiple trust policy statements, one registry scope value can only be associated with one statement" {
 		t.Fatalf("Policy statements with same registry scope should return error %q", err)
 	}
 
 	// Registry scopes with a wildcard
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].RegistryScopes = []string{"*", "registry.acme-rockets.io/software/net-monitor"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy statement \"test-statement-name\" uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" uses wildcard registry scope '*', a wildcard scope cannot be used in conjunction with other scope values" {
 		t.Fatalf("policy statement with more than a wildcard registry scope should return error")
 	}
 
 	// Invalid SignatureVerification
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].SignatureVerification = SignatureVerification{VerificationLevel: "invalid"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has invalid signatureVerification: invalid signature verification level \"invalid\"" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" has invalid signatureVerification: invalid signature verification level \"invalid\"" {
 		t.Fatalf("policy statement with invalid SignatureVerification should return error")
 	}
 
 	// Invalid SignatureVerification VerifyTimestamp
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].SignatureVerification.VerifyTimestamp = "invalid"
-	expectedErrMsg := "oci trust policy: trust policy statement \"test-statement-name\" has invalid signatureVerification: verifyTimestamp must be \"always\" or \"afterCertExpiry\", but got \"invalid\""
+	expectedErrMsg := "trust policy: trust policy statement \"test-statement-name\" has invalid signatureVerification: verifyTimestamp must be \"always\" or \"afterCertExpiry\", but got \"invalid\""
 	err = policyDoc.Validate()
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 	}
 
 	// strict SignatureVerification should have a trust store
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
 		t.Fatalf("strict SignatureVerification should have a trust store")
 	}
 
 	// strict SignatureVerification should have trusted identities
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" is either missing trust stores or trusted identities, both must be specified" {
 		t.Fatalf("strict SignatureVerification should have trusted identities")
 	}
 
 	// skip SignatureVerification should not have trust store or trusted identities
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" is set to skip signature verification but configured with trust stores and/or trusted identities, remove them if signature verification needs to be skipped" {
 		t.Fatalf("strict SignatureVerification should have trusted identities")
 	}
 
 	// Empty Trusted Identity should throw error
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{""}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has an empty trusted identity" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" has an empty trusted identity" {
 		t.Fatalf("policy statement with empty trusted identity should return error")
 	}
 
 	// Trusted Identity without separator should throw error
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{"x509.subject"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator" {
 		t.Fatalf("policy statement with trusted identity missing separator should return error")
 	}
 
 	// Empty Trusted Identity value should throw error
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{"x509.subject:"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject:\" without an identity value" {
 		t.Fatalf("policy statement with trusted identity missing identity value should return error")
 	}
 
 	// trust store/trusted identities are optional for skip SignatureVerification
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
 	policyDoc.TrustPolicies[0].TrustStores = []string{}
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{}
@@ -243,52 +228,52 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	}
 
 	// Trust Store missing separator
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{"ca"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". The required format is <TrustStoreType>:<TrustStoreName>" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" has malformed trust store value \"ca\". The required format is <TrustStoreType>:<TrustStoreName>" {
 		t.Fatalf("policy statement with trust store missing separator should return error")
 	}
 
 	// Invalid Trust Store type
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{"invalid:test-trust-store"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" uses an unsupported trust store type \"invalid\" in trust store value \"invalid:test-trust-store\"" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" uses an unsupported trust store type \"invalid\" in trust store value \"invalid:test-trust-store\"" {
 		t.Fatalf("policy statement with invalid trust store type should return error")
 	}
 
 	// Empty Named Store
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustStores = []string{"ca:"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" uses an unsupported trust store name \"\" in trust store value \"ca:\". Named store name needs to follow [a-zA-Z0-9_.-]+ format" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" uses an unsupported trust store name \"\" in trust store value \"ca:\". Named store name needs to follow [a-zA-Z0-9_.-]+ format" {
 		t.Fatalf("policy statement with trust store missing named store should return error")
 	}
 
 	// trusted identities with a wildcard
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{"*", "test-identity"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values" {
+	if err == nil || err.Error() != "trust policy: trust policy statement \"test-statement-name\" uses a wildcard trusted identity '*', a wildcard identity cannot be used in conjunction with other values" {
 		t.Fatalf("policy statement with more than a wildcard trusted identity should return error")
 	}
 
 	// Policy Document with duplicate policy statement names
-	policyDoc = dummyOCIPolicyDocument()
+	policyDoc = dummyPolicyDocument()
 	policyStatement1 = policyDoc.TrustPolicies[0].clone()
 	policyStatement2 = policyDoc.TrustPolicies[0].clone()
 	policyStatement2.RegistryScopes = []string{"registry.acme-rockets.io/software/legacy/metrics"}
-	policyDoc.TrustPolicies = []OCITrustPolicy{*policyStatement1, *policyStatement2}
+	policyDoc.TrustPolicies = []TrustPolicy{*policyStatement1, *policyStatement2}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "multiple oci trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
+	if err == nil || err.Error() != "multiple trust policy statements use the same name \"test-statement-name\", statement names must be unique" {
 		t.Fatalf("policy statements with same name should return error")
 	}
 }
 
 // TestValidRegistryScopes tests valid scopes are accepted
 func TestValidRegistryScopes(t *testing.T) {
-	policyDoc := dummyOCIPolicyDocument()
+	policyDoc := dummyPolicyDocument()
 	validScopes := []string{
 		"*", "example.com/rep", "example.com:8080/rep/rep2", "example.com/rep/subrep/subsub",
 		"10.10.10.10:8080/rep/rep2", "domain/rep", "domain:1234/rep",
@@ -305,7 +290,7 @@ func TestValidRegistryScopes(t *testing.T) {
 
 // TestInvalidRegistryScopes tests invalid scopes are rejected
 func TestInvalidRegistryScopes(t *testing.T) {
-	policyDoc := dummyOCIPolicyDocument()
+	policyDoc := dummyPolicyDocument()
 	invalidScopes := []string{
 		"", "1:1", "a,b", "abcd", "1111", "1,2", "example.com/rep:tag",
 		"example.com/rep/subrep/sub:latest", "example.com", "rep/rep2:latest",
@@ -333,7 +318,7 @@ func TestInvalidRegistryScopes(t *testing.T) {
 
 // TestValidateValidPolicyDocument tests a happy policy document
 func TestValidateValidPolicyDocument(t *testing.T) {
-	policyDoc := dummyOCIPolicyDocument()
+	policyDoc := dummyPolicyDocument()
 
 	policyStatement1 := policyDoc.TrustPolicies[0].clone()
 
@@ -376,7 +361,7 @@ func TestValidateValidPolicyDocument(t *testing.T) {
 	policyStatement8.RegistryScopes = []string{"registry.acme-rockets.io/software/net-monitor8"}
 	policyStatement8.SignatureVerification.VerifyTimestamp = OptionAfterCertExpiry
 
-	policyDoc.TrustPolicies = []OCITrustPolicy{
+	policyDoc.TrustPolicies = []TrustPolicy{
 		*policyStatement1,
 		*policyStatement2,
 		*policyStatement3,
