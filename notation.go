@@ -481,7 +481,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 			return ocispec.Descriptor{}, nil, err
 		}
 		if skip {
-			logger.Infoln("Verification skipped for", verifyOpts.ArtifactReference)
+			logger.Infoln("Signature verification skipped for", verifyOpts.ArtifactReference)
 			return ocispec.Descriptor{}, []*VerificationOutcome{{VerificationLevel: verificationLevel}}, nil
 		}
 		logger.Info("Check over. Signature verification is not skipped.")
