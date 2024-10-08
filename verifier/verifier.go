@@ -1018,7 +1018,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	}
 
 	// Performing timestamp verification
-	logger.Info("Performing timestamp verification...")
+	logger.Debug("Performing timestamp verification...")
 
 	// 1. Timestamp countersignature MUST be present
 	logger.Debug("Checking timestamp countersignature existence...")
@@ -1064,7 +1064,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	if err := nx509.ValidateTimestampingCertChain(tsaCertChain); err != nil {
 		return fmt.Errorf("failed to validate the timestamping certificate chain with error: %w", err)
 	}
-	logger.Info("TSA identity is: ", tsaCertChain[0].Subject)
+	logger.Debug("The subject of TSA signing certificate is: ", tsaCertChain[0].Subject)
 
 	// 4. Check the timestamp against the signing certificate chain
 	logger.Debug("Checking the timestamp against the signing certificate chain...")
@@ -1098,5 +1098,6 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	}
 
 	// success
+	logger.Debug("Timestamp verification: Success")
 	return nil
 }
