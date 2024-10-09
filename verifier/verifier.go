@@ -1071,10 +1071,10 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	logger.Debugf("Timestamp range: %s", timestamp.Format(time.RFC3339))
 	for _, cert := range signerInfo.CertificateChain {
 		if timeOfVerification.Before(cert.NotBefore) {
-			logger.Debugf("certificate %q is not valid yet. It will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
+			logger.Debugf("Certificate %q is not valid yet. It will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
 		}
 		if timeOfVerification.After(cert.NotAfter) {
-			logger.Debugf("certificate %q expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
+			logger.Debugf("Certificate %q expired at %q", cert.Subject, cert.NotAfter.Format(time.RFC1123Z))
 		}
 		if !timestamp.BoundedAfter(cert.NotBefore) {
 			return fmt.Errorf("timestamp can be before certificate %q validity period, it will be valid from %q", cert.Subject, cert.NotBefore.Format(time.RFC1123Z))
