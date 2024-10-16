@@ -225,7 +225,7 @@ func TestSignOptsUnknownMediaType(t *testing.T) {
 func TestRegistryResolveError(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 
 	errorMessage := "network error"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -243,7 +243,7 @@ func TestRegistryResolveError(t *testing.T) {
 func TestVerifyEmptyReference(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 
 	errorMessage := "reference is missing digest or tag"
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -259,7 +259,7 @@ func TestVerifyEmptyReference(t *testing.T) {
 func TestVerifyTagReferenceFailed(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 
 	errorMessage := "invalid reference: invalid repository \"UPPERCASE/test\""
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -276,7 +276,7 @@ func TestVerifyDigestNotMatchResolve(t *testing.T) {
 	repo := mock.NewRepository()
 	repo.MissMatchDigest = true
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 
 	errorMessage := fmt.Sprintf("user input digest %s does not match the resolved digest %s", mock.SampleDigest, mock.ZeroDigest)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
@@ -300,7 +300,7 @@ func TestSignDigestNotMatchResolve(t *testing.T) {
 	}
 
 	errorMessage := fmt.Sprintf("user input digest %s does not match the resolved digest %s", mock.SampleDigest, mock.ZeroDigest)
-	expectedErr := fmt.Errorf(errorMessage)
+	expectedErr := errors.New(errorMessage)
 
 	_, err := Sign(context.Background(), &dummySigner{}, repo, signOpts)
 	if err == nil || err.Error() != errorMessage {
@@ -311,7 +311,7 @@ func TestSignDigestNotMatchResolve(t *testing.T) {
 func TestSkippedSignatureVerification(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelSkip, false}
 
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, outcomes, err := Verify(context.Background(), &verifier, repo, opts)
@@ -324,7 +324,7 @@ func TestSkippedSignatureVerification(t *testing.T) {
 func TestRegistryNoSignatureManifests(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 	errorMessage := fmt.Sprintf("no signature is associated with %q, make sure the artifact was signed successfully", mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
@@ -341,7 +341,7 @@ func TestRegistryNoSignatureManifests(t *testing.T) {
 func TestRegistryFetchSignatureBlobError(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 	errorMessage := fmt.Sprintf("unable to retrieve digital signature with digest %q associated with %q from the Repository, error : network error", mock.SampleDigest, mock.SampleArtifactUri)
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: errorMessage}
 
@@ -358,21 +358,35 @@ func TestRegistryFetchSignatureBlobError(t *testing.T) {
 func TestVerifyValid(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 
 	// mock the repository
 	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
 	_, _, err := Verify(context.Background(), &verifier, repo, opts)
 
 	if err != nil {
-		t.Fatalf("SignaureMediaTypeMismatch expected: %v got: %v", nil, err)
+		t.Fatalf("expected nil error, but got: %v", err)
+	}
+}
+
+func TestVerifySkip(t *testing.T) {
+	repo := mock.NewRepository()
+	policyDocument := dummyPolicyDocument()
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, true}
+
+	// mock the repository
+	opts := VerifyOptions{ArtifactReference: mock.SampleArtifactUri, MaxSignatureAttempts: 50}
+	_, _, err := Verify(context.Background(), &verifier, repo, opts)
+
+	if err != nil {
+		t.Fatalf("expected nil error, but got: %v", err)
 	}
 }
 
 func TestMaxSignatureAttemptsMissing(t *testing.T) {
 	repo := mock.NewRepository()
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 	expectedErr := ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("verifyOptions.MaxSignatureAttempts expects a positive number, got %d", 0)}
 
 	// mock the repository
@@ -388,7 +402,7 @@ func TestExceededMaxSignatureAttempts(t *testing.T) {
 	repo := mock.NewRepository()
 	repo.ExceededNumOfSignatures = true
 	policyDocument := dummyPolicyDocument()
-	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
+	verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict, false}
 
 	expectedErr := ErrorVerificationFailed{Msg: fmt.Sprintf("signature evaluation stopped. The configured limit of %d signatures to verify per artifact exceeded", 1)}
 
@@ -405,7 +419,7 @@ func TestVerifyFailed(t *testing.T) {
 	t.Run("verification error", func(t *testing.T) {
 		policyDocument := dummyPolicyDocument()
 		repo := mock.NewRepository()
-		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict}
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, true, *trustpolicy.LevelStrict, false}
 		expectedErr := ErrorVerificationFailed{}
 
 		// mock the repository
@@ -432,7 +446,7 @@ func TestVerifyFailed(t *testing.T) {
 
 	t.Run("repo is nil", func(t *testing.T) {
 		policyDocument := dummyPolicyDocument()
-		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 		expectedErr := errors.New("repo cannot be nil")
 
 		// mock the repository
@@ -494,6 +508,7 @@ type dummyVerifier struct {
 	PluginManager     plugin.Manager
 	FailVerify        bool
 	VerificationLevel trustpolicy.VerificationLevel
+	SkipVerification  bool
 }
 
 func (v *dummyVerifier) Verify(_ context.Context, _ ocispec.Descriptor, _ []byte, _ VerifierVerifyOptions) (*VerificationOutcome, error) {
@@ -505,6 +520,13 @@ func (v *dummyVerifier) Verify(_ context.Context, _ ocispec.Descriptor, _ []byte
 		return outcome, errors.New("failed verify")
 	}
 	return outcome, nil
+}
+
+func (v *dummyVerifier) SkipVerify(_ context.Context, _ VerifierVerifyOptions) (bool, *trustpolicy.VerificationLevel, error) {
+	if v.SkipVerification {
+		return true, nil, nil
+	}
+	return false, nil, nil
 }
 
 var (
@@ -567,7 +589,7 @@ func TestLocalContent(t *testing.T) {
 			MaxSignatureAttempts: math.MaxInt64,
 		}
 		policyDocument := dummyPolicyDocument()
-		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict}
+		verifier := dummyVerifier{&policyDocument, mock.PluginManager{}, false, *trustpolicy.LevelStrict, false}
 		// verify signatures inside the OCI layout folder
 		_, _, err = Verify(context.Background(), &verifier, repo, verifyOpts)
 		if err != nil {
