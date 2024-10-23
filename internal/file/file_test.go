@@ -30,7 +30,7 @@ func TestCopyToDir(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := WriteFile(filename, data); err != nil {
+		if err := WriteFile(tempDir, filename, data); err != nil {
 			t.Fatal(err)
 		}
 
@@ -52,7 +52,7 @@ func TestCopyToDir(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := WriteFile(filename, data); err != nil {
+		if err := WriteFile(tempDir, filename, data); err != nil {
 			t.Fatal(err)
 		}
 
@@ -87,7 +87,7 @@ func TestCopyToDir(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := WriteFile(filename, data); err != nil {
+		if err := WriteFile(tempDir, filename, data); err != nil {
 			t.Fatal(err)
 		}
 		// forbid reading
@@ -113,7 +113,7 @@ func TestCopyToDir(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := WriteFile(filename, data); err != nil {
+		if err := WriteFile(tempDir, filename, data); err != nil {
 			t.Fatal(err)
 		}
 		// forbid dest directory operation
@@ -139,7 +139,7 @@ func TestCopyToDir(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := WriteFile(filename, data); err != nil {
+		if err := WriteFile(tempDir, filename, data); err != nil {
 			t.Fatal(err)
 		}
 		// forbid writing to destTempDir
@@ -159,7 +159,7 @@ func TestCopyToDir(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := WriteFile(filename, data); err != nil {
+		if err := WriteFile(tempDir, filename, data); err != nil {
 			t.Fatal(err)
 		}
 
@@ -192,7 +192,7 @@ func TestWriteFile(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = WriteFile(filepath.Join(tempDir, "testFile"), content)
+		err = WriteFile(tempDir, filepath.Join(tempDir, "testFile"), content)
 		if err == nil || !strings.Contains(err.Error(), "permission denied") {
 			t.Fatalf("expected permission denied error, but got %s", err)
 		}
