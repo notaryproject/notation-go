@@ -99,6 +99,14 @@ func TestValidateCertsWithLeafCert(t *testing.T) {
 	}
 }
 
+func TestGetCertFromValidTsaTrustStore(t *testing.T) {
+	// testing ../testdata/truststore/x509/tsa/test-nonCA/globalsignRoot.cer
+	_, err := trustStore.GetCertificates(context.Background(), "tsa", "test-timestamp")
+	if err != nil {
+		t.Fatalf("expected nil error, but got %s", err)
+	}
+}
+
 func TestGetCertFromInvalidTsaTrustStore(t *testing.T) {
 	t.Run("non CA certificate", func(t *testing.T) {
 		// testing ../testdata/truststore/x509/tsa/test-nonCA/wabbit-networks.io
