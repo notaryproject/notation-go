@@ -98,3 +98,23 @@ func TestValidateCertsWithLeafCert(t *testing.T) {
 		t.Fatalf("leaf cert in a trust store should return error %q, got: %v", expectedErr, err)
 	}
 }
+
+func TestGetCertFromInvalidTsaTrustStore(t *testing.T) {
+	t.Run("non CA certificate", func(t *testing.T) {
+		// testing ../testdata/truststore/x509/tsa/test-nonCA/wabbit-networks.io
+		expectedErrMsg := `trusted certificate wabbit-networks.io.crt in trust store test-nonCA of type tsa is invalid: certificate with subject "CN=wabbit-networks.io,O=Notary,L=Seattle,ST=WA,C=US" is not a root CA certificate: x509: invalid signature: parent certificate cannot sign this kind of certificate`
+		_, err := trustStore.GetCertificates(context.Background(), "tsa", "test-nonCA")
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected error: %s, but got %s", expectedErrMsg, err)
+		}
+	})
+
+	t.Run("not self-issued", func(t *testing.T) {
+		//testing ../testdata/truststore/x509/tsa/test-nonSelfIssued/nonSelfIssued.crt
+		expectedErrMsg := `trusted certificate nonSelfIssued.crt in trust store test-nonSelfIssued of type tsa is invalid: certificate with subject "CN=Notation Test Revokable RSA Chain Cert 2,O=Notary,L=Seattle,ST=WA,C=US" is not a root CA certificate: issuer (CN=Notation Test Revokable RSA Chain Cert Root,O=Notary,L=Seattle,ST=WA,C=US) and subject (CN=Notation Test Revokable RSA Chain Cert 2,O=Notary,L=Seattle,ST=WA,C=US) are not the same`
+		_, err := trustStore.GetCertificates(context.Background(), "tsa", "test-nonSelfIssued")
+		if err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected error: %s, but got %s", expectedErrMsg, err)
+		}
+	})
+}

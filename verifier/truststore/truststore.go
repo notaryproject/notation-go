@@ -15,6 +15,7 @@
 package truststore
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"errors"
@@ -106,6 +107,14 @@ func (trustStore *x509TrustStore) GetCertificates(ctx context.Context, storeType
 		if err := ValidateCertificates(certs); err != nil {
 			return nil, CertificateError{InnerError: err, Msg: fmt.Sprintf("failed to validate the trusted certificate %s in trust store %s of type %s", certFileName, namedStore, storeType)}
 		}
+		// we require TSA certificates in trust store to be root CA certificates
+		if storeType == TypeTSA {
+			for _, cert := range certs {
+				if err := isRootCACertificate(cert); err != nil {
+					return nil, CertificateError{InnerError: err, Msg: fmt.Sprintf("trusted certificate %s in trust store %s of type %s is invalid: %v", certFileName, namedStore, storeType, err.Error())}
+				}
+			}
+		}
 		certificates = append(certificates, certs...)
 	}
 	if len(certificates) < 1 {
@@ -136,4 +145,15 @@ func ValidateCertificates(certs []*x509.Certificate) error {
 // isValidStoreType checks if storeType is supported
 func isValidStoreType(storeType Type) bool {
 	return slices.Contains(Types, storeType)
+}
+
+// isRootCACertificate returns nil if cert is a root CA certificate
+func isRootCACertificate(cert *x509.Certificate) error {
+	if err := cert.CheckSignatureFrom(cert); err != nil {
+		return fmt.Errorf("certificate with subject %q is not a root CA certificate: %w", cert.Subject, err)
+	}
+	if !bytes.Equal(cert.RawSubject, cert.RawIssuer) {
+		return fmt.Errorf("certificate with subject %q is not a root CA certificate: issuer (%s) and subject (%s) are not the same", cert.Subject, cert.Issuer, cert.Subject)
+	}
+	return nil
 }
