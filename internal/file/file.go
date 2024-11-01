@@ -119,8 +119,15 @@ func TrimFileExtension(fileName string) string {
 
 // WriteFile writes content to a temporary file and moves it to path.
 // If path already exists and is a file, WriteFile overwrites it.
-func WriteFile(path string, content []byte) (writeErr error) {
-	tempFile, err := os.CreateTemp("", tempFileNamePrefix)
+//
+// Parameters:
+//   - tempDir is the directory to create the temporary file. It should be
+//     in the same mount point as path. If tempDir is empty, the default
+//     directory for temporary files is used.
+//   - path is the destination file path.
+//   - content is the content to write.
+func WriteFile(tempDir, path string, content []byte) (writeErr error) {
+	tempFile, err := os.CreateTemp(tempDir, tempFileNamePrefix)
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
