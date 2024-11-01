@@ -153,7 +153,7 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 		logger.Debugf("failed to store crl bundle in file cache: %w", err)
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
-	if err := file.WriteFile(filepath.Join(c.root, c.fileName(url)), contentBytes); err != nil {
+	if err := file.WriteFile(c.root, filepath.Join(c.root, c.fileName(url)), contentBytes); err != nil {
 		logger.Debugf("failed to store crl bundle in file cache: %w", err)
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
