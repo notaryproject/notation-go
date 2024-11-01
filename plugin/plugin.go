@@ -222,6 +222,9 @@ func (c execCommander) Output(ctx context.Context, name string, command plugin.C
 	cmd.Stdout = &stdout
 	err := cmd.Run()
 	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, stderr.Bytes(), fmt.Errorf("'%s %s' command execution timeout: %w", name, string(command), err);
+		}
 		return nil, stderr.Bytes(), err
 	}
 	return stdout.Bytes(), nil, nil

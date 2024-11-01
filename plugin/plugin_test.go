@@ -19,9 +19,11 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/notation-go/plugin/proto"
 )
@@ -181,7 +183,7 @@ func TestValidateMetadata(t *testing.T) {
 	}
 }
 
-func TestNewCLIPlugin_PathError(t *testing.T) {
+func TestNewCLIPlugin_Error(t *testing.T) {
 	ctx := context.Background()
 	t.Run("plugin directory exists without executable.", func(t *testing.T) {
 		p, err := NewCLIPlugin(ctx, "emptyplugin", "./testdata/plugins/emptyplugin/notation-emptyplugin")
@@ -201,6 +203,25 @@ func TestNewCLIPlugin_PathError(t *testing.T) {
 		}
 		if p != nil {
 			t.Errorf("NewCLIPlugin() plugin = %v, want nil", p)
+		}
+	})
+
+	t.Run("plugin timeout error", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping test on Windows")
+		}
+		expectedErrMsg := "'sleep 2' command execution timeout: signal: killed"
+		ctxWithTimout, cancel := context.WithTimeout(ctx, 10 * time.Millisecond)
+		defer cancel()
+
+		var twoSeconds proto.Command
+		twoSeconds = "2"
+		_, _, err := execCommander{}.Output(ctxWithTimout, "sleep", twoSeconds, nil);
+		if err == nil {
+			t.Errorf("execCommander{}.Output() expected error = %v, got nil", expectedErrMsg)
+		}
+		if err.Error() != expectedErrMsg {
+			t.Errorf("execCommander{}.Output() error = %v, want %v", err, expectedErrMsg)
 		}
 	})
 }
