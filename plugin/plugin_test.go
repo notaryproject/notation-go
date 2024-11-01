@@ -215,8 +215,7 @@ func TestNewCLIPlugin_Error(t *testing.T) {
 		defer cancel()
 
 		var twoSeconds proto.Command
-		twoSeconds = "10"
-
+		twoSeconds = "2"
 		_, _, err := execCommander{}.Output(ctxWithTimout, "sleep", twoSeconds, nil);
 		if err == nil {
 			t.Errorf("execCommander{}.Output() expected error = %v, got nil", expectedErrMsg)
