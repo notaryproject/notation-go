@@ -210,7 +210,7 @@ func TestNewCLIPlugin_Error(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			t.Skip("skipping test on Windows")
 		}
-		expectedErrMsg := "'sleep 10' command execution timeout: signal: killed"
+		expectedErrMsg := "'sleep 2' command execution timeout: signal: killed"
 		ctxWithTimout, cancel := context.WithTimeout(ctx, 10 * time.Millisecond)
 		defer cancel()
 
