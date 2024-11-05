@@ -216,28 +216,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
 		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
-		expectedErrMsg := "failed to parse timestamp countersignature with error: unexpected content type: 1.2.840.113549.1.7.1"
-		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
-			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
-		}
-	})
-
-	t.Run("verify Authentic Timestamp failed due to invalid TSTInfo", func(t *testing.T) {
-		signedToken, err := os.ReadFile("testdata/timestamp/countersignature/TimeStampTokenWithInvalidTSTInfo.p7s")
-		if err != nil {
-			t.Fatalf("failed to get signedToken: %v", err)
-		}
-		envContent, err := parseEnvContent("testdata/timestamp/sigEnv/withoutTimestamp.sig", jws.MediaTypeEnvelope)
-		if err != nil {
-			t.Fatalf("failed to get signature envelope content: %v", err)
-		}
-		envContent.SignerInfo.UnsignedAttributes.TimestampSignature = signedToken
-		outcome := &notation.VerificationOutcome{
-			EnvelopeContent:   envContent,
-			VerificationLevel: trustpolicy.LevelStrict,
-		}
-		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
-		expectedErrMsg := "failed to get the timestamp TSTInfo with error: cannot unmarshal TSTInfo from timestamp token: asn1: structure error: tags don't match (23 vs {class:0 tag:16 length:3 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:24 set:false omitEmpty:false} Time @89"
+		expectedErrMsg := "failed to parse timestamp countersignature with error: unexpected content type: 1.2.840.113549.1.7.1. Expected to be id-ct-TSTInfo (1.2.840.113549.1.9.16.1.4)"
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 		}

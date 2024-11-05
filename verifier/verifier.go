@@ -1032,14 +1032,6 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	if err != nil {
 		return fmt.Errorf("failed to parse timestamp countersignature with error: %w", err)
 	}
-	info, err := signedToken.Info()
-	if err != nil {
-		return fmt.Errorf("failed to get the timestamp TSTInfo with error: %w", err)
-	}
-	timestamp, err := info.Validate(signerInfo.Signature)
-	if err != nil {
-		return fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err)
-	}
 	trustTSACerts, err := loadX509TSATrustStores(ctx, outcome.EnvelopeContent.SignerInfo.SignedAttributes.SigningScheme, policyName, trustStores, x509TrustStore)
 	if err != nil {
 		return fmt.Errorf("failed to load tsa trust store with error: %w", err)
@@ -1052,7 +1044,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 		rootCertPool.AddCert(trustedCerts)
 	}
 	tsaCertChain, err := signedToken.Verify(ctx, x509.VerifyOptions{
-		CurrentTime: timestamp.Value,
+		CurrentTime: signerInfo.SignedAttributes.SigningTime,
 		Roots:       rootCertPool,
 	})
 	if err != nil {
@@ -1068,6 +1060,14 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 
 	// 4. Check the timestamp against the signing certificate chain
 	logger.Debug("Checking the timestamp against the signing certificate chain...")
+	info, err := signedToken.Info()
+	if err != nil {
+		return fmt.Errorf("failed to get the timestamp TSTInfo with error: %w", err)
+	}
+	timestamp, err := info.Validate(signerInfo.Signature)
+	if err != nil {
+		return fmt.Errorf("failed to get timestamp from timestamp countersignature with error: %w", err)
+	}
 	logger.Debugf("Timestamp range: %s", timestamp.Format(time.RFC3339))
 	for _, cert := range signerInfo.CertificateChain {
 		if !timestamp.BoundedAfter(cert.NotBefore) {
