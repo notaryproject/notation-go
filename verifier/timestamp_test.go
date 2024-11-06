@@ -222,6 +222,27 @@ func TestAuthenticTimestamp(t *testing.T) {
 		}
 	})
 
+	t.Run("verify Authentic Timestamp failed due to invalid TSTInfo", func(t *testing.T) {
+		signedToken, err := os.ReadFile("testdata/timestamp/countersignature/TimeStampTokenWithInvalidTSTInfo.p7s")
+		if err != nil {
+			t.Fatalf("failed to get signedToken: %v", err)
+		}
+		envContent, err := parseEnvContent("testdata/timestamp/sigEnv/withoutTimestamp.sig", jws.MediaTypeEnvelope)
+		if err != nil {
+			t.Fatalf("failed to get signature envelope content: %v", err)
+		}
+		envContent.SignerInfo.UnsignedAttributes.TimestampSignature = signedToken
+		outcome := &notation.VerificationOutcome{
+			EnvelopeContent:   envContent,
+			VerificationLevel: trustpolicy.LevelStrict,
+		}
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
+		expectedErrMsg := "failed to get the timestamp TSTInfo with error: cannot unmarshal TSTInfo from timestamp token: asn1: structure error: tags don't match (23 vs {class:0 tag:16 length:3 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:24 set:false omitEmpty:false} Time @89"
+		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+		}
+	})
+
 	t.Run("verify Authentic Timestamp failed due to failed to validate TSTInfo", func(t *testing.T) {
 		signedToken, err := os.ReadFile("testdata/timestamp/countersignature/TimeStampToken.p7s")
 		if err != nil {
@@ -261,6 +282,29 @@ func TestAuthenticTimestamp(t *testing.T) {
 		}
 		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
 		expectedErrMsg := "failed to verify the timestamp countersignature with error: failed to verify signed token: signing certificate not found in the timestamp token"
+		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
+			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+		}
+	})
+
+	t.Run("verify Authentic Timestamp failed due to signing time after timestamp value", func(t *testing.T) {
+		signedToken, err := os.ReadFile("testdata/timestamp/countersignature/TimeStampToken.p7s")
+		if err != nil {
+			t.Fatalf("failed to get signedToken: %v", err)
+		}
+		envContent, err := parseEnvContent("testdata/timestamp/sigEnv/withoutTimestamp.sig", jws.MediaTypeEnvelope)
+		if err != nil {
+			t.Fatalf("failed to get signature envelope content: %v", err)
+		}
+		envContent.SignerInfo.UnsignedAttributes.TimestampSignature = signedToken
+		envContent.SignerInfo.Signature = []byte("notation")
+		envContent.SignerInfo.SignedAttributes.SigningTime = time.Date(3000, time.November, 10, 23, 0, 0, 0, time.UTC)
+		outcome := &notation.VerificationOutcome{
+			EnvelopeContent:   envContent,
+			VerificationLevel: trustpolicy.LevelStrict,
+		}
+		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
+		expectedErrMsg := "timestamp range [2021-09-17T14:09:09Z, 2021-09-17T14:09:11Z] is not bounded after the signing time \"3000-11-10 23:00:00 +0000 UTC\""
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 		}
