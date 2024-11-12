@@ -304,7 +304,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 			VerificationLevel: trustpolicy.LevelStrict,
 		}
 		authenticTimestampResult := verifyAuthenticTimestamp(context.Background(), dummyTrustPolicy.Name, dummyTrustPolicy.TrustStores, dummyTrustPolicy.SignatureVerification, trustStore, revocationTimestampingValidator, outcome)
-		expectedErrMsg := "timestamp range [2021-09-17T14:09:09Z, 2021-09-17T14:09:11Z] is not bounded after the signing time \"3000-11-10 23:00:00 +0000 UTC\""
+		expectedErrMsg := "timestamp [2021-09-17T14:09:09Z, 2021-09-17T14:09:11Z] is not bounded after the signing time \"3000-11-10 23:00:00 +0000 UTC\""
 		if err := authenticTimestampResult.Error; err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 		}

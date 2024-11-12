@@ -1059,7 +1059,7 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 		return fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err)
 	}
 	if !timestamp.BoundedAfter(signerInfo.SignedAttributes.SigningTime) {
-		return fmt.Errorf("timestamp range %s is not bounded after the signing time %q", timestamp.Format(time.RFC3339), signerInfo.SignedAttributes.SigningTime)
+		return fmt.Errorf("timestamp %s is not bounded after the signing time %q", timestamp.Format(time.RFC3339), signerInfo.SignedAttributes.SigningTime)
 	}
 
 	// 3. Validate timestamping certificate chain
