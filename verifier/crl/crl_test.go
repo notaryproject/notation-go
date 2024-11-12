@@ -270,7 +270,7 @@ func TestGetFailed(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, err = cache.Get(ctx, "expiredKey")
-		expectedErrMsg := "crl bundle retrieved from file cache does not contain valid NextUpdate"
+		expectedErrMsg := "check BaseCRL expiry failed: crl bundle retrieved from file cache does not contain valid NextUpdate"
 		if err == nil || err.Error() != expectedErrMsg {
 			t.Fatalf("expected %s, but got %v", expectedErrMsg, err)
 		}
