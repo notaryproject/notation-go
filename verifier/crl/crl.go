@@ -88,39 +88,33 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 			logger.Debugf("CRL file cache miss. Key %q does not exist", url)
 			return nil, corecrl.ErrCacheMiss
 		}
-		logger.Debugf("failed to get crl bundle from file cache with key %q: %w", url, err)
 		return nil, fmt.Errorf("failed to get crl bundle from file cache with key %q: %w", url, err)
 	}
 
 	// decode content to crl Bundle
 	var content fileCacheContent
 	if err := json.Unmarshal(contentBytes, &content); err != nil {
-		logger.Debugf("failed to decode file retrieved from file cache: %w", err)
 		return nil, fmt.Errorf("failed to decode file retrieved from file cache: %w", err)
 	}
 	var bundle corecrl.Bundle
 	bundle.BaseCRL, err = x509.ParseRevocationList(content.BaseCRL)
 	if err != nil {
-		logger.Debugf("failed to parse base CRL of file retrieved from file cache: %w", err)
 		return nil, fmt.Errorf("failed to parse base CRL of file retrieved from file cache: %w", err)
 	}
 	if content.DeltaCRL != nil {
 		bundle.DeltaCRL, err = x509.ParseRevocationList(content.DeltaCRL)
 		if err != nil {
-			logger.Debugf("failed to parse delta CRL of file retrieved from file cache: %w", err)
 			return nil, fmt.Errorf("failed to parse delta CRL of file retrieved from file cache: %w", err)
 		}
 	}
 
 	// check expiry
 	if err := checkExpiry(ctx, bundle.BaseCRL.NextUpdate); err != nil {
-		logger.Debugf("check BaseCRL expiry failed: %w", err)
-		return nil, err
+		return nil, fmt.Errorf("check BaseCRL expiry failed: %w", err)
 	}
 	if bundle.DeltaCRL != nil {
 		if err := checkExpiry(ctx, bundle.DeltaCRL.NextUpdate); err != nil {
-			logger.Debugf("check DeltaCRL expiry failed: %w", err)
-			return nil, err
+			return nil, fmt.Errorf("check DeltaCRL expiry failed: %w", err)
 		}
 	}
 
@@ -133,11 +127,9 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	logger.Debugf("Storing crl bundle to file cache with key %q ...", url)
 
 	if bundle == nil {
-		logger.Debugln("failed to store crl bundle in file cache: bundle cannot be nil")
 		return errors.New("failed to store crl bundle in file cache: bundle cannot be nil")
 	}
 	if bundle.BaseCRL == nil {
-		logger.Debugln("failed to store crl bundle in file cache: bundle BaseCRL cannot be nil")
 		return errors.New("failed to store crl bundle in file cache: bundle BaseCRL cannot be nil")
 	}
 
@@ -150,11 +142,9 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	}
 	contentBytes, err := json.Marshal(content)
 	if err != nil {
-		logger.Debugf("failed to store crl bundle in file cache: %w", err)
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
 	if err := file.WriteFile(c.root, filepath.Join(c.root, c.fileName(url)), contentBytes); err != nil {
-		logger.Debugf("failed to store crl bundle in file cache: %w", err)
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
 	return nil
