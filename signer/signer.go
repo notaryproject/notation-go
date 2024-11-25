@@ -124,13 +124,13 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 			ContentType: envelope.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:                          s.signer,
-		SigningTime:                     time.Now(),
-		SigningScheme:                   signature.SigningSchemeX509,
-		SigningAgent:                    signingAgentId,
-		Timestamper:                     opts.Timestamper,
-		TSARootCAs:                      opts.TSARootCAs,
-		RevocationTimestampingValidator: opts.RevocationTimestampingValidator,
+		Signer:                 s.signer,
+		SigningTime:            time.Now(),
+		SigningScheme:          signature.SigningSchemeX509,
+		SigningAgent:           signingAgentId,
+		Timestamper:            opts.Timestamper,
+		TSARootCAs:             opts.TSARootCAs,
+		TSARevocationValidator: opts.TSARevocationValidator,
 	}
 
 	// Add expiry only if ExpiryDuration is not zero
