@@ -838,6 +838,10 @@ func revocationFinalResult(certResults []*revocationresult.CertRevocationResult,
 				revokedCertSubject = problematicCertSubject
 			}
 		}
+
+		if i < len(certResults)-1 && certResult.Result == revocationresult.ResultNonRevokable {
+			logger.Warnf("Certificate #%d in the chain with subject %v neither has an OCSP nor a CRL revocation method.", (i + 1), cert.Subject.String())
+		}
 	}
 	if revokedFound {
 		problematicCertSubject = revokedCertSubject
