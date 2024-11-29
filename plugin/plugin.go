@@ -34,10 +34,8 @@ import (
 	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 )
 
-const (
-	// maxPluginOutputSize is the maximum size of the plugin output.
-	maxPluginOutputSize = 10 * 1024 * 1024 // 10 MiB
-)
+// maxPluginOutputSize is the maximum size of the plugin output.
+const maxPluginOutputSize = 10 * 1024 * 1024 // 10 MiB
 
 var executor commander = &execCommander{} // for unit test
 
