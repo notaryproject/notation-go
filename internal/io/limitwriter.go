@@ -11,6 +11,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package io provides a LimitWriter that writes to an underlying writer up to
+// a limit.
+
 package io
 
 import "io"
@@ -31,6 +34,7 @@ func NewLimitWriter(w io.Writer, limit int64) *LimitWriter {
 	return &LimitWriter{w: w, limit: limit}
 }
 
+// Write writes p to the underlying writer up to the limit.
 func (lw *LimitWriter) Write(p []byte) (int, error) {
 	remaining := lw.limit - lw.written
 	if remaining <= 0 {
