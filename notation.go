@@ -71,8 +71,8 @@ type SignerSignOptions struct {
 	// TSARootCAs is the cert pool holding caller's TSA trust anchor
 	TSARootCAs *x509.CertPool
 
-	// TSARevocationValidator is used for verifying revocation of
-	// timestamping certificate chain with context after signing.
+	// TSARevocationValidator is used for validating revocation status of
+	// timestamping certificate chain with context during signing.
 	// When present, only used when timestamping is performed.
 	TSARevocationValidator revocation.Validator
 }
