@@ -27,10 +27,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/notaryproject/notation-go/internal/io"
 	"github.com/notaryproject/notation-go/internal/slices"
 	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-plugin-framework-go/plugin"
+)
+
+const (
+	// maxPluginOutputSize is the maximum size of the plugin output.
+	maxPluginOutputSize = 10 * 1024 * 1024 // 10MB
 )
 
 var executor commander = &execCommander{} // for unit test
@@ -218,12 +224,12 @@ func (c execCommander) Output(ctx context.Context, name string, command plugin.C
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
+	cmd.Stderr = io.NewLimitWriter(&stderr, maxPluginOutputSize)
+	cmd.Stdout = io.NewLimitWriter(&stdout, maxPluginOutputSize)
 	err := cmd.Run()
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, stderr.Bytes(), fmt.Errorf("'%s %s' command execution timeout: %w", name, string(command), err);
+			return nil, stderr.Bytes(), fmt.Errorf("'%s %s' command execution timeout: %w", name, string(command), err)
 		}
 		return nil, stderr.Bytes(), err
 	}
