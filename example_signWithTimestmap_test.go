@@ -21,6 +21,8 @@ import (
 
 	"oras.land/oras-go/v2/registry/remote"
 
+	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	"github.com/notaryproject/notation-core-go/testhelper"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/registry"
@@ -77,12 +79,21 @@ func Example_signWithTimestamp() {
 	tsaRootCAs := x509.NewCertPool()
 	tsaRootCAs.AddCert(tsaRootCert)
 
+	// enable timestamping certificate chain revocation check
+	tsaRevocationValidator, err := revocation.NewWithOptions(revocation.Options{
+		CertChainPurpose: purpose.Timestamping,
+	})
+	if err != nil {
+		panic(err) // Handle error
+	}
+
 	// exampleSignOptions is an example of notation.SignOptions.
 	exampleSignOptions := notation.SignOptions{
 		SignerSignOptions: notation.SignerSignOptions{
-			SignatureMediaType: exampleSignatureMediaType,
-			Timestamper:        httpTimestamper,
-			TSARootCAs:         tsaRootCAs,
+			SignatureMediaType:     exampleSignatureMediaType,
+			Timestamper:            httpTimestamper,
+			TSARootCAs:             tsaRootCAs,
+			TSARevocationValidator: tsaRevocationValidator,
 		},
 		ArtifactReference: exampleArtifactReference,
 	}
