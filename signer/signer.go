@@ -106,7 +106,6 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	if err != nil {
 		return nil, nil, fmt.Errorf("envelope payload can't be marshalled: %w", err)
 	}
-
 	var signingAgentId string
 	if opts.SigningAgent != "" {
 		signingAgentId = opts.SigningAgent
@@ -124,12 +123,13 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 			ContentType: envelope.MediaTypePayloadV1,
 			Content:     payloadBytes,
 		},
-		Signer:        s.signer,
-		SigningTime:   time.Now(),
-		SigningScheme: signature.SigningSchemeX509,
-		SigningAgent:  signingAgentId,
-		Timestamper:   opts.Timestamper,
-		TSARootCAs:    opts.TSARootCAs,
+		Signer:                 s.signer,
+		SigningTime:            time.Now(),
+		SigningScheme:          signature.SigningSchemeX509,
+		SigningAgent:           signingAgentId,
+		Timestamper:            opts.Timestamper,
+		TSARootCAs:             opts.TSARootCAs,
+		TSARevocationValidator: opts.TSARevocationValidator,
 	}
 
 	// Add expiry only if ExpiryDuration is not zero
@@ -143,6 +143,12 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	logger.Debugf("  Expiry:        %v", signReq.Expiry)
 	logger.Debugf("  SigningScheme: %v", signReq.SigningScheme)
 	logger.Debugf("  SigningAgent:  %v", signReq.SigningAgent)
+	if signReq.Timestamper != nil {
+		logger.Debug("Enabled timestamping")
+		if signReq.TSARevocationValidator != nil {
+			logger.Debug("Enabled timestamping certificate chain revocation check")
+		}
+	}
 
 	// Add ctx to the SignRequest
 	signReq = signReq.WithContext(ctx)
@@ -152,12 +158,10 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	if err != nil {
 		return nil, nil, err
 	}
-
 	sig, err := sigEnv.Sign(signReq)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	envContent, err := sigEnv.Verify()
 	if err != nil {
 		return nil, nil, fmt.Errorf("generated signature failed verification: %v", err)
