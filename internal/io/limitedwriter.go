@@ -16,7 +16,12 @@
 
 package io
 
-import "io"
+import (
+	"errors"
+	"io"
+)
+
+var ErrLimitExceeded = errors.New("write limit exceeded")
 
 // LimitedWriter is a writer that writes to an underlying writer up to a limit.
 type LimitedWriter struct {
@@ -36,7 +41,7 @@ func LimitWriter(w io.Writer, limit int64) *LimitedWriter {
 // Write writes p to the underlying writer up to the limit.
 func (l *LimitedWriter) Write(p []byte) (int, error) {
 	if l.N <= 0 {
-		return 0, io.ErrShortWrite
+		return 0, ErrLimitExceeded
 	}
 	if int64(len(p)) > l.N {
 		p = p[:l.N]

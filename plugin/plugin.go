@@ -222,6 +222,8 @@ func (c execCommander) Output(ctx context.Context, name string, command plugin.C
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
+	// The limit writer will be handled by the caller in run() by comparing the
+	// bytes written with the expected length of the bytes.
 	cmd.Stderr = io.LimitWriter(&stderr, maxPluginOutputSize)
 	cmd.Stdout = io.LimitWriter(&stdout, maxPluginOutputSize)
 	err := cmd.Run()

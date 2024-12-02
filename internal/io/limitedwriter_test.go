@@ -15,7 +15,7 @@ package io
 
 import (
 	"bytes"
-	"io"
+	"errors"
 	"testing"
 )
 
@@ -60,8 +60,8 @@ func TestLimitWriterFailed(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	_, err = lw.Write([]byte(longString))
-	expectedErr := io.ErrShortWrite
-	if err != expectedErr {
+	expectedErr := errors.New("write limit exceeded")
+	if err.Error() != expectedErr.Error() {
 		t.Errorf("expected error %v, got %v", expectedErr, err)
 	}
 }
