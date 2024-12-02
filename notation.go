@@ -31,6 +31,7 @@ import (
 	orasRegistry "oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 
+	"github.com/notaryproject/notation-core-go/revocation"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
@@ -69,6 +70,11 @@ type SignerSignOptions struct {
 
 	// TSARootCAs is the cert pool holding caller's TSA trust anchor
 	TSARootCAs *x509.CertPool
+
+	// TSARevocationValidator is used for validating revocation status of
+	// timestamping certificate chain with context during signing.
+	// When present, only used when timestamping is performed.
+	TSARevocationValidator revocation.Validator
 }
 
 // Signer is a generic interface for signing an OCI artifact.
