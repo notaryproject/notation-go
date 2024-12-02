@@ -18,27 +18,27 @@ package io
 
 import "io"
 
-// LimitWriter is a writer that writes to an underlying writer up to a limit.
-type LimitWriter struct {
+// LimitedWriter is a writer that writes to an underlying writer up to a limit.
+type LimitedWriter struct {
 	w       io.Writer
 	limit   int64
 	written int64
 }
 
-// NewLimitWriter returns a new LimitWriter that writes to w.
+// LimitWriter returns a new LimitWriter that writes to w.
 //
 // parameters:
 // w: the writer to write to
 // limit: the maximum number of bytes to write
-func NewLimitWriter(w io.Writer, limit int64) *LimitWriter {
-	return &LimitWriter{w: w, limit: limit}
+func LimitWriter(w io.Writer, limit int64) *LimitedWriter {
+	return &LimitedWriter{w: w, limit: limit}
 }
 
 // Write writes p to the underlying writer up to the limit.
-func (lw *LimitWriter) Write(p []byte) (int, error) {
+func (lw *LimitedWriter) Write(p []byte) (int, error) {
 	remaining := lw.limit - lw.written
 	if remaining <= 0 {
-		return 0, nil
+		return 0, io.ErrShortWrite
 	}
 	if int64(len(p)) > remaining {
 		p = p[:remaining]

@@ -35,7 +35,7 @@ func TestLimitWriter(t *testing.T) {
 
 	for _, tt := range tests {
 		var buf bytes.Buffer
-		lw := NewLimitWriter(&buf, limit)
+		lw := LimitWriter(&buf, limit)
 		n, err := lw.Write([]byte(tt.input))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

@@ -222,8 +222,8 @@ func (c execCommander) Output(ctx context.Context, name string, command plugin.C
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, string(command))
 	cmd.Stdin = bytes.NewReader(req)
-	cmd.Stderr = io.NewLimitWriter(&stderr, maxPluginOutputSize)
-	cmd.Stdout = io.NewLimitWriter(&stdout, maxPluginOutputSize)
+	cmd.Stderr = io.LimitWriter(&stderr, maxPluginOutputSize)
+	cmd.Stdout = io.LimitWriter(&stdout, maxPluginOutputSize)
 	err := cmd.Run()
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
