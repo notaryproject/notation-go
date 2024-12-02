@@ -20,9 +20,8 @@ import "io"
 
 // LimitedWriter is a writer that writes to an underlying writer up to a limit.
 type LimitedWriter struct {
-	w       io.Writer
-	limit   int64
-	written int64
+	W io.Writer // underlying writer
+	N int64     // remaining bytes
 }
 
 // LimitWriter returns a new LimitWriter that writes to w.
@@ -31,19 +30,18 @@ type LimitedWriter struct {
 // w: the writer to write to
 // limit: the maximum number of bytes to write
 func LimitWriter(w io.Writer, limit int64) *LimitedWriter {
-	return &LimitedWriter{w: w, limit: limit}
+	return &LimitedWriter{W: w, N: limit}
 }
 
 // Write writes p to the underlying writer up to the limit.
-func (lw *LimitedWriter) Write(p []byte) (int, error) {
-	remaining := lw.limit - lw.written
-	if remaining <= 0 {
+func (l *LimitedWriter) Write(p []byte) (int, error) {
+	if l.N <= 0 {
 		return 0, io.ErrShortWrite
 	}
-	if int64(len(p)) > remaining {
-		p = p[:remaining]
+	if int64(len(p)) > l.N {
+		p = p[:l.N]
 	}
-	n, err := lw.w.Write(p)
-	lw.written += int64(n)
+	n, err := l.W.Write(p)
+	l.N -= int64(n)
 	return n, err
 }

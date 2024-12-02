@@ -35,7 +35,7 @@ import (
 )
 
 // maxPluginOutputSize is the maximum size of the plugin output.
-const maxPluginOutputSize = 10 * 1024 * 1024 // 10 MiB
+const maxPluginOutputSize = 64 * 1024 * 1024 // 64 MiB
 
 var executor commander = &execCommander{} // for unit test
 
