@@ -21,6 +21,7 @@ import (
 	"io"
 )
 
+// ErrLimitExceeded is returned when the write limit is exceeded.
 var ErrLimitExceeded = errors.New("write limit exceeded")
 
 // LimitedWriter is a writer that writes to an underlying writer up to a limit.
