@@ -4,9 +4,9 @@ go 1.22.0
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.8
-	github.com/notaryproject/notation-core-go v1.2.0-rc.1.0.20241129024749-95d89543c9f9
+	github.com/notaryproject/notation-core-go v1.2.0-rc.2
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
-	github.com/notaryproject/tspclient-go v0.2.1-0.20241030015323-90a141e7525c
+	github.com/notaryproject/tspclient-go v1.0.0-rc.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/veraison/go-cose v1.3.0
