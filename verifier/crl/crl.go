@@ -110,11 +110,11 @@ func (c *FileCache) Get(ctx context.Context, url string) (*corecrl.Bundle, error
 
 	// check expiry
 	if err := checkExpiry(ctx, bundle.BaseCRL.NextUpdate); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check BaseCRL expiry failed: %w", err)
 	}
 	if bundle.DeltaCRL != nil {
 		if err := checkExpiry(ctx, bundle.DeltaCRL.NextUpdate); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("check DeltaCRL expiry failed: %w", err)
 		}
 	}
 
@@ -144,7 +144,7 @@ func (c *FileCache) Set(ctx context.Context, url string, bundle *corecrl.Bundle)
 	if err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
-	if err := file.WriteFile(filepath.Join(c.root, c.fileName(url)), contentBytes); err != nil {
+	if err := file.WriteFile(c.root, filepath.Join(c.root, c.fileName(url)), contentBytes); err != nil {
 		return fmt.Errorf("failed to store crl bundle in file cache: %w", err)
 	}
 	return nil

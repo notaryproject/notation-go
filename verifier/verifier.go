@@ -678,7 +678,7 @@ func revocationFinalResult(certResults []*revocationresult.CertRevocationResult,
 		certResult := certResults[i]
 		if certResult.RevocationMethod == revocationresult.RevocationMethodOCSPFallbackCRL {
 			// log the fallback warning
-			logger.Warnf("OCSP check failed with unknown error and fallback to CRL check for certificate #%d in chain with subject %v", (i + 1), cert.Subject.String())
+			logger.Warnf("OCSP check failed with unknown error and fallback to CRL check for certificate #%d in chain with subject %v", (i + 1), cert.Subject)
 		}
 		for _, serverResult := range certResult.ServerResults {
 			if serverResult.Error != nil {
@@ -687,10 +687,10 @@ func revocationFinalResult(certResults []*revocationresult.CertRevocationResult,
 					// when the final revocation method is OCSPFallbackCRL,
 					// the OCSP server results should not be logged as an error
 					// since the CRL revocation check can succeed.
-					logger.Debugf("Certificate #%d in chain with subject %v encountered an error for revocation method %s at URL %q: %v", (i + 1), cert.Subject.String(), revocationresult.RevocationMethodOCSP, serverResult.Server, serverResult.Error)
+					logger.Debugf("Certificate #%d in chain with subject %v encountered an error for revocation method %s at URL %q: %v", (i + 1), cert.Subject, revocationresult.RevocationMethodOCSP, serverResult.Server, serverResult.Error)
 					continue
 				}
-				logger.Errorf("Certificate #%d in chain with subject %v encountered an error for revocation method %s at URL %q: %v", (i + 1), cert.Subject.String(), serverResult.RevocationMethod, serverResult.Server, serverResult.Error)
+				logger.Errorf("Certificate #%d in chain with subject %v encountered an error for revocation method %s at URL %q: %v", (i + 1), cert.Subject, serverResult.RevocationMethod, serverResult.Server, serverResult.Error)
 			}
 		}
 
@@ -703,6 +703,10 @@ func revocationFinalResult(certResults []*revocationresult.CertRevocationResult,
 				revokedFound = true
 				revokedCertSubject = problematicCertSubject
 			}
+		}
+
+		if i < len(certResults)-1 && certResult.Result == revocationresult.ResultNonRevokable {
+			logger.Warnf("Certificate #%d in the chain with subject %v neither has an OCSP nor a CRL revocation method.", (i + 1), cert.Subject)
 		}
 	}
 	if revokedFound {
@@ -923,6 +927,9 @@ func verifyTimestamp(ctx context.Context, policyName string, trustStores []strin
 	})
 	if err != nil {
 		return fmt.Errorf("failed to verify the timestamp countersignature with error: %w", err)
+	}
+	if !timestamp.BoundedAfter(signerInfo.SignedAttributes.SigningTime) {
+		return fmt.Errorf("timestamp %s is not bounded after the signing time %q", timestamp.Format(time.RFC3339), signerInfo.SignedAttributes.SigningTime)
 	}
 
 	// 3. Validate timestamping certificate chain

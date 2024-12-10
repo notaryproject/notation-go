@@ -30,6 +30,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/notaryproject/notation-core-go/revocation"
+	"github.com/notaryproject/notation-core-go/revocation/purpose"
 	"github.com/notaryproject/notation-core-go/signature"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -254,6 +256,27 @@ func TestSignWithTimestamping(t *testing.T) {
 	}
 	_, _, err = s.Sign(ctx, desc, sOpts)
 	expectedErrMsg = "timestamping: got Timestamper but nil TSARootCAs"
+	if err == nil || err.Error() != expectedErrMsg {
+		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
+	}
+
+	// timestamping with unknown authority
+	desc, sOpts = generateSigningContent()
+	sOpts.SignatureMediaType = envelopeType
+	sOpts.Timestamper, err = tspclient.NewHTTPTimestamper(nil, rfc3161URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sOpts.TSARootCAs = x509.NewCertPool()
+	tsaRevocationValidator, err := revocation.NewWithOptions(revocation.Options{
+		CertChainPurpose: purpose.Timestamping,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sOpts.TSARevocationValidator = tsaRevocationValidator
+	_, _, err = s.Sign(ctx, desc, sOpts)
+	expectedErrMsg = "timestamp: failed to verify signed token: cms verification failure: x509: certificate signed by unknown authority"
 	if err == nil || err.Error() != expectedErrMsg {
 		t.Fatalf("expected %s, but got %s", expectedErrMsg, err)
 	}

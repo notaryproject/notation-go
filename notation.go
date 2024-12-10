@@ -29,6 +29,7 @@ import (
 	orasRegistry "oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 
+	"github.com/notaryproject/notation-core-go/revocation"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-core-go/signature/cose"
 	"github.com/notaryproject/notation-core-go/signature/jws"
@@ -67,6 +68,11 @@ type SignerSignOptions struct {
 
 	// TSARootCAs is the cert pool holding caller's TSA trust anchor
 	TSARootCAs *x509.CertPool
+
+	// TSARevocationValidator is used for validating revocation status of
+	// timestamping certificate chain with context during signing.
+	// When present, only used when timestamping is performed.
+	TSARevocationValidator revocation.Validator
 }
 
 // Signer is a generic interface for signing an OCI artifact.
@@ -128,7 +134,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 		}
 		// artifactRef is a tag
 		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", artifactRef)
-		logger.Infof("Resolved artifact tag `%s` to digest `%s` before signing", artifactRef, targetDesc.Digest.String())
+		logger.Infof("Resolved artifact tag `%s` to digest `%v` before signing", artifactRef, targetDesc.Digest)
 	}
 	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
 	if err != nil {
@@ -372,7 +378,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 	}
 	if ref.ValidateReferenceAsDigest() != nil {
 		// artifactRef is not a digest reference
-		logger.Infof("Resolved artifact tag `%s` to digest `%s` before verification", ref.Reference, artifactDescriptor.Digest.String())
+		logger.Infof("Resolved artifact tag `%s` to digest `%v` before verification", ref.Reference, artifactDescriptor.Digest)
 		logger.Warn("The resolved digest may not point to the same signed artifact, since tags are mutable")
 	} else if ref.Reference != artifactDescriptor.Digest.String() {
 		return ocispec.Descriptor{}, nil, ErrorSignatureRetrievalFailed{Msg: fmt.Sprintf("user input digest %s does not match the resolved digest %s", ref.Reference, artifactDescriptor.Digest.String())}
