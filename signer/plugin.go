@@ -35,7 +35,8 @@ import (
 )
 
 // PluginSigner signs artifacts and generates signatures.
-// It implements notation.Signer
+//
+// It implements notation.Signer and notation.BlobSigner.
 type PluginSigner struct {
 	plugin              plugin.SignPlugin
 	keyID               string
@@ -49,16 +50,17 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 	crypto.SHA512: digest.SHA512,
 }
 
-// NewFromPlugin creates a notation.Signer that signs artifacts and generates
+// NewFromPlugin creates a PluginSigner that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
+//
 // Deprecated: NewFromPlugin function exists for historical compatibility and should not be used.
 // To create PluginSigner, use NewPluginSigner() function.
 func NewFromPlugin(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
 	return NewPluginSigner(plugin, keyID, pluginConfig)
 }
 
-// NewPluginSigner creates a notation.Signer that signs artifacts and generates
+// NewPluginSigner creates a PluginSigner that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 func NewPluginSigner(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (*PluginSigner, error) {
@@ -82,7 +84,7 @@ func (s *PluginSigner) PluginAnnotations() map[string]string {
 }
 
 // Sign signs the artifact described by its descriptor and returns the
-// marshalled envelope.
+// signature and SignerInfo.
 func (s *PluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	mergedConfig := s.mergeConfig(opts.PluginConfig)
@@ -116,7 +118,8 @@ func (s *PluginSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts n
 	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
 }
 
-// SignBlob signs the arbitrary data and returns the marshalled envelope.
+// SignBlob signs the descriptor returned by genDesc, and returns the
+// signature and SignerInfo.
 func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	mergedConfig := s.mergeConfig(opts.PluginConfig)

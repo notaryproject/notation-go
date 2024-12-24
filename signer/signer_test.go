@@ -162,6 +162,17 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
 }
 
+func TestGenericSignerImpl(t *testing.T) {
+	g := &GenericSigner{}
+	if _, ok := interface{}(g).(notation.Signer); !ok {
+		t.Fatal("GenericSigner does not implement notation.Signer")
+	}
+
+	if _, ok := interface{}(g).(notation.BlobSigner); !ok {
+		t.Fatal("GenericSigner does not implement notation.BlobSigner")
+	}
+}
+
 func TestNewFromFiles(t *testing.T) {
 	// sign with key
 	dir := t.TempDir()

@@ -48,7 +48,7 @@ var errDoneVerification = errors.New("done verification")
 
 var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
-// SignerSignOptions contains parameters for Signer.Sign.
+// SignerSignOptions contains parameters for Signer and BlobSigner.
 type SignerSignOptions struct {
 	// SignatureMediaType is the envelope type of the signature.
 	// Currently, both `application/jose+json` and `application/cose` are
@@ -89,15 +89,18 @@ type Signer interface {
 // SignBlobOptions contains parameters for notation.SignBlob.
 type SignBlobOptions struct {
 	SignerSignOptions
+
 	// ContentMediaType is the media-type of the blob being signed.
 	ContentMediaType string
+
 	// UserMetadata contains key-value pairs that are added to the signature
 	// payload
 	UserMetadata map[string]string
 }
 
 // BlobDescriptorGenerator creates descriptor using the digest Algorithm.
-// Below is the example of minimal descriptor, it must contain mediatype, digest and size of the artifact
+// Below is the example of minimal descriptor, it must contain mediatype,
+// digest and size of the artifact.
 //
 //	{
 //	   "mediaType": "application/octet-stream",
@@ -110,8 +113,8 @@ type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
 type BlobSigner interface {
-	// SignBlob signs the descriptor returned by genDesc ,
-	// and returns the signature and SignerInfo
+	// SignBlob signs the descriptor returned by genDesc, and returns the
+	// signature and SignerInfo.
 	SignBlob(ctx context.Context, genDesc BlobDescriptorGenerator, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
@@ -200,7 +203,8 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	return targetDesc, nil
 }
 
-// SignBlob signs the arbitrary data and returns the signature
+// SignBlob signs the arbitrary data from blobReader and returns
+// the signature and SignerInfo.
 func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, signBlobOpts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
 	// sanity checks
 	if err := validateSignArguments(signer, signBlobOpts.SignerSignOptions); err != nil {

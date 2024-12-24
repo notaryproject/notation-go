@@ -216,6 +216,17 @@ func (p *mockPlugin) GenerateEnvelope(ctx context.Context, req *proto.GenerateEn
 	return &proto.GenerateEnvelopeResponse{}, nil
 }
 
+func TestPluginSignerImpl(t *testing.T) {
+	p := &PluginSigner{}
+	if _, ok := interface{}(p).(notation.Signer); !ok {
+		t.Fatal("PluginSigner does not implement notation.Signer")
+	}
+
+	if _, ok := interface{}(p).(notation.BlobSigner); !ok {
+		t.Fatal("PluginSigner does not implement notation.BlobSigner")
+	}
+}
+
 func TestNewFromPluginFailed(t *testing.T) {
 	tests := map[string]struct {
 		pl     plugin.SignPlugin
