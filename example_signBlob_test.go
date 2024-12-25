@@ -24,13 +24,15 @@ import (
 	"github.com/notaryproject/notation-go/signer"
 )
 
-// ExampleSignBlob demonstrates how to use signer.BlobSign to sign arbitrary data.
+// ExampleSignBlob demonstrates how to use [signer.BlobSign] to sign arbitrary
+// data.
 func Example_signBlob() {
-	//exampleSigner implements notation.Signer and notation.BlobSigner. Given key and X509 certificate chain,
-	// it provides method to sign OCI artifacts or blobs.
+	// exampleSigner implements [notation.Signer] and [notation.BlobSigner].
+	// Given key and X509 certificate chain, it provides method to sign OCI
+	// artifacts or blobs.
 	// Users should replace `exampleCertTuple.PrivateKey` with their own private
 	// key and replace `exampleCerts` with the corresponding certificate chain,
-	//following the Notary certificate requirements:
+	//following the Notary Project certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
 	exampleSigner, err := signer.NewGenericSigner(exampleCertTuple.PrivateKey, exampleCerts)
 	if err != nil {

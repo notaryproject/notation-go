@@ -25,7 +25,7 @@ import (
 	"github.com/notaryproject/notation-go/internal/trustpolicy"
 )
 
-// OCIDocument represents a trustPolicy.json document for OCI artifacts
+// OCIDocument represents a trustpolicy.oci.json document for OCI artifacts
 type OCIDocument struct {
 	// Version of the policy document
 	Version string `json:"version"`
@@ -34,7 +34,7 @@ type OCIDocument struct {
 	TrustPolicies []OCITrustPolicy `json:"trustPolicies"`
 }
 
-// OCITrustPolicy represents a policy statement in the policy document for OCI artifacts
+// OCITrustPolicy represents a policy statement in the OCI trust policy document
 type OCITrustPolicy struct {
 	// Name of the policy statement
 	Name string `json:"name"`
@@ -53,27 +53,31 @@ type OCITrustPolicy struct {
 }
 
 // Document represents a trustPolicy.json document
-// Deprecated: Document exists for historical compatibility and should not be used.
-// To create OCI Document, use OCIDocument.
+//
+// Deprecated: Document exists for historical compatibility and
+// should not be used. To create OCI Document, use [OCIDocument].
 type Document = OCIDocument
 
 // TrustPolicy represents a policy statement in the policy document
-// Deprecated: TrustPolicy exists for historical compatibility and should not be used.
-// To create OCI TrustPolicy, use OCITrustPolicy.
+//
+// Deprecated: TrustPolicy exists for historical compatibility and
+// should not be used. To create OCI TrustPolicy, use [OCITrustPolicy].
 type TrustPolicy = OCITrustPolicy
 
 // LoadDocument loads a trust policy document from a local file system
-// Deprecated: LoadDocument function exists for historical compatibility and should not be used.
-// To load OCI Document, use LoadOCIDocument function.
+//
+// Deprecated: LoadDocument function exists for historical compatibility and
+// should not be used. To load OCI Document, use [LoadOCIDocument] function.
 var LoadDocument = LoadOCIDocument
 
 var supportedOCIPolicyVersions = []string{"1.0"}
 
 // LoadOCIDocument retrieves a trust policy document from the local file system.
-// It attempts to read from dir.PathOCITrustPolicy first; if not found, it tries dir.PathTrustPolicy.
-// If both dir.PathOCITrustPolicy and dir.PathTrustPolicy exist, dir.PathOCITrustPolicy will be read.
+// It attempts to read from [dir.PathOCITrustPolicy] first; if not found,
+// it tries [dir.PathTrustPolicy].
+// If both dir.PathOCITrustPolicy and dir.PathTrustPolicy exist,
+// dir.PathOCITrustPolicy will be read.
 func LoadOCIDocument() (*OCIDocument, error) {
-
 	var doc OCIDocument
 	// attempt to load the document from dir.PathOCITrustPolicy
 	if err := getDocument(dir.PathOCITrustPolicy, &doc); err != nil {
@@ -87,7 +91,6 @@ func LoadOCIDocument() (*OCIDocument, error) {
 		// if an error occurred other than the document not found, return it
 		return nil, err
 	}
-
 	return &doc, nil
 }
 
@@ -134,9 +137,9 @@ func (policyDoc *OCIDocument) Validate() error {
 	return nil
 }
 
-// GetApplicableTrustPolicy returns a pointer to the deep copied TrustPolicy
+// GetApplicableTrustPolicy returns a pointer to the deep copied [OCITrustPolicy]
 // statement that applies to the given registry scope. If no applicable trust
-// policy is found, returns an error
+// policy is found, returns an error.
 // see https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#selecting-a-trust-policy-based-on-artifact-uri
 func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string) (*OCITrustPolicy, error) {
 	artifactPath, err := getArtifactPathFromReference(artifactReference)
@@ -167,7 +170,7 @@ func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string)
 	}
 }
 
-// clone returns a pointer to the deeply copied TrustPolicy
+// clone returns a pointer to the deep copied [OCITrustPolicy]
 func (t *OCITrustPolicy) clone() *OCITrustPolicy {
 	return &OCITrustPolicy{
 		Name:                  t.Name,

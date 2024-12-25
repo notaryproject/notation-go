@@ -48,17 +48,17 @@ var (
 	notationEmptyConfigData = ocispec.DescriptorEmptyJSON.Data
 )
 
-// RepositoryOptions provides user options when creating a Repository
+// RepositoryOptions provides user options when creating a [Repository]
 // it is kept for future extensibility
 type RepositoryOptions struct{}
 
-// repositoryClient implements Repository
+// repositoryClient implements [Repository]
 type repositoryClient struct {
 	oras.GraphTarget
 	RepositoryOptions
 }
 
-// NewRepository returns a new Repository.
+// NewRepository returns a new [Repository].
 // Known implementations of oras.GraphTarget:
 // - [remote.Repository](https://pkg.go.dev/oras.land/oras-go/v2/registry/remote#Repository)
 // - [oci.Store](https://pkg.go.dev/oras.land/oras-go/v2/content/oci#Store)
@@ -68,7 +68,7 @@ func NewRepository(target oras.GraphTarget) Repository {
 	}
 }
 
-// NewRepositoryWithOptions returns a new Repository with user specified
+// NewRepositoryWithOptions returns a new [Repository] with user specified
 // options.
 func NewRepositoryWithOptions(target oras.GraphTarget, opts RepositoryOptions) Repository {
 	return &repositoryClient{
@@ -77,7 +77,7 @@ func NewRepositoryWithOptions(target oras.GraphTarget, opts RepositoryOptions) R
 	}
 }
 
-// NewOCIRepository returns a new Repository with oci.Store as
+// NewOCIRepository returns a new [Repository] with oci.Store as
 // its oras.GraphTarget. `path` denotes directory path to the target OCI layout.
 func NewOCIRepository(path string, opts RepositoryOptions) (Repository, error) {
 	fileInfo, err := os.Stat(path)

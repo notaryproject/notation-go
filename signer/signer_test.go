@@ -55,7 +55,8 @@ type keyCertPair struct {
 
 var keyCertPairCollections []*keyCertPair
 
-// setUpKeyCertPairCollections setups all combinations of private key and certificates.
+// setUpKeyCertPairCollections setups all combinations of private key and
+// certificates.
 func setUpKeyCertPairCollections() []*keyCertPair {
 	// rsa
 	var keyCertPairs []*keyCertPair

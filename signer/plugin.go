@@ -36,7 +36,7 @@ import (
 
 // PluginSigner signs artifacts and generates signatures.
 //
-// It implements notation.Signer and notation.BlobSigner.
+// It implements [notation.Signer] and [notation.BlobSigner].
 type PluginSigner struct {
 	plugin              plugin.SignPlugin
 	keyID               string
@@ -50,17 +50,17 @@ var algorithms = map[crypto.Hash]digest.Algorithm{
 	crypto.SHA512: digest.SHA512,
 }
 
-// NewFromPlugin creates a PluginSigner that signs artifacts and generates
+// NewFromPlugin creates a [PluginSigner] that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 //
-// Deprecated: NewFromPlugin function exists for historical compatibility and should not be used.
-// To create PluginSigner, use NewPluginSigner() function.
+// Deprecated: NewFromPlugin function exists for historical compatibility and
+// should not be used. To create [PluginSigner], use NewPluginSigner() function.
 func NewFromPlugin(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (notation.Signer, error) {
 	return NewPluginSigner(plugin, keyID, pluginConfig)
 }
 
-// NewPluginSigner creates a PluginSigner that signs artifacts and generates
+// NewPluginSigner creates a [PluginSigner] that signs artifacts and generates
 // signatures by delegating the one or more operations to the named plugin,
 // as defined in https://github.com/notaryproject/notaryproject/blob/main/specs/plugin-extensibility.md#signing-interfaces.
 func NewPluginSigner(plugin plugin.SignPlugin, keyID string, pluginConfig map[string]string) (*PluginSigner, error) {

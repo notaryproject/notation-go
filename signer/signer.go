@@ -12,8 +12,8 @@
 // limitations under the License.
 
 // Package signer provides notation signing functionality. It implements the
-// notation.Signer interface by providing builtinSigner for local signing and
-// PluginSigner for remote signing.
+// [notation.Signer] and [notation.BlobSigner] interface by providing
+// builtinSigner for local signing and [PluginSigner] for remote signing.
 package signer
 
 import (
@@ -36,16 +36,17 @@ import (
 // signingAgent is the unprotected header field used by signature.
 const signingAgent = "notation-go/1.3.0+unreleased"
 
-// GenericSigner implements notation.Signer and notation.BlobSigner.
+// GenericSigner implements [notation.Signer] and [notation.BlobSigner].
 // It embeds signature.Signer.
 type GenericSigner struct {
 	signer signature.Signer
 }
 
-// New returns a notation.Signer given key and cert chain.
+// New returns a [notation.Signer] given key and cert chain.
 //
-// Deprecated: New function exists for historical compatibility and should not be used.
-// To create GenericSigner, use NewGenericSigner() function.
+// Deprecated: New function exists for historical compatibility and
+// should not be used. To create [GenericSigner],
+// use NewGenericSigner() function.
 func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
 	return NewGenericSigner(key, certChain)
 }
@@ -61,7 +62,7 @@ func NewGenericSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Ge
 	}, nil
 }
 
-// NewFromFiles returns a notation.Signer given key and certChain paths.
+// NewFromFiles returns a [notation.Signer] given key and certChain paths.
 func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 	return NewGenericSignerFromFiles(keyPath, certChainPath)
 }
