@@ -42,7 +42,7 @@ var exampleBlobPolicyDocument = trustpolicy.BlobDocument{
 	},
 }
 
-// ExampleVerifyBlob demonstrates how to use [verifier.Verify] to verify a
+// ExampleVerifyBlob demonstrates how to use [notation.VerifyBlob] to verify a
 // signature of an arbitrary blob.
 func Example_verifyBlob() {
 	// Both COSE ("application/cose") and JWS ("application/jose+json")
@@ -53,7 +53,7 @@ func Example_verifyBlob() {
 	exampleSignatureEnvelope := getSignatureEnvelope()
 
 	// createTrustStoreForBlobVerify creates a trust store directory for demo purpose.
-	// Users could use the default trust store from Notation and add trusted
+	// Users could use the default trust store from Notary Project and add trusted
 	// certificates into it following the trust store spec:
 	// https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#trust-store
 	if err := createTrustStoreForBlobVerify(); err != nil {
@@ -70,7 +70,7 @@ func Example_verifyBlob() {
 	// This data can be in a file or in memory.
 	exampleReader := strings.NewReader("example blob")
 
-	// exampleVerifyOptions is an example of [notation.VerifierVerifyOptions]
+	// exampleVerifyOptions is an example of [notation.VerifyBlobOptions]
 	exampleVerifyOptions := notation.VerifyBlobOptions{
 		BlobVerifierVerifyOptions: notation.BlobVerifierVerifyOptions{
 			SignatureMediaType: exampleSignatureMediaType,
@@ -92,7 +92,7 @@ func Example_verifyBlob() {
 
 	// Note, upon successful verification, payload.TargetArtifact from the
 	// signature envelope matches exactly with our exampleTargetDescriptor.
-	// (This check has been done for the user inside [verifier.Verify].)
+	// (This check has been done for the user inside verifier.Verify.)
 	fmt.Println("payload Content:", string(outcome.EnvelopeContent.Payload.Content))
 
 	// Output:
