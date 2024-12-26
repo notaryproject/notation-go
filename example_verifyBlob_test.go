@@ -29,7 +29,7 @@ import (
 
 // exampleBlobPolicyDocument is an example of a valid blob trust policy document.
 // blob trust policy document should follow this spec:
-// https://github.com/notaryproject/specifications/blob/main/specs/trust-store-trust-policy.md#blob-trust-policy
+// https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/trust-store-trust-policy.md#blob-trust-policy
 var exampleBlobPolicyDocument = trustpolicy.BlobDocument{
 	Version: "1.0",
 	TrustPolicies: []trustpolicy.BlobTrustPolicy{
