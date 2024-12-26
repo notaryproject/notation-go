@@ -55,7 +55,7 @@ func Example_verifyBlob() {
 	// createTrustStoreForBlobVerify creates a trust store directory for demo purpose.
 	// Users could use the default trust store from Notary Project and add trusted
 	// certificates into it following the trust store spec:
-	// https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#trust-store
+	// https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/trust-store-trust-policy.md#trust-store
 	if err := createTrustStoreForBlobVerify(); err != nil {
 		panic(err) // Handle error
 	}
@@ -112,7 +112,7 @@ func createTrustStoreForBlobVerify() error {
 	// Users should replace `exampleX509Certificate` with their own trusted
 	// certificate and add to the trust store, following the
 	// Notary Project certificate requirements:
-	// https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/signature-specification.md#certificate-requirements
+	// https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/signature-specification.md#certificate-requirements
 	exampleX509Certificate := `-----BEGIN CERTIFICATE-----
 MIIEbDCCAtSgAwIBAgIBUzANBgkqhkiG9w0BAQsFADBkMQswCQYDVQQGEwJVUzEL
 MAkGA1UECBMCV0ExEDAOBgNVBAcTB1NlYXR0bGUxDzANBgNVBAoTBk5vdGFyeTEl

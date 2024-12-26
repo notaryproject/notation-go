@@ -115,7 +115,7 @@ func (policyDoc *BlobDocument) Validate() error {
 
 // GetApplicableTrustPolicy returns a pointer to the deep copied [BlobTrustPolicy]
 // for given policy name.
-// see https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#blob-trust-policy
+// see https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/trust-store-trust-policy.md#blob-trust-policy
 func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*BlobTrustPolicy, error) {
 	if strings.TrimSpace(policyName) == "" {
 		return nil, errors.New("policy name cannot be empty")
@@ -132,7 +132,7 @@ func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*Blo
 
 // GetGlobalTrustPolicy returns a pointer to the deep copied [BlobTrustPolicy]
 // that is marked as global policy.
-// see https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#blob-trust-policy
+// see https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/trust-store-trust-policy.md#blob-trust-policy
 func (policyDoc *BlobDocument) GetGlobalTrustPolicy() (*BlobTrustPolicy, error) {
 	for _, policyStatement := range policyDoc.TrustPolicies {
 		if policyStatement.GlobalPolicy {
