@@ -55,7 +55,8 @@ type keyCertPair struct {
 
 var keyCertPairCollections []*keyCertPair
 
-// setUpKeyCertPairCollections setups all combinations of private key and certificates.
+// setUpKeyCertPairCollections setups all combinations of private key and
+// certificates.
 func setUpKeyCertPairCollections() []*keyCertPair {
 	// rsa
 	var keyCertPairs []*keyCertPair
@@ -160,6 +161,17 @@ func testSignerFromFile(t *testing.T, keyCert *keyCertPair, envelopeType, dir st
 	}
 	// basic verification
 	basicVerification(t, sig, envelopeType, keyCert.certs[len(keyCert.certs)-1], nil)
+}
+
+func TestGenericSignerImpl(t *testing.T) {
+	g := &GenericSigner{}
+	if _, ok := interface{}(g).(notation.Signer); !ok {
+		t.Fatal("GenericSigner does not implement notation.Signer")
+	}
+
+	if _, ok := interface{}(g).(notation.BlobSigner); !ok {
+		t.Fatal("GenericSigner does not implement notation.BlobSigner")
+	}
 }
 
 func TestNewFromFiles(t *testing.T) {

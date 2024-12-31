@@ -158,8 +158,9 @@ func (e errPolicyNotExist) Error() string {
 	return fmt.Sprintf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink)
 }
 
-// GetVerificationLevel returns VerificationLevel struct for the given
-// SignatureVerification struct throws error if SignatureVerification is invalid
+// GetVerificationLevel returns [VerificationLevel] struct for the given
+// [SignatureVerification] struct throws error if SignatureVerification is
+// invalid
 func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
 	if signatureVerification.VerificationLevel == "" {
 		return nil, errors.New("signature verification level is empty or missing in the trust policy statement")
@@ -385,7 +386,7 @@ func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
 }
 
 // isValidTrustStoreType returns true if the given string is a valid
-// truststore.Type, otherwise false.
+// [truststore.Type], otherwise false.
 func isValidTrustStoreType(s string) bool {
 	for _, p := range truststore.Types {
 		if s == string(p) {

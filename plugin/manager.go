@@ -35,7 +35,7 @@ type Manager interface {
 	List(ctx context.Context) ([]string, error)
 }
 
-// CLIManager implements Manager
+// CLIManager implements [Manager]
 type CLIManager struct {
 	pluginFS dir.SysFS
 }

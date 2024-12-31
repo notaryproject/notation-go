@@ -12,7 +12,7 @@
 // limitations under the License.
 
 // Package notation provides signer and verifier for notation Sign
-// and Verification.
+// and Verification. It supports both OCI artifact and arbitrary blob.
 package notation
 
 import (
@@ -48,7 +48,7 @@ var errDoneVerification = errors.New("done verification")
 
 var reservedAnnotationPrefixes = [...]string{"io.cncf.notary"}
 
-// SignerSignOptions contains parameters for Signer.Sign.
+// SignerSignOptions contains parameters for [Signer] and [BlobSigner].
 type SignerSignOptions struct {
 	// SignatureMediaType is the envelope type of the signature.
 	// Currently, both `application/jose+json` and `application/cose` are
@@ -86,18 +86,21 @@ type Signer interface {
 	Sign(ctx context.Context, desc ocispec.Descriptor, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
-// SignBlobOptions contains parameters for notation.SignBlob.
+// SignBlobOptions contains parameters for [notation.SignBlob].
 type SignBlobOptions struct {
 	SignerSignOptions
+
 	// ContentMediaType is the media-type of the blob being signed.
 	ContentMediaType string
+
 	// UserMetadata contains key-value pairs that are added to the signature
 	// payload
 	UserMetadata map[string]string
 }
 
 // BlobDescriptorGenerator creates descriptor using the digest Algorithm.
-// Below is the example of minimal descriptor, it must contain mediatype, digest and size of the artifact
+// Below is the example of minimal descriptor, it must contain mediatype,
+// digest and size of the artifact.
 //
 //	{
 //	   "mediaType": "application/octet-stream",
@@ -110,8 +113,8 @@ type BlobDescriptorGenerator func(digest.Algorithm) (ocispec.Descriptor, error)
 // The interface allows signing with local or remote keys,
 // and packing in various signature formats.
 type BlobSigner interface {
-	// SignBlob signs the descriptor returned by genDesc ,
-	// and returns the signature and SignerInfo
+	// SignBlob signs the descriptor returned by genDesc, and returns the
+	// signature and SignerInfo.
 	SignBlob(ctx context.Context, genDesc BlobDescriptorGenerator, opts SignerSignOptions) ([]byte, *signature.SignerInfo, error)
 }
 
@@ -122,7 +125,7 @@ type signerAnnotation interface {
 	PluginAnnotations() map[string]string
 }
 
-// SignOptions contains parameters for notation.Sign.
+// SignOptions contains parameters for [notation.Sign].
 type SignOptions struct {
 	SignerSignOptions
 
@@ -200,7 +203,8 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	return targetDesc, nil
 }
 
-// SignBlob signs the arbitrary data and returns the signature
+// SignBlob signs the arbitrary data from blobReader and returns
+// the signature and SignerInfo.
 func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, signBlobOpts SignBlobOptions) ([]byte, *signature.SignerInfo, error) {
 	// sanity checks
 	if err := validateSignArguments(signer, signBlobOpts.SignerSignOptions); err != nil {
@@ -325,7 +329,8 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 	return payload.TargetArtifact.Annotations, nil
 }
 
-// VerifierVerifyOptions contains parameters for Verifier.Verify used for verifying OCI artifact.
+// VerifierVerifyOptions contains parameters for [Verifier.Verify] used for
+// verifying OCI artifact.
 type VerifierVerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is being
 	// verified against to. It must be a full reference.
@@ -344,17 +349,17 @@ type VerifierVerifyOptions struct {
 	UserMetadata map[string]string
 }
 
-// Verifier is a interface for verifying an OCI artifact.
+// Verifier is a generic interface for verifying an OCI artifact.
 type Verifier interface {
 	// Verify verifies the `signature` associated with the target OCI artifact
-	//with manifest descriptor `desc`, and returns the outcome upon
+	// with manifest descriptor `desc`, and returns the outcome upon
 	// successful verification.
 	// If nil signature is present and the verification level is not 'skip',
 	// an error will be returned.
 	Verify(ctx context.Context, desc ocispec.Descriptor, signature []byte, opts VerifierVerifyOptions) (*VerificationOutcome, error)
 }
 
-// BlobVerifierVerifyOptions contains parameters for BlobVerifier.Verify.
+// BlobVerifierVerifyOptions contains parameters for [BlobVerifier.Verify].
 type BlobVerifierVerifyOptions struct {
 	// SignatureMediaType is the envelope type of the signature.
 	// Currently only `application/jose+json` and `application/cose` are
@@ -375,7 +380,7 @@ type BlobVerifierVerifyOptions struct {
 
 // BlobVerifier is a generic interface for verifying a blob.
 type BlobVerifier interface {
-	// VerifyBlob verifies the `signature` against the target artifact using the
+	// VerifyBlob verifies the `signature` against the target blob using the
 	// descriptor returned by descGenFunc parameter and
 	// returns the outcome upon  successful verification.
 	VerifyBlob(ctx context.Context, descGenFunc BlobDescriptorGenerator, signature []byte, opts BlobVerifierVerifyOptions) (*VerificationOutcome, error)
@@ -386,7 +391,7 @@ type verifySkipper interface {
 	SkipVerify(ctx context.Context, opts VerifierVerifyOptions) (bool, *trustpolicy.VerificationLevel, error)
 }
 
-// VerifyOptions contains parameters for notation.Verify.
+// VerifyOptions contains parameters for [notation.Verify].
 type VerifyOptions struct {
 	// ArtifactReference is the reference of the artifact that is being
 	// verified against to.
@@ -405,7 +410,7 @@ type VerifyOptions struct {
 	UserMetadata map[string]string
 }
 
-// VerifyBlobOptions contains parameters for notation.VerifyBlob.
+// VerifyBlobOptions contains parameters for [notation.VerifyBlob].
 type VerifyBlobOptions struct {
 	BlobVerifierVerifyOptions
 
@@ -414,9 +419,9 @@ type VerifyBlobOptions struct {
 }
 
 // VerifyBlob performs signature verification for a blob using notation supported
-// verification types (like integrity, authenticity, etc.) and return the
-// successful signature verification outcome. The blob is read using blobReader and
-// upon successful verification, it returns the descriptor of the blob.
+// verification types (like integrity, authenticity, etc.) and returns the
+// successful signature verification outcome. The blob is read using blobReader,
+// and upon successful verification, it returns the descriptor of the blob.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
 func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Reader, signature []byte, verifyBlobOpts VerifyBlobOptions) (ocispec.Descriptor, *VerificationOutcome, error) {

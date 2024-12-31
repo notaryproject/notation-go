@@ -40,26 +40,30 @@ const maxPluginOutputSize = 64 * 1024 * 1024 // 64 MiB
 var executor commander = &execCommander{} // for unit test
 
 // GenericPlugin is the base requirement to be a plugin.
+//
 // Deprecated: GenericPlugin exists for historical compatibility and should not be used.
 // To access GenericPlugin, use the notation-plugin-framework-go's plugin.GenericPlugin type.
 type GenericPlugin = plugin.GenericPlugin
 
 // SignPlugin defines the required methods to be a SignPlugin.
+//
 // Deprecated: SignPlugin exists for historical compatibility and should not be used.
 // To access SignPlugin, use the notation-plugin-framework-go's plugin.SignPlugin type.
 type SignPlugin = plugin.SignPlugin
 
 // VerifyPlugin defines the required method to be a VerifyPlugin.
+//
 // Deprecated: VerifyPlugin exists for historical compatibility and should not be used.
 // To access VerifyPlugin, use the notation-plugin-framework-go's plugin.VerifyPlugin type.
 type VerifyPlugin = plugin.VerifyPlugin
 
 // Plugin defines required methods to be a Plugin.
+//
 // Deprecated: Plugin exists for historical compatibility and should not be used.
 // To access Plugin, use the notation-plugin-framework-go's plugin.Plugin type.
 type Plugin = plugin.Plugin
 
-// CLIPlugin implements Plugin interface to CLI plugins.
+// CLIPlugin implements [Plugin] interface to CLI plugins.
 type CLIPlugin struct {
 	name string
 	path string

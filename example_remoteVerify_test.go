@@ -101,7 +101,7 @@ func generateTrustStore() error {
 	// an example of a valid X509 self-signed certificate for demo purpose ONLY.
 	// Users should replace `exampleX509Certificate` with their own trusted
 	// certificate and add to the trust store, following the
-	// Notary certificate requirements:
+	// Notary Project certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
 	exampleX509Certificate := `-----BEGIN CERTIFICATE-----
 MIIDQDCCAiigAwIBAgIBUTANBgkqhkiG9w0BAQsFADBOMQswCQYDVQQGEwJVUzEL

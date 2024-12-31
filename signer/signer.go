@@ -12,8 +12,8 @@
 // limitations under the License.
 
 // Package signer provides notation signing functionality. It implements the
-// notation.Signer interface by providing builtinSigner for local signing and
-// PluginSigner for remote signing.
+// [notation.Signer] and [notation.BlobSigner] interface by providing
+// builtinSigner for local signing and [PluginSigner] for remote signing.
 package signer
 
 import (
@@ -36,19 +36,22 @@ import (
 // signingAgent is the unprotected header field used by signature.
 const signingAgent = "notation-go/1.3.0+unreleased"
 
-// GenericSigner implements notation.Signer and embeds signature.Signer
+// GenericSigner implements [notation.Signer] and [notation.BlobSigner].
+// It embeds signature.Signer.
 type GenericSigner struct {
 	signer signature.Signer
 }
 
-// New returns a builtinSigner given key and cert chain
-// Deprecated: New function exists for historical compatibility and should not be used.
-// To create GenericSigner, use NewGenericSigner() function.
+// New returns a [notation.Signer] given key and cert chain.
+//
+// Deprecated: New function exists for historical compatibility and
+// should not be used. To create [GenericSigner],
+// use NewGenericSigner() function.
 func New(key crypto.PrivateKey, certChain []*x509.Certificate) (notation.Signer, error) {
 	return NewGenericSigner(key, certChain)
 }
 
-// NewGenericSigner returns a builtinSigner given key and cert chain
+// NewGenericSigner returns a builtinSigner given key and cert chain.
 func NewGenericSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*GenericSigner, error) {
 	localSigner, err := signature.NewLocalSigner(certChain, key)
 	if err != nil {
@@ -59,12 +62,13 @@ func NewGenericSigner(key crypto.PrivateKey, certChain []*x509.Certificate) (*Ge
 	}, nil
 }
 
-// NewFromFiles returns a builtinSigner given key and certChain paths.
+// NewFromFiles returns a [notation.Signer] given key and certChain paths.
 func NewFromFiles(keyPath, certChainPath string) (notation.Signer, error) {
 	return NewGenericSignerFromFiles(keyPath, certChainPath)
 }
 
-// NewGenericSignerFromFiles returns a builtinSigner given key and certChain paths.
+// NewGenericSignerFromFiles returns a builtinSigner given key and certChain
+// paths.
 func NewGenericSignerFromFiles(keyPath, certChainPath string) (*GenericSigner, error) {
 	if keyPath == "" {
 		return nil, errors.New("key path not specified")
@@ -96,7 +100,7 @@ func NewGenericSignerFromFiles(keyPath, certChainPath string) (*GenericSigner, e
 }
 
 // Sign signs the artifact described by its descriptor and returns the
-// marshalled envelope.
+// signature and SignerInfo.
 func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic signing for %v in signature media type %v", desc.Digest, opts.SignatureMediaType)
@@ -172,17 +176,18 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 	return sig, &envContent.SignerInfo, nil
 }
 
-// SignBlob signs the descriptor returned by blobGen and returns the marshalled envelope
-func (s *GenericSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
+// SignBlob signs the descriptor returned by genDesc, and returns the
+// signature and SignerInfo.
+func (s *GenericSigner) SignBlob(ctx context.Context, genDesc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
-	logger.Debugf("Generic blob signing for signature media type %v", opts.SignatureMediaType)
+	logger.Debugf("Generic blob signing for signature media type %s", opts.SignatureMediaType)
 
 	ks, err := s.signer.KeySpec()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	desc, err := getDescriptor(ks, descGenFunc)
+	desc, err := getDescriptor(ks, genDesc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -190,11 +195,11 @@ func (s *GenericSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobD
 	return s.Sign(ctx, desc, opts)
 }
 
-func getDescriptor(ks signature.KeySpec, descGenFunc notation.BlobDescriptorGenerator) (ocispec.Descriptor, error) {
+func getDescriptor(ks signature.KeySpec, genDesc notation.BlobDescriptorGenerator) (ocispec.Descriptor, error) {
 	digestAlg, ok := algorithms[ks.SignatureAlgorithm().Hash()]
 	if !ok {
 		return ocispec.Descriptor{}, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm().Hash())
 	}
 
-	return descGenFunc(digestAlg)
+	return genDesc(digestAlg)
 }

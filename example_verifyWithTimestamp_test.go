@@ -115,7 +115,7 @@ func generateTrustStoreWithTimestamp() error {
 	// an example of a valid X509 self-signed certificate for demo purpose ONLY.
 	// Users should replace `exampleX509Certificate` with their own trusted
 	// certificate and add to the trust store, following the
-	// Notary certificate requirements:
+	// Notary Project certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
 	exampleX509Certificate := `-----BEGIN CERTIFICATE-----
 MIIDQDCCAiigAwIBAgIBUTANBgkqhkiG9w0BAQsFADBOMQswCQYDVQQGEwJVUzEL
@@ -149,7 +149,7 @@ GLAfj/jSf9OH9VLTPHOS8/N0Ka4=
 	// an example of a valid TSA root certificate for demo purpose ONLY.
 	// Users should replace `exampleTSARootCertificate` with their own trusted
 	// TSA root certificate and add to the trust store, following the
-	// Notary certificate requirements:
+	// Notary Project certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
 	exampleTSARootCertificate := `-----BEGIN CERTIFICATE-----
 		MIIFkDCCA3igAwIBAgIQBZsbV56OITLiOQe9p3d1XDANBgkqhkiG9w0BAQwFADBi
