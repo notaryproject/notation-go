@@ -24,14 +24,16 @@ import (
 	"github.com/notaryproject/notation-go/signer"
 )
 
-// ExampleSignBlob demonstrates how to use signer.BlobSign to sign arbitrary data.
+// ExampleSignBlob demonstrates how to use [notation.SignBlob] to sign arbitrary
+// data.
 func Example_signBlob() {
-	//exampleSigner implements notation.Signer and notation.BlobSigner. Given key and X509 certificate chain,
-	// it provides method to sign OCI artifacts or blobs.
+	// exampleSigner implements [notation.Signer] and [notation.BlobSigner].
+	// Given key and X509 certificate chain, it provides method to sign OCI
+	// artifacts or blobs.
 	// Users should replace `exampleCertTuple.PrivateKey` with their own private
 	// key and replace `exampleCerts` with the corresponding certificate chain,
-	//following the Notary certificate requirements:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
+	// following the Notary Project certificate requirements:
+	// https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/signature-specification.md#certificate-requirements
 	exampleSigner, err := signer.NewGenericSigner(exampleCertTuple.PrivateKey, exampleCerts)
 	if err != nil {
 		panic(err) // Handle error
@@ -42,7 +44,7 @@ func Example_signBlob() {
 	exampleSignatureMediaType := jws.MediaTypeEnvelope
 	exampleContentMediaType := "video/mp4"
 
-	// exampleSignOptions is an example of notation.SignBlobOptions.
+	// exampleSignOptions is an example of [notation.SignBlobOptions].
 	exampleSignOptions := notation.SignBlobOptions{
 		SignerSignOptions: notation.SignerSignOptions{
 			SignatureMediaType: exampleSignatureMediaType,
@@ -52,7 +54,8 @@ func Example_signBlob() {
 		UserMetadata:     map[string]string{"buildId": "101"},
 	}
 
-	// exampleReader reads the data that needs to be signed. This data can be in a file or in memory.
+	// exampleReader reads the data that needs to be signed.
+	// This data can be in a file or in memory.
 	exampleReader := strings.NewReader("example blob")
 
 	// Upon successful signing, signature envelope and signerInfo are returned.

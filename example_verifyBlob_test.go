@@ -27,9 +27,9 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 )
 
-// examplePolicyDocument is an example of a valid trust policy document.
-// trust policy document should follow this spec:
-// https://github.com/notaryproject/notaryproject/blob/v1.1.0/specs/trust-store-trust-policy.md#trust-policy
+// exampleBlobPolicyDocument is an example of a valid blob trust policy document.
+// blob trust policy document should follow this spec:
+// https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/trust-store-trust-policy.md#blob-trust-policy
 var exampleBlobPolicyDocument = trustpolicy.BlobDocument{
 	Version: "1.0",
 	TrustPolicies: []trustpolicy.BlobTrustPolicy{
@@ -42,8 +42,8 @@ var exampleBlobPolicyDocument = trustpolicy.BlobDocument{
 	},
 }
 
-// ExampleVerifyBlob demonstrates how to use verifier.Verify to verify a
-// signature of the blob.
+// ExampleVerifyBlob demonstrates how to use [notation.VerifyBlob] to verify a
+// signature of an arbitrary blob.
 func Example_verifyBlob() {
 	// Both COSE ("application/cose") and JWS ("application/jose+json")
 	// signature mediaTypes are supported.
@@ -53,23 +53,24 @@ func Example_verifyBlob() {
 	exampleSignatureEnvelope := getSignatureEnvelope()
 
 	// createTrustStoreForBlobVerify creates a trust store directory for demo purpose.
-	// Users could use the default trust store from Notary and add trusted
+	// Users could use the default trust store from Notary Project and add trusted
 	// certificates into it following the trust store spec:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#trust-store
+	// https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/trust-store-trust-policy.md#trust-store
 	if err := createTrustStoreForBlobVerify(); err != nil {
 		panic(err) // Handle error
 	}
 
-	// exampleVerifier implements notation.Verify and notation.VerifyBlob.
+	// exampleVerifier implements [notation.Verify] and [notation.VerifyBlob].
 	exampleVerifier, err := verifier.NewVerifier(nil, &exampleBlobPolicyDocument, truststore.NewX509TrustStore(dir.ConfigFS()), nil)
 	if err != nil {
 		panic(err) // Handle error
 	}
 
-	// exampleReader reads the data that needs to be verified. This data can be in a file or in memory.
+	// exampleReader reads the data that needs to be verified.
+	// This data can be in a file or in memory.
 	exampleReader := strings.NewReader("example blob")
 
-	// exampleVerifyOptions is an example of notation.VerifierVerifyOptions
+	// exampleVerifyOptions is an example of [notation.VerifyBlobOptions]
 	exampleVerifyOptions := notation.VerifyBlobOptions{
 		BlobVerifierVerifyOptions: notation.BlobVerifierVerifyOptions{
 			SignatureMediaType: exampleSignatureMediaType,
@@ -110,8 +111,8 @@ func createTrustStoreForBlobVerify() error {
 	// generate the `exampleSignatureEnvelopePem` above.)
 	// Users should replace `exampleX509Certificate` with their own trusted
 	// certificate and add to the trust store, following the
-	// Notary certificate requirements:
-	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
+	// Notary Project certificate requirements:
+	// https://github.com/notaryproject/specifications/tree/9c81dc773508dedc5a81c02c8d805de04f65050b/specs/signature-specification.md#certificate-requirements
 	exampleX509Certificate := `-----BEGIN CERTIFICATE-----
 MIIEbDCCAtSgAwIBAgIBUzANBgkqhkiG9w0BAQsFADBkMQswCQYDVQQGEwJVUzEL
 MAkGA1UECBMCV0ExEDAOBgNVBAcTB1NlYXR0bGUxDzANBgNVBAoTBk5vdGFyeTEl

@@ -46,7 +46,7 @@ func Example_localSign() {
 	// exampleSigner is a notation.Signer given key and X509 certificate chain.
 	// Users should replace `exampleCertTuple.PrivateKey` with their own private
 	// key and replace `exampleCerts` with the corresponding full certificate
-	// chain, following the Notary certificate requirements:
+	// chain, following the Notary Project certificate requirements:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/signature-specification.md#certificate-requirements
 	exampleSigner, err := signer.NewGenericSigner(exampleCertTuple.PrivateKey, exampleCerts)
 	if err != nil {

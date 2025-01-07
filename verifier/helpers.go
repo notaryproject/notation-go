@@ -60,10 +60,10 @@ func loadX509TrustStores(ctx context.Context, scheme signature.SigningScheme, po
 	return loadX509TrustStoresWithType(ctx, typeToLoad, policyName, trustStores, x509TrustStore)
 }
 
-// isCriticalFailure checks whether a VerificationResult fails the entire
-// signature verification workflow.
+// isCriticalFailure checks whether a [notation.ValidationResult] fails the
+// entire signature verification workflow.
 // signature verification workflow is considered failed if there is a
-// VerificationResult with "Enforced" as the action but the result was
+// ValidationResult with "Enforced" as the action but the result was
 // unsuccessful.
 func isCriticalFailure(result *notation.ValidationResult) bool {
 	return result.Action == trustpolicy.ActionEnforce && result.Error != nil

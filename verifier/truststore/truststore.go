@@ -30,8 +30,7 @@ import (
 	"github.com/notaryproject/notation-go/internal/slices"
 )
 
-// Type is an enum for trust store types supported such as
-// "ca" and "signingAuthority"
+// Type is an enum for trust store types supported
 type Type string
 
 const (
@@ -48,18 +47,18 @@ var (
 	}
 )
 
-// X509TrustStore provide list and get behaviors for the trust store
+// X509TrustStore provides list and get behaviors for the trust store
 type X509TrustStore interface {
 	// GetCertificates returns certificates under storeType/namedStore
 	GetCertificates(ctx context.Context, storeType Type, namedStore string) ([]*x509.Certificate, error)
 }
 
-// NewX509TrustStore generates a new X509TrustStore
+// NewX509TrustStore generates a new [X509TrustStore]
 func NewX509TrustStore(trustStorefs dir.SysFS) X509TrustStore {
 	return &x509TrustStore{trustStorefs}
 }
 
-// x509TrustStore implements X509TrustStore
+// x509TrustStore implements [X509TrustStore]
 type x509TrustStore struct {
 	trustStorefs dir.SysFS
 }

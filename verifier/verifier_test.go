@@ -1509,7 +1509,7 @@ func verifyResult(outcome *notation.VerificationOutcome, expectedResult notation
 	}
 }
 
-// testTrustStore implements truststore.X509TrustStore and returns the trusted certificates for a given trust-store.
+// testTrustStore implements [truststore.X509TrustStore] and returns the trusted certificates for a given trust-store.
 type testTrustStore struct{}
 
 func (ts *testTrustStore) GetCertificates(_ context.Context, _ truststore.Type, _ string) ([]*x509.Certificate, error) {
