@@ -158,9 +158,9 @@ func (e errPolicyNotExist) Error() string {
 	return fmt.Sprintf("trust policy is not present. To create a trust policy, see: %s", trustPolicyLink)
 }
 
-// GetVerificationLevel returns [VerificationLevel] struct for the given
-// [SignatureVerification] struct throws error if SignatureVerification is
-// invalid
+// GetVerificationLevel returns [VerificationLevel] for the given
+// [SignatureVerification] struct.
+// It throws error if SignatureVerification is invalid.
 func (signatureVerification *SignatureVerification) GetVerificationLevel() (*VerificationLevel, error) {
 	if signatureVerification.VerificationLevel == "" {
 		return nil, errors.New("signature verification level is empty or missing in the trust policy statement")
@@ -175,16 +175,13 @@ func (signatureVerification *SignatureVerification) GetVerificationLevel() (*Ver
 	if baseLevel == nil {
 		return nil, fmt.Errorf("invalid signature verification level %q", signatureVerification.VerificationLevel)
 	}
-
 	if len(signatureVerification.Override) == 0 {
 		// nothing to override, return the base verification level
 		return baseLevel, nil
 	}
-
 	if baseLevel == LevelSkip {
 		return nil, fmt.Errorf("signature verification level %q can't be used to customize signature verification", baseLevel.Name)
 	}
-
 	customVerificationLevel := &VerificationLevel{
 		Name:        "custom",
 		Enforcement: make(map[ValidationType]ValidationAction),
@@ -219,13 +216,11 @@ func (signatureVerification *SignatureVerification) GetVerificationLevel() (*Ver
 		if validationAction == "" {
 			return nil, fmt.Errorf("verification action %q in custom signature verification is not supported, supported values are %q", value, ValidationActions)
 		}
-
 		if validationType == TypeIntegrity {
 			return nil, fmt.Errorf("%q verification can not be overridden in custom signature verification", key)
 		} else if validationType != TypeRevocation && validationAction == ActionSkip {
 			return nil, fmt.Errorf("%q verification can not be skipped in custom signature verification", key)
 		}
-
 		customVerificationLevel.Enforcement[validationType] = validationAction
 	}
 	return customVerificationLevel, nil
@@ -245,12 +240,10 @@ func getDocument(path string, v any) error {
 		}
 		return err
 	}
-
 	mode := fileInfo.Mode()
 	if mode.IsDir() || mode&fs.ModeSymlink != 0 {
 		return fmt.Errorf("trust policy is not a regular file (symlinks are not supported). To create a trust policy, see: %s", trustPolicyLink)
 	}
-
 	jsonFile, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrPermission) {
@@ -323,7 +316,6 @@ func validateTrustStore(policyName string, trustStores []string) error {
 			return fmt.Errorf("trust policy statement %q uses an unsupported trust store name %q in trust store value %q. Named store name needs to follow [a-zA-Z0-9_.-]+ format", policyName, namedStore, trustStore)
 		}
 	}
-
 	return nil
 }
 
@@ -342,7 +334,6 @@ func validateTrustedIdentities(policyName string, tis []string) error {
 		if identity == "" {
 			return fmt.Errorf("trust policy statement %q has an empty trusted identity", policyName)
 		}
-
 		if identity != trustpolicy.Wildcard {
 			identityPrefix, identityValue, found := strings.Cut(identity, ":")
 			if !found {
@@ -381,7 +372,6 @@ func validateOverlappingDNs(policyName string, parsedDNs []parsedDN) error {
 			}
 		}
 	}
-
 	return nil
 }
 

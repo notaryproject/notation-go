@@ -12,7 +12,7 @@
 // limitations under the License.
 
 // Package signer provides notation signing functionality. It implements the
-// [notation.Signer] and [notation.BlobSigner] interface by providing
+// [notation.Signer] and [notation.BlobSigner] interfaces by providing
 // builtinSigner for local signing and [PluginSigner] for remote signing.
 package signer
 
@@ -181,17 +181,14 @@ func (s *GenericSigner) Sign(ctx context.Context, desc ocispec.Descriptor, opts 
 func (s *GenericSigner) SignBlob(ctx context.Context, genDesc notation.BlobDescriptorGenerator, opts notation.SignerSignOptions) ([]byte, *signature.SignerInfo, error) {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Generic blob signing for signature media type %s", opts.SignatureMediaType)
-
 	ks, err := s.signer.KeySpec()
 	if err != nil {
 		return nil, nil, err
 	}
-
 	desc, err := getDescriptor(ks, genDesc)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return s.Sign(ctx, desc, opts)
 }
 
@@ -200,6 +197,5 @@ func getDescriptor(ks signature.KeySpec, genDesc notation.BlobDescriptorGenerato
 	if !ok {
 		return ocispec.Descriptor{}, fmt.Errorf("unknown hashing algo %v", ks.SignatureAlgorithm().Hash())
 	}
-
 	return genDesc(digestAlg)
 }

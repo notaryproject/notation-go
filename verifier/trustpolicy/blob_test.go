@@ -57,7 +57,7 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 	policyDoc := dummyBlobPolicyDocument()
 	policyDoc.Version = ""
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "blob trust policy has empty version, version must be specified" {
+	if err == nil || err.Error() != "blob trust policy document has empty version, version must be specified" {
 		t.Fatalf("empty version should return error")
 	}
 

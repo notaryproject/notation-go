@@ -159,6 +159,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
 	}
+
 	// artifactRef is a tag or a digest, if it's a digest it has to match
 	// the resolved digest
 	if artifactRef != targetDesc.Digest.String() {
@@ -166,6 +167,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 			// artifactRef is a digest, but does not match the resolved digest
 			return ocispec.Descriptor{}, fmt.Errorf("user input digest %s does not match the resolved digest %s", artifactRef, targetDesc.Digest.String())
 		}
+
 		// artifactRef is a tag
 		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", artifactRef)
 		logger.Infof("Resolved artifact tag `%s` to digest `%v` before signing", artifactRef, targetDesc.Digest)
@@ -178,11 +180,11 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
+
 	var pluginAnnotations map[string]string
 	if signerAnts, ok := signer.(signerAnnotation); ok {
 		pluginAnnotations = signerAnts.PluginAnnotations()
 	}
-
 	logger.Debug("Generating annotation")
 	annotations, err := generateAnnotations(signerInfo, pluginAnnotations)
 	if err != nil {
@@ -193,13 +195,13 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	_, _, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, targetDesc, annotations)
 	if err != nil {
 		var referrerError *remote.ReferrersError
+
 		// do not log an error for failing to delete referral index
 		if !errors.As(err, &referrerError) || !referrerError.IsReferrersIndexDelete() {
 			logger.Error("Failed to push the signature")
 		}
 		return ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
-
 	return targetDesc, nil
 }
 
@@ -210,15 +212,12 @@ func SignBlob(ctx context.Context, signer BlobSigner, blobReader io.Reader, sign
 	if err := validateSignArguments(signer, signBlobOpts.SignerSignOptions); err != nil {
 		return nil, nil, err
 	}
-
 	if blobReader == nil {
 		return nil, nil, errors.New("blobReader cannot be nil")
 	}
-
 	if signBlobOpts.ContentMediaType == "" {
 		return nil, nil, errors.New("content media-type cannot be empty")
 	}
-
 	if err := validateContentMediaType(signBlobOpts.ContentMediaType); err != nil {
 		return nil, nil, err
 	}
@@ -243,33 +242,26 @@ func validateSignArguments(signer any, signOpts SignerSignOptions) error {
 	if err := validateSigMediaType(signOpts.SignatureMediaType); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 func addUserMetadataToDescriptor(ctx context.Context, desc ocispec.Descriptor, userMetadata map[string]string) (ocispec.Descriptor, error) {
 	logger := log.GetLogger(ctx)
-
 	if desc.Annotations == nil && len(userMetadata) > 0 {
 		desc.Annotations = map[string]string{}
 	}
-
 	for k, v := range userMetadata {
 		logger.Debugf("Adding metadata %v=%v to annotations", k, v)
-
 		for _, reservedPrefix := range reservedAnnotationPrefixes {
 			if strings.HasPrefix(k, reservedPrefix) {
 				return desc, fmt.Errorf("error adding user metadata: metadata key %v has reserved prefix %v", k, reservedPrefix)
 			}
 		}
-
 		if _, ok := desc.Annotations[k]; ok {
 			return desc, fmt.Errorf("error adding user metadata: metadata key %v is already present in the target artifact", k)
 		}
-
 		desc.Annotations[k] = v
 	}
-
 	return desc, nil
 }
 
@@ -311,6 +303,7 @@ type VerificationOutcome struct {
 	Error error
 }
 
+// UserMetadata returns the user metadata from the signature envelope.
 func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 	if outcome.EnvelopeContent == nil {
 		return nil, errors.New("unable to find envelope content for verification outcome")
@@ -321,11 +314,9 @@ func (outcome *VerificationOutcome) UserMetadata() (map[string]string, error) {
 	if err != nil {
 		return nil, errors.New("failed to unmarshal the payload content in the signature blob to envelope.Payload")
 	}
-
 	if payload.TargetArtifact.Annotations == nil {
 		return map[string]string{}, nil
 	}
-
 	return payload.TargetArtifact.Annotations, nil
 }
 
@@ -382,7 +373,7 @@ type BlobVerifierVerifyOptions struct {
 type BlobVerifier interface {
 	// VerifyBlob verifies the `signature` against the target blob using the
 	// descriptor returned by descGenFunc parameter and
-	// returns the outcome upon  successful verification.
+	// returns the outcome upon successful verification.
 	VerifyBlob(ctx context.Context, descGenFunc BlobDescriptorGenerator, signature []byte, opts BlobVerifierVerifyOptions) (*VerificationOutcome, error)
 }
 
@@ -428,23 +419,18 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 	if blobVerifier == nil {
 		return ocispec.Descriptor{}, nil, errors.New("blobVerifier cannot be nil")
 	}
-
 	if blobReader == nil {
 		return ocispec.Descriptor{}, nil, errors.New("blobReader cannot be nil")
 	}
-
 	if len(signature) == 0 {
 		return ocispec.Descriptor{}, nil, errors.New("signature cannot be nil or empty")
 	}
-
 	if err := validateContentMediaType(verifyBlobOpts.ContentMediaType); err != nil {
 		return ocispec.Descriptor{}, nil, err
 	}
-
 	if err := validateSigMediaType(verifyBlobOpts.SignatureMediaType); err != nil {
 		return ocispec.Descriptor{}, nil, err
 	}
-
 	getDescFunc := getDescriptorFunc(ctx, blobReader, verifyBlobOpts.ContentMediaType, verifyBlobOpts.UserMetadata)
 	vo, err := blobVerifier.VerifyBlob(ctx, getDescFunc, signature, verifyBlobOpts.BlobVerifierVerifyOptions)
 	if err != nil {
@@ -455,12 +441,11 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 	if err = json.Unmarshal(vo.EnvelopeContent.Payload.Content, &desc); err != nil {
 		return ocispec.Descriptor{}, nil, err
 	}
-
 	return desc, vo, nil
 }
 
 // Verify performs signature verification on each of the notation supported
-// verification types (like integrity, authenticity, etc.) and return the
+// verification types (like integrity, authenticity, etc.) and returns the
 // successful signature verification outcome.
 // For more details on signature verification, see
 // https://github.com/notaryproject/notaryproject/blob/main/specs/trust-store-trust-policy.md#signature-verification
@@ -484,7 +469,6 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 		PluginConfig:      verifyOpts.PluginConfig,
 		UserMetadata:      verifyOpts.UserMetadata,
 	}
-
 	if skipChecker, ok := verifier.(verifySkipper); ok {
 		logger.Info("Checking whether signature verification should be skipped or not")
 		skip, verificationLevel, err := skipChecker.SkipVerify(ctx, opts)
@@ -558,6 +542,7 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 			}
 			// at this point, the signature is verified successfully
 			verificationSucceeded = true
+
 			// on success, verificationOutcomes only contains the
 			// succeeded outcome
 			verificationOutcomes = []*VerificationOutcome{outcome}
@@ -566,14 +551,11 @@ func Verify(ctx context.Context, verifier Verifier, repo registry.Repository, ve
 			// early break on success
 			return errDoneVerification
 		}
-
 		if numOfSignatureProcessed >= verifyOpts.MaxSignatureAttempts {
 			return errExceededMaxVerificationLimit
 		}
-
 		return nil
 	})
-
 	if err != nil && !errors.Is(err, errDoneVerification) {
 		if errors.Is(err, errExceededMaxVerificationLimit) {
 			return ocispec.Descriptor{}, verificationOutcomes, err
