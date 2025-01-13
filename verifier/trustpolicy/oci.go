@@ -79,6 +79,7 @@ var supportedOCIPolicyVersions = []string{"1.0"}
 // dir.PathOCITrustPolicy will be read.
 func LoadOCIDocument() (*OCIDocument, error) {
 	var doc OCIDocument
+
 	// attempt to load the document from dir.PathOCITrustPolicy
 	if err := getDocument(dir.PathOCITrustPolicy, &doc); err != nil {
 		// if the document is not found at the first path, try the second path
@@ -88,6 +89,7 @@ func LoadOCIDocument() (*OCIDocument, error) {
 			}
 			return &doc, nil
 		}
+
 		// if an error occurred other than the document not found, return it
 		return nil, err
 	}
@@ -114,18 +116,15 @@ func (policyDoc *OCIDocument) Validate() error {
 	if len(policyDoc.TrustPolicies) == 0 {
 		return errors.New("oci trust policy document can not have zero trust policy statements")
 	}
-
 	policyNames := set.New[string]()
 	for _, statement := range policyDoc.TrustPolicies {
 		// Verify unique policy statement names across the policy document
 		if policyNames.Contains(statement.Name) {
 			return fmt.Errorf("multiple oci trust policy statements use the same name %q, statement names must be unique", statement.Name)
 		}
-
 		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return fmt.Errorf("oci trust policy: %w", err)
 		}
-
 		policyNames.Add(statement.Name)
 	}
 
@@ -133,7 +132,6 @@ func (policyDoc *OCIDocument) Validate() error {
 	if err := validateRegistryScopes(policyDoc); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -158,7 +156,6 @@ func (policyDoc *OCIDocument) GetApplicableTrustPolicy(artifactReference string)
 			applicablePolicy = (&policyStatement).clone()
 		}
 	}
-
 	if applicablePolicy != nil {
 		// a policy with exact match for registry scope takes precedence over
 		// a wildcard (*) policy.
@@ -221,7 +218,6 @@ func getArtifactPathFromReference(artifactReference string) (string, error) {
 	if i < 0 {
 		return "", fmt.Errorf("artifact URI %q could not be parsed, make sure it is the fully qualified oci artifact URI without the scheme/protocol. e.g domain.com:80/my/repository@sha256:digest", artifactReference)
 	}
-
 	artifactPath := artifactReference[:i]
 	if err := validateRegistryScopeFormat(artifactPath); err != nil {
 		return "", err
@@ -245,12 +241,10 @@ func validateRegistryScopeFormat(scope string) error {
 	if len(scope) > 1 && strings.Contains(scope, "*") {
 		return fmt.Errorf(errorWildCardMessage, scope)
 	}
-
 	domain, repository, found := strings.Cut(scope, "/")
 	if !found {
 		return fmt.Errorf(errorMessage, scope)
 	}
-
 	if domain == "" || repository == "" || !domainRegexp.MatchString(domain) || !repositoryRegexp.MatchString(repository) {
 		return fmt.Errorf(errorMessage, scope)
 	}

@@ -105,7 +105,7 @@ func NewOCIVerifierFromConfig() (*verifier, error) {
 
 // NewBlobVerifierFromConfig returns a Blob verifier based on local file system
 func NewBlobVerifierFromConfig() (*verifier, error) {
-	// load trust policy
+	// load blob trust policy
 	policyDocument, err := trustpolicy.LoadBlobDocument()
 	if err != nil {
 		return nil, err

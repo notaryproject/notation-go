@@ -63,7 +63,7 @@ func LoadBlobDocument() (*BlobDocument, error) {
 
 // Validate validates a blob trust policy document according to its version's
 // rule set.
-// If any rule is violated, returns an error
+// If any rule is violated, returns an error.
 func (policyDoc *BlobDocument) Validate() error {
 	// sanity check
 	if policyDoc == nil {
@@ -72,7 +72,7 @@ func (policyDoc *BlobDocument) Validate() error {
 
 	// Validate Version
 	if policyDoc.Version == "" {
-		return errors.New("blob trust policy has empty version, version must be specified")
+		return errors.New("blob trust policy document has empty version, version must be specified")
 	}
 	if !slices.Contains(supportedBlobPolicyVersions, policyDoc.Version) {
 		return fmt.Errorf("blob trust policy document uses unsupported version %q", policyDoc.Version)
@@ -82,7 +82,6 @@ func (policyDoc *BlobDocument) Validate() error {
 	if len(policyDoc.TrustPolicies) == 0 {
 		return errors.New("blob trust policy document can not have zero trust policy statements")
 	}
-
 	policyNames := set.New[string]()
 	var foundGlobalPolicy bool
 	for _, statement := range policyDoc.TrustPolicies {
@@ -90,11 +89,9 @@ func (policyDoc *BlobDocument) Validate() error {
 		if policyNames.Contains(statement.Name) {
 			return fmt.Errorf("multiple blob trust policy statements use the same name %q, statement names must be unique", statement.Name)
 		}
-
 		if err := validatePolicyCore(statement.Name, statement.SignatureVerification, statement.TrustStores, statement.TrustedIdentities); err != nil {
 			return fmt.Errorf("blob trust policy: %w", err)
 		}
-
 		if statement.GlobalPolicy {
 			if foundGlobalPolicy {
 				return errors.New("multiple blob trust policy statements have globalPolicy set to true. Only one trust policy statement can be marked as global policy")
@@ -104,12 +101,10 @@ func (policyDoc *BlobDocument) Validate() error {
 			if reflect.DeepEqual(statement.SignatureVerification.VerificationLevel, LevelSkip) {
 				return errors.New("global blob trust policy statement cannot have verification level set to skip")
 			}
-
 			foundGlobalPolicy = true
 		}
 		policyNames.Add(statement.Name)
 	}
-
 	return nil
 }
 
@@ -126,7 +121,6 @@ func (policyDoc *BlobDocument) GetApplicableTrustPolicy(policyName string) (*Blo
 			return (&policyStatement).clone(), nil
 		}
 	}
-
 	return nil, fmt.Errorf("no applicable blob trust policy with name %q", policyName)
 }
 
@@ -139,7 +133,6 @@ func (policyDoc *BlobDocument) GetGlobalTrustPolicy() (*BlobTrustPolicy, error) 
 			return (&policyStatement).clone(), nil
 		}
 	}
-
 	return nil, fmt.Errorf("no global blob trust policy")
 }
 
