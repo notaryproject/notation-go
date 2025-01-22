@@ -728,9 +728,13 @@ func TestNewVerifierWithOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation object: %v", err)
 	}
-	opts := VerifierOptions{RevocationClient: r}
 
-	v, err := NewVerifierWithOptions(&ociPolicy, &blobPolicy, store, pm, opts)
+	v, err := NewVerifierWithOptions(store, VerifierOptions{
+		RevocationClient: r,
+		OCITrustPolicy:   &ociPolicy,
+		BlobTrustPolicy:  &blobPolicy,
+		PluginManager:    pm,
+	})
 	if err != nil {
 		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
 	}
@@ -750,18 +754,28 @@ func TestNewVerifierWithOptions(t *testing.T) {
 		t.Fatal("expected nil revocationCodeSigningValidator")
 	}
 
-	_, err = NewVerifierWithOptions(nil, &blobPolicy, store, pm, opts)
+	_, err = NewVerifierWithOptions(store, VerifierOptions{
+		RevocationClient: r,
+		BlobTrustPolicy:  &blobPolicy,
+		PluginManager:    pm,
+	})
 	if err != nil {
 		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
 	}
 
-	_, err = NewVerifierWithOptions(&ociPolicy, nil, store, pm, opts)
+	_, err = NewVerifierWithOptions(store, VerifierOptions{
+		RevocationClient: r,
+		OCITrustPolicy:   &ociPolicy,
+		PluginManager:    pm,
+	})
 	if err != nil {
 		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
 	}
 
-	opts.RevocationClient = nil
-	_, err = NewVerifierWithOptions(&ociPolicy, nil, store, pm, opts)
+	_, err = NewVerifierWithOptions(store, VerifierOptions{
+		OCITrustPolicy: &ociPolicy,
+		PluginManager:  pm,
+	})
 	if err != nil {
 		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
 	}
@@ -770,19 +784,11 @@ func TestNewVerifierWithOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts = VerifierOptions{
+	v, err = NewVerifierWithOptions(store, VerifierOptions{
 		RevocationCodeSigningValidator: csValidator,
-	}
-	v, err = NewVerifierWithOptions(&ociPolicy, nil, store, pm, opts)
-	if err != nil {
-		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
-	}
-	if v.revocationCodeSigningValidator == nil {
-		t.Fatal("expected v.revocationCodeSigningValidator to be non-nil")
-	}
-
-	opts = VerifierOptions{}
-	v, err = NewVerifierWithOptions(&ociPolicy, nil, store, pm, opts)
+		OCITrustPolicy:                 &ociPolicy,
+		PluginManager:                  pm,
+	})
 	if err != nil {
 		t.Fatalf("expected NewVerifierWithOptions constructor to succeed, but got %v", err)
 	}
@@ -803,17 +809,23 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating revocation timestamp object: %v", err)
 	}
-	opts := VerifierOptions{
+
+	_, err = NewVerifierWithOptions(store, VerifierOptions{
 		RevocationClient:                r,
 		RevocationTimestampingValidator: rt,
-	}
-
-	_, err = NewVerifierWithOptions(nil, nil, store, pm, opts)
+		PluginManager:                   pm,
+	})
 	if err == nil || err.Error() != "ociTrustPolicy and blobTrustPolicy both cannot be nil" {
 		t.Errorf("expected err but not found.")
 	}
 
-	_, err = NewVerifierWithOptions(&ociPolicy, &blobPolicy, nil, pm, opts)
+	_, err = NewVerifierWithOptions(nil, VerifierOptions{
+		RevocationClient:                r,
+		RevocationTimestampingValidator: rt,
+		OCITrustPolicy:                  &ociPolicy,
+		BlobTrustPolicy:                 &blobPolicy,
+		PluginManager:                   pm,
+	})
 	if err == nil || err.Error() != "trustStore cannot be nil" {
 		t.Errorf("expected err but not found.")
 	}
@@ -831,7 +843,10 @@ func TestVerifyBlob(t *testing.T) {
 			},
 		},
 	}
-	v, err := NewVerifier(nil, policy, &testTrustStore{}, pm)
+	v, err := NewVerifierWithOptions(&testTrustStore{}, VerifierOptions{
+		BlobTrustPolicy: policy,
+		PluginManager:   pm,
+	})
 	if err != nil {
 		t.Fatalf("unexpected error while creating verifier: %v", err)
 	}
@@ -877,7 +892,10 @@ func TestVerifyBlob_Error(t *testing.T) {
 			},
 		},
 	}
-	v, err := NewVerifier(nil, policy, &testTrustStore{}, pm)
+	v, err := NewVerifierWithOptions(&testTrustStore{}, VerifierOptions{
+		BlobTrustPolicy: policy,
+		PluginManager:   pm,
+	})
 	if err != nil {
 		t.Fatalf("unexpected error while creating verifier: %v", err)
 	}

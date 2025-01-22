@@ -88,6 +88,15 @@ type VerifierOptions struct {
 	// RevocationTimestampingValidator is used for verifying revocation of
 	// timestamping certificate chain with context.
 	RevocationTimestampingValidator revocation.Validator
+
+	// OCITrustpolicy is the trust policy document for OCI artifacts.
+	OCITrustPolicy *trustpolicy.OCIDocument
+
+	// BlobTrustPolicy is the trust policy document for Blob artifacts.
+	BlobTrustPolicy *trustpolicy.BlobDocument
+
+	// PluginManager manages plugins installed on the system.
+	PluginManager plugin.Manager
 }
 
 // NewOCIVerifierFromConfig returns an OCI verifier based on local file system
@@ -100,7 +109,10 @@ func NewOCIVerifierFromConfig() (*verifier, error) {
 	// load trust store
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
-	return NewVerifier(policyDocument, nil, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
+	return NewVerifierWithOptions(x509TrustStore, VerifierOptions{
+		OCITrustPolicy: policyDocument,
+		PluginManager:  plugin.NewCLIManager(dir.PluginFS()),
+	})
 }
 
 // NewBlobVerifierFromConfig returns a Blob verifier based on local file system
@@ -113,7 +125,10 @@ func NewBlobVerifierFromConfig() (*verifier, error) {
 	// load trust store
 	x509TrustStore := truststore.NewX509TrustStore(dir.ConfigFS())
 
-	return NewVerifier(nil, policyDocument, x509TrustStore, plugin.NewCLIManager(dir.PluginFS()))
+	return NewVerifierWithOptions(x509TrustStore, VerifierOptions{
+		BlobTrustPolicy: policyDocument,
+		PluginManager:   plugin.NewCLIManager(dir.PluginFS()),
+	})
 }
 
 // NewWithOptions creates a new verifier given ociTrustPolicy, trustStore,
@@ -122,18 +137,17 @@ func NewBlobVerifierFromConfig() (*verifier, error) {
 // Deprecated: NewWithOptions function exists for historical compatibility and
 // should not be used. To create verifier, use [NewVerifierWithOptions] function.
 func NewWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, opts VerifierOptions) (notation.Verifier, error) {
-	return NewVerifierWithOptions(ociTrustPolicy, nil, trustStore, pluginManager, opts)
+	opts.OCITrustPolicy = ociTrustPolicy
+	opts.PluginManager = pluginManager
+	return NewVerifierWithOptions(trustStore, opts)
 }
 
-// NewVerifier creates a new verifier given ociTrustPolicy, trustStore and
-// pluginManager
-func NewVerifier(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (*verifier, error) {
-	return NewVerifierWithOptions(ociTrustPolicy, blobTrustPolicy, trustStore, pluginManager, VerifierOptions{})
-}
-
-// NewVerifierWithOptions creates a new verifier given ociTrustPolicy,
-// blobTrustPolicy, trustStore, pluginManager, and verifierOptions
-func NewVerifierWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, blobTrustPolicy *trustpolicy.BlobDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager, verifierOptions VerifierOptions) (*verifier, error) {
+// NewVerifierWithOptions creates a new verifier given trustStore and
+// verifierOptions.
+func NewVerifierWithOptions(trustStore truststore.X509TrustStore, verifierOptions VerifierOptions) (*verifier, error) {
+	ociTrustPolicy := verifierOptions.OCITrustPolicy
+	blobTrustPolicy := verifierOptions.BlobTrustPolicy
+	pluginManager := verifierOptions.PluginManager
 	if trustStore == nil {
 		return nil, errors.New("trustStore cannot be nil")
 	}
@@ -177,7 +191,10 @@ func NewFromConfig() (notation.Verifier, error) {
 // Deprecated: New function exists for historical compatibility and
 // should not be used. To create verifier, use [NewVerifier] function.
 func New(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststore.X509TrustStore, pluginManager plugin.Manager) (notation.Verifier, error) {
-	return NewVerifier(ociTrustPolicy, nil, trustStore, pluginManager)
+	return NewVerifierWithOptions(trustStore, VerifierOptions{
+		OCITrustPolicy: ociTrustPolicy,
+		PluginManager:  pluginManager,
+	})
 }
 
 // setRevocation sets revocation validators of v

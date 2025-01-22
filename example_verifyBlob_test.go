@@ -61,7 +61,9 @@ func Example_verifyBlob() {
 	}
 
 	// exampleVerifier implements [notation.Verify] and [notation.VerifyBlob].
-	exampleVerifier, err := verifier.NewVerifier(nil, &exampleBlobPolicyDocument, truststore.NewX509TrustStore(dir.ConfigFS()), nil)
+	exampleVerifier, err := verifier.NewVerifierWithOptions(truststore.NewX509TrustStore(dir.ConfigFS()), verifier.VerifierOptions{
+		BlobTrustPolicy: &exampleBlobPolicyDocument,
+	})
 	if err != nil {
 		panic(err) // Handle error
 	}
