@@ -147,7 +147,6 @@ func NewWithOptions(ociTrustPolicy *trustpolicy.OCIDocument, trustStore truststo
 func NewVerifierWithOptions(trustStore truststore.X509TrustStore, verifierOptions VerifierOptions) (*verifier, error) {
 	ociTrustPolicy := verifierOptions.OCITrustPolicy
 	blobTrustPolicy := verifierOptions.BlobTrustPolicy
-	pluginManager := verifierOptions.PluginManager
 	if trustStore == nil {
 		return nil, errors.New("trustStore cannot be nil")
 	}
@@ -168,7 +167,7 @@ func NewVerifierWithOptions(trustStore truststore.X509TrustStore, verifierOption
 		ociTrustPolicyDoc:  ociTrustPolicy,
 		blobTrustPolicyDoc: blobTrustPolicy,
 		trustStore:         trustStore,
-		pluginManager:      pluginManager,
+		pluginManager:      verifierOptions.PluginManager,
 	}
 
 	if err := v.setRevocation(verifierOptions); err != nil {
