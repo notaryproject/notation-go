@@ -17,10 +17,12 @@ import (
 	"context"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -828,6 +830,46 @@ func TestNewVerifierWithOptionsError(t *testing.T) {
 	})
 	if err == nil || err.Error() != "trustStore cannot be nil" {
 		t.Errorf("expected err but not found.")
+	}
+}
+
+func TestNewOCIVerifierFromConfig(t *testing.T) {
+	defer func(oldUserConfigDir string) {
+		dir.UserConfigDir = oldUserConfigDir
+	}(dir.UserConfigDir)
+
+	tempRoot := t.TempDir()
+	dir.UserConfigDir = tempRoot
+	path := filepath.Join(tempRoot, "trustpolicy.oci.json")
+	policyJson, _ := json.Marshal(dummyOCIPolicyDocument())
+	if err := os.WriteFile(path, policyJson, 0600); err != nil {
+		t.Fatalf("TestLoadOCIDocument write policy file failed. Error: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tempRoot) })
+
+	_, err := NewOCIVerifierFromConfig()
+	if err != nil {
+		t.Fatalf("expected NewOCIVerifierFromConfig constructor to succeed, but got %v", err)
+	}
+}
+
+func TestNewBlobVerifierFromConfig(t *testing.T) {
+	defer func(oldUserConfigDir string) {
+		dir.UserConfigDir = oldUserConfigDir
+	}(dir.UserConfigDir)
+
+	tempRoot := t.TempDir()
+	dir.UserConfigDir = tempRoot
+	path := filepath.Join(tempRoot, "trustpolicy.blob.json")
+	policyJson, _ := json.Marshal(dummyBlobPolicyDocument())
+	if err := os.WriteFile(path, policyJson, 0600); err != nil {
+		t.Fatalf("TestLoadBlobDocument write policy file failed. Error: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tempRoot) })
+
+	_, err := NewBlobVerifierFromConfig()
+	if err != nil {
+		t.Fatalf("expected NewBlobVerifierFromConfig constructor to succeed, but got %v", err)
 	}
 }
 
