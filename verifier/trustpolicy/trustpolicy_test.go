@@ -104,7 +104,7 @@ func TestValidatePolicyCore(t *testing.T) {
 		t.Errorf("expected error '%s' but not found", expectedErr)
 	}
 
-	expectedErr = "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator"
+	expectedErr = "trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator. The required format is <trustedIdentityType>:<trustedIdentityValues>"
 	if err := validatePolicyCore(policyName, sigVerification, []string{"ca:valid-ts"}, []string{"x509.subject"}); err == nil || err.Error() != expectedErr {
 		t.Errorf("expected error '%s' but not found", expectedErr)
 	}
@@ -152,7 +152,7 @@ func TestValidateTrustedIdentities(t *testing.T) {
 
 	// No trusted identity prefix throws error
 	err = validateTrustedIdentities("test-statement-name", []string{"C=US, ST=WA, O=wabbit-network.io, OU=org1"})
-	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"C=US, ST=WA, O=wabbit-network.io, OU=org1\" missing separator" {
+	if err == nil || err.Error() != "trust policy statement \"test-statement-name\" has trusted identity \"C=US, ST=WA, O=wabbit-network.io, OU=org1\" missing separator. The required format is <trustedIdentityType>:<trustedIdentityValues>" {
 		t.Fatalf("trusted identity without separator should return error")
 	}
 

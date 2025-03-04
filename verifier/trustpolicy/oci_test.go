@@ -220,7 +220,7 @@ func TestValidateInvalidPolicyDocument(t *testing.T) {
 	policyDoc = dummyOCIPolicyDocument()
 	policyDoc.TrustPolicies[0].TrustedIdentities = []string{"x509.subject"}
 	err = policyDoc.Validate()
-	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator" {
+	if err == nil || err.Error() != "oci trust policy: trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator. The required format is <trustedIdentityType>:<trustedIdentityValues>" {
 		t.Fatalf("policy statement with trusted identity missing separator should return error")
 	}
 
