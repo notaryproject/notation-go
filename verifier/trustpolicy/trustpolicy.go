@@ -337,7 +337,7 @@ func validateTrustedIdentities(policyName string, tis []string) error {
 		if identity != trustpolicy.Wildcard {
 			identityPrefix, identityValue, found := strings.Cut(identity, ":")
 			if !found {
-				return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", policyName, identity)
+				return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator. The required format is <trustedIdentityType>:<trustedIdentityValues>", policyName, identity)
 			}
 
 			// notation natively supports x509.subject identities only
