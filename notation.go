@@ -149,7 +149,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 //
 // Both artifact and signature manifest descriptors are returned upon successful
 // signing.
-func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (artifactManifestDesc ocispec.Descriptor, sigManifestDesc ocispec.Descriptor, err error) {
+func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (artifactManifestDesc, sigManifestDesc ocispec.Descriptor, err error) {
 	// sanity check
 	if err := validateSignArguments(signer, signOpts.SignerSignOptions); err != nil {
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
