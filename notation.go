@@ -141,12 +141,21 @@ type SignOptions struct {
 // Sign signs the OCI artifact and push the signature to the Repository.
 // The descriptor of the sign content is returned upon successful signing.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
+	artifactMenifestDesc, _, err := SignOCI(ctx, signer, repo, signOpts)
+	return artifactMenifestDesc, err
+}
+
+// SignOCI signs the OCI artifact and push the signature to the Repository.
+//
+// Both artifact and signature manifest descriptors are returned upon successful
+// signing.
+func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (artifactManifestDesc ocispec.Descriptor, sigManifestDesc ocispec.Descriptor, err error) {
 	// sanity check
 	if err := validateSignArguments(signer, signOpts.SignerSignOptions); err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 	if repo == nil {
-		return ocispec.Descriptor{}, errors.New("repo cannot be nil")
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, errors.New("repo cannot be nil")
 	}
 
 	logger := log.GetLogger(ctx)
@@ -155,30 +164,30 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 		// artifactRef is a valid full reference
 		artifactRef = ref.Reference
 	}
-	targetDesc, err := repo.Resolve(ctx, artifactRef)
+	artifactManifestDesc, err = repo.Resolve(ctx, artifactRef)
 	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("failed to resolve reference: %w", err)
 	}
 
 	// artifactRef is a tag or a digest, if it's a digest it has to match
 	// the resolved digest
-	if artifactRef != targetDesc.Digest.String() {
+	if artifactRef != artifactManifestDesc.Digest.String() {
 		if _, err := digest.Parse(artifactRef); err == nil {
 			// artifactRef is a digest, but does not match the resolved digest
-			return ocispec.Descriptor{}, fmt.Errorf("user input digest %s does not match the resolved digest %s", artifactRef, targetDesc.Digest.String())
+			return ocispec.Descriptor{}, ocispec.Descriptor{}, fmt.Errorf("user input digest %s does not match the resolved digest %s", artifactRef, artifactManifestDesc.Digest.String())
 		}
 
 		// artifactRef is a tag
 		logger.Warnf("Always sign the artifact using digest(`@sha256:...`) rather than a tag(`:%s`) because tags are mutable and a tag reference can point to a different artifact than the one signed", artifactRef)
-		logger.Infof("Resolved artifact tag `%s` to digest `%v` before signing", artifactRef, targetDesc.Digest)
+		logger.Infof("Resolved artifact tag `%s` to digest `%v` before signing", artifactRef, artifactManifestDesc.Digest)
 	}
-	descToSign, err := addUserMetadataToDescriptor(ctx, targetDesc, signOpts.UserMetadata)
+	descToSign, err := addUserMetadataToDescriptor(ctx, artifactManifestDesc, signOpts.UserMetadata)
 	if err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 	sig, signerInfo, err := signer.Sign(ctx, descToSign, signOpts.SignerSignOptions)
 	if err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 
 	var pluginAnnotations map[string]string
@@ -188,11 +197,11 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 	logger.Debug("Generating annotation")
 	annotations, err := generateAnnotations(signerInfo, pluginAnnotations)
 	if err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, err
 	}
 	logger.Debugf("Generated annotations: %+v", annotations)
-	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", targetDesc, signOpts.SignatureMediaType)
-	_, _, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, targetDesc, annotations)
+	logger.Debugf("Pushing signature of artifact descriptor: %+v, signature media type: %v", artifactManifestDesc, signOpts.SignatureMediaType)
+	_, sigManifestDesc, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, artifactManifestDesc, annotations)
 	if err != nil {
 		var referrerError *remote.ReferrersError
 
@@ -200,9 +209,9 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 		if !errors.As(err, &referrerError) || !referrerError.IsReferrersIndexDelete() {
 			logger.Error("Failed to push the signature")
 		}
-		return ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
-	return targetDesc, nil
+	return artifactManifestDesc, sigManifestDesc, nil
 }
 
 // SignBlob signs the arbitrary data from blobReader and returns
