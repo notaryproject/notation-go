@@ -171,8 +171,8 @@ func TestSignWithDanglingReferrersIndex(t *testing.T) {
 	opts.SignatureMediaType = jws.MediaTypeEnvelope
 
 	_, err := Sign(context.Background(), &dummySigner{}, repo, opts)
-	if err == nil {
-		t.Fatalf("no error occurred, expected error")
+	if err != nil {
+		t.Fatalf("expected no error as the error has been handled as a warning, got %s", err)
 	}
 }
 

@@ -140,6 +140,8 @@ type SignOptions struct {
 
 // Sign signs the OCI artifact and push the signature to the Repository.
 // The descriptor of the sign content is returned upon successful signing.
+//
+// Deprecated: Use SignOCI instead.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
 	artifactMenifestDesc, _, err := SignOCI(ctx, signer, repo, signOpts)
 	return artifactMenifestDesc, err
@@ -204,12 +206,15 @@ func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signO
 	_, sigManifestDesc, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, artifactManifestDesc, annotations)
 	if err != nil {
 		var referrerError *remote.ReferrersError
-
-		// do not log an error for failing to delete referral index
 		if !errors.As(err, &referrerError) || !referrerError.IsReferrersIndexDelete() {
 			logger.Error("Failed to push the signature")
+			return ocispec.Descriptor{}, ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 		}
-		return ocispec.Descriptor{}, ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
+
+		// log warning if referrers index removal failed but signature pushed
+		// succeeded
+		logger.Warn("Removal of outdated referrers index from remote registry failed. Garbage collection may be required.")
+		return artifactManifestDesc, sigManifestDesc, nil
 	}
 	return artifactManifestDesc, sigManifestDesc, nil
 }
