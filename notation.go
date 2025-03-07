@@ -141,7 +141,7 @@ type SignOptions struct {
 // Sign signs the OCI artifact and push the signature to the Repository.
 // The descriptor of the sign content is returned upon successful signing.
 //
-// Deprecated: Use SignOCI instead.
+// Deprecated: use SignOCI instead.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
 	artifactMenifestDesc, _, err := SignOCI(ctx, signer, repo, signOpts)
 	return artifactMenifestDesc, err
