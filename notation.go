@@ -141,7 +141,7 @@ type SignOptions struct {
 // Sign signs the OCI artifact and push the signature to the Repository.
 // The descriptor of the sign content is returned upon successful signing.
 //
-// Deprecated: use SignOCI instead.
+// Deprecated: use [SignOCI] instead.
 func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (ocispec.Descriptor, error) {
 	artifactMenifestDesc, _, err := SignOCI(ctx, signer, repo, signOpts)
 	return artifactMenifestDesc, err
@@ -151,6 +151,12 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 //
 // Both artifact and signature manifest descriptors are returned upon successful
 // signing.
+//
+// Note: If the error type is remote.ReferrersError and
+// referrerError.IsReferrersIndexDelete() returns true, the signature is
+// successfully pushed to the repository, but the referrers index deletion
+// failed. In this case, the artifact and signature manifest descriptors are
+// returned with the error.
 func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signOpts SignOptions) (artifactManifestDesc, sigManifestDesc ocispec.Descriptor, err error) {
 	// sanity check
 	if err := validateSignArguments(signer, signOpts.SignerSignOptions); err != nil {
@@ -207,10 +213,9 @@ func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signO
 	if err != nil {
 		var referrerError *remote.ReferrersError
 		if errors.As(err, &referrerError) && referrerError.IsReferrersIndexDelete() {
-			// log warning if referrers index removal failed but signature
-			// pushed succeeded
-			logger.Warn("Removal of outdated referrers index from remote registry failed. Garbage collection may be required.")
-			return artifactManifestDesc, sigManifestDesc, nil
+			// return the descriptors for referrersIndexDelete error as
+			// the signature is successfully pushed to the repository
+			return artifactManifestDesc, sigManifestDesc, err
 		}
 		logger.Error("Failed to push the signature")
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
