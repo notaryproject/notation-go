@@ -212,7 +212,6 @@ func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signO
 			logger.Warn("Removal of outdated referrers index from remote registry failed. Garbage collection may be required.")
 			return artifactManifestDesc, sigManifestDesc, nil
 		}
-
 		logger.Error("Failed to push the signature")
 		return ocispec.Descriptor{}, ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
