@@ -206,15 +206,15 @@ func SignOCI(ctx context.Context, signer Signer, repo registry.Repository, signO
 	_, sigManifestDesc, err = repo.PushSignature(ctx, signOpts.SignatureMediaType, sig, artifactManifestDesc, annotations)
 	if err != nil {
 		var referrerError *remote.ReferrersError
-		if !errors.As(err, &referrerError) || !referrerError.IsReferrersIndexDelete() {
-			logger.Error("Failed to push the signature")
-			return ocispec.Descriptor{}, ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
+		if errors.As(err, &referrerError) && referrerError.IsReferrersIndexDelete() {
+			// log warning if referrers index removal failed but signature
+			// pushed succeeded
+			logger.Warn("Removal of outdated referrers index from remote registry failed. Garbage collection may be required.")
+			return artifactManifestDesc, sigManifestDesc, nil
 		}
 
-		// log warning if referrers index removal failed but signature pushed
-		// succeeded
-		logger.Warn("Removal of outdated referrers index from remote registry failed. Garbage collection may be required.")
-		return artifactManifestDesc, sigManifestDesc, nil
+		logger.Error("Failed to push the signature")
+		return ocispec.Descriptor{}, ocispec.Descriptor{}, ErrorPushSignatureFailed{Msg: err.Error()}
 	}
 	return artifactManifestDesc, sigManifestDesc, nil
 }
