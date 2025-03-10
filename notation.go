@@ -152,7 +152,7 @@ func Sign(ctx context.Context, signer Signer, repo registry.Repository, signOpts
 // Both artifact and signature manifest descriptors are returned upon successful
 // signing.
 //
-// Note: If the error type is remote.ReferrersError and
+// Note: If the error type is [remote.ReferrersError] and
 // referrerError.IsReferrersIndexDelete() returns true, the signature is
 // successfully pushed to the repository, but the referrers index deletion
 // failed. In this case, the artifact and signature manifest descriptors are
