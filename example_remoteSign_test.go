@@ -70,13 +70,16 @@ func Example_remoteSign() {
 	// remote sign core process
 	// upon successful signing, descriptor of the sign content is returned and
 	// the generated signature is pushed into remote registry.
-	targetDesc, err := notation.Sign(context.Background(), exampleSigner, exampleRepo, exampleSignOptions)
+	targetManifestDesc, sigManifestDesc, err := notation.SignOCI(context.Background(), exampleSigner, exampleRepo, exampleSignOptions)
 	if err != nil {
 		panic(err) // Handle error
 	}
 
 	fmt.Println("Successfully signed")
-	fmt.Println("targetDesc MediaType:", targetDesc.MediaType)
-	fmt.Println("targetDesc Digest:", targetDesc.Digest)
-	fmt.Println("targetDesc Size:", targetDesc.Size)
+	fmt.Println("targetManifestDesc.MediaType:", targetManifestDesc.MediaType)
+	fmt.Println("targetManifestDesc.Digest:", targetManifestDesc.Digest)
+	fmt.Println("targetManifestDesc.Size:", targetManifestDesc.Size)
+	fmt.Println("sigManifestDesc.MediaType:", sigManifestDesc.MediaType)
+	fmt.Println("sigManifestDesc.Digest:", sigManifestDesc.Digest)
+	fmt.Println("sigManifestDesc.Size:", sigManifestDesc.Size)
 }
