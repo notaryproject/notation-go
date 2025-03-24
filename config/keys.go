@@ -50,9 +50,6 @@ type KeySuite struct {
 	*ExternalKey
 }
 
-var errorKeyNameEmpty = errors.New("key name cannot be empty")
-var errKeyNotFound = errors.New("signing key not found")
-
 // SigningKeys reflects the signingkeys.json file.
 type SigningKeys struct {
 	Default *string    `json:"default,omitempty"`
@@ -67,13 +64,12 @@ func NewSigningKeys() *SigningKeys {
 // Add adds new signing key
 func (s *SigningKeys) Add(name, keyPath, certPath string, markDefault bool) error {
 	if name == "" {
-		return errorKeyNameEmpty
+		return ErrKeyNameEmpty
 	}
 	_, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return err
 	}
-
 	ks := KeySuite{
 		Name: name,
 		X509KeyPair: &X509KeyPair{
@@ -88,25 +84,20 @@ func (s *SigningKeys) Add(name, keyPath, certPath string, markDefault bool) erro
 func (s *SigningKeys) AddPlugin(ctx context.Context, keyName, id, pluginName string, pluginConfig map[string]string, markDefault bool) error {
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Adding key with name %v and plugin name %v", keyName, pluginName)
-
 	if keyName == "" {
-		return errorKeyNameEmpty
+		return ErrKeyNameEmpty
 	}
-
 	if id == "" {
 		return errors.New("missing key id")
 	}
-
 	if pluginName == "" {
 		return errors.New("plugin name cannot be empty")
 	}
-
 	mgr := plugin.NewCLIManager(dir.PluginFS())
 	_, err := mgr.Get(ctx, pluginName)
 	if err != nil {
 		return err
 	}
-
 	ks := KeySuite{
 		Name: keyName,
 		ExternalKey: &ExternalKey{
@@ -115,7 +106,6 @@ func (s *SigningKeys) AddPlugin(ctx context.Context, keyName, id, pluginName str
 			PluginConfig: pluginConfig,
 		},
 	}
-
 	if err = s.add(ks, markDefault); err != nil {
 		logger.Error("Failed to add key with error: %v", err)
 		return err
@@ -127,14 +117,12 @@ func (s *SigningKeys) AddPlugin(ctx context.Context, keyName, id, pluginName str
 // Get returns signing key for the given name
 func (s *SigningKeys) Get(keyName string) (KeySuite, error) {
 	if keyName == "" {
-		return KeySuite{}, errorKeyNameEmpty
+		return KeySuite{}, ErrKeyNameEmpty
 	}
-
 	idx := slices.IndexIsser(s.Keys, keyName)
 	if idx < 0 {
-		return KeySuite{}, errKeyNotFound
+		return KeySuite{}, KeyNotFoundError{KeyName: keyName}
 	}
-
 	return s.Keys[idx], nil
 }
 
@@ -144,7 +132,6 @@ func (s *SigningKeys) GetDefault() (KeySuite, error) {
 		return KeySuite{}, errors.New("default signing key not set." +
 			" Please set default signing key or specify a key name")
 	}
-
 	return s.Get(*s.Default)
 }
 
@@ -153,12 +140,11 @@ func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 	var deletedNames []string
 	for _, name := range keyName {
 		if name == "" {
-			return deletedNames, errorKeyNameEmpty
+			return deletedNames, ErrKeyNameEmpty
 		}
-
 		idx := slices.IndexIsser(s.Keys, name)
 		if idx < 0 {
-			return deletedNames, errors.New(name + ": not found")
+			return deletedNames, KeyNotFoundError{KeyName: name}
 		}
 		s.Keys = slices.Delete(s.Keys, idx)
 		deletedNames = append(deletedNames, name)
@@ -172,13 +158,11 @@ func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 // UpdateDefault updates default signing key
 func (s *SigningKeys) UpdateDefault(keyName string) error {
 	if keyName == "" {
-		return errorKeyNameEmpty
+		return ErrKeyNameEmpty
 	}
-
 	if !slices.ContainsIsser(s.Keys, keyName) {
-		return fmt.Errorf("key with name '%s' not found", keyName)
+		return KeyNotFoundError{KeyName: keyName}
 	}
-
 	s.Default = &keyName
 	return nil
 }
@@ -189,11 +173,9 @@ func (s *SigningKeys) Save() error {
 	if err != nil {
 		return err
 	}
-
 	if err := validateKeys(s); err != nil {
 		return err
 	}
-
 	return save(path, s)
 }
 
@@ -208,11 +190,9 @@ func LoadSigningKeys() (*SigningKeys, error) {
 		}
 		return nil, err
 	}
-
 	if err := validateKeys(&config); err != nil {
 		return nil, err
 	}
-
 	return &config, nil
 }
 
@@ -224,11 +204,9 @@ func LoadExecSaveSigningKeys(fn func(keys *SigningKeys) error) error {
 	if err != nil {
 		return err
 	}
-
 	if err := fn(signingKeys); err != nil {
 		return err
 	}
-
 	return signingKeys.Save()
 }
 
@@ -241,12 +219,10 @@ func (s *SigningKeys) add(key KeySuite, markDefault bool) error {
 	if slices.ContainsIsser(s.Keys, key.Name) {
 		return fmt.Errorf("signing key with name %q already exists", key.Name)
 	}
-
 	s.Keys = append(s.Keys, key)
 	if markDefault {
 		s.Default = &key.Name
 	}
-
 	return nil
 }
 
@@ -262,17 +238,14 @@ func validateKeys(config *SigningKeys) error {
 		}
 		uniqueKeyNames.Add(key.Name)
 	}
-
 	if config.Default != nil {
 		defaultKey := *config.Default
 		if len(defaultKey) == 0 {
 			return fmt.Errorf("malformed %s: default key name cannot be empty", dir.PathSigningKeys)
 		}
-
 		if !uniqueKeyNames.Contains(defaultKey) {
 			return fmt.Errorf("malformed %s: default key '%s' not found", dir.PathSigningKeys, defaultKey)
 		}
 	}
-
 	return nil
 }
