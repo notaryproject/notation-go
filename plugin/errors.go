@@ -65,7 +65,7 @@ func (e PluginMalformedError) Error() string {
 	return e.InnerError.Error()
 }
 
-// Unwrap returns the inner error.
+// returns the inner error.
 func (e PluginMalformedError) Unwrap() error {
 	return e.InnerError
 }

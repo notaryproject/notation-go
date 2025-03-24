@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -310,14 +311,22 @@ func TestGet(t *testing.T) {
 	})
 
 	t.Run("NonExistent", func(t *testing.T) {
-		if _, err := sampleSigningKeysInfo.Get("nonExistent"); err == nil {
+		_, err := sampleSigningKeysInfo.Get("nonExistent")
+		if err == nil {
 			t.Error("expected Get() to fail for nonExistent key name")
+		}
+		if !errors.Is(err, ErrorKeyNotFound{KeyName: "nonExistent"}) {
+			t.Error("expected Get() to return ErrorKeyNotFound")
 		}
 	})
 
-	t.Run("InvalidName", func(t *testing.T) {
-		if _, err := sampleSigningKeysInfo.Get(""); err == nil {
-			t.Error("expected Get() to fail for invalid key name")
+	t.Run("EmptyName", func(t *testing.T) {
+		_, err := sampleSigningKeysInfo.Get("")
+		if err == nil {
+			t.Error("expected Get() to fail for empty key name")
+		}
+		if !errors.Is(err, ErrorKeyNameEmpty) {
+			t.Error("expected Get() to return ErrorKeyNameEmpty")
 		}
 	})
 }
@@ -358,14 +367,22 @@ func TestUpdateDefault(t *testing.T) {
 	})
 
 	t.Run("NonExistent", func(t *testing.T) {
-		if err := sampleSigningKeysInfo.UpdateDefault("nonExistent"); err == nil {
+		err := sampleSigningKeysInfo.UpdateDefault("nonExistent")
+		if err == nil {
 			t.Error("expected Get() to fail for nonExistent key name")
+		}
+		if !errors.Is(err, ErrorKeyNotFound{KeyName: "nonExistent"}) {
+			t.Error("expected Get() to return ErrorKeyNotFound")
 		}
 	})
 
-	t.Run("InvalidName", func(t *testing.T) {
-		if err := sampleSigningKeysInfo.UpdateDefault(""); err == nil {
-			t.Error("expected Get() to fail for invalid key name")
+	t.Run("EmptyName", func(t *testing.T) {
+		err := sampleSigningKeysInfo.UpdateDefault("")
+		if err == nil {
+			t.Error("expected Get() to fail for empty key name")
+		}
+		if !errors.Is(err, ErrorKeyNameEmpty) {
+			t.Error("expected Get() to return ErrorKeyNameEmpty")
 		}
 	})
 }
@@ -382,21 +399,28 @@ func TestRemove(t *testing.T) {
 		if _, err := testSigningKeysInfo.Get(testKeyName); err == nil {
 			t.Error("Delete() filed to delete key")
 		}
-
 		if keys[0] != testKeyName {
 			t.Error("Delete() deleted key name mismatch")
 		}
 	})
 
 	t.Run("NonExistent", func(t *testing.T) {
-		if _, err := testSigningKeysInfo.Remove(testKeyName); err == nil {
+		_, err := testSigningKeysInfo.Remove("nonExistent")
+		if err == nil {
 			t.Error("expected Get() to fail for nonExistent key name")
+		}
+		if !errors.Is(err, ErrorKeyNotFound{KeyName: "nonExistent"}) {
+			t.Error("expected Get() to return ErrorKeyNotFound")
 		}
 	})
 
-	t.Run("InvalidName", func(t *testing.T) {
-		if _, err := testSigningKeysInfo.Remove(""); err == nil {
-			t.Error("expected Get() to fail for invalid key name")
+	t.Run("EmptyName", func(t *testing.T) {
+		_, err := testSigningKeysInfo.Remove("")
+		if err == nil {
+			t.Error("expected Get() to fail for empty key name")
+		}
+		if !errors.Is(err, ErrorKeyNameEmpty) {
+			t.Error("expected Get() to return ErrorKeyNameEmpty")
 		}
 	})
 }
