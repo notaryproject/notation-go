@@ -18,16 +18,16 @@ import (
 	"fmt"
 )
 
-// ErrorKeyNameEmpty is used when key name is empty.
-var ErrorKeyNameEmpty = errors.New("key name cannot be empty")
+// ErrKeyNameEmpty is used when key name is empty.
+var ErrKeyNameEmpty = errors.New("key name cannot be empty")
 
-// ErrorKeyNotFound is used when key is not found in the signingkeys.json file.
-type ErrorKeyNotFound struct {
+// KeyNotFoundError is used when key is not found in the signingkeys.json file.
+type KeyNotFoundError struct {
 	KeyName string
 }
 
 // Error returns the error message.
-func (e ErrorKeyNotFound) Error() string {
+func (e KeyNotFoundError) Error() string {
 	if e.KeyName != "" {
 		return fmt.Sprintf("signing key %s not found", e.KeyName)
 	}

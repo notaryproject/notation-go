@@ -315,7 +315,7 @@ func TestGet(t *testing.T) {
 		if err == nil {
 			t.Error("expected Get() to fail for nonExistent key name")
 		}
-		if !errors.Is(err, ErrorKeyNotFound{KeyName: "nonExistent"}) {
+		if !errors.Is(err, KeyNotFoundError{KeyName: "nonExistent"}) {
 			t.Error("expected Get() to return ErrorKeyNotFound")
 		}
 	})
@@ -325,7 +325,7 @@ func TestGet(t *testing.T) {
 		if err == nil {
 			t.Error("expected Get() to fail for empty key name")
 		}
-		if !errors.Is(err, ErrorKeyNameEmpty) {
+		if !errors.Is(err, ErrKeyNameEmpty) {
 			t.Error("expected Get() to return ErrorKeyNameEmpty")
 		}
 	})
@@ -371,7 +371,7 @@ func TestUpdateDefault(t *testing.T) {
 		if err == nil {
 			t.Error("expected Get() to fail for nonExistent key name")
 		}
-		if !errors.Is(err, ErrorKeyNotFound{KeyName: "nonExistent"}) {
+		if !errors.Is(err, KeyNotFoundError{KeyName: "nonExistent"}) {
 			t.Error("expected Get() to return ErrorKeyNotFound")
 		}
 	})
@@ -381,7 +381,7 @@ func TestUpdateDefault(t *testing.T) {
 		if err == nil {
 			t.Error("expected Get() to fail for empty key name")
 		}
-		if !errors.Is(err, ErrorKeyNameEmpty) {
+		if !errors.Is(err, ErrKeyNameEmpty) {
 			t.Error("expected Get() to return ErrorKeyNameEmpty")
 		}
 	})
@@ -409,7 +409,7 @@ func TestRemove(t *testing.T) {
 		if err == nil {
 			t.Error("expected Get() to fail for nonExistent key name")
 		}
-		if !errors.Is(err, ErrorKeyNotFound{KeyName: "nonExistent"}) {
+		if !errors.Is(err, KeyNotFoundError{KeyName: "nonExistent"}) {
 			t.Error("expected Get() to return ErrorKeyNotFound")
 		}
 	})
@@ -419,7 +419,7 @@ func TestRemove(t *testing.T) {
 		if err == nil {
 			t.Error("expected Get() to fail for empty key name")
 		}
-		if !errors.Is(err, ErrorKeyNameEmpty) {
+		if !errors.Is(err, ErrKeyNameEmpty) {
 			t.Error("expected Get() to return ErrorKeyNameEmpty")
 		}
 	})

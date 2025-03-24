@@ -64,7 +64,7 @@ func NewSigningKeys() *SigningKeys {
 // Add adds new signing key
 func (s *SigningKeys) Add(name, keyPath, certPath string, markDefault bool) error {
 	if name == "" {
-		return ErrorKeyNameEmpty
+		return ErrKeyNameEmpty
 	}
 	_, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
@@ -85,7 +85,7 @@ func (s *SigningKeys) AddPlugin(ctx context.Context, keyName, id, pluginName str
 	logger := log.GetLogger(ctx)
 	logger.Debugf("Adding key with name %v and plugin name %v", keyName, pluginName)
 	if keyName == "" {
-		return ErrorKeyNameEmpty
+		return ErrKeyNameEmpty
 	}
 	if id == "" {
 		return errors.New("missing key id")
@@ -117,11 +117,11 @@ func (s *SigningKeys) AddPlugin(ctx context.Context, keyName, id, pluginName str
 // Get returns signing key for the given name
 func (s *SigningKeys) Get(keyName string) (KeySuite, error) {
 	if keyName == "" {
-		return KeySuite{}, ErrorKeyNameEmpty
+		return KeySuite{}, ErrKeyNameEmpty
 	}
 	idx := slices.IndexIsser(s.Keys, keyName)
 	if idx < 0 {
-		return KeySuite{}, ErrorKeyNotFound{KeyName: keyName}
+		return KeySuite{}, KeyNotFoundError{KeyName: keyName}
 	}
 	return s.Keys[idx], nil
 }
@@ -140,11 +140,11 @@ func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 	var deletedNames []string
 	for _, name := range keyName {
 		if name == "" {
-			return deletedNames, ErrorKeyNameEmpty
+			return deletedNames, ErrKeyNameEmpty
 		}
 		idx := slices.IndexIsser(s.Keys, name)
 		if idx < 0 {
-			return deletedNames, ErrorKeyNotFound{KeyName: name}
+			return deletedNames, KeyNotFoundError{KeyName: name}
 		}
 		s.Keys = slices.Delete(s.Keys, idx)
 		deletedNames = append(deletedNames, name)
@@ -158,10 +158,10 @@ func (s *SigningKeys) Remove(keyName ...string) ([]string, error) {
 // UpdateDefault updates default signing key
 func (s *SigningKeys) UpdateDefault(keyName string) error {
 	if keyName == "" {
-		return ErrorKeyNameEmpty
+		return ErrKeyNameEmpty
 	}
 	if !slices.ContainsIsser(s.Keys, keyName) {
-		return ErrorKeyNotFound{KeyName: keyName}
+		return KeyNotFoundError{KeyName: keyName}
 	}
 	s.Default = &keyName
 	return nil

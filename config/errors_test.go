@@ -16,12 +16,12 @@ package config
 import "testing"
 
 func TestErrorKeyNotFound(t *testing.T) {
-	e := ErrorKeyNotFound{}
+	e := KeyNotFoundError{}
 	if e.Error() != "signing key not found" {
 		t.Fatalf("ErrorKeyNotFound.Error() = %v, want %v", e.Error(), "signing key not found")
 	}
 
-	e = ErrorKeyNotFound{KeyName: "testKey"}
+	e = KeyNotFoundError{KeyName: "testKey"}
 	if e.Error() != `signing key testKey not found` {
 		t.Fatalf("ErrorKeyNotFound.Error() = %v, want %v", e.Error(), "signing key testKey not found")
 	}
