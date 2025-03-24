@@ -23,6 +23,6 @@ func TestErrorKeyNotFound(t *testing.T) {
 
 	e = ErrorKeyNotFound{KeyName: "testKey"}
 	if e.Error() != `signing key testKey not found` {
-		t.Fatalf("ErrorKeyNotFound.Error() = %v, want %v", e.Error(), "key not found")
+		t.Fatalf("ErrorKeyNotFound.Error() = %v, want %v", e.Error(), "signing key testKey not found")
 	}
 }
