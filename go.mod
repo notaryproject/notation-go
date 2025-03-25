@@ -8,7 +8,7 @@ require (
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
 	github.com/notaryproject/tspclient-go v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.1.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/veraison/go-cose v1.3.0
 	golang.org/x/crypto v0.36.0
 	golang.org/x/mod v0.24.0
