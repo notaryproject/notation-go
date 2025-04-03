@@ -16,6 +16,8 @@ package notation
 // ErrorPushSignatureFailed is used when failed to push signature to the
 // target registry.
 //
+// type ErrorPushSignatureFailed = PushSignatureFailedError
+//
 // Deprecated: Use PushSignatureFailedError instead.
 type ErrorPushSignatureFailed struct {
 	Msg string
@@ -43,6 +45,8 @@ func (e PushSignatureFailedError) Error() string {
 
 // ErrorVerificationInconclusive is used when signature verification fails due
 // to a runtime error (e.g. a network error)
+//
+// type ErrorVerificationInconclusive = VerificationInconclusiveError
 //
 // Deprecated: Use VerificationInconclusiveError instead.
 type ErrorVerificationInconclusive struct {
@@ -72,6 +76,8 @@ func (e VerificationInconclusiveError) Error() string {
 // ErrorNoApplicableTrustPolicy is used when there is no trust policy that
 // applies to the given artifact
 //
+// type ErrorNoApplicableTrustPolicy = NoApplicableTrustPolicyError
+//
 // Deprecated: Use NoApplicableTrustPolicyError instead.
 type ErrorNoApplicableTrustPolicy struct {
 	Msg string
@@ -99,6 +105,8 @@ func (e NoApplicableTrustPolicyError) Error() string {
 
 // ErrorSignatureRetrievalFailed is used when notation is unable to retrieve the
 // digital signature/s for the given artifact
+//
+// type ErrorSignatureRetrievalFailed = SignatureRetrievalFailedError
 //
 // Deprecated: Use SignatureRetrievalFailedError instead.
 type ErrorSignatureRetrievalFailed struct {
@@ -128,6 +136,8 @@ func (e SignatureRetrievalFailedError) Error() string {
 // ErrorVerificationFailed is used when it is determined that the digital
 // signature/s is not valid for the given artifact
 //
+// type ErrorVerificationFailed = VerificationFailedError
+//
 // Deprecated: Use VerificationFailedError instead.
 type ErrorVerificationFailed struct {
 	Msg string
@@ -155,6 +165,8 @@ func (e VerificationFailedError) Error() string {
 
 // ErrorUserMetadataVerificationFailed is used when the signature does not
 // contain the user specified metadata
+//
+// type ErrorUserMetadataVerificationFailed =  UserMetadataVerificationFailedError
 //
 // Deprecated: Use UserMetadataVerificationFailedError instead.
 type ErrorUserMetadataVerificationFailed struct {
