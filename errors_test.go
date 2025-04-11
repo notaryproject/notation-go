@@ -91,3 +91,80 @@ func TestErrorMessages(t *testing.T) {
 		})
 	}
 }
+
+func TestCustomErrorPrintsCorrectMessage(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "PushSignatureFailedError with message",
+			err:  PushSignatureFailedError{Msg: "test message"},
+			want: "failed to push signature to registry with error: test message",
+		},
+		{
+			name: "PushSignatureFailedError without message",
+			err:  PushSignatureFailedError{},
+			want: "failed to push signature to registry",
+		},
+		{
+			name: "VerificationInconclusiveError with message",
+			err:  VerificationInconclusiveError{Msg: "test message"},
+			want: "test message",
+		},
+		{
+			name: "VerificationInconclusiveError without message",
+			err:  VerificationInconclusiveError{},
+			want: "signature verification was inclusive due to an unexpected error",
+		},
+		{
+			name: "NoApplicableTrustPolicyError with message",
+			err:  NoApplicableTrustPolicyError{Msg: "test message"},
+			want: "test message",
+		},
+		{
+			name: "NoApplicableTrustPolicyError without message",
+			err:  NoApplicableTrustPolicyError{},
+			want: "there is no applicable trust policy for the given artifact",
+		},
+		{
+			name: "SignatureRetrievalFailedError with message",
+			err:  SignatureRetrievalFailedError{Msg: "test message"},
+			want: "test message",
+		},
+		{
+			name: "SignatureRetrievalFailedError without message",
+			err:  SignatureRetrievalFailedError{},
+			want: "unable to retrieve the digital signature from the registry",
+		},
+		{
+			name: "VerificationFailedError with message",
+			err:  VerificationFailedError{Msg: "test message"},
+			want: "test message",
+		},
+		{
+			name: "VerificationFailedError without message",
+			err:  VerificationFailedError{},
+			want: "signature verification failed",
+		},
+		{
+			name: "UserMetadataVerificationFailedError with message",
+			err:  UserMetadataVerificationFailedError{Msg: "test message"},
+			want: "test message",
+		},
+		{
+			name: "UserMetadataVerificationFailedError without message",
+			err:  UserMetadataVerificationFailedError{},
+			want: "unable to find specified metadata in the signature",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.err.Error(); got != tt.want {
+				t.Errorf("Error() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
