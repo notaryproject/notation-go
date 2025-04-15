@@ -39,9 +39,9 @@ func Example_verifyWithTimestamp() {
 	// timestamping configurations.
 	// trust policy document should follow this spec:
 	// https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#trust-policy
-	examplePolicyDocument := trustpolicy.Document{
+	examplePolicyDocument := trustpolicy.OCIDocument{
 		Version: "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{
+		TrustPolicies: []trustpolicy.OCITrustPolicy{
 			{
 				Name:           "test-statement-name",
 				RegistryScopes: []string{"*"},
