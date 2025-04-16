@@ -32,9 +32,9 @@ import (
 // examplePolicyDocument is an example of a valid trust policy document.
 // trust policy document should follow this spec:
 // https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md#trust-policy
-var examplePolicyDocument = trustpolicy.Document{
+var examplePolicyDocument = trustpolicy.OCIDocument{
 	Version: "1.0",
-	TrustPolicies: []trustpolicy.TrustPolicy{
+	TrustPolicies: []trustpolicy.OCITrustPolicy{
 		{
 			Name:                  "test-statement-name",
 			RegistryScopes:        []string{"example/software"},

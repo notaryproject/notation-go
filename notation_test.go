@@ -598,16 +598,16 @@ func TestVerifyBlobValid(t *testing.T) {
 	}
 }
 
-func dummyPolicyDocument() (policyDoc trustpolicy.Document) {
-	policyDoc = trustpolicy.Document{
+func dummyPolicyDocument() (policyDoc trustpolicy.OCIDocument) {
+	policyDoc = trustpolicy.OCIDocument{
 		Version:       "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{dummyPolicyStatement()},
+		TrustPolicies: []trustpolicy.OCITrustPolicy{dummyPolicyStatement()},
 	}
 	return
 }
 
-func dummyPolicyStatement() (policyStatement trustpolicy.TrustPolicy) {
-	policyStatement = trustpolicy.TrustPolicy{
+func dummyPolicyStatement() (policyStatement trustpolicy.OCITrustPolicy) {
+	policyStatement = trustpolicy.OCITrustPolicy{
 		Name:                  "test-statement-name",
 		RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 		SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
