@@ -15,11 +15,17 @@ package notation
 
 // ErrorPushSignatureFailed is used when failed to push signature to the
 // target registry.
-type ErrorPushSignatureFailed struct {
+//
+// Deprecated: Use PushSignatureFailedError instead.
+type ErrorPushSignatureFailed = PushSignatureFailedError
+
+// PushSignatureFailedError is used when failed to push signature to the
+// target registry.
+type PushSignatureFailedError struct {
 	Msg string
 }
 
-func (e ErrorPushSignatureFailed) Error() string {
+func (e PushSignatureFailedError) Error() string {
 	if e.Msg != "" {
 		return "failed to push signature to registry with error: " + e.Msg
 	}
@@ -28,11 +34,17 @@ func (e ErrorPushSignatureFailed) Error() string {
 
 // ErrorVerificationInconclusive is used when signature verification fails due
 // to a runtime error (e.g. a network error)
-type ErrorVerificationInconclusive struct {
+//
+// Deprecated: Use VerificationInconclusiveError instead.
+type ErrorVerificationInconclusive = VerificationInconclusiveError
+
+// VerificationInconclusiveError is used when signature verification fails due
+// to a runtime error (e.g. a network error)
+type VerificationInconclusiveError struct {
 	Msg string
 }
 
-func (e ErrorVerificationInconclusive) Error() string {
+func (e VerificationInconclusiveError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
@@ -41,11 +53,17 @@ func (e ErrorVerificationInconclusive) Error() string {
 
 // ErrorNoApplicableTrustPolicy is used when there is no trust policy that
 // applies to the given artifact
-type ErrorNoApplicableTrustPolicy struct {
+//
+// Deprecated: Use NoApplicableTrustPolicyError instead.
+type ErrorNoApplicableTrustPolicy = NoApplicableTrustPolicyError
+
+// NoApplicableTrustPolicyError is used when there is no trust policy that
+// applies to the given artifact
+type NoApplicableTrustPolicyError struct {
 	Msg string
 }
 
-func (e ErrorNoApplicableTrustPolicy) Error() string {
+func (e NoApplicableTrustPolicyError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
@@ -54,11 +72,17 @@ func (e ErrorNoApplicableTrustPolicy) Error() string {
 
 // ErrorSignatureRetrievalFailed is used when notation is unable to retrieve the
 // digital signature/s for the given artifact
-type ErrorSignatureRetrievalFailed struct {
+//
+// Deprecated: Use SignatureRetrievalFailedError instead.
+type ErrorSignatureRetrievalFailed = SignatureRetrievalFailedError
+
+// SignatureRetrievalFailedError is used when notation is unable to retrieve the
+// digital signature/s for the given artifact
+type SignatureRetrievalFailedError struct {
 	Msg string
 }
 
-func (e ErrorSignatureRetrievalFailed) Error() string {
+func (e SignatureRetrievalFailedError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
@@ -67,11 +91,17 @@ func (e ErrorSignatureRetrievalFailed) Error() string {
 
 // ErrorVerificationFailed is used when it is determined that the digital
 // signature/s is not valid for the given artifact
-type ErrorVerificationFailed struct {
+//
+// Deprecated: Use VerificationFailedError instead.
+type ErrorVerificationFailed = VerificationFailedError
+
+// VerificationFailedError is used when it is determined that the digital
+// signature/s is not valid for the given artifact
+type VerificationFailedError struct {
 	Msg string
 }
 
-func (e ErrorVerificationFailed) Error() string {
+func (e VerificationFailedError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
@@ -80,11 +110,17 @@ func (e ErrorVerificationFailed) Error() string {
 
 // ErrorUserMetadataVerificationFailed is used when the signature does not
 // contain the user specified metadata
-type ErrorUserMetadataVerificationFailed struct {
+//
+// Deprecated: Use UserMetadataVerificationFailedError instead.
+type ErrorUserMetadataVerificationFailed = UserMetadataVerificationFailedError
+
+// UserMetadataVerificationFailedError is used when the signature does not
+// contain the user specified metadata
+type UserMetadataVerificationFailedError struct {
 	Msg string
 }
 
-func (e ErrorUserMetadataVerificationFailed) Error() string {
+func (e UserMetadataVerificationFailedError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
 	}
