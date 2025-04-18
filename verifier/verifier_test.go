@@ -270,7 +270,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyOCIPolicyDocument()
 		policyDocument.TrustPolicies[0].TrustedIdentities = []string{"x509.subject"}
-		expectedErr := fmt.Errorf("trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator")
+		expectedErr := fmt.Errorf("trust policy statement \"test-statement-name\" has trusted identity \"x509.subject\" missing separator. The required format is <trustedIdentityType>:<trustedIdentityValues>")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
 			verificationType:  trustpolicy.TypeAuthenticity,

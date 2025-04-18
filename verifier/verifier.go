@@ -936,7 +936,7 @@ func verifyX509TrustedIdentities(policyName string, trustedIdentities []string, 
 	for _, identity := range trustedIdentities {
 		identityPrefix, identityValue, found := strings.Cut(identity, ":")
 		if !found {
-			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator", policyName, identity)
+			return fmt.Errorf("trust policy statement %q has trusted identity %q missing separator. The required format is <trustedIdentityType>:<trustedIdentityValues>", policyName, identity)
 		}
 
 		// notation natively supports x509.subject identities only
