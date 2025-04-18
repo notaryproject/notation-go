@@ -213,7 +213,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 	for _, level := range verificationLevels {
 		policyDocument := dummyPolicyDocument()
 		policyDocument.TrustPolicies[0].TrustStores = []string{"ca:valid-trust-store-2", "signingAuthority:valid-trust-store-2"} // trust store is not configured with the root certificate of the signature
-		expectedErr := fmt.Errorf("signature is not produced by a trusted signer")
+		expectedErr := fmt.Errorf("the signature's certificate chain does not contain any trusted certificate")
 		testCases = append(testCases, testCase{
 			signatureBlob:     validSigEnv,
 			verificationType:  trustpolicy.TypeAuthenticity,
