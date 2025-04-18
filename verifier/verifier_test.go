@@ -33,7 +33,6 @@ import (
 
 	"github.com/notaryproject/notation-core-go/revocation"
 	"github.com/notaryproject/notation-core-go/revocation/purpose"
-	"github.com/notaryproject/notation-core-go/revocation/result"
 	revocationresult "github.com/notaryproject/notation-core-go/revocation/result"
 	"github.com/notaryproject/notation-core-go/signature"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
@@ -45,10 +44,10 @@ import (
 	"github.com/notaryproject/notation-go/internal/envelope"
 	"github.com/notaryproject/notation-go/internal/mock"
 	"github.com/notaryproject/notation-go/log"
-	"github.com/notaryproject/notation-go/plugin/proto"
 	"github.com/notaryproject/notation-go/signer"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
+	"github.com/notaryproject/notation-plugin-framework-go/plugin"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -133,7 +132,7 @@ func TestErrorNoApplicableTrustPolicy_Error(t *testing.T) {
 	}
 	opts := notation.VerifierVerifyOptions{ArtifactReference: "non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333"}
 	_, err := verifier.Verify(context.Background(), ocispec.Descriptor{}, []byte{}, opts)
-	if !errors.Is(err, notation.ErrorNoApplicableTrustPolicy{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
+	if !errors.Is(err, notation.NoApplicableTrustPolicyError{Msg: "artifact \"non-existent-domain.com/repo@sha256:73c803930ea3ba1e54bc25c2bdc53edd0284c62ed651fe7b00369da519a3c333\" has no applicable oci trust policy statement. Trust policy applicability for a given artifact is determined by registryScopes. To create a trust policy, see: https://notaryproject.dev/docs/quickstart/#create-a-trust-policy"}) {
 		t.Fatalf("no applicable trust policy must throw error")
 	}
 }
@@ -162,7 +161,7 @@ func assertNotationVerification(t *testing.T, scheme signature.SigningScheme) {
 		signatureBlob     []byte
 		verificationType  trustpolicy.ValidationType
 		verificationLevel *trustpolicy.VerificationLevel
-		policyDocument    trustpolicy.Document
+		policyDocument    trustpolicy.OCIDocument
 		opts              notation.VerifierVerifyOptions
 		expectedErr       error
 	}
@@ -841,13 +840,16 @@ func TestNewOCIVerifierFromConfig(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	path := filepath.Join(tempRoot, "trustpolicy.oci.json")
-	policyJson, _ := json.Marshal(dummyOCIPolicyDocument())
+	policyJson, err := json.Marshal(dummyOCIPolicyDocument())
+	if err != nil {
+		t.Fatalf("TestLoadOCIDocument marshal policy failed. Error: %v", err)
+	}
 	if err := os.WriteFile(path, policyJson, 0600); err != nil {
 		t.Fatalf("TestLoadOCIDocument write policy file failed. Error: %v", err)
 	}
 	t.Cleanup(func() { os.RemoveAll(tempRoot) })
 
-	_, err := NewOCIVerifierFromConfig()
+	_, err = NewOCIVerifierFromConfig()
 	if err != nil {
 		t.Fatalf("expected NewOCIVerifierFromConfig constructor to succeed, but got %v", err)
 	}
@@ -861,13 +863,16 @@ func TestNewBlobVerifierFromConfig(t *testing.T) {
 	tempRoot := t.TempDir()
 	dir.UserConfigDir = tempRoot
 	path := filepath.Join(tempRoot, "trustpolicy.blob.json")
-	policyJson, _ := json.Marshal(dummyBlobPolicyDocument())
+	policyJson, err := json.Marshal(dummyBlobPolicyDocument())
+	if err != nil {
+		t.Fatalf("TestLoadBlobDocument marshal policy failed. Error: %v", err)
+	}
 	if err := os.WriteFile(path, policyJson, 0600); err != nil {
 		t.Fatalf("TestLoadBlobDocument write policy file failed. Error: %v", err)
 	}
 	t.Cleanup(func() { os.RemoveAll(tempRoot) })
 
-	_, err := NewBlobVerifierFromConfig()
+	_, err = NewBlobVerifierFromConfig()
 	if err != nil {
 		t.Fatalf("expected NewBlobVerifierFromConfig constructor to succeed, but got %v", err)
 	}
@@ -1020,7 +1025,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin is installed but without verification capabilities
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilitySignatureGenerator}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilitySignatureGenerator}
 
 	v = verifier{
 		ociTrustPolicyDoc: &policyDocument,
@@ -1036,10 +1041,10 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin interactions with trusted identity verification success
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{
-			proto.CapabilityTrustedIdentityVerifier: {
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{
+			plugin.CapabilityTrustedIdentityVerifier: {
 				Success: true,
 			},
 		},
@@ -1060,10 +1065,10 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin interactions with trusted identity verification failure
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{
-			proto.CapabilityTrustedIdentityVerifier: {
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{
+			plugin.CapabilityTrustedIdentityVerifier: {
 				Success: false,
 				Reason:  "i feel like failing today",
 			},
@@ -1085,10 +1090,10 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin interactions with revocation verification success
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityRevocationCheckVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{
-			proto.CapabilityRevocationCheckVerifier: {
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{
+			plugin.CapabilityRevocationCheckVerifier: {
 				Success: true,
 			},
 		},
@@ -1109,10 +1114,10 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin interactions with trusted revocation failure
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityRevocationCheckVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{
-			proto.CapabilityRevocationCheckVerifier: {
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{
+			plugin.CapabilityRevocationCheckVerifier: {
 				Success: false,
 				Reason:  "i feel like failing today",
 			},
@@ -1134,13 +1139,13 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin interactions with both trusted identity & revocation verification
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityRevocationCheckVerifier, proto.CapabilityTrustedIdentityVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{
-			proto.CapabilityRevocationCheckVerifier: {
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier, plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{
+			plugin.CapabilityRevocationCheckVerifier: {
 				Success: true,
 			},
-			proto.CapabilityTrustedIdentityVerifier: {
+			plugin.CapabilityTrustedIdentityVerifier: {
 				Success: true,
 			},
 		},
@@ -1162,7 +1167,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 	// plugin interactions with skipped revocation
 	policyDocument.TrustPolicies[0].SignatureVerification.Override = map[trustpolicy.ValidationType]trustpolicy.ValidationAction{trustpolicy.TypeRevocation: trustpolicy.ActionSkip}
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityRevocationCheckVerifier}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityRevocationCheckVerifier}
 	pluginManager.PluginRunnerExecuteError = errors.New("revocation plugin should not be invoked when the trust policy skips revocation check")
 
 	v = verifier{
@@ -1188,7 +1193,7 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin unexpected response
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
 	pluginManager.PluginRunnerExecuteResponse = "invalid plugin response"
 	pluginManager.PluginRunnerExecuteError = errors.New("invalid plugin response")
 
@@ -1215,10 +1220,10 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin did not process all extended critical attributes
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{
-			proto.CapabilityTrustedIdentityVerifier: {
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{
+			plugin.CapabilityTrustedIdentityVerifier: {
 				Success: true,
 			},
 		},
@@ -1239,9 +1244,9 @@ func assertPluginVerification(scheme signature.SigningScheme, t *testing.T) {
 
 	// plugin returned empty result for a capability
 	pluginManager = mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{},
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{},
 		ProcessedAttributes: []interface{}{mock.PluginExtendedCriticalAttribute.Key},
 	}
 
@@ -1280,7 +1285,7 @@ func TestVerifyX509TrustedIdentities(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			trustPolicy := trustpolicy.TrustPolicy{
+			trustPolicy := trustpolicy.OCITrustPolicy{
 				Name:                  "test-statement-name",
 				RegistryScopes:        []string{"registry.acme-rockets.io/software/net-monitor"},
 				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: "strict"},
@@ -1348,9 +1353,9 @@ func TestVerifyUserMetadata(t *testing.T) {
 func TestPluginVersionCompatibility(t *testing.T) {
 
 	errTemplate := "found plugin io.cncf.notary.plugin.unittest.mock with version 1.0.0 but signature verification needs plugin version greater than or equal to "
-	var policyDocument = trustpolicy.Document{
+	var policyDocument = trustpolicy.OCIDocument{
 		Version: "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{
+		TrustPolicies: []trustpolicy.OCITrustPolicy{
 			{
 				Name:                  "wabbit-networks-images",
 				RegistryScopes:        []string{"localhost:5000/net-monitor"},
@@ -1361,10 +1366,10 @@ func TestPluginVersionCompatibility(t *testing.T) {
 		},
 	}
 	pluginManager := mock.PluginManager{}
-	pluginManager.PluginCapabilities = []proto.Capability{proto.CapabilityTrustedIdentityVerifier}
-	pluginManager.PluginRunnerExecuteResponse = &proto.VerifySignatureResponse{
-		VerificationResults: map[proto.Capability]*proto.VerificationResult{
-			proto.CapabilityTrustedIdentityVerifier: {
+	pluginManager.PluginCapabilities = []plugin.Capability{plugin.CapabilityTrustedIdentityVerifier}
+	pluginManager.PluginRunnerExecuteResponse = &plugin.VerifySignatureResponse{
+		VerificationResults: map[plugin.Capability]*plugin.VerificationResult{
+			plugin.CapabilityTrustedIdentityVerifier: {
 				Success: true,
 			},
 		},
@@ -1466,7 +1471,7 @@ func TestRevocationFinalResult(t *testing.T) {
 					Server:           "http://ocsp.example.com",
 					Result:           revocationresult.ResultUnknown,
 					Error:            errors.New("ocsp error"),
-					RevocationMethod: result.RevocationMethodOCSP,
+					RevocationMethod: revocationresult.RevocationMethodOCSP,
 				},
 			},
 		}
@@ -1485,15 +1490,15 @@ func TestRevocationFinalResult(t *testing.T) {
 					Server:           "http://ocsp.example.com",
 					Result:           revocationresult.ResultUnknown,
 					Error:            errors.New("ocsp error"),
-					RevocationMethod: result.RevocationMethodOCSP,
+					RevocationMethod: revocationresult.RevocationMethodOCSP,
 				},
 				{
 					Result:           revocationresult.ResultOK,
 					Server:           "http://crl.example.com",
-					RevocationMethod: result.RevocationMethodCRL,
+					RevocationMethod: revocationresult.RevocationMethodCRL,
 				},
 			},
-			RevocationMethod: result.RevocationMethodOCSPFallbackCRL,
+			RevocationMethod: revocationresult.RevocationMethodOCSPFallbackCRL,
 		}
 
 		finalResult, problematicCertSubject := revocationFinalResult(certResult, certChain, log.Discard)
@@ -1510,15 +1515,15 @@ func TestRevocationFinalResult(t *testing.T) {
 					Server:           "http://ocsp.example.com",
 					Result:           revocationresult.ResultUnknown,
 					Error:            errors.New("ocsp error"),
-					RevocationMethod: result.RevocationMethodOCSP,
+					RevocationMethod: revocationresult.RevocationMethodOCSP,
 				},
 				{
 					Result:           revocationresult.ResultUnknown,
 					Error:            errors.New("crl error"),
-					RevocationMethod: result.RevocationMethodCRL,
+					RevocationMethod: revocationresult.RevocationMethodCRL,
 				},
 			},
-			RevocationMethod: result.RevocationMethodOCSPFallbackCRL,
+			RevocationMethod: revocationresult.RevocationMethodOCSPFallbackCRL,
 		}
 
 		finalResult, problematicCertSubject := revocationFinalResult(certResult, certChain, log.Discard)
@@ -1534,7 +1539,7 @@ func TestRevocationFinalResult(t *testing.T) {
 				{
 					Result:           revocationresult.ResultUnknown,
 					Error:            errors.New("unknown error"),
-					RevocationMethod: result.RevocationMethodUnknown,
+					RevocationMethod: revocationresult.RevocationMethodUnknown,
 				},
 			},
 		}

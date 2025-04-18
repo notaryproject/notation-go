@@ -243,7 +243,7 @@ func (v *verifier) SkipVerify(ctx context.Context, opts notation.VerifierVerifyO
 	logger.Debugf("Check verification level against artifact %v", opts.ArtifactReference)
 	trustPolicy, err := v.ociTrustPolicyDoc.GetApplicableTrustPolicy(opts.ArtifactReference)
 	if err != nil {
-		return false, nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		return false, nil, notation.NoApplicableTrustPolicyError{Msg: err.Error()}
 	}
 	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 
@@ -275,7 +275,7 @@ func (v *verifier) VerifyBlob(ctx context.Context, descGenFunc notation.BlobDesc
 		trustPolicy, err = v.blobTrustPolicyDoc.GetApplicableTrustPolicy(opts.TrustPolicyName)
 	}
 	if err != nil {
-		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		return nil, notation.NoApplicableTrustPolicyError{Msg: err.Error()}
 	}
 	logger.Infof("Trust policy configuration: %+v", trustPolicy)
 
@@ -357,7 +357,7 @@ func (v *verifier) Verify(ctx context.Context, desc ocispec.Descriptor, signatur
 
 	trustPolicy, err := v.ociTrustPolicyDoc.GetApplicableTrustPolicy(artifactRef)
 	if err != nil {
-		return nil, notation.ErrorNoApplicableTrustPolicy{Msg: err.Error()}
+		return nil, notation.NoApplicableTrustPolicyError{Msg: err.Error()}
 	}
 
 	logger.Infof("Trust policy configuration: %+v", trustPolicy)
@@ -430,15 +430,15 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		logger.Debugf("Finding verification plugin %q", verificationPluginName)
 		verificationPluginMinVersion, err := getVerificationPluginMinVersion(&outcome.EnvelopeContent.SignerInfo)
 		if err != nil && err != errExtendedAttributeNotExist {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
+			return notation.VerificationInconclusiveError{Msg: fmt.Sprintf("error while getting plugin minimum version, error: %s", err)}
 		}
 
 		if v.pluginManager == nil {
-			return notation.ErrorVerificationInconclusive{Msg: "plugin unsupported due to nil verifier.pluginManager"}
+			return notation.VerificationInconclusiveError{Msg: "plugin unsupported due to nil verifier.pluginManager"}
 		}
 		installedPlugin, err = v.pluginManager.Get(ctx, verificationPluginName)
 		if err != nil {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
+			return notation.VerificationInconclusiveError{Msg: fmt.Sprintf("error while locating the verification plugin %q, make sure the plugin is installed successfully before verifying the signature. error: %s", verificationPluginName, err)}
 		}
 
 		// filter the "verification" capabilities supported by the installed
@@ -452,11 +452,11 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 
 		//checking if the plugin version is in valid semver format
 		if !notationsemver.IsValid(pluginVersion) {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
+			return notation.VerificationInconclusiveError{Msg: fmt.Sprintf("plugin %s has pluginVersion %s which is not in valid semver format", verificationPluginName, pluginVersion)}
 		}
 
 		if !isRequiredVerificationPluginVer(pluginVersion, verificationPluginMinVersion) {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("found plugin %s with version %s but signature verification needs plugin version greater than or equal to %s", verificationPluginName, pluginVersion, verificationPluginMinVersion)}
+			return notation.VerificationInconclusiveError{Msg: fmt.Sprintf("found plugin %s with version %s but signature verification needs plugin version greater than or equal to %s", verificationPluginName, pluginVersion, verificationPluginMinVersion)}
 		}
 
 		for _, capability := range metadata.Capabilities {
@@ -466,7 +466,7 @@ func (v *verifier) processSignature(ctx context.Context, sigBlob []byte, envelop
 		}
 
 		if len(pluginCapabilities) == 0 {
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, pluginframework.CapabilityTrustedIdentityVerifier, pluginframework.CapabilityRevocationCheckVerifier)}
+			return notation.VerificationInconclusiveError{Msg: fmt.Sprintf("digital signature requires plugin %q with signature verification capabilities (%q and/or %q) installed", verificationPluginName, pluginframework.CapabilityTrustedIdentityVerifier, pluginframework.CapabilityRevocationCheckVerifier)}
 		}
 	}
 
@@ -633,7 +633,7 @@ func processPluginResponse(capabilitiesToVerify []pluginframework.Capability, re
 		pluginResult := response.VerificationResults[capability]
 		if pluginResult == nil {
 			// verification result is empty for this capability
-			return notation.ErrorVerificationInconclusive{Msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
+			return notation.VerificationInconclusiveError{Msg: fmt.Sprintf("verification plugin %q failed to verify %q", verificationPluginName, capability)}
 		}
 		switch capability {
 		case pluginframework.CapabilityTrustedIdentityVerifier:
@@ -702,7 +702,7 @@ func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation
 		default:
 			// unexpected error
 			return nil, &notation.ValidationResult{
-				Error:  notation.ErrorVerificationInconclusive{Msg: err.Error()},
+				Error:  notation.VerificationInconclusiveError{Msg: err.Error()},
 				Type:   trustpolicy.TypeIntegrity,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeIntegrity],
 			}
@@ -727,7 +727,7 @@ func verifyIntegrity(sigBlob []byte, envelopeMediaType string, outcome *notation
 func verifyAuthenticity(trustCerts []*x509.Certificate, outcome *notation.VerificationOutcome) *notation.ValidationResult {
 	if len(trustCerts) < 1 {
 		return &notation.ValidationResult{
-			Error:  notation.ErrorVerificationInconclusive{Msg: "no trusted certificates are found to verify authenticity"},
+			Error:  notation.VerificationInconclusiveError{Msg: "no trusted certificates are found to verify authenticity"},
 			Type:   trustpolicy.TypeAuthenticity,
 			Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 		}
@@ -743,7 +743,7 @@ func verifyAuthenticity(trustCerts []*x509.Certificate, outcome *notation.Verifi
 			}
 		default:
 			return &notation.ValidationResult{
-				Error:  notation.ErrorVerificationInconclusive{Msg: "authenticity verification failed with error : " + err.Error()},
+				Error:  notation.VerificationInconclusiveError{Msg: "authenticity verification failed with error : " + err.Error()},
 				Type:   trustpolicy.TypeAuthenticity,
 				Action: outcome.VerificationLevel.Enforcement[trustpolicy.TypeAuthenticity],
 			}
@@ -763,7 +763,7 @@ func verifyUserMetadata(logger log.Logger, payload *envelope.Payload, userMetada
 	for k, v := range userMetadata {
 		if got, ok := payload.TargetArtifact.Annotations[k]; !ok || got != v {
 			logger.Errorf("User required metadata %s=%s is not present in the signature", k, v)
-			return notation.ErrorUserMetadataVerificationFailed{}
+			return notation.UserMetadataVerificationFailedError{}
 		}
 	}
 

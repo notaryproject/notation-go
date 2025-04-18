@@ -96,9 +96,9 @@ func TestIsCriticalFailure(t *testing.T) {
 }
 
 func TestLoadX509TSATrustStores(t *testing.T) {
-	policyDoc := trustpolicy.Document{
+	policyDoc := trustpolicy.OCIDocument{
 		Version: "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{
+		TrustPolicies: []trustpolicy.OCITrustPolicy{
 			{
 				Name:                  "testTSA",
 				RegistryScopes:        []string{"*"},

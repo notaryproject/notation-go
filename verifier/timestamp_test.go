@@ -35,7 +35,7 @@ import (
 func TestAuthenticTimestamp(t *testing.T) {
 	dir.UserConfigDir = "testdata"
 	trustStore := truststore.NewX509TrustStore(dir.ConfigFS())
-	dummyTrustPolicy := &trustpolicy.TrustPolicy{
+	dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 		Name:           "test-timestamp",
 		RegistryScopes: []string{"*"},
 		SignatureVerification: trustpolicy.SignatureVerification{
@@ -117,7 +117,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp with afterCertExpiry set", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
@@ -138,7 +138,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to invalid trust policy", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
@@ -160,7 +160,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to missing tsa in trust policy and expired codeSigning cert", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
@@ -288,7 +288,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to trust store does not exist", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
@@ -310,7 +310,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to empty trust store", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
@@ -332,7 +332,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to tsa not trust", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
@@ -354,7 +354,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to timestamp before signing cert not before", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
@@ -380,7 +380,7 @@ func TestAuthenticTimestamp(t *testing.T) {
 	})
 
 	t.Run("verify Authentic Timestamp failed due to timestamp after signing cert not after", func(t *testing.T) {
-		dummyTrustPolicy := &trustpolicy.TrustPolicy{
+		dummyTrustPolicy := &trustpolicy.OCITrustPolicy{
 			Name:           "test-timestamp",
 			RegistryScopes: []string{"*"},
 			SignatureVerification: trustpolicy.SignatureVerification{
