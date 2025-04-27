@@ -197,6 +197,7 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 // the "application/vnd.cncf.notary.signature" artifact type
 func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 	logger := log.GetLogger(ctx)
+
 	var results []ocispec.Descriptor
 	predecessors, err := target.Predecessors(ctx, desc)
 	if err != nil {
