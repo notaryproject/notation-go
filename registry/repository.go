@@ -236,7 +236,6 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if image.Subject == nil || !content.Equal(*image.Subject, desc) {
 				continue
 			}
-
 			// following are recognized as valid Notary Project signatures
 			if image.ArtifactType == ArtifactTypeNotation && image.Config.MediaType == ocispec.MediaTypeEmptyJSON {
 				// 1. artifactType is "application/vnd.cncf.notary.signature",
