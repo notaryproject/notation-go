@@ -16,6 +16,7 @@ package registry
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -140,7 +141,7 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			Body:       io.NopCloser(bytes.NewReader([]byte{})),
 		}, nil
 	case "/v2/test/manifests/" + invalidDigest:
-		return &http.Response{}, fmt.Errorf(errMsg)
+		return &http.Response{}, errors.New(errMsg)
 	case "v2/test/manifest/" + validDigest2:
 		return &http.Response{
 			StatusCode: http.StatusOK,
@@ -164,7 +165,7 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 				},
 			}, nil
 		default:
-			return &http.Response{}, fmt.Errorf(msg)
+			return &http.Response{}, errors.New(msg)
 		}
 	case "/v2/test/referrers/":
 		return &http.Response{
@@ -220,7 +221,7 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			}
 			return resp, nil
 		}
-		return &http.Response{}, fmt.Errorf(errMsg)
+		return &http.Response{}, errors.New(errMsg)
 	}
 }
 
