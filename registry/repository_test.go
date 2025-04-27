@@ -480,8 +480,8 @@ var (
 	}
 	expectedSignatureManifestDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.oci.image.manifest.v1+json",
-		Digest:    "sha256:baeaea44f55c94499b7e082bd3c98ad5ec40fdf23ef89cdf4e5db6b83e4f18f5",
-		Size:      728,
+		Digest:    "sha256:64300ad03f1dcd18136787363f3069c9598623221cbe76e3233d35266b7973d6",
+		Size:      793,
 	}
 	expectedSignatureBlobDesc = ocispec.Descriptor{
 		MediaType: joseTag,

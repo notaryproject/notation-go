@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry/internal/artifactspec"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
@@ -195,6 +196,7 @@ func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject,
 // signatureReferrers returns referrer nodes of desc in target filtered by
 // the "application/vnd.cncf.notary.signature" artifact type
 func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	logger := log.GetLogger(ctx)
 	var results []ocispec.Descriptor
 	predecessors, err := target.Predecessors(ctx, desc)
 	if err != nil {
@@ -234,7 +236,21 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if image.Subject == nil || !content.Equal(*image.Subject, desc) {
 				continue
 			}
-			node.ArtifactType = image.Config.MediaType
+
+			// following are recognized as valid Notary Project signatures
+			if image.ArtifactType == ArtifactTypeNotation && image.Config.MediaType == ocispec.MediaTypeEmptyJSON {
+				// 1. artifactType is "application/vnd.cncf.notary.signature",
+				// and config.mediaType is "application/vnd.oci.empty.v1+json"
+				node.ArtifactType = image.ArtifactType
+			} else if image.ArtifactType == "" && image.Config.MediaType == ArtifactTypeNotation {
+				// 2. artifacteType does not exist,
+				// and config.mediaType is "application/vnd.cncf.notary.signature"
+				node.ArtifactType = image.Config.MediaType
+			} else {
+				// not a valid Notary Project signature
+				logger.Infof("not a valid Notary Project signature with artifactType %q and config.mediaType %q", image.ArtifactType, image.Config.MediaType)
+				continue
+			}
 			node.Annotations = image.Annotations
 		default:
 			continue
