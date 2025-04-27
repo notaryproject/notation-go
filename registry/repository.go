@@ -212,6 +212,7 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if err != nil {
 				return nil, err
 			}
+
 			var artifact artifactspec.Artifact
 			if err := json.Unmarshal(fetched, &artifact); err != nil {
 				return nil, err
@@ -229,6 +230,7 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if err != nil {
 				return nil, err
 			}
+
 			var image ocispec.Manifest
 			if err := json.Unmarshal(fetched, &image); err != nil {
 				return nil, err
