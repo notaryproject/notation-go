@@ -834,3 +834,19 @@ func TestSignatureReferrers(t *testing.T) {
 		}
 	})
 }
+
+func TestUploadSignatureManifest(t *testing.T) {
+	ref, err := registry.ParseReference(validReference)
+	if err != nil {
+		t.Fatalf("failed to parse reference")
+	}
+	client := newRepositoryClientWithImageManifest(mockRemoteClient{}, ref, false)
+	manifest, err := client.uploadSignatureManifest(context.Background(),
+		ocispec.Descriptor{}, ocispec.Descriptor{}, nil)
+	if err != nil {
+		t.Fatalf("failed to upload signature manifest: %v", err)
+	}
+	if manifest.ArtifactType != ArtifactTypeNotation {
+		t.Fatalf("expected artifact type: %s, got: %s", ArtifactTypeNotation, manifest.ArtifactType)
+	}
+}
