@@ -883,7 +883,7 @@ func TestSignatureReferrers(t *testing.T) {
 		}
 	})
 
-	t.Run("image manifest wit no artifactType and valid config.MediaType", func(t *testing.T) {
+	t.Run("image manifest with no artifactType and valid config.MediaType", func(t *testing.T) {
 		sigManifest := `{"config":{"mediaType":"application/vnd.cncf.notary.signature"},"subject":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
 		sigManifestDesc := ocispec.Descriptor{
 			Digest:    "sha256:0e0be61f687ba634dd772f6d3048101f78f22fabda64cc9600671cee41ab2d47",
