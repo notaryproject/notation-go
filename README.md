@@ -3,6 +3,7 @@
 [![Build Status](https://github.com/notaryproject/notation-go/actions/workflows/build.yml/badge.svg?event=push&branch=main)](https://github.com/notaryproject/notation-go/actions/workflows/build.yml?query=workflow%3Abuild+event%3Apush+branch%3Amain)
 [![Codecov](https://codecov.io/gh/notaryproject/notation-go/branch/main/graph/badge.svg)](https://codecov.io/gh/notaryproject/notation-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/notaryproject/notation-go.svg)](https://pkg.go.dev/github.com/notaryproject/notation-go@main)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/notaryproject/notation-go/badge)](https://scorecard.dev/viewer/?uri=github.com/notaryproject/notation-go)
 
 notation-go contains libraries for signing and verification of artifacts as per [Notary Project specifications](https://github.com/notaryproject/specifications). notation-go is being used by [notation](https://github.com/notaryproject/notation) CLI for signing and verifying artifacts.
 
@@ -15,9 +16,11 @@ Please visit [README](https://github.com/notaryproject/.github/blob/main/README.
 
 ## Table of Contents
 
-- [Documentation](#documentation)
-- [Code of Conduct](#code-of-conduct)
-- [License](#license)
+- [notation-go](#notation-go)
+  - [Table of Contents](#table-of-contents)
+  - [Documentation](#documentation)
+  - [Code of Conduct](#code-of-conduct)
+  - [License](#license)
  
 ## Documentation
 
