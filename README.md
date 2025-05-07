@@ -16,11 +16,9 @@ Please visit [README](https://github.com/notaryproject/.github/blob/main/README.
 
 ## Table of Contents
 
-- [notation-go](#notation-go)
-  - [Table of Contents](#table-of-contents)
-  - [Documentation](#documentation)
-  - [Code of Conduct](#code-of-conduct)
-  - [License](#license)
+- [Documentation](#documentation)
+- [Code of Conduct](#code-of-conduct)
+- [License](#license)
  
 ## Documentation
 
