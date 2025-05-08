@@ -221,6 +221,10 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if artifact.Subject == nil || !content.Equal(*artifact.Subject, desc) {
 				continue
 			}
+			if artifact.ArtifactType != ArtifactTypeNotation {
+				// not a valid Notary Project signature
+				continue
+			}
 			node.ArtifactType = artifact.ArtifactType
 			node.Annotations = artifact.Annotations
 		case ocispec.MediaTypeImageManifest:
@@ -270,10 +274,8 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			continue
 		}
 
-		// only keeping nodes of "application/vnd.cncf.notary.signature"
-		if node.ArtifactType == ArtifactTypeNotation {
-			results = append(results, node)
-		}
+		// add the node to results
+		results = append(results, node)
 	}
 	return results, nil
 }
