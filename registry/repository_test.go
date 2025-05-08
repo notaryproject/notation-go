@@ -16,6 +16,7 @@ package registry
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -140,7 +141,7 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			Body:       io.NopCloser(bytes.NewReader([]byte{})),
 		}, nil
 	case "/v2/test/manifests/" + invalidDigest:
-		return &http.Response{}, fmt.Errorf(errMsg)
+		return &http.Response{}, errors.New(errMsg)
 	case "v2/test/manifest/" + validDigest2:
 		return &http.Response{
 			StatusCode: http.StatusOK,
@@ -164,7 +165,7 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 				},
 			}, nil
 		default:
-			return &http.Response{}, fmt.Errorf(msg)
+			return &http.Response{}, errors.New(msg)
 		}
 	case "/v2/test/referrers/":
 		return &http.Response{
@@ -220,7 +221,7 @@ func (c mockRemoteClient) Do(req *http.Request) (*http.Response, error) {
 			}
 			return resp, nil
 		}
-		return &http.Response{}, fmt.Errorf(errMsg)
+		return &http.Response{}, errors.New(errMsg)
 	}
 }
 
@@ -480,8 +481,8 @@ var (
 	}
 	expectedSignatureManifestDesc = ocispec.Descriptor{
 		MediaType: "application/vnd.oci.image.manifest.v1+json",
-		Digest:    "sha256:baeaea44f55c94499b7e082bd3c98ad5ec40fdf23ef89cdf4e5db6b83e4f18f5",
-		Size:      728,
+		Digest:    "sha256:64300ad03f1dcd18136787363f3069c9598623221cbe76e3233d35266b7973d6",
+		Size:      793,
 	}
 	expectedSignatureBlobDesc = ocispec.Descriptor{
 		MediaType: joseTag,
@@ -810,6 +811,31 @@ func TestSignatureReferrers(t *testing.T) {
 		}
 	})
 
+	t.Run("artifact manifest with invalid artifactType", func(t *testing.T) {
+		sigManifest := `{"artifactType":"invalid", "subject":{"mediaType":"application/vnd.oci.artifact.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
+		sigManifestDesc := ocispec.Descriptor{
+			Digest:    "sha256:835c3386406350fbddf5ee376b358bd20c6c423d6becbec166f83c533e4df5d6",
+			MediaType: "application/vnd.oci.artifact.manifest.v1+json",
+			Size:      198,
+		}
+		store := &testStorage{
+			store:            &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{sigManifestDesc},
+			FetchContent:     []byte(sigManifest),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest:    "sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			MediaType: "application/vnd.oci.artifact.manifest.v1+json",
+			Size:      2,
+		})
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatalf("expected to get no referrers, but got: %v", descriptors)
+		}
+	})
+
 	t.Run("no valid image manifest", func(t *testing.T) {
 		store := &testStorage{
 			store: &memory.Store{},
@@ -825,7 +851,6 @@ func TestSignatureReferrers(t *testing.T) {
 		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
 			Digest: "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
 		})
-
 		if err != nil {
 			t.Fatalf("failed to get referrers: %v", err)
 		}
@@ -833,4 +858,172 @@ func TestSignatureReferrers(t *testing.T) {
 			t.Fatalf("expected to get no referrers, but got: %v", descriptors)
 		}
 	})
+
+	t.Run("image manifest with invalid mediaType", func(t *testing.T) {
+		sigManifest := `{}`
+		sigManifestDesc := ocispec.Descriptor{
+			Digest:    "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			MediaType: "invalid",
+			Size:      2,
+		}
+		store := &testStorage{
+			store:            &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{sigManifestDesc},
+			FetchContent:     []byte(sigManifest),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{})
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatal("expected length of descriptors to be 0")
+		}
+	})
+
+	t.Run("image manifest with valid artifactType and config.MediaType", func(t *testing.T) {
+		sigManifest := `{"artifactType":"application/vnd.cncf.notary.signature","config":{"mediaType":"application/vnd.oci.empty.v1+json"},"subject":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
+		sigManifestDesc := ocispec.Descriptor{
+			Digest:    "sha256:ad3ab7874c72d7bf5db0e55ce839b37ee71320bf7c18ac1a512600963f03c54d",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      283,
+		}
+		store := &testStorage{
+			store:            &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{sigManifestDesc},
+			FetchContent:     []byte(sigManifest),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest:    "sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      2,
+		})
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 1 {
+			t.Fatal("expected length of descriptors to be 1")
+		}
+		if !content.Equal(sigManifestDesc, descriptors[0]) {
+			t.Fatalf("expected %v, got: %v", sigManifestDesc, descriptors[0])
+		}
+	})
+
+	t.Run("image manifest with valid artifactType but invalid config.MediaType", func(t *testing.T) {
+		sigManifest := `{"artifactType":"application/vnd.cncf.notary.signature","config":{"mediaType":"invalid"},"subject":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
+		sigManifestDesc := ocispec.Descriptor{
+			Digest:    "sha256:becfe1975b40352d0c7bd1337707a4c471fdcfa1ac380f2875fe8076a3bc3581",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      257,
+		}
+		store := &testStorage{
+			store:            &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{sigManifestDesc},
+			FetchContent:     []byte(sigManifest),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest:    "sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      2,
+		})
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatal("expected length of descriptors to be 0")
+		}
+	})
+
+	t.Run("image manifest with no artifactType and valid config.MediaType", func(t *testing.T) {
+		sigManifest := `{"config":{"mediaType":"application/vnd.cncf.notary.signature"},"subject":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
+		sigManifestDesc := ocispec.Descriptor{
+			Digest:    "sha256:0e0be61f687ba634dd772f6d3048101f78f22fabda64cc9600671cee41ab2d47",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      232,
+		}
+		store := &testStorage{
+			store:            &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{sigManifestDesc},
+			FetchContent:     []byte(sigManifest),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest:    "sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      2,
+		})
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 1 {
+			t.Fatal("expected length of descriptors to be 1")
+		}
+		if !content.Equal(sigManifestDesc, descriptors[0]) {
+			t.Fatalf("expected %v, got: %v", sigManifestDesc, descriptors[0])
+		}
+	})
+
+	t.Run("image manifest with no artifactType and invalid config.MediaType", func(t *testing.T) {
+		sigManifest := `{"config":{"mediaType":"invalid"},"subject":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
+		sigManifestDesc := ocispec.Descriptor{
+			Digest:    "sha256:1580e4f590269bd40a33e902888429c9bbb250902f5a7eb50f04fbb8bd4dbab3",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      202,
+		}
+		store := &testStorage{
+			store:            &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{sigManifestDesc},
+			FetchContent:     []byte(sigManifest),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest:    "sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      2,
+		})
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatal("expected length of descriptors to be 0")
+		}
+	})
+
+	t.Run("image manifest with invalid artifactType", func(t *testing.T) {
+		sigManifest := `{"artifactType":"invalid","config":{"mediaType":"application/vnd.oci.empty.v1+json"},"subject":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
+		sigManifestDesc := ocispec.Descriptor{
+			Digest:    "sha256:d8c225cb4eca3e15fa2a44c9d302044e8c8683399939e26f417edb82f8b69cc3",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      253,
+		}
+		store := &testStorage{
+			store:            &memory.Store{},
+			PredecessorsDesc: []ocispec.Descriptor{sigManifestDesc},
+			FetchContent:     []byte(sigManifest),
+		}
+		descriptors, err := signatureReferrers(context.Background(), store, ocispec.Descriptor{
+			Digest:    "sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			Size:      2,
+		})
+		if err != nil {
+			t.Fatalf("failed to get referrers: %v", err)
+		}
+		if len(descriptors) != 0 {
+			t.Fatal("expected length of descriptors to be 0")
+		}
+	})
+}
+
+func TestUploadSignatureManifest(t *testing.T) {
+	ref, err := registry.ParseReference(validReference)
+	if err != nil {
+		t.Fatalf("failed to parse reference")
+	}
+	client := newRepositoryClientWithImageManifest(mockRemoteClient{}, ref, false)
+	manifest, err := client.uploadSignatureManifest(context.Background(),
+		ocispec.Descriptor{}, ocispec.Descriptor{}, nil)
+	if err != nil {
+		t.Fatalf("failed to upload signature manifest: %v", err)
+	}
+	if manifest.ArtifactType != ArtifactTypeNotation {
+		t.Fatalf("expected artifact type: %s, got: %s", ArtifactTypeNotation, manifest.ArtifactType)
+	}
 }

@@ -14,38 +14,23 @@
 package registry
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
+	"github.com/notaryproject/notation-go/log"
 	"github.com/notaryproject/notation-go/registry/internal/artifactspec"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
-	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry"
 )
 
 const (
 	maxBlobSizeLimit     = 32 * 1024 * 1024 // 32 MiB
 	maxManifestSizeLimit = 4 * 1024 * 1024  // 4 MiB
-)
-
-var (
-	// notationEmptyConfigDesc is the descriptor of an empty notation manifest
-	// config
-	// reference: https://github.com/notaryproject/specifications/blob/v1.0.0/specs/signature-specification.md#storage
-	notationEmptyConfigDesc = ocispec.Descriptor{
-		MediaType: ArtifactTypeNotation,
-		Digest:    ocispec.DescriptorEmptyJSON.Digest,
-		Size:      ocispec.DescriptorEmptyJSON.Size,
-	}
-	// notationEmptyConfigData is the data of an empty notation manifest config
-	notationEmptyConfigData = ocispec.DescriptorEmptyJSON.Data
 )
 
 // RepositoryOptions provides user options when creating a [Repository]
@@ -108,7 +93,6 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 	if repo, ok := c.GraphTarget.(registry.ReferrerLister); ok {
 		return repo.Referrers(ctx, desc, ArtifactTypeNotation, fn)
 	}
-
 	signatureManifests, err := signatureReferrers(ctx, c.GraphTarget, desc)
 	if err != nil {
 		return fmt.Errorf("failed to get referrers during ListSignatures due to %w", err)
@@ -126,7 +110,6 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	if sigBlobDesc.Size > maxBlobSizeLimit {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("signature blob too large: %d bytes", sigBlobDesc.Size)
 	}
-
 	var fetcher content.Fetcher = c.GraphTarget
 	if repo, ok := c.GraphTarget.(registry.Repository); ok {
 		fetcher = repo.Blobs()
@@ -179,6 +162,7 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 
 	// get the signature blob descriptor from signature manifest
 	var signatureBlobs []ocispec.Descriptor
+
 	// OCI image manifest
 	if sigManifestDesc.MediaType == ocispec.MediaTypeImageManifest {
 		var sigManifest ocispec.Manifest
@@ -193,55 +177,27 @@ func (c *repositoryClient) getSignatureBlobDesc(ctx context.Context, sigManifest
 		}
 		signatureBlobs = sigManifest.Blobs
 	}
-
 	if len(signatureBlobs) != 1 {
 		return ocispec.Descriptor{}, fmt.Errorf("signature manifest requries exactly one signature envelope blob, got %d", len(signatureBlobs))
 	}
-
 	return signatureBlobs[0], nil
 }
 
 // uploadSignatureManifest uploads the signature manifest to the registry
 func (c *repositoryClient) uploadSignatureManifest(ctx context.Context, subject, blobDesc ocispec.Descriptor, annotations map[string]string) (ocispec.Descriptor, error) {
-	configDesc, err := pushNotationManifestConfig(ctx, c.GraphTarget)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to push notation manifest config: %w", err)
-	}
-
 	opts := oras.PackManifestOptions{
 		Subject:             &subject,
 		ManifestAnnotations: annotations,
 		Layers:              []ocispec.Descriptor{blobDesc},
-		ConfigDescriptor:    &configDesc,
 	}
-
-	return oras.PackManifest(ctx, c.GraphTarget, oras.PackManifestVersion1_1, "", opts)
-}
-
-// pushNotationManifestConfig pushes an empty notation manifest config, if it
-// doesn't exist.
-//
-// if the config exists, it returns the descriptor of the config without error.
-func pushNotationManifestConfig(ctx context.Context, pusher content.Storage) (ocispec.Descriptor, error) {
-	// check if the config exists
-	exists, err := pusher.Exists(ctx, notationEmptyConfigDesc)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("unable to verify existence: %s: %s. Details: %w", notationEmptyConfigDesc.Digest.String(), notationEmptyConfigDesc.MediaType, err)
-	}
-	if exists {
-		return notationEmptyConfigDesc, nil
-	}
-
-	// return nil if the config pushed successfully or it already exists
-	if err := pusher.Push(ctx, notationEmptyConfigDesc, bytes.NewReader(notationEmptyConfigData)); err != nil && !errors.Is(err, errdef.ErrAlreadyExists) {
-		return ocispec.Descriptor{}, fmt.Errorf("unable to push: %s: %s. Details: %w", notationEmptyConfigDesc.Digest.String(), notationEmptyConfigDesc.MediaType, err)
-	}
-	return notationEmptyConfigDesc, nil
+	return oras.PackManifest(ctx, c.GraphTarget, oras.PackManifestVersion1_1, ArtifactTypeNotation, opts)
 }
 
 // signatureReferrers returns referrer nodes of desc in target filtered by
 // the "application/vnd.cncf.notary.signature" artifact type
 func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	logger := log.GetLogger(ctx)
+
 	var results []ocispec.Descriptor
 	predecessors, err := target.Predecessors(ctx, desc)
 	if err != nil {
@@ -257,11 +213,16 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if err != nil {
 				return nil, err
 			}
+
 			var artifact artifactspec.Artifact
 			if err := json.Unmarshal(fetched, &artifact); err != nil {
 				return nil, err
 			}
 			if artifact.Subject == nil || !content.Equal(*artifact.Subject, desc) {
+				continue
+			}
+			if artifact.ArtifactType != ArtifactTypeNotation {
+				// not a valid Notary Project signature
 				continue
 			}
 			node.ArtifactType = artifact.ArtifactType
@@ -274,6 +235,7 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if err != nil {
 				return nil, err
 			}
+
 			var image ocispec.Manifest
 			if err := json.Unmarshal(fetched, &image); err != nil {
 				return nil, err
@@ -281,15 +243,39 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 			if image.Subject == nil || !content.Equal(*image.Subject, desc) {
 				continue
 			}
-			node.ArtifactType = image.Config.MediaType
+
+			// check if image is a valid Notary Project signature
+			switch image.ArtifactType {
+			case ArtifactTypeNotation:
+				// 1. artifactType is "application/vnd.cncf.notary.signature",
+				// and config.mediaType is "application/vnd.oci.empty.v1+json"
+				if image.Config.MediaType == ocispec.MediaTypeEmptyJSON {
+					node.ArtifactType = image.ArtifactType
+				} else {
+					// not a valid Notary Project signature
+					logger.Warnf("not a valid Notary Project signature with artifactType %q, but config.mediaType is %q", image.ArtifactType, image.Config.MediaType)
+					continue
+				}
+			case "":
+				// 2. artifacteType does not exist,
+				// and config.mediaType is "application/vnd.cncf.notary.signature"
+				if image.Config.MediaType == ArtifactTypeNotation {
+					node.ArtifactType = image.Config.MediaType
+				} else {
+					// not a valid Notary Project signature
+					continue
+				}
+			default:
+				// not a valid Notary Project signature
+				continue
+			}
 			node.Annotations = image.Annotations
 		default:
 			continue
 		}
-		// only keep nodes of "application/vnd.cncf.notary.signature"
-		if node.ArtifactType == ArtifactTypeNotation {
-			results = append(results, node)
-		}
+
+		// add the node to results
+		results = append(results, node)
 	}
 	return results, nil
 }
