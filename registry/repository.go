@@ -240,18 +240,29 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 				continue
 			}
 
-			// following are recognized as valid Notary Project signatures
-			if image.ArtifactType == ArtifactTypeNotation && image.Config.MediaType == ocispec.MediaTypeEmptyJSON {
+			// check if image is a valid Notary Project signature
+			switch image.ArtifactType {
+			case ArtifactTypeNotation:
 				// 1. artifactType is "application/vnd.cncf.notary.signature",
 				// and config.mediaType is "application/vnd.oci.empty.v1+json"
-				node.ArtifactType = image.ArtifactType
-			} else if image.ArtifactType == "" && image.Config.MediaType == ArtifactTypeNotation {
+				if image.Config.MediaType == ocispec.MediaTypeEmptyJSON {
+					node.ArtifactType = image.ArtifactType
+				} else {
+					// not a valid Notary Project signature
+					logger.Infof("not a valid Notary Project signature with artifactType %q, but config.mediaType is %q", image.ArtifactType, image.Config.MediaType)
+					continue
+				}
+			case "":
 				// 2. artifacteType does not exist,
 				// and config.mediaType is "application/vnd.cncf.notary.signature"
-				node.ArtifactType = image.Config.MediaType
-			} else {
+				if image.Config.MediaType == ArtifactTypeNotation {
+					node.ArtifactType = image.Config.MediaType
+				} else {
+					// not a valid Notary Project signature
+					continue
+				}
+			default:
 				// not a valid Notary Project signature
-				logger.Infof("not a valid Notary Project signature with artifactType %q and config.mediaType %q", image.ArtifactType, image.Config.MediaType)
 				continue
 			}
 			node.Annotations = image.Annotations
