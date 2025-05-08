@@ -815,7 +815,7 @@ func TestSignatureReferrers(t *testing.T) {
 		sigManifest := `{"artifactType":"invalid", "subject":{"mediaType":"application/vnd.oci.artifact.manifest.v1+json","digest":"sha256:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2}}`
 		sigManifestDesc := ocispec.Descriptor{
 			Digest:    "sha256:835c3386406350fbddf5ee376b358bd20c6c423d6becbec166f83c533e4df5d6",
-			MediaType: "application/vnd.oci.image.manifest.v1+json",
+			MediaType: "application/vnd.oci.artifact.manifest.v1+json",
 			Size:      198,
 		}
 		store := &testStorage{
