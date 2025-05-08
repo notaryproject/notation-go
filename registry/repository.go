@@ -253,7 +253,7 @@ func signatureReferrers(ctx context.Context, target content.ReadOnlyGraphStorage
 					node.ArtifactType = image.ArtifactType
 				} else {
 					// not a valid Notary Project signature
-					logger.Infof("not a valid Notary Project signature with artifactType %q, but config.mediaType is %q", image.ArtifactType, image.Config.MediaType)
+					logger.Warnf("not a valid Notary Project signature with artifactType %q, but config.mediaType is %q", image.ArtifactType, image.Config.MediaType)
 					continue
 				}
 			case "":
