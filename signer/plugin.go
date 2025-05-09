@@ -137,10 +137,8 @@ func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDe
 	logger.Debugf("Using plugin %v with capabilities %v to sign blob using descriptor %+v", metadata.Name, metadata.Capabilities, desc)
 	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
 		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
-	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
-		return s.generateSignatureEnvelope(ctx, desc, opts)
 	}
-	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
+	return nil, nil, fmt.Errorf("plugin does not have signature generator capabilities for blob signing")
 }
 
 func (s *PluginSigner) getKeySpec(ctx context.Context, config map[string]string) (signature.KeySpec, error) {
