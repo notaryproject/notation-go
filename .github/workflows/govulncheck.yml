@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Security audit
+name: govulnecheck
 on:
   pull_request:
   workflow_dispatch:
@@ -19,7 +19,7 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  security_audit:
+  govulncheck:
     runs-on: ubuntu-latest
     steps:
         - uses: golang/govulncheck-action@v1
