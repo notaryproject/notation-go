@@ -123,6 +123,13 @@ func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDe
 	if err != nil {
 		return nil, nil, err
 	}
+	// only support blob signing with the signature generator capability because
+	// the envelope generator capability is designed for OCI signing.
+	// A new capability may be added in the future for blob signing.
+	if !metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
+		return nil, nil, fmt.Errorf("the plugin %q lacks the signature generator capability required for blob signing", metadata.Name)
+	}
+
 	logger.Debug("Invoking plugin's describe-key command")
 	ks, err := s.getKeySpec(ctx, mergedConfig)
 	if err != nil {
@@ -135,12 +142,7 @@ func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDe
 		return nil, nil, err
 	}
 	logger.Debugf("Using plugin %v with capabilities %v to sign blob using descriptor %+v", metadata.Name, metadata.Capabilities, desc)
-	if metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
-		return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
-	} else if metadata.HasCapability(plugin.CapabilityEnvelopeGenerator) {
-		return s.generateSignatureEnvelope(ctx, desc, opts)
-	}
-	return nil, nil, fmt.Errorf("plugin does not have signing capabilities")
+	return s.generateSignature(ctx, desc, opts, ks, metadata, mergedConfig)
 }
 
 func (s *PluginSigner) getKeySpec(ctx context.Context, config map[string]string) (signature.KeySpec, error) {
