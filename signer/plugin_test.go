@@ -363,6 +363,21 @@ func TestPluginSigner_SignBlob_Valid(t *testing.T) {
 	}
 }
 
+func TestPluginSigner_SignBlob_Invalid(t *testing.T) {
+	t.Run("blob signing with generate envelope plugin should be failed", func(t *testing.T) {
+		plugin := &mockPlugin{}
+		plugin.wantEnvelope = true
+		pluginSigner := PluginSigner{
+			plugin: plugin,
+		}
+		_, _, err := pluginSigner.SignBlob(context.Background(), getDescriptorFunc(false), validSignOpts)
+		expectedErrMsg := "plugin does not have signature generator capability for blob signing"
+		if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
+			t.Fatalf("expected error %q, got %v", expectedErrMsg, err)
+		}
+	})
+}
+
 func TestPluginSigner_SignEnvelope_RunFailed(t *testing.T) {
 	for _, envelopeType := range signature.RegisteredEnvelopeTypes() {
 		t.Run(fmt.Sprintf("envelopeType=%v", envelopeType), func(t *testing.T) {
