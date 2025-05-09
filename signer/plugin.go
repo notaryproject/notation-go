@@ -127,7 +127,7 @@ func (s *PluginSigner) SignBlob(ctx context.Context, descGenFunc notation.BlobDe
 	// the envelope generator capability is designed for OCI signing.
 	// A new capability may be added in the future for blob signing.
 	if !metadata.HasCapability(plugin.CapabilitySignatureGenerator) {
-		return nil, nil, fmt.Errorf("plugin does not have signature generator capability for blob signing")
+		return nil, nil, fmt.Errorf("the plugin %q lacks the signature generator capability required for blob signing", metadata.Name)
 	}
 
 	logger.Debug("Invoking plugin's describe-key command")

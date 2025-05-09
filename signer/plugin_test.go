@@ -364,14 +364,14 @@ func TestPluginSigner_SignBlob_Valid(t *testing.T) {
 }
 
 func TestPluginSigner_SignBlob_Invalid(t *testing.T) {
-	t.Run("blob signing with generate envelope plugin should be failed", func(t *testing.T) {
+	t.Run("blob signing with generate envelope plugin should fail", func(t *testing.T) {
 		plugin := &mockPlugin{}
 		plugin.wantEnvelope = true
 		pluginSigner := PluginSigner{
 			plugin: plugin,
 		}
 		_, _, err := pluginSigner.SignBlob(context.Background(), getDescriptorFunc(false), validSignOpts)
-		expectedErrMsg := "plugin does not have signature generator capability for blob signing"
+		expectedErrMsg := "the plugin \"testPlugin\" lacks the signature generator capability required for blob signing"
 		if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
 			t.Fatalf("expected error %q, got %v", expectedErrMsg, err)
 		}
