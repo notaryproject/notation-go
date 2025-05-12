@@ -10,9 +10,9 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/veraison/go-cose v1.3.0
-	golang.org/x/crypto v0.37.0
+	golang.org/x/crypto v0.38.0
 	golang.org/x/mod v0.24.0
-	oras.land/oras-go/v2 v2.5.0
+	oras.land/oras-go/v2 v2.6.0
 )
 
 require (
@@ -22,5 +22,5 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
 )
