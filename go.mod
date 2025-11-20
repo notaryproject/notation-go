@@ -1,6 +1,6 @@
 module github.com/notaryproject/notation-go
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.11
@@ -10,7 +10,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/veraison/go-cose v1.3.0
-	golang.org/x/crypto v0.41.0
+	golang.org/x/crypto v0.45.0
 	golang.org/x/mod v0.27.0
 	oras.land/oras-go/v2 v2.6.0
 )
