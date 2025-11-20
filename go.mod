@@ -3,7 +3,7 @@ module github.com/notaryproject/notation-go
 go 1.23.0
 
 require (
-	github.com/go-ldap/ldap/v3 v3.4.11
+	github.com/go-ldap/ldap/v3 v3.4.12
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
 	github.com/notaryproject/tspclient-go v1.0.0
