@@ -171,6 +171,49 @@ func TestCopyToDir(t *testing.T) {
 	})
 }
 
+func TestCopyDirToDir(t *testing.T) {
+	t.Run("only top-level regular files are copied", func(t *testing.T) {
+		srcDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// top-level regular file
+		if err := os.WriteFile(filepath.Join(srcDir, "top.txt"), []byte("top"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		// a file nested in a sub-directory that must NOT be copied
+		subDir := filepath.Join(srcDir, "sub")
+		if err := os.MkdirAll(subDir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested"), 0600); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := CopyDirToDir(srcDir, destDir); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := os.Stat(filepath.Join(destDir, "top.txt")); err != nil {
+			t.Fatalf("expected top-level file to be copied, but got %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(destDir, "nested.txt")); !os.IsNotExist(err) {
+			t.Fatal("expected sub-directory file to be skipped, but it was copied")
+		}
+	})
+
+	t.Run("source is not a directory", func(t *testing.T) {
+		srcDir := t.TempDir()
+		destDir := t.TempDir()
+		filename := filepath.Join(srcDir, "file.txt")
+		if err := os.WriteFile(filename, []byte("data"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := CopyDirToDir(filename, destDir); err != ErrNotDirectory {
+			t.Fatalf("expected ErrNotDirectory, but got %v", err)
+		}
+	})
+}
+
 func TestFileNameWithoutExtension(t *testing.T) {
 	input := "testfile.tar.gz"
 	expectedOutput := "testfile.tar"

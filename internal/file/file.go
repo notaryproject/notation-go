@@ -86,12 +86,12 @@ func CopyDirToDir(src, dst string) error {
 	if !fi.Mode().IsDir() {
 		return ErrNotDirectory
 	}
-	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+	return filepath.WalkDir(src, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		// skip sub-directories
-		if d.IsDir() && d.Name() != filepath.Base(path) {
+		if d.IsDir() && filePath != src {
 			return fs.SkipDir
 		}
 		info, err := d.Info()
@@ -100,7 +100,7 @@ func CopyDirToDir(src, dst string) error {
 		}
 		// only copy regular files
 		if info.Mode().IsRegular() {
-			return CopyToDir(path, dst)
+			return CopyToDir(filePath, dst)
 		}
 		return nil
 	})
