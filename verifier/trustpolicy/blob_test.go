@@ -99,6 +99,32 @@ func TestValidate_BlobDocument_Error(t *testing.T) {
 		t.Fatalf("multiple global blob policy should return error")
 	}
 
+	// global policy with verification level skip
+	policyDoc = dummyBlobPolicyDocument()
+	policyStatement1 = policyDoc.TrustPolicies[0].clone()
+	policyStatement1.GlobalPolicy = true
+	policyStatement1.SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
+	// validatePolicyCore permits skip only without trust stores or identities,
+	// so this is the shape that reaches the global policy check.
+	policyStatement1.TrustStores = nil
+	policyStatement1.TrustedIdentities = nil
+	policyDoc.TrustPolicies = []BlobTrustPolicy{*policyStatement1}
+	err = policyDoc.Validate()
+	if err == nil || err.Error() != "global blob trust policy statement cannot have verification level set to skip" {
+		t.Fatalf("global blob policy with skip should return an error, got %v", err)
+	}
+
+	// a non-global statement may still use skip
+	policyDoc = dummyBlobPolicyDocument()
+	policyStatement1 = policyDoc.TrustPolicies[0].clone()
+	policyStatement1.SignatureVerification = SignatureVerification{VerificationLevel: "skip"}
+	policyStatement1.TrustStores = nil
+	policyStatement1.TrustedIdentities = nil
+	policyDoc.TrustPolicies = []BlobTrustPolicy{*policyStatement1}
+	if err := policyDoc.Validate(); err != nil {
+		t.Fatalf("non-global statement with skip should be allowed, got %v", err)
+	}
+
 	// Policy Document with duplicate policy statement names
 	policyDoc = dummyBlobPolicyDocument()
 	policyStatement1 = policyDoc.TrustPolicies[0].clone()
