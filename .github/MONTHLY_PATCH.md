@@ -2,24 +2,29 @@
 
 The monthly patch controller and full proposal live in the companion
 [notation CLI repository](https://github.com/notaryproject/notation). This
-repository installs the shared worker and validation workflow from that change.
-It does not run a separate assessment schedule or require a Copilot token. The
-shared controller helper supports authorization checks, not a second scheduled
-controller.
+repository installs only a dispatch workflow that calls the CLI's reusable
+worker at a full commit SHA. The CLI owns the shared scripts, regression tests,
+assessment schedule, and controller. Go does not require a Copilot token.
 
 ## Merge-time state
 
 Maintainers must leave the Actions variable `MONTHLY_PATCH_ENABLED` unset or
 `false` when merging the setup. Merging this change is not authorization to
 activate automation, change repository settings, or publish a release. The
-companion CLI controller and this repository's worker must
-both be installed before activation.
+companion CLI controller and this repository's caller must both be installed
+before activation. The draft's reusable-workflow pin must be rebound to the final
+upstream CLI commit after the companion PR merges, before Go merges or activates.
+Squash merging can change that commit SHA.
+The current review pin is `16fcf79278a01b403233170611f94eb665bdde07`.
+Maintainers must update both the caller's `uses` reference and `worker_sha`
+input to the same final upstream commit.
 
 ## Repository settings
 
 | Setting | Required setup |
 | --- | --- |
 | Repository features | Enable GitHub Actions and Issues. |
+| Actions policy | Allow the reusable workflow `notaryproject/notation/.github/workflows/monthly-patch-worker.yml` and its required actions. The caller uses a full commit SHA, and the central worker checks out its helper code at the corresponding immutable pin. |
 | Dependabot | Keep Go modules and GitHub Actions updates enabled on `main`. The existing `.github/dependabot.yml` configures both weekly and does not override the default target branch. |
 | Release branch | Maintain the current latest stable `release-X.Y` branch with required CI checks and reviews. Determine the branch from the current stable release, not from the version on `main`. |
 | Merge methods | Enable **Allow merge commits**. Preserve the required normal merge method for release voting PRs. |
@@ -32,7 +37,9 @@ both be installed before activation.
 | Actions variable `MONTHLY_PATCH_ENABLED` | Leave unset or `false` until maintainers explicitly authorize activation after companion setup and validation. |
 
 Maintainers must verify the configured token can perform the required operations
-without bypassing required checks or reviews.
+without bypassing required checks or reviews. The caller passes only the two
+declared secrets, and passes empty values during `dry-run`; it does not inherit
+all repository secrets.
 
 ## Coordination and release approvals
 
@@ -69,10 +76,13 @@ required metadata update without granting permission for other source changes.
 ## Activation
 
 1. Maintainers review and merge the companion CLI controller and the
-   Go worker, with automation still disabled.
+   Go caller, with automation still disabled. Before merging Go, rebind its
+   provisional draft pin to the final upstream CLI commit and review the
+   central helper checkout pin.
 2. Administrators configure the settings above and confirm the required CI and
    review rules apply to the selected stable release branch.
-3. Maintainers review the shared payload's focused test and workflow-lint results
+3. Maintainers review the CLI's centralized tests and the Go caller's workflow
+   lint and contract checks,
    and approve the controller's authorization policy and activation.
 4. Administrators set `MONTHLY_PATCH_ENABLED` to `true` only after those approvals.
    They can return it to `false` to disable future worker execution.
