@@ -15,7 +15,7 @@ companion CLI controller and this repository's caller must both be installed
 before activation. The draft's reusable-workflow pin must be rebound to the final
 upstream CLI commit after the companion PR merges, before Go merges or activates.
 Squash merging can change that commit SHA.
-The current review pin is `16fcf79278a01b403233170611f94eb665bdde07`.
+The current review pin is `8ccc041e0bc2afc5c8a99cda24abd280cdffbd58`.
 Maintainers must update both the caller's `uses` reference and `worker_sha`
 input to the same final upstream commit.
 
@@ -46,12 +46,24 @@ all repository secrets.
 Go has its own third-party dependency updates. A Go cycle waits for Core only
 when Core publishes a release in the same coordinated cycle. In that case, the
 exact planned canonical `github.com/notaryproject/notation-core-go` version must
-pass the checked producer PR before release. Fork `replace` directives are not
-an acceptable substitute.
+pass the checked producer PR before release. Core must first pass public release
+verification. The controller must then reassess Go with that exact producer
+version; an earlier assessment with no Go updates is not a final skip decision.
+Fork `replace` directives are not an acceptable substitute.
 
-The CLI controller owns cycle assessment, policy authorization, and coordination.
-Maintainers must approve that policy and activation explicitly. Worker execution
-must honor the authorized cycle and preserve the release approval points in
+The CLI controller owns cycle assessment and coordination. A maintainer must
+review and approve the shared plan issue before execution starts. The approval
+must bind the reviewed plan and cannot be inferred from setup approval, a timer,
+or a manual dispatch. A current active CLI repo-level maintainer must post the
+exact, unedited comment `/approve-plan <plan_id>` on the shared central cycle
+issue showing the immutable plan. The controller checks the issue body, plan
+reference, policy, roster, and comment on approval and subsequent writes.
+The controller polls every six hours or on manual dispatch. Editing or deleting
+the approval comment revokes remaining execution.
+Closing the issue, using a manual approval input, or setting an old automatic
+approval flag cannot bypass this gate. A changed plan requires a new approval
+comment.
+Worker execution must preserve the release approval points in
 [Release Checklist](../RELEASE_CHECKLIST.md), including a majority of repo-level
 maintainer approvals on the release voting PR, the required merge-commit method,
 and a signed release tag. Setup approval does not replace release voting.
@@ -73,6 +85,29 @@ The worker validates the metadata delta against the exact qualified dependency
 candidate. A release voting PR can include those recorded backports plus the
 required metadata update without granting permission for other source changes.
 
+## Draft review and manual publication
+
+After qualification, the worker creates an actual GitHub draft release. It
+opens a repo-local review issue only after the draft's native checks pass.
+Maintainers review the draft, qualification evidence, and recorded asset bytes.
+This review is separate from both the shared plan
+approval and Go's required release voting PR.
+Draft-native checks use only the target repository's read-only `github.token`
+with Contents read permission. Denied draft access blocks review issue creation;
+the checks do not fall back to the release-writing credential.
+
+A maintainer initially publishes the reviewed draft using GitHub's **Publish
+release** action. Automation does not change the draft to a published release.
+Automatic publishing would require a separate future opt-in and is not
+implemented by this flow.
+
+The signed Git tag may already be public before the draft review. A GitHub draft
+does not imply that its tag or source commit is hidden. After manual publication,
+the worker must observe the same release ID, tag, asset IDs, hashes, and sizes,
+then run anonymous native public checks. Only successful verification allows
+downstream consumers to advance. An absent publication or mismatched release remains
+blocked; the worker must not substitute another release.
+
 ## Activation
 
 1. Maintainers review and merge the companion CLI controller and the
@@ -82,12 +117,12 @@ required metadata update without granting permission for other source changes.
 2. Administrators configure the settings above and confirm the required CI and
    review rules apply to the selected stable release branch.
 3. Maintainers review the CLI's centralized tests and the Go caller's workflow
-   lint and contract checks,
-   and approve the controller's authorization policy and activation.
+   lint and contract checks, and approve setup and activation. These approvals
+   do not replace each cycle's plan approval or release reviews.
 4. Administrators set `MONTHLY_PATCH_ENABLED` to `true` only after those approvals.
    They can return it to `false` to disable future worker execution.
 
 The worker defaults to a no-write `dry-run`. Canonical execution requires a
-controller-authorized cycle, plan digest, and attempt from the CLI, along with
-the enabled setting and configured actor. A manual dispatch alone does not
-authorize execution.
+maintainer-approved shared plan, controller-authorized cycle, plan digest, and
+attempt from the CLI, along with the enabled setting and configured actor.
+A manual dispatch alone does not authorize execution or publication.
