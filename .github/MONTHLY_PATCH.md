@@ -15,7 +15,7 @@ companion CLI controller and this repository's caller must both be installed
 before activation. The draft's reusable-workflow pin must be rebound to the final
 upstream CLI commit after the companion PR merges, before Go merges or activates.
 Squash merging can change that commit SHA.
-The current review pin is `8ccc041e0bc2afc5c8a99cda24abd280cdffbd58`.
+The current review pin is `ac34149a6941887e66132b7a30f38609498745c4`.
 Maintainers must update both the caller's `uses` reference and `worker_sha`
 input to the same final upstream commit.
 
@@ -107,6 +107,16 @@ the worker must observe the same release ID, tag, asset IDs, hashes, and sizes,
 then run anonymous native public checks. Only successful verification allows
 downstream consumers to advance. An absent publication or mismatched release remains
 blocked; the worker must not substitute another release.
+
+## Failure notifications
+
+The controller reports a failed gate on the shared CLI release-plan issue,
+mentions maintainers, and links the repository, failed stage/run, evidence,
+and blocked downstream work. Reconciliation does not duplicate an alert;
+failed retries get a new comment. Comments do not rewrite the approved scope
+or waive checks. Subscribe to the issue and configure GitHub notifications;
+email delivery is not guaranteed. If no trusted issue exists, Actions logs
+and failed-workflow notifications are the fallback.
 
 ## Activation
 
