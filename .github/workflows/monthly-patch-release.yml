@@ -51,14 +51,14 @@ permissions:
 
 jobs:
   release:
-    uses: notaryproject/notation/.github/workflows/monthly-patch-worker.yml@ac34149a6941887e66132b7a30f38609498745c4
+    uses: notaryproject/notation/.github/workflows/monthly-patch-worker.yml@953678d7760d177da9e3f4f61e928df8427eee24
     with:
       mode: ${{ inputs.mode }}
       month: ${{ inputs.month }}
       controller_issue: ${{ inputs.controller_issue }}
       plan_id: ${{ inputs.plan_id }}
       attempt: ${{ inputs.attempt }}
-      worker_sha: ac34149a6941887e66132b7a30f38609498745c4
+      worker_sha: 953678d7760d177da9e3f4f61e928df8427eee24
     secrets:
       MONTHLY_PATCH_TOKEN: ${{ inputs.mode == 'execute' && secrets.MONTHLY_PATCH_TOKEN || '' }}
       MONTHLY_PATCH_SIGNING_KEY: ${{ inputs.mode == 'execute' && secrets.MONTHLY_PATCH_SIGNING_KEY || '' }}

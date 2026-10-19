@@ -15,7 +15,7 @@ companion CLI controller and this repository's caller must both be installed
 before activation. The draft's reusable-workflow pin must be rebound to the final
 upstream CLI commit after the companion PR merges, before Go merges or activates.
 Squash merging can change that commit SHA.
-The current review pin is `ac34149a6941887e66132b7a30f38609498745c4`.
+The current review pin is `953678d7760d177da9e3f4f61e928df8427eee24`.
 Maintainers must update both the caller's `uses` reference and `worker_sha`
 input to the same final upstream commit.
 
@@ -51,11 +51,16 @@ verification. The controller must then reassess Go with that exact producer
 version; an earlier assessment with no Go updates is not a final skip decision.
 Fork `replace` directives are not an acceptable substitute.
 
-The CLI controller owns cycle assessment and coordination. A maintainer must
-review and approve the shared plan issue before execution starts. The approval
+The CLI controller owns cycle assessment and coordination. Each repository has
+one release issue with its month, current/proposed versions, own changes,
+dependency issue links, status, and maintainer action. Go links Core's issue
+without repeating Core's change list. The CLI issue provides overall status
+and links to both library issues.
+
+A maintainer must review and approve the overall plan before execution starts. The approval
 must bind the reviewed plan and cannot be inferred from setup approval, a timer,
 or a manual dispatch. A current active CLI repo-level maintainer must post the
-exact, unedited comment `/approve-plan <plan_id>` on the shared central cycle
+exact, unedited comment `/approve` on the CLI release
 issue showing the immutable plan. The controller checks the issue body, plan
 reference, policy, roster, and comment on approval and subsequent writes.
 The controller polls every six hours or on manual dispatch. Editing or deleting
@@ -63,6 +68,12 @@ the approval comment revokes remaining execution.
 Closing the issue, using a manual approval input, or setting an old automatic
 approval flag cannot bypass this gate. A changed plan requires a new approval
 comment.
+
+Assessment also reviews new `main` commits for evidence-backed bug fixes
+applicable to the stable release line. It lists candidates separately for
+maintainer review and does not automatically backport them. Features are
+excluded, and adding a fix to an approved scope requires a new approval.
+
 Worker execution must preserve the release approval points in
 [Release Checklist](../RELEASE_CHECKLIST.md), including a majority of repo-level
 maintainer approvals on the release voting PR, the required merge-commit method,
@@ -87,8 +98,9 @@ required metadata update without granting permission for other source changes.
 
 ## Draft review and manual publication
 
-After qualification, the worker creates an actual GitHub draft release. It
-opens a repo-local review issue only after the draft's native checks pass.
+After qualification, the worker creates an actual GitHub draft release. Once
+native draft checks pass, it posts the review request to Go's existing release
+issue instead of opening another review issue.
 Maintainers review the draft, qualification evidence, and recorded asset bytes.
 This review is separate from both the shared plan
 approval and Go's required release voting PR.
@@ -101,8 +113,13 @@ release** action. Automation does not change the draft to a published release.
 Automatic publishing would require a separate future opt-in and is not
 implemented by this flow.
 
-The signed Git tag may already be public before the draft review. A GitHub draft
-does not imply that its tag or source commit is hidden. After manual publication,
+The current worker creates the signed tag before draft review. A GitHub draft
+does not hide that tag or prevent Go module downloads. The required maintainer
+approval before final stable-tag creation is not implemented; official stable
+releases must remain disabled until that separate gate is implemented and
+validated.
+
+After manual publication,
 the worker must observe the same release ID, tag, asset IDs, hashes, and sizes,
 then run anonymous native public checks. Only successful verification allows
 downstream consumers to advance. An absent publication or mismatched release remains
@@ -110,13 +127,16 @@ blocked; the worker must not substitute another release.
 
 ## Failure notifications
 
-The controller reports a failed gate on the shared CLI release-plan issue,
-mentions maintainers, and links the repository, failed stage/run, evidence,
-and blocked downstream work. Reconciliation does not duplicate an alert;
-failed retries get a new comment. Comments do not rewrite the approved scope
-or waive checks. Subscribe to the issue and configure GitHub notifications;
-email delivery is not guaranteed. If no trusted issue exists, Actions logs
-and failed-workflow notifications are the fallback.
+The controller reports errors and blockers in the affected repository's release
+issue, mentions its maintainers, and links the failed stage/run and evidence.
+Dependent issues receive only a concise blocker and a link to the affected issue.
+The same issue receives the draft-ready review request. Routine progress does not
+generate comments. Reconciliation deduplicates alerts; a new failed retry can
+produce a new alert without rewriting approved scope or waiving checks.
+
+Subscribe to Go's release issue and configure GitHub notifications; email
+delivery is not guaranteed. If no trusted issue exists, Actions logs and
+failed-workflow notifications are the fallback.
 
 ## Activation
 
@@ -129,7 +149,9 @@ and failed-workflow notifications are the fallback.
 3. Maintainers review the CLI's centralized tests and the Go caller's workflow
    lint and contract checks, and approve setup and activation. These approvals
    do not replace each cycle's plan approval or release reviews.
-4. Administrators set `MONTHLY_PATCH_ENABLED` to `true` only after those approvals.
+4. Administrators keep official stable releases disabled until the pre-tag
+   approval gap above is resolved. They set `MONTHLY_PATCH_ENABLED` to `true`
+   only after that gate is validated and the required approvals are obtained.
    They can return it to `false` to disable future worker execution.
 
 The worker defaults to a no-write `dry-run`. Canonical execution requires a
