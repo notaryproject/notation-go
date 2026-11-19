@@ -454,12 +454,20 @@ func VerifyBlob(ctx context.Context, blobVerifier BlobVerifier, blobReader io.Re
 	if err != nil {
 		return ocispec.Descriptor{}, nil, err
 	}
-
-	var desc ocispec.Descriptor
-	if err = json.Unmarshal(vo.EnvelopeContent.Payload.Content, &desc); err != nil {
+	if vo == nil {
+		return ocispec.Descriptor{}, nil, errors.New("blob verifier returned a nil verification outcome")
+	}
+	if vo.EnvelopeContent == nil {
+		if vo.VerificationLevel != nil && vo.VerificationLevel.Name == trustpolicy.LevelSkip.Name {
+			return ocispec.Descriptor{}, vo, nil
+		}
+		return ocispec.Descriptor{}, nil, errors.New("blob verifier returned no envelope content")
+	}
+	var payload envelope.Payload
+	if err = json.Unmarshal(vo.EnvelopeContent.Payload.Content, &payload); err != nil {
 		return ocispec.Descriptor{}, nil, err
 	}
-	return desc, vo, nil
+	return payload.TargetArtifact, vo, nil
 }
 
 // Verify performs signature verification on each of the notation supported
