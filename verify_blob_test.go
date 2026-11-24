@@ -164,6 +164,53 @@ func TestVerifyBlobSkipHasNoEnvelopeContent(t *testing.T) {
 	}
 }
 
+type invalidOutcomeBlobVerifier struct {
+	outcome *notation.VerificationOutcome
+}
+
+func (v invalidOutcomeBlobVerifier) VerifyBlob(_ context.Context, _ notation.BlobDescriptorGenerator, _ []byte, _ notation.BlobVerifierVerifyOptions) (*notation.VerificationOutcome, error) {
+	return v.outcome, nil
+}
+
+func TestVerifyBlobRejectsInvalidVerifierOutcome(t *testing.T) {
+	testCases := []struct {
+		name    string
+		outcome *notation.VerificationOutcome
+		wantErr string
+	}{
+		{
+			name:    "nil outcome",
+			wantErr: "blob verifier returned a nil verification outcome",
+		},
+		{
+			name:    "missing envelope content and verification level",
+			outcome: &notation.VerificationOutcome{},
+			wantErr: "blob verifier returned no envelope content",
+		},
+		{
+			name: "missing envelope content without skip",
+			outcome: &notation.VerificationOutcome{
+				VerificationLevel: trustpolicy.LevelStrict,
+			},
+			wantErr: "blob verifier returned no envelope content",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			descriptor, outcome, err := runFixtureBlobVerification(t, invalidOutcomeBlobVerifier{outcome: tc.outcome}, "video/mp4")
+			if err == nil || err.Error() != tc.wantErr {
+				t.Fatalf("VerifyBlob() error = %v, want %q", err, tc.wantErr)
+			}
+			if outcome != nil {
+				t.Errorf("VerifyBlob() outcome = %+v, want nil", outcome)
+			}
+			if !reflect.DeepEqual(descriptor, ocispec.Descriptor{}) {
+				t.Errorf("VerifyBlob() descriptor = %+v, want zero value", descriptor)
+			}
+		})
+	}
+}
+
 func TestVerifyBlobContentMediaType(t *testing.T) {
 	blobVerifier := newFixtureBlobVerifier(t)
 
