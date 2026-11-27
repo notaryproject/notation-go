@@ -16,7 +16,6 @@ package trustpolicy
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/notaryproject/notation-go/dir"
@@ -98,7 +97,7 @@ func (policyDoc *BlobDocument) Validate() error {
 			}
 
 			// verificationLevel is skip
-			if reflect.DeepEqual(statement.SignatureVerification.VerificationLevel, LevelSkip) {
+			if statement.SignatureVerification.VerificationLevel == LevelSkip.Name {
 				return errors.New("global blob trust policy statement cannot have verification level set to skip")
 			}
 			foundGlobalPolicy = true
